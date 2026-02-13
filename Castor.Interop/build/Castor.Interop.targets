@@ -1,0 +1,13 @@
+<Project>
+  <ItemGroup>
+    <CastorNativeLibs Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\*.dll" />
+  </ItemGroup>
+
+  <Target Name="CopyCastorInteropNativeDlls" BeforeTargets="BeforeBuild">
+    <Copy 
+      SourceFiles="@(CastorNativeLibs)"
+      DestinationFolder="$(OutDir)"
+      SkipUnchangedFiles="true" />
+    <Message Text="Copied Castor native DLLs to $(OutDir)" Importance="high" />
+  </Target>
+</Project>

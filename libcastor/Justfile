@@ -1,0 +1,16 @@
+set shell := ["powershell.exe", "-c"]
+
+BUILD_DIR_DEBUG := "cmake-build-debug"
+BUILD_DIR_RELEASE := "cmake-build-release"
+
+[windows]
+build build_type="release":
+    @cmake -S . -B {{BUILD_DIR_DEBUG}} -G "Ninja" -DCMAKE_BUILD_TYPE={{build_type}}
+    @cmake --build {{BUILD_DIR_DEBUG}}
+
+[windows]
+clean:
+    @rm -r cmake-build-*
+
+install: (build "release")
+    @cmake --install {{BUILD_DIR_RELEASE}} --prefix package
