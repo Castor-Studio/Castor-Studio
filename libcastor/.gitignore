@@ -61,3 +61,9 @@ _main/*
 
 # Visual Studio
 .vs/
+
+# FFmpeg (auto-downloaded by CMake)
+extern/ffmpeg/
+
+# Temporary download directory
+temp_ffmpeg_download/

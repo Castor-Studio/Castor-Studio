@@ -1,7 +1,9 @@
+#include <libavutil/avutil.h>
+
 #include "verison.h"
 
-char *get_version(void)
+const char *get_version(void)
 {
-    char *version = "0.0.1";
+    const char *version = av_version_info();
     return version;
 }

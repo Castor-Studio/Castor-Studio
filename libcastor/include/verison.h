@@ -2,4 +2,4 @@
 
 #include "castor_api.h"
 
-CASTOR_CORE_API char *get_version(void);
+CASTOR_CORE_API const char *get_version(void);

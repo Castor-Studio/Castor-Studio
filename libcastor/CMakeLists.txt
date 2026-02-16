@@ -4,6 +4,17 @@ project(libcastor C)
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# ============================================================================
+# Dependencies
+# ============================================================================
+
+# Download FFmpeg if needed
+include(cmake/DownloadFFmpeg.cmake)
+
+# ============================================================================
+# Build Configuration
+# ============================================================================
+
 file(GLOB SRC "src/*.c")
 add_library(castor_core SHARED ${SRC})
 
@@ -26,6 +37,32 @@ target_link_libraries(castor_core
         avutil
         swscale
 )
+
+# ============================================================================
+# Post-Build: Copy FFmpeg DLLs
+# ============================================================================
+
+if (WIN32)
+    # Get list of FFmpeg DLLs (exclude .exe files)
+    file(GLOB FFMPEG_DLLS "${CMAKE_CURRENT_SOURCE_DIR}/extern/ffmpeg/bin/*.dll")
+    
+    # Copy only DLLs to the output directory after build
+    # This ensures the DLLs are in the same directory as castor_core.dll
+    # Excludes: ffmpeg.exe, ffplay.exe, ffprobe.exe
+    foreach(DLL_FILE ${FFMPEG_DLLS})
+        get_filename_component(DLL_NAME "${DLL_FILE}" NAME)
+        add_custom_command(TARGET castor_core POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${DLL_FILE}"
+                "$<TARGET_FILE_DIR:castor_core>"
+            COMMENT "Copying ${DLL_NAME} to output directory"
+        )
+    endforeach()
+endif()
+
+# ============================================================================
+# Installation
+# ============================================================================
 
 include(GNUInstallDirs)
 
