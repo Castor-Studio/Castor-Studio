@@ -1,6 +1,6 @@
 #include <libavutil/avutil.h>
 
-#include "verison.h"
+#include "version.h"
 
 const char *get_version(void)
 {
