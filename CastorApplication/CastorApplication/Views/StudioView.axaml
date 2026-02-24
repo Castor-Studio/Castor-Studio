@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels"
+             xmlns:dock="using:Dock.Avalonia.Controls"
+             x:Class="CastorApplication.Views.StudioView"
+             x:DataType="vm:StudioViewModel">
+
+   <Grid>
+        <dock:DockControl Layout="{Binding Layout}" />
+    </Grid>
+</UserControl>

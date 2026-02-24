@@ -1,0 +1,40 @@
+{
+   "$schema": "https://alirezanet.github.io/Husky.Net/schema.json",
+   "tasks": [
+      {
+         "name": "Conventional Commits Validation",
+         "group": "commit-msg",
+         "command": "bash",
+         "args": [
+            "-c",
+            "cz check --commit-msg-file .git/COMMIT_EDITMSG"
+         ],
+         "windows": {
+            "command": "cmd",
+            "args": [
+               "/c",
+               "cz check --commit-msg-file .git\\COMMIT_EDITMSG"
+            ]
+         }
+      },
+      {
+         "name": "Linting",
+         "group": "pre-commit",
+         "command": "dotnet",
+         "args": [
+            "csharpier",
+            "format",
+            "${staged}"
+         ],
+         "include": [
+            "**/*.cs",
+            "**/*.csx",
+            "**/*.csproj",
+            "**/*.props",
+            "**/*.targets",
+            "**/*.xml",
+            "**/*.config"
+         ]
+      }
+   ]
+}
