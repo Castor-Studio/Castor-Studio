@@ -1,9 +1,10 @@
-using System;
-using System.Collections.Generic;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Mvvm;
 using Dock.Model.Mvvm.Controls;
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace CastorApplication.Factories;
 
@@ -19,9 +20,9 @@ public class StudioDockFactory : Factory
     public override IRootDock CreateLayout()
     {
         // 1. On crée les contenus (les onglets)
-        var videoView = new Document { Id = "Video", Title = "Preview Vidéo" };
-        var sourcesView = new Tool { Id = "Sources", Title = "Sources" };
-        var audioView = new Tool { Id = "Audio", Title = "Mixer Audio" };
+        var videoView = new Document { Id = "Video", Title = "Preview Vidéo", CanFloat = false };
+        var sourcesView = new Tool { Id = "Sources", Title = "Sources", CanFloat = false };
+        var audioView = new Tool { Id = "Audio", Title = "Mixer Audio", CanFloat = false };
 
         // 2. On organise les panneaux
         var mainLayout = new ProportionalDock
@@ -35,7 +36,8 @@ public class StudioDockFactory : Factory
                     Id = "VideoPane",
                     ActiveDockable = videoView,
                     VisibleDockables = CreateList<IDockable>(videoView),
-                    Proportion = 0.7 // Prend 70% de l'espace
+                    Proportion = 0.7, // Prend 70% de l'espace
+                    CanFloat = false
                 },
                 // Splitter (automatique entre deux zones)
                 // Zone de droite (Outils)
@@ -44,7 +46,8 @@ public class StudioDockFactory : Factory
                     Id = "ToolsPane",
                     ActiveDockable = sourcesView,
                     VisibleDockables = CreateList<IDockable>(sourcesView, audioView),
-                    Proportion = 0.3 // Prend 30% de l'espace
+                    Proportion = 0.3, // Prend 30% de l'espace
+                    CanFloat = false
                 }
             )
         };
@@ -54,6 +57,7 @@ public class StudioDockFactory : Factory
         root.Id = "Root";
         root.ActiveDockable = mainLayout;
         root.VisibleDockables = CreateList<IDockable>(mainLayout);
+        root.CanFloat = false;
 
         return root;
     }

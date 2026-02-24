@@ -10,13 +10,26 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private ViewModelBase? _currentPage;
 
+    private StudioViewModel? _studioPage;
+
     public MainWindowViewModel()
     {
-        CurrentPage = new StudioViewModel();
+        // Au démarrage, on appelle la méthode qui gère l'instance unique
+        ShowStudio();
     }
 
     [RelayCommand]
-    private void ShowStudio() => CurrentPage = new StudioViewModel();
+    private void ShowStudio()
+    {
+        // Si c'est la première fois qu'on clique, on crée l'objet
+        // Les fois suivantes, on réutilise celui qui est stocké dans _studioPage
+        if (_studioPage == null)
+        {
+            _studioPage = new StudioViewModel();
+        }
+
+        CurrentPage = _studioPage;
+    }
 
     [RelayCommand]
     private void ShowSettings() => CurrentPage = new SettingsViewModel();
