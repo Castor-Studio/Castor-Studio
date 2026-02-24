@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels"
+             x:Class="CastorApplication.Views.StudioView"
+             x:DataType="vm:StudioViewModel">
+
+    <Grid RowDefinitions="*, 200">
+        <Border Grid.Row="0" Background="Black" Margin="10" CornerRadius="8" BorderBrush="#333333" BorderThickness="1">
+            <Panel>
+                <TextBlock Text="VIDEO PREVIEW" 
+                           Foreground="#444444" 
+                           HorizontalAlignment="Center" 
+                           VerticalAlignment="Center" 
+                           FontSize="24" FontWeight="Bold"/>
+                
+                <Border Background="#AA000000" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="15" Padding="10" CornerRadius="5">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="10" Height="10" Fill="Red" Margin="0,0,8,0"/>
+                        <TextBlock Text="Status en cours" Foreground="White" FontSize="12"/>
+                    <!--text="variablePlusTard"-->
+                    </StackPanel>
+                </Border>
+            </Panel>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*, 2, 400, 2, 242" Margin="10,0,10,10">
+            
+            <Border Grid.Column="0" Background="#1e1e1e" CornerRadius="8" Padding="15">
+                <StackPanel>
+                    <TextBlock Text="SOURCES" FontWeight="Bold" Foreground="#3498db" Margin="0,0,0,10"/>
+                    <Separator Background="#333333" Margin="0,0,0,10"/>
+                    <TextBlock Text="Window Capture" Foreground="#888888"/>
+                    <TextBlock Text="Game Capture" Foreground="#888888"/>
+                    <TextBlock Text="Camera Source" Foreground="#888888"/>
+                </StackPanel>
+            </Border>
+
+            <Rectangle Grid.Column="1" Fill="Transparent" Width="10"/>
+
+            <Border Grid.Column="2" Background="#1e1e1e" CornerRadius="8" Padding="15">
+                <StackPanel>
+                    <TextBlock Text="AUDIO" FontWeight="Bold" Foreground="#3498db" Margin="0,0,0,10"/>
+                    <Separator Background="#333333" Margin="0,0,0,10"/>
+                    <TextBlock Text="Desktop Audio : ______________" Foreground="#888888"/>
+                    <TextBlock Text="Audio 1" Foreground="#888888"/>
+                </StackPanel>
+            </Border>
+
+            <Rectangle Grid.Column="3" Fill="Transparent" Width="10"/>
+
+            <Border Grid.Column="4" Background="#1e1e1e" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="10" VerticalAlignment="Center">
+                    <Button Content="GO LIVE"
+                            Background="#27ae60" Foreground="White"
+                            VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Height="45" FontWeight="Bold"/>
+                    <!--Command="LaCommandeDuBack"-->
+                    
+                    <Button Content="STOP LIVE" 
+                            Background="#c0392b" Foreground="White"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            VerticalAlignment="Stretch" VerticalContentAlignment="Center"
+                            Height="45" FontWeight="Bold"/>
+                    <!--Command="LaCommandeDuBack"-->
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

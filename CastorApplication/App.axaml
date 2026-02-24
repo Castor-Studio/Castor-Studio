@@ -11,6 +11,5 @@
   
     <Application.Styles>
         <FluentTheme />
-        <StyleInclude Source="avares://Dock.Avalonia.Themes.Fluent/DockFluentTheme.axaml" />
     </Application.Styles>
 </Application>
