@@ -30,6 +30,9 @@
     <Folder Include="Models\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Castor.Native\Castor.Native.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Update="Views\MulticamView.axaml.cs">
       <DependentUpon>MulticamView.axaml</DependentUpon>
     </Compile>
