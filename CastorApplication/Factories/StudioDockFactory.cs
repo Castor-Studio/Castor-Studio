@@ -1,60 +1,126 @@
+using CastorApplication.ViewModels;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Mvvm;
 using Dock.Model.Mvvm.Controls;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 namespace CastorApplication.Factories;
 
 public class StudioDockFactory : Factory
 {
-    private readonly object _context;
+    private readonly StudioViewModel _vm;
+    private SourcesPanelContext? _sourcesCtx;
+    private AudioPanelContext? _audioCtx;
 
-    public StudioDockFactory(object context)
+    public StudioDockFactory(StudioViewModel vm)
     {
-        _context = context;
+        _vm = vm;
     }
 
     public override IRootDock CreateLayout()
     {
-        // 1. On crée le contenu (preview uniquement, Sources et Audio sont dans la barre du bas)
-        var videoView = new Document { Id = "Video", Title = "Preview Vidéo", CanFloat = false };
+        _sourcesCtx = new SourcesPanelContext(_vm);
+        _audioCtx   = new AudioPanelContext(_vm);
 
-        // 2. On organise le panneau principal
-        var mainLayout = new ProportionalDock
+        // ── Documents ──
+        var videoDoc = new Document
         {
-            Id = "MainLayout",
-            Orientation = Orientation.Horizontal,
-            VisibleDockables = CreateList<IDockable>(
-                new DocumentDock
-                {
-                    Id = "VideoPane",
-                    ActiveDockable = videoView,
-                    VisibleDockables = CreateList<IDockable>(videoView),
-                    CanFloat = false
-                }
-            )
+            Id       = "Video",
+            Title    = "Aperçu Vidéo",
+            Context  = _vm,
+            CanFloat = false,
+            CanClose = false,
         };
 
-        // 3. Le Root (le conteneur maître)
+        // ── Tools ──
+        var sourcesTool = new Tool
+        {
+            Id       = "Sources",
+            Title    = "Sources",
+            Context  = _sourcesCtx,
+            CanFloat = false,
+            CanClose = false,
+        };
+
+        var audioTool = new Tool
+        {
+            Id       = "Audio",
+            Title    = "Mixer Audio",
+            Context  = _audioCtx,
+            CanFloat = false,
+            CanClose = false,
+        };
+
+        // ── Right panel : Sources (haut) + Audio (bas), tous deux visibles ──
+        var rightDock = new ProportionalDock
+        {
+            Id          = "RightDock",
+            Orientation = Orientation.Vertical,
+            Proportion  = 0.28,
+            VisibleDockables = CreateList<IDockable>(
+                new ToolDock
+                {
+                    Id               = "SourcesDock",
+                    ActiveDockable   = sourcesTool,
+                    VisibleDockables = CreateList<IDockable>(sourcesTool),
+                    CanFloat         = false,
+                    CanClose         = false,
+                    Proportion       = 0.5,
+                },
+                new ProportionalDockSplitter(),
+                new ToolDock
+                {
+                    Id               = "AudioDock",
+                    ActiveDockable   = audioTool,
+                    VisibleDockables = CreateList<IDockable>(audioTool),
+                    CanFloat         = false,
+                    CanClose         = false,
+                    Proportion       = 0.5,
+                }
+            ),
+        };
+
+        // ── Left panel : preview vidéo ──
+        var videoPane = new DocumentDock
+        {
+            Id                = "VideoPane",
+            ActiveDockable    = videoDoc,
+            VisibleDockables  = CreateList<IDockable>(videoDoc),
+            CanFloat          = false,
+            CanClose          = false,
+            CanCreateDocument = false,
+        };
+
+        var mainLayout = new ProportionalDock
+        {
+            Id          = "MainLayout",
+            Orientation = Orientation.Horizontal,
+            VisibleDockables = CreateList<IDockable>(
+                videoPane,
+                new ProportionalDockSplitter(),
+                rightDock
+            ),
+        };
+
         var root = CreateRootDock();
-        root.Id = "Root";
-        root.ActiveDockable = mainLayout;
+        root.Id               = "Root";
+        root.ActiveDockable   = mainLayout;
         root.VisibleDockables = CreateList<IDockable>(mainLayout);
-        root.CanFloat = false;
+        root.CanFloat         = false;
 
         return root;
     }
 
     public override void InitLayout(IDockable layout)
     {
-        // On lie le contexte (ton ViewModel) pour que les boutons fonctionnent
-        this.ContextLocator = new Dictionary<string, Func<object?>>
+        ContextLocator = new Dictionary<string, Func<object?>>
         {
-            ["Root"] = () => _context,
-            ["Video"] = () => _context
+            ["Root"]    = () => _vm,
+            ["Video"]   = () => _vm,
+            ["Sources"] = () => _sourcesCtx,
+            ["Audio"]   = () => _audioCtx,
         };
         base.InitLayout(layout);
     }

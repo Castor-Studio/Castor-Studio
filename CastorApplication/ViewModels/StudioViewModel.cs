@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using Avalonia.Media;
+using CastorApplication.Factories;
 using CastorApplication.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Dock.Model.Core;
 
 namespace CastorApplication.ViewModels;
 
@@ -91,15 +93,21 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(RecordStatusText));
     }
 
+    // ── Dock layout ──
+
+    public IRootDock Layout { get; }
+
     // ── Constructor ──
 
     public StudioViewModel()
     {
-        // Sample sources
         Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
         Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#34d399"));
         Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#3c3c4e") { IsActive = false });
 
+        var factory = new StudioDockFactory(this);
+        Layout = factory.CreateLayout();
+        factory.InitLayout(Layout);
     }
 
     // ── Streaming commands ──
@@ -131,4 +139,16 @@ public partial class StudioViewModel : ViewModelBase
     {
         Sources.Remove(source);
     }
+}
+
+// ── Dock panel context markers ──
+
+public sealed class SourcesPanelContext(StudioViewModel studio)
+{
+    public StudioViewModel Studio => studio;
+}
+
+public sealed class AudioPanelContext(StudioViewModel studio)
+{
+    public StudioViewModel Studio => studio;
 }
