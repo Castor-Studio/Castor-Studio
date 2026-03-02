@@ -6,12 +6,12 @@
              x:Class="CastorApplication.Views.StudioView"
              x:DataType="vm:StudioViewModel">
 
-    <UserControl.Styles>
+   <UserControl.Styles>
 
         <Style Selector="TextBlock.section-header">
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#5c5c72"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
@@ -46,17 +46,17 @@
 
         <!-- ═══ SCENE SELECTOR BAR ═══ -->
         <Border Grid.Row="1"
-                Background="#13131c" CornerRadius="6" Margin="8,0,8,4"
-                Padding="12,0" BorderBrush="#2a2a38" BorderThickness="1">
+                Background="{DynamicResource AppSurface}" CornerRadius="6" Margin="8,0,8,4"
+                Padding="12,0" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
             <Grid ColumnDefinitions="Auto, Auto, *, Auto">
                 <TextBlock Grid.Column="0" Text="SCÈNE ACTIVE :"
-                           Foreground="#5c5c72" FontSize="11" FontWeight="SemiBold"
+                           Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox Grid.Column="1"
                           ItemsSource="{Binding SceneNames}"
                           SelectedIndex="{Binding SelectedSceneIndex}"
                           MinWidth="180" VerticalAlignment="Center"
-                          Background="#1c1c28" BorderBrush="#36364a"/>
+                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
                             VerticalAlignment="Center">
                     <Ellipse Width="7" Height="7" Fill="#34d399" VerticalAlignment="Center"/>
@@ -72,7 +72,7 @@
               Margin="8,0,8,8">
 
             <!-- ── SOURCES ── -->
-            <Border Grid.Column="0" Background="#13131c" CornerRadius="8" Padding="10,8">
+            <Border Grid.Column="0" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8">
                 <Grid RowDefinitions="Auto, *, Auto">
 
                     <TextBlock Grid.Row="0" Text="SOURCES" Classes="section-header"/>
@@ -96,10 +96,10 @@
                                              Fill="{Binding ColorBrush}"
                                              VerticalAlignment="Center" Margin="0,0,6,0"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                               Foreground="#ccccd8" FontSize="11"
+                                               Foreground="{DynamicResource AppFg2}" FontSize="11"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Grid.Column="2" Text="{Binding Type}"
-                                               Foreground="#5c5c72" FontSize="10"
+                                               Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                VerticalAlignment="Center" Margin="6,0,0,0"/>
                                 </Grid>
                             </DataTemplate>
@@ -110,8 +110,8 @@
                             Content="+ Ajouter source"
                             Command="{Binding AddSourceCommand}"
                             Height="26" FontSize="10"
-                            Background="#1c1c28" Foreground="#8888a0"
-                            BorderBrush="#36364a" BorderThickness="1"
+                            Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
+                            BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
                             CornerRadius="4" HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Center"
                             Margin="0,4,0,0" Cursor="Hand"/>
@@ -121,46 +121,46 @@
             <Rectangle Grid.Column="1" Fill="Transparent"/>
 
             <!-- ── MIXER AUDIO ── -->
-            <Border Grid.Column="2" Background="#13131c" CornerRadius="8" Padding="10,8">
+            <Border Grid.Column="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8">
                 <StackPanel>
                     <TextBlock Text="MIXER AUDIO" Classes="section-header"/>
 
                     <!-- Bureau -->
                     <Grid ColumnDefinitions="52, *, 36" Margin="0,0,0,5">
                         <TextBlock Grid.Column="0" Text="Bureau"
-                                   Foreground="#8888a0" FontSize="10"
+                                   Foreground="{DynamicResource AppFg3}" FontSize="10"
                                    VerticalAlignment="Center"/>
                         <Slider Grid.Column="1" Minimum="0" Maximum="100"
                                 Value="{Binding DesktopVolume}"
                                 VerticalAlignment="Center" Margin="4,0"/>
                         <TextBlock Grid.Column="2" Text="{Binding DesktopVolumeDisplay}"
-                                   Foreground="#ccccd8" FontSize="10"
+                                   Foreground="{DynamicResource AppFg2}" FontSize="10"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
 
                     <!-- Micro -->
                     <Grid ColumnDefinitions="52, *, 36" Margin="0,0,0,5">
                         <TextBlock Grid.Column="0" Text="Micro"
-                                   Foreground="#8888a0" FontSize="10"
+                                   Foreground="{DynamicResource AppFg3}" FontSize="10"
                                    VerticalAlignment="Center"/>
                         <Slider Grid.Column="1" Minimum="0" Maximum="100"
                                 Value="{Binding MicVolume}"
                                 VerticalAlignment="Center" Margin="4,0"/>
                         <TextBlock Grid.Column="2" Text="{Binding MicVolumeDisplay}"
-                                   Foreground="#ccccd8" FontSize="10"
+                                   Foreground="{DynamicResource AppFg2}" FontSize="10"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
 
                     <!-- Musique -->
                     <Grid ColumnDefinitions="52, *, 36">
                         <TextBlock Grid.Column="0" Text="Musique"
-                                   Foreground="#8888a0" FontSize="10"
+                                   Foreground="{DynamicResource AppFg3}" FontSize="10"
                                    VerticalAlignment="Center"/>
                         <Slider Grid.Column="1" Minimum="0" Maximum="100"
                                 Value="{Binding MusicVolume}"
                                 VerticalAlignment="Center" Margin="4,0"/>
                         <TextBlock Grid.Column="2" Text="{Binding MusicVolumeDisplay}"
-                                   Foreground="#ccccd8" FontSize="10"
+                                   Foreground="{DynamicResource AppFg2}" FontSize="10"
                                    VerticalAlignment="Center" TextAlignment="Right"/>
                     </Grid>
                 </StackPanel>
@@ -169,13 +169,13 @@
             <Rectangle Grid.Column="3" Fill="Transparent"/>
 
             <!-- ── CONTRÔLES (Statut + Diffusion + Enregistrement) ── -->
-            <Border Grid.Column="4" Background="#13131c" CornerRadius="8" Padding="10,8">
+            <Border Grid.Column="4" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8">
                 <StackPanel Spacing="5">
 
                     <!-- Statut compact -->
                     <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,2">
                         <Border Grid.Column="0" Padding="5,2" CornerRadius="4"
-                                Background="#09090f" BorderBrush="#2a2a38" BorderThickness="1">
+                                Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
                             <StackPanel Orientation="Horizontal" Spacing="5">
                                 <Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}"
                                          VerticalAlignment="Center"/>
@@ -189,7 +189,7 @@
                                    FontSize="12" FontFamily="Courier New"
                                    VerticalAlignment="Center" HorizontalAlignment="Center"/>
                         <TextBlock Grid.Column="2" Text="1080p"
-                                   Foreground="#36364a" FontSize="10"
+                                   Foreground="{DynamicResource AppFg6}" FontSize="10"
                                    VerticalAlignment="Center"/>
                     </Grid>
 
@@ -198,26 +198,26 @@
                             IsVisible="{Binding !IsStreaming}"
                             Classes="ctrl-btn"
                             Height="30"
-                            Background="#0e2420" Foreground="#34d399"
-                            BorderBrush="#142e25">
+                            Background="{DynamicResource AppLiveBg}" Foreground="#34d399"
+                            BorderBrush="{DynamicResource AppLiveBorder}">
                         <Button.Flyout>
                             <Flyout Placement="Top">
                                 <StackPanel Width="280" Spacing="12" Margin="4">
                                     <TextBlock Text="DÉMARRER LE STREAM"
-                                               FontSize="13" FontWeight="Bold" Foreground="#eaeaf0"/>
-                                    <Rectangle Height="1" Fill="#36364a"/>
+                                               FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène" Foreground="#8888a0" FontSize="11"/>
+                                        <TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   ItemsSource="{Binding SceneNames}"
                                                   SelectedIndex="{Binding StreamSceneIndex}"
-                                                  Background="#1c1c28" BorderBrush="#36364a"/>
+                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                                     </StackPanel>
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Plateforme" Foreground="#8888a0" FontSize="11"/>
+                                        <TextBlock Text="Plateforme" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   SelectedIndex="{Binding StreamPlatformIndex}"
-                                                  Background="#1c1c28" BorderBrush="#36364a">
+                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}">
                                             <ComboBoxItem Content="Twitch"/>
                                             <ComboBoxItem Content="YouTube Live"/>
                                             <ComboBoxItem Content="Facebook Live"/>
@@ -225,11 +225,11 @@
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Clé RTMP (optionnel)" Foreground="#5c5c72" FontSize="11"/>
+                                        <TextBlock Text="Clé RTMP (optionnel)" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
                                         <TextBox PasswordChar="•"
                                                  Text="{Binding StreamRtmpKey}"
                                                  Watermark="rtmp://..."
-                                                 Background="#1c1c28" BorderBrush="#36364a" Foreground="#ccccd8"/>
+                                                 Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
                                     </StackPanel>
                                     <Button Content="DÉMARRER"
                                             Command="{Binding StartStreamingCommand}"
@@ -245,36 +245,36 @@
                             Command="{Binding StopStreamingCommand}"
                             Classes="ctrl-btn"
                             Height="30"
-                            Background="#251218" Foreground="#f87171"
-                            BorderBrush="#2f1820"/>
+                            Background="{DynamicResource AppStopBg}" Foreground="#f87171"
+                            BorderBrush="{DynamicResource AppStopBorder}"/>
 
-                    <Rectangle Height="1" Fill="#2a2a38"/>
+                    <Rectangle Height="1" Fill="{DynamicResource AppBorder}"/>
 
                     <!-- ENREGISTREMENT -->
                     <Button Content="ENREGISTRER"
                             IsVisible="{Binding !IsRecording}"
                             Classes="ctrl-btn"
                             Height="30"
-                            Background="#2d1212" Foreground="#ef4444"
-                            BorderBrush="#3d1a1a">
+                            Background="{DynamicResource AppRecBg}" Foreground="#ef4444"
+                            BorderBrush="{DynamicResource AppRecBorder}">
                         <Button.Flyout>
                             <Flyout Placement="Top">
                                 <StackPanel Width="280" Spacing="12" Margin="4">
                                     <TextBlock Text="DÉMARRER L'ENREGISTREMENT"
-                                               FontSize="13" FontWeight="Bold" Foreground="#eaeaf0"/>
-                                    <Rectangle Height="1" Fill="#36364a"/>
+                                               FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène" Foreground="#8888a0" FontSize="11"/>
+                                        <TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   ItemsSource="{Binding SceneNames}"
                                                   SelectedIndex="{Binding RecordSceneIndex}"
-                                                  Background="#1c1c28" BorderBrush="#36364a"/>
+                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                                     </StackPanel>
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Format de sortie" Foreground="#8888a0" FontSize="11"/>
+                                        <TextBlock Text="Format de sortie" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   SelectedIndex="{Binding RecordFormatIndex}"
-                                                  Background="#1c1c28" BorderBrush="#36364a">
+                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}">
                                             <ComboBoxItem Content="MP4 (H.264 + AAC)"/>
                                             <ComboBoxItem Content="MKV (H.264 + AAC)"/>
                                             <ComboBoxItem Content="WebM (VP9 + Opus)"/>
@@ -294,8 +294,8 @@
                             Command="{Binding StopRecordingCommand}"
                             Classes="ctrl-btn"
                             Height="30"
-                            Background="#251218" Foreground="#f87171"
-                            BorderBrush="#2f1820"/>
+                            Background="{DynamicResource AppStopBg}" Foreground="#f87171"
+                            BorderBrush="{DynamicResource AppStopBorder}"/>
                 </StackPanel>
             </Border>
 

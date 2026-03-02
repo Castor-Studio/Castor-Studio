@@ -1,3 +1,5 @@
+using Avalonia;
+using Avalonia.Styling;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -38,6 +40,12 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _selectedThemeIndex;
+
+    partial void OnSelectedThemeIndexChanged(int value)
+    {
+        Application.Current!.RequestedThemeVariant =
+            value == 1 ? ThemeVariant.Light : ThemeVariant.Dark;
+    }
 
     // ── Video settings ──
 

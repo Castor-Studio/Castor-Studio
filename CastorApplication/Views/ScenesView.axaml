@@ -8,9 +8,9 @@
     <UserControl.Styles>
 
         <Style Selector="Button.source-type-btn">
-            <Setter Property="Background" Value="#1c1c28"/>
-            <Setter Property="Foreground" Value="#ccccd8"/>
-            <Setter Property="BorderBrush" Value="#36364a"/>
+            <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -21,8 +21,8 @@
         </Style>
 
         <Style Selector="Button.source-type-btn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#24242f"/>
-            <Setter Property="Foreground" Value="#eaeaf0"/>
+            <Setter Property="Background" Value="{DynamicResource AppNavBadgeBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
         </Style>
 
         <Style Selector="Button.scene-btn">
@@ -35,26 +35,26 @@
         </Style>
 
         <Style Selector="Button.scene-btn:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1c1c28"/>
+            <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
         </Style>
 
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="240, 1, *" Background="#0b0b12">
+    <Grid ColumnDefinitions="240, 1, *" Background="{DynamicResource AppBg}">
 
         <!-- ═══ SCENES LIST ═══ -->
-        <Border Grid.Column="0" Background="#13131c">
+        <Border Grid.Column="0" Background="{DynamicResource AppSurface}">
             <Grid RowDefinitions="56, 1, *">
 
                 <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="14,0">
                     <TextBlock Grid.Column="0" Text="SCÈNES"
-                               FontSize="11" FontWeight="Bold" Foreground="#5c5c72"
+                               FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
                                VerticalAlignment="Center"/>
 
                     <!-- Create Scene Flyout -->
                     <Button Grid.Column="1"
                             Content="+"
-                            Background="#162040" Foreground="#5b8def"
+                            Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                             BorderThickness="0" Padding="10,4" CornerRadius="5"
                             FontSize="16" FontWeight="Bold"
                             VerticalAlignment="Center" Cursor="Hand">
@@ -62,13 +62,13 @@
                             <Flyout Placement="Right">
                                 <StackPanel Width="260" Spacing="12" Margin="4">
                                     <TextBlock Text="NOUVELLE SCÈNE"
-                                               FontSize="13" FontWeight="Bold" Foreground="#eaeaf0"/>
-                                    <Rectangle Height="1" Fill="#36364a"/>
+                                               FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Nom de la scène" Foreground="#8888a0" FontSize="11"/>
+                                        <TextBlock Text="Nom de la scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <TextBox Text="{Binding NewSceneName}"
                                                  Watermark="Ex: Match Live"
-                                                 Background="#1c1c28" BorderBrush="#36364a" Foreground="#ccccd8"/>
+                                                 Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
                                     </StackPanel>
                                     <Button Content="CRÉER LA SCÈNE"
                                             Command="{Binding CreateSceneCommand}"
@@ -82,7 +82,7 @@
                     </Button>
                 </Grid>
 
-                <Rectangle Grid.Row="1" Fill="#2a2a38"/>
+                <Rectangle Grid.Row="1" Fill="{DynamicResource AppBorder}"/>
 
                 <!-- Dynamic scene list -->
                 <ScrollViewer Grid.Row="2">
@@ -95,14 +95,14 @@
                                     <Panel>
                                         <!-- Active scene display -->
                                         <Border IsVisible="{Binding IsActive}"
-                                                Background="#141c30"
+                                                Background="{DynamicResource AppAccentBg2}"
                                                 BorderBrush="#5b8def"
                                                 BorderThickness="3,0,0,0">
                                             <Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                                                     <TextBlock Text="▶" Foreground="#5b8def" FontSize="10"
                                                                VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Name}" Foreground="#eaeaf0"
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource AppFg1}"
                                                                FontSize="13" FontWeight="SemiBold"
                                                                VerticalAlignment="Center"/>
                                                 </StackPanel>
@@ -119,7 +119,7 @@
                                         <Border IsVisible="{Binding !IsActive}"
                                                 Padding="14,10">
                                             <TextBlock Text="{Binding Name}"
-                                                       Foreground="#8888a0" FontSize="13"/>
+                                                       Foreground="{DynamicResource AppFg3}" FontSize="13"/>
                                         </Border>
                                     </Panel>
                                 </Button>
@@ -131,25 +131,25 @@
             </Grid>
         </Border>
 
-        <Rectangle Grid.Column="1" Fill="#2a2a38"/>
+        <Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}"/>
 
         <!-- ═══ RIGHT PANEL ═══ -->
         <Grid Grid.Column="2" RowDefinitions="*, 8, 200" Margin="8">
 
             <!-- Scene preview -->
             <Border Grid.Row="0"
-                    Background="#07070d" CornerRadius="8"
-                    BorderBrush="#2a2a38" BorderThickness="1">
+                    Background="{DynamicResource AppVeryDarkBg}" CornerRadius="8"
+                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
                 <Panel>
                     <TextBlock Text="APERÇU DE LA SCÈNE"
-                               Foreground="#1c1c28" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource AppSurface2}" HorizontalAlignment="Center"
                                VerticalAlignment="Center" FontSize="18" FontWeight="Bold"/>
 
                     <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
                             Margin="12" Padding="10,6" CornerRadius="5"
-                            Background="#09090f" BorderBrush="#2a2a38" BorderThickness="1">
+                            Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
                         <TextBlock Text="{Binding SelectedScene.Name}"
-                                   Foreground="#8888a0" FontSize="12" FontWeight="SemiBold"/>
+                                   Foreground="{DynamicResource AppFg3}" FontSize="12" FontWeight="SemiBold"/>
                     </Border>
                 </Panel>
             </Border>
@@ -157,28 +157,28 @@
             <Rectangle Grid.Row="1" Fill="Transparent"/>
 
             <!-- Sources of selected scene -->
-            <Border Grid.Row="2" Background="#13131c" CornerRadius="8" Padding="14">
+            <Border Grid.Row="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="14">
                 <Grid RowDefinitions="Auto, 10, *">
 
                     <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
                         <TextBlock Grid.Column="0" Text="SOURCES DE LA SCÈNE"
-                                   FontSize="11" FontWeight="Bold" Foreground="#5c5c72"
+                                   FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
                                    VerticalAlignment="Center"/>
 
                         <!-- Add Source Flyout -->
                         <Button Grid.Column="1"
                                 Content="+"
-                                Background="#162040" Foreground="#5b8def"
+                                Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                                 BorderThickness="0" Padding="10,4" CornerRadius="5"
                                 FontSize="16" FontWeight="Bold" Cursor="Hand">
                             <Button.Flyout>
                                 <Flyout Placement="Top">
                                     <StackPanel Width="240" Spacing="8" Margin="4">
                                         <TextBlock Text="AJOUTER UNE SOURCE"
-                                                   FontSize="12" FontWeight="Bold" Foreground="#eaeaf0"/>
-                                        <Rectangle Height="1" Fill="#36364a"/>
+                                                   FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                        <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 
-                                        <TextBlock Text="Sources vidéo" Foreground="#5c5c72"
+                                        <TextBlock Text="Sources vidéo" Foreground="{DynamicResource AppFg4}"
                                                    FontSize="10" Margin="0,4,0,0"/>
                                         <Button Classes="source-type-btn" Content="Capture d'écran"
                                                 Command="{Binding AddScreenCaptureCommand}"/>
@@ -187,7 +187,7 @@
                                         <Button Classes="source-type-btn" Content="Capture de fenêtre"
                                                 Command="{Binding AddWindowCaptureCommand}"/>
 
-                                        <TextBlock Text="Sources audio" Foreground="#5c5c72"
+                                        <TextBlock Text="Sources audio" Foreground="{DynamicResource AppFg4}"
                                                    FontSize="10" Margin="0,4,0,0"/>
                                         <Button Classes="source-type-btn" Content="Audio système"
                                                 Command="{Binding AddSystemAudioCommand}"/>
@@ -199,26 +199,26 @@
                         </Button>
                     </Grid>
 
-                    <Rectangle Grid.Row="1" Height="1" Fill="#2a2a38"/>
+                    <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
 
                     <!-- Dynamic source list -->
                     <ScrollViewer Grid.Row="2">
                         <ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="m:SourceItem">
-                                    <Border Background="#1c1c28" CornerRadius="5" Padding="10,7" Margin="0,2">
+                                    <Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2">
                                         <Grid ColumnDefinitions="12, *, Auto, Auto">
                                             <Ellipse Grid.Column="0" Width="7" Height="7"
                                                      Fill="{Binding ColorBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                       Foreground="#ccccd8" FontSize="12"
+                                                       Foreground="{DynamicResource AppFg2}" FontSize="12"
                                                        Margin="8,0" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="2" Text="{Binding Type}"
-                                                       Foreground="#5c5c72" FontSize="10"
+                                                       Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
                                             <Button Grid.Column="3"
                                                     Content="✕"
-                                                    Background="Transparent" Foreground="#3c3c4e"
+                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
                                                     BorderThickness="0" FontSize="11" Padding="4,2"
                                                     Cursor="Hand"
                                                     Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).RemoveSourceCommand}"
