@@ -19,34 +19,20 @@ public class StudioDockFactory : Factory
 
     public override IRootDock CreateLayout()
     {
-        // 1. On crée les contenus (les onglets)
+        // 1. On crée le contenu (preview uniquement, Sources et Audio sont dans la barre du bas)
         var videoView = new Document { Id = "Video", Title = "Preview Vidéo", CanFloat = false };
-        var sourcesView = new Tool { Id = "Sources", Title = "Sources", CanFloat = false };
-        var audioView = new Tool { Id = "Audio", Title = "Mixer Audio", CanFloat = false };
 
-        // 2. On organise les panneaux
+        // 2. On organise le panneau principal
         var mainLayout = new ProportionalDock
         {
             Id = "MainLayout",
-            Orientation = Orientation.Horizontal, // Séparation gauche/droite
+            Orientation = Orientation.Horizontal,
             VisibleDockables = CreateList<IDockable>(
-                // Zone de gauche (Vidéo)
                 new DocumentDock
                 {
                     Id = "VideoPane",
                     ActiveDockable = videoView,
                     VisibleDockables = CreateList<IDockable>(videoView),
-                    Proportion = 0.7, // Prend 70% de l'espace
-                    CanFloat = false
-                },
-                // Splitter (automatique entre deux zones)
-                // Zone de droite (Outils)
-                new ToolDock
-                {
-                    Id = "ToolsPane",
-                    ActiveDockable = sourcesView,
-                    VisibleDockables = CreateList<IDockable>(sourcesView, audioView),
-                    Proportion = 0.3, // Prend 30% de l'espace
                     CanFloat = false
                 }
             )
@@ -68,9 +54,7 @@ public class StudioDockFactory : Factory
         this.ContextLocator = new Dictionary<string, Func<object?>>
         {
             ["Root"] = () => _context,
-            ["Video"] = () => _context,
-            ["Sources"] = () => _context,
-            ["Audio"] = () => _context
+            ["Video"] = () => _context
         };
         base.InitLayout(layout);
     }
