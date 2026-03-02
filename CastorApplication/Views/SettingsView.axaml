@@ -340,10 +340,11 @@
                     <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                <Border Background="#9146FF" CornerRadius="6" Width="36" Height="36">
-                                    <TextBlock Text="T" Foreground="#f0f0f0" FontWeight="Bold" FontSize="16"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                                <Border CornerRadius="6" Width="36" Height="36" ClipToBounds="True">
+                                    <Image Source="avares://CastorApplication/Assets/twitch-logo.png"
+                                           Width="36" Height="36"
+                                           Stretch="UniformToFill"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Twitch" Foreground="#f0f0f0" FontSize="13" FontWeight="SemiBold"/>
@@ -360,10 +361,11 @@
                     <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                <Border Background="#FF0000" CornerRadius="6" Width="36" Height="36">
-                                    <TextBlock Text="Y" Foreground="#f0f0f0" FontWeight="Bold" FontSize="16"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                                <Border CornerRadius="6" Width="36" Height="36" ClipToBounds="True">
+                                    <Image Source="avares://CastorApplication/Assets/youtube-logo.png"
+                                           Width="36" Height="36"
+                                           Stretch="UniformToFill"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="YouTube Live" Foreground="#f0f0f0" FontSize="13" FontWeight="SemiBold"/>
@@ -380,10 +382,11 @@
                     <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                <Border Background="#1877F2" CornerRadius="6" Width="36" Height="36">
-                                    <TextBlock Text="F" Foreground="#f0f0f0" FontWeight="Bold" FontSize="16"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12">
+                                <Border CornerRadius="6" Width="36" Height="36" ClipToBounds="True">
+                                    <Image Source="avares://CastorApplication/Assets/facebook-logo.png"
+                                           Width="36" Height="36"
+                                           Stretch="UniformToFill"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Facebook Live" Foreground="#f0f0f0" FontSize="13" FontWeight="SemiBold"/>
