@@ -4,7 +4,7 @@ using CastorApplication.Factories;
 using CastorApplication.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Dock.Model.Core;
+using Dock.Model.Controls;
 
 namespace CastorApplication.ViewModels;
 
