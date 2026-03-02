@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media;
 using CastorApplication.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -58,14 +59,18 @@ public partial class StudioViewModel : ViewModelBase
     private string _streamRtmpKey = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
-    public string StreamStatusColor => IsStreaming ? "#ef4444" : "#4a5a6d";
-    public string StreamTimerColor => IsStreaming ? "#ef4444" : "#4a5a6d";
+    public IBrush StreamStatusBrush => IsStreaming
+        ? SolidColorBrush.Parse("#ef4444")
+        : SolidColorBrush.Parse("#4a5a6d");
+    public IBrush StreamTimerBrush => IsStreaming
+        ? SolidColorBrush.Parse("#ef4444")
+        : SolidColorBrush.Parse("#4a5a6d");
 
     partial void OnIsStreamingChanged(bool value)
     {
         OnPropertyChanged(nameof(StreamStatusText));
-        OnPropertyChanged(nameof(StreamStatusColor));
-        OnPropertyChanged(nameof(StreamTimerColor));
+        OnPropertyChanged(nameof(StreamStatusBrush));
+        OnPropertyChanged(nameof(StreamTimerBrush));
     }
 
     // ── Recording state (F2) ──

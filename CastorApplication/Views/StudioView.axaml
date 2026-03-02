@@ -54,10 +54,10 @@
                         Margin="12" Padding="10,6" CornerRadius="6"
                         Background="#000d1a" BorderBrush="#0d3450" BorderThickness="1">
                     <StackPanel Orientation="Horizontal" Spacing="7">
-                        <Ellipse Width="8" Height="8" Fill="{Binding StreamStatusColor}"
+                        <Ellipse Width="8" Height="8" Fill="{Binding StreamStatusBrush}"
                                  VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding StreamStatusText}"
-                                   Foreground="{Binding StreamStatusColor}"
+                                   Foreground="{Binding StreamStatusBrush}"
                                    FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -67,7 +67,7 @@
                         Margin="12" Padding="8,4" CornerRadius="4"
                         Background="#000d1a" BorderBrush="#002137" BorderThickness="1">
                     <TextBlock Text="00:00:00"
-                               Foreground="{Binding StreamTimerColor}"
+                               Foreground="{Binding StreamTimerBrush}"
                                FontSize="14" FontFamily="Courier New"/>
                 </Border>
 
@@ -132,7 +132,7 @@
                                             Padding="10,8" Margin="0,0,0,4">
                                         <Grid ColumnDefinitions="12, *, Auto">
                                             <Ellipse Grid.Column="0" Width="7" Height="7"
-                                                     Fill="{Binding Color}" VerticalAlignment="Center"/>
+                                                     Fill="{Binding ColorBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
                                                        Foreground="#d8dfe8" FontSize="13"
                                                        VerticalAlignment="Center" Margin="8,0"/>
