@@ -111,27 +111,16 @@ public partial class StudioViewModel : ViewModelBase
         Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#34d399"));
         Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#3c3c4e") { IsActive = false });
 
-        // Docking layout
-        var factory = new StudioDockFactory(this);
-
+        // Docking layout — on supprime l'ancien layout.json pour éviter les conflits
+        // si la structure du dock a changé (Sources/Audio retirés du dock)
         if (File.Exists("layout.json"))
-        {
-            LoadLayout(factory);
-        }
+            File.Delete("layout.json");
 
-        if (Layout == null)
+        var factory = new StudioDockFactory(this);
+        Layout = factory.CreateLayout();
+        if (Layout != null)
         {
-            Layout = factory.CreateLayout();
-            if (Layout != null)
-            {
-                factory.InitLayout(Layout);
-                SaveLayout();
-            }
-        }
-
-        if (Layout is INotifyPropertyChanged notify)
-        {
-            notify.PropertyChanged += (_, _) => SaveLayout();
+            factory.InitLayout(Layout);
         }
     }
 
