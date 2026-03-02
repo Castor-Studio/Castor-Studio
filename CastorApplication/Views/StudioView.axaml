@@ -10,13 +10,13 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="#6b7280"/>
-            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
         <Style Selector="Button.ctrl-btn">
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Height" Value="36"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="BorderThickness" Value="1"/>
@@ -35,9 +35,20 @@
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
+        <Style Selector="Button.flyout-start">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
     </UserControl.Styles>
 
-    <Grid RowDefinitions="*, 230">
+    <Grid RowDefinitions="*, 38, 250">
 
         <!-- ═══ VIDEO PREVIEW ═══ -->
         <Border Grid.Row="0"
@@ -48,7 +59,6 @@
                 BorderThickness="1">
             <Panel>
 
-                <!-- Placeholder text -->
                 <TextBlock Text="APERÇU VIDÉO"
                            Foreground="#1e1e1e"
                            HorizontalAlignment="Center"
@@ -90,7 +100,7 @@
                                FontFamily="Courier New"/>
                 </Border>
 
-                <!-- Resolution indicator (bottom right) -->
+                <!-- Resolution (bottom right) -->
                 <Border VerticalAlignment="Bottom"
                         HorizontalAlignment="Right"
                         Margin="12"
@@ -107,9 +117,50 @@
             </Panel>
         </Border>
 
+        <!-- ═══ SCENE SELECTOR BAR (F4 - Scene Switching) ═══ -->
+        <Border Grid.Row="1"
+                Background="#1a1a1a"
+                CornerRadius="6"
+                Margin="8,0,8,4"
+                Padding="12,0"
+                BorderBrush="#2a2a2a"
+                BorderThickness="1">
+            <Grid ColumnDefinitions="Auto, Auto, *, Auto">
+                <TextBlock Grid.Column="0"
+                           Text="SCÈNE ACTIVE :"
+                           Foreground="#6b7280"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"/>
+                <ComboBox Grid.Column="1"
+                          MinWidth="180"
+                          VerticalAlignment="Center"
+                          Background="#1e1e1e"
+                          BorderBrush="#333333">
+                    <ComboBoxItem Content="Match Live" IsSelected="True"/>
+                    <ComboBoxItem Content="Introduction"/>
+                    <ComboBoxItem Content="Mi-Temps"/>
+                    <ComboBoxItem Content="Fin de Match"/>
+                </ComboBox>
+                <!-- Status indicator -->
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" Fill="#22c55e" VerticalAlignment="Center"/>
+                    <TextBlock Text="Prêt"
+                               Foreground="#22c55e"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- ═══ CONTROL BAR ═══ -->
-        <Grid Grid.Row="1"
-              ColumnDefinitions="*, 8, 320, 8, 200"
+        <Grid Grid.Row="2"
+              ColumnDefinitions="*, 8, 320, 8, 220"
               Margin="8,0,8,8">
 
             <!-- ── SOURCES ── -->
@@ -119,7 +170,6 @@
                     Padding="14">
                 <Grid RowDefinitions="Auto, 10, *">
 
-                    <!-- Header -->
                     <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
                         <TextBlock Grid.Column="0"
                                    Text="SOURCES"
@@ -131,75 +181,46 @@
                                 Classes="add-btn"/>
                     </Grid>
 
-                    <!-- Divider -->
                     <Rectangle Grid.Row="1" Height="1" Fill="#2a2a2a"/>
 
-                    <!-- Source list -->
                     <StackPanel Grid.Row="2" Spacing="4">
 
                         <!-- Screen capture (active) -->
-                        <Border Background="#1e1e1e"
-                                CornerRadius="5"
-                                Padding="10,8">
+                        <Border Background="#1e1e1e" CornerRadius="5" Padding="10,8">
                             <Grid ColumnDefinitions="12, *, Auto">
-                                <Ellipse Grid.Column="0"
-                                         Width="7" Height="7"
-                                         Fill="#3498db"
-                                         VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="Capture d'écran"
-                                           Foreground="#d1d5db"
-                                           FontSize="13"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0"/>
-                                <TextBlock Grid.Column="2"
-                                           Text="✕"
-                                           Foreground="#4a4a4a"
-                                           FontSize="11"
-                                           VerticalAlignment="Center"
-                                           Cursor="Hand"/>
+                                <Ellipse Grid.Column="0" Width="7" Height="7"
+                                         Fill="#3498db" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Capture d'écran"
+                                           Foreground="#d1d5db" FontSize="13"
+                                           VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="2" Text="✕"
+                                           Foreground="#4a4a4a" FontSize="11"
+                                           VerticalAlignment="Center" Cursor="Hand"/>
                             </Grid>
                         </Border>
 
                         <!-- Camera (active) -->
-                        <Border Background="#1e1e1e"
-                                CornerRadius="5"
-                                Padding="10,8">
+                        <Border Background="#1e1e1e" CornerRadius="5" Padding="10,8">
                             <Grid ColumnDefinitions="12, *, Auto">
-                                <Ellipse Grid.Column="0"
-                                         Width="7" Height="7"
-                                         Fill="#22c55e"
-                                         VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="Caméra principale"
-                                           Foreground="#d1d5db"
-                                           FontSize="13"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0"/>
-                                <TextBlock Grid.Column="2"
-                                           Text="✕"
-                                           Foreground="#4a4a4a"
-                                           FontSize="11"
-                                           VerticalAlignment="Center"
-                                           Cursor="Hand"/>
+                                <Ellipse Grid.Column="0" Width="7" Height="7"
+                                         Fill="#22c55e" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Caméra principale"
+                                           Foreground="#d1d5db" FontSize="13"
+                                           VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="2" Text="✕"
+                                           Foreground="#4a4a4a" FontSize="11"
+                                           VerticalAlignment="Center" Cursor="Hand"/>
                             </Grid>
                         </Border>
 
                         <!-- Game capture (inactive) -->
-                        <Border Background="Transparent"
-                                CornerRadius="5"
-                                Padding="10,8">
-                            <Grid ColumnDefinitions="12, *, Auto">
-                                <Ellipse Grid.Column="0"
-                                         Width="7" Height="7"
-                                         Fill="#333333"
-                                         VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="Capture de jeu"
-                                           Foreground="#4a4a4a"
-                                           FontSize="13"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0"/>
+                        <Border Background="Transparent" CornerRadius="5" Padding="10,8">
+                            <Grid ColumnDefinitions="12, *">
+                                <Ellipse Grid.Column="0" Width="7" Height="7"
+                                         Fill="#333333" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Capture de jeu"
+                                           Foreground="#4a4a4a" FontSize="13"
+                                           VerticalAlignment="Center" Margin="8,0"/>
                             </Grid>
                         </Border>
 
@@ -207,7 +228,6 @@
                 </Grid>
             </Border>
 
-            <!-- Spacer -->
             <Rectangle Grid.Column="1" Fill="Transparent"/>
 
             <!-- ── AUDIO MIXER ── -->
@@ -217,114 +237,178 @@
                     Padding="14">
                 <Grid RowDefinitions="Auto, 10, *">
 
-                    <TextBlock Grid.Row="0"
-                               Text="MIXEUR AUDIO"
-                               Classes="section-header"/>
-
+                    <TextBlock Grid.Row="0" Text="MIXEUR AUDIO" Classes="section-header"/>
                     <Rectangle Grid.Row="1" Height="1" Fill="#2a2a2a"/>
 
                     <StackPanel Grid.Row="2" Spacing="14">
 
-                        <!-- Desktop Audio -->
                         <Grid ColumnDefinitions="90, *, 40">
-                            <TextBlock Grid.Column="0"
-                                       Text="Bureau"
-                                       Foreground="#9ca3af"
-                                       FontSize="12"
-                                       VerticalAlignment="Center"/>
-                            <Slider Grid.Column="1"
-                                    Minimum="0" Maximum="100" Value="80"
-                                    VerticalAlignment="Center"
-                                    Margin="6,0"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="80%"
-                                       Foreground="#6b7280"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="0" Text="Bureau"
+                                       Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center"/>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="80"
+                                    VerticalAlignment="Center" Margin="6,0"/>
+                            <TextBlock Grid.Column="2" Text="80%"
+                                       Foreground="#6b7280" FontSize="11"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
                         </Grid>
 
-                        <!-- Microphone -->
                         <Grid ColumnDefinitions="90, *, 40">
-                            <TextBlock Grid.Column="0"
-                                       Text="Microphone"
-                                       Foreground="#9ca3af"
-                                       FontSize="12"
-                                       VerticalAlignment="Center"/>
-                            <Slider Grid.Column="1"
-                                    Minimum="0" Maximum="100" Value="65"
-                                    VerticalAlignment="Center"
-                                    Margin="6,0"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="65%"
-                                       Foreground="#6b7280"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="0" Text="Microphone"
+                                       Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center"/>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="65"
+                                    VerticalAlignment="Center" Margin="6,0"/>
+                            <TextBlock Grid.Column="2" Text="65%"
+                                       Foreground="#6b7280" FontSize="11"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
                         </Grid>
 
-                        <!-- Music -->
                         <Grid ColumnDefinitions="90, *, 40">
-                            <TextBlock Grid.Column="0"
-                                       Text="Musique"
-                                       Foreground="#9ca3af"
-                                       FontSize="12"
-                                       VerticalAlignment="Center"/>
-                            <Slider Grid.Column="1"
-                                    Minimum="0" Maximum="100" Value="30"
-                                    VerticalAlignment="Center"
-                                    Margin="6,0"/>
-                            <TextBlock Grid.Column="2"
-                                       Text="30%"
-                                       Foreground="#6b7280"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"
-                                       HorizontalAlignment="Right"/>
+                            <TextBlock Grid.Column="0" Text="Musique"
+                                       Foreground="#9ca3af" FontSize="12" VerticalAlignment="Center"/>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="100" Value="30"
+                                    VerticalAlignment="Center" Margin="6,0"/>
+                            <TextBlock Grid.Column="2" Text="30%"
+                                       Foreground="#6b7280" FontSize="11"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right"/>
                         </Grid>
 
                     </StackPanel>
                 </Grid>
             </Border>
 
-            <!-- Spacer -->
             <Rectangle Grid.Column="3" Fill="Transparent"/>
 
-            <!-- ── CONTROLS ── -->
+            <!-- ── CONTROLS (F1 Streaming + F2 Recording) ── -->
             <Border Grid.Column="4"
                     Background="#1a1a1a"
                     CornerRadius="8"
-                    Padding="14">
-                <StackPanel Spacing="8" VerticalAlignment="Center">
+                    Padding="12">
+                <StackPanel Spacing="6" VerticalAlignment="Center">
 
-                    <!-- Streaming section -->
+                    <!-- ─ STREAMING (F1, Scenario 1) ─ -->
                     <TextBlock Text="DIFFUSION" Classes="section-header"/>
 
+                    <!-- Start Streaming with Flyout for scene+platform selection -->
                     <Button Content="GO LIVE"
                             Classes="ctrl-btn"
                             Background="#0d3322"
                             Foreground="#22c55e"
-                            BorderBrush="#164d31"/>
-                    <!--Command="{Binding GoLiveCommand}"-->
+                            BorderBrush="#164d31">
+                        <Button.Flyout>
+                            <Flyout Placement="Top">
+                                <StackPanel Width="280" Spacing="12" Margin="4">
+                                    <TextBlock Text="DÉMARRER LE STREAM"
+                                               FontSize="13" FontWeight="Bold"
+                                               Foreground="White"/>
+                                    <Rectangle Height="1" Fill="#333333"/>
 
-                    <Button Content="ARRÊTER"
+                                    <!-- Scene selection (Scenario 1, Step 5) -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Scène" Foreground="#9ca3af" FontSize="11"/>
+                                        <ComboBox HorizontalAlignment="Stretch"
+                                                  Background="#1e1e1e" BorderBrush="#333333">
+                                            <ComboBoxItem Content="Match Live" IsSelected="True"/>
+                                            <ComboBoxItem Content="Introduction"/>
+                                            <ComboBoxItem Content="Mi-Temps"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- Platform selection (Scenario 1, Step 6) -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Plateforme" Foreground="#9ca3af" FontSize="11"/>
+                                        <ComboBox HorizontalAlignment="Stretch"
+                                                  Background="#1e1e1e" BorderBrush="#333333">
+                                            <ComboBoxItem Content="Twitch" IsSelected="True"/>
+                                            <ComboBoxItem Content="YouTube Live"/>
+                                            <ComboBoxItem Content="Facebook Live"/>
+                                            <ComboBoxItem Content="RTMP Manuel"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- RTMP key (optional, for manual) -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Clé RTMP (optionnel)" Foreground="#6b7280" FontSize="11"/>
+                                        <TextBox PasswordChar="•"
+                                                 Watermark="rtmp://..."
+                                                 Background="#1e1e1e"
+                                                 BorderBrush="#333333"
+                                                 Foreground="#d1d5db"/>
+                                    </StackPanel>
+
+                                    <!-- Start button (Scenario 1, Step 7) -->
+                                    <Button Content="DÉMARRER"
+                                            Classes="flyout-start"
+                                            Background="#22c55e"
+                                            Foreground="White"/>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <!-- Stop Streaming -->
+                    <Button Content="ARRÊTER STREAM"
                             Classes="ctrl-btn"
                             Background="#3a0d0d"
                             Foreground="#ef4444"
                             BorderBrush="#5c1a1a"/>
-                    <!--Command="{Binding StopLiveCommand}"-->
 
-                    <!-- Divider -->
-                    <Rectangle Height="1" Fill="#2a2a2a" Margin="0,4"/>
+                    <Rectangle Height="1" Fill="#2a2a2a" Margin="0,2"/>
 
-                    <!-- Recording section -->
+                    <!-- ─ RECORDING (F2, Scenario 2) ─ -->
                     <TextBlock Text="ENREGISTREMENT" Classes="section-header"/>
 
+                    <!-- Start Recording with Flyout for scene+format selection -->
                     <Button Content="ENREGISTRER"
                             Classes="ctrl-btn"
                             Background="#3a2200"
                             Foreground="#f59e0b"
-                            BorderBrush="#5c3700"/>
-                    <!--Command="{Binding StartRecordCommand}"-->
+                            BorderBrush="#5c3700">
+                        <Button.Flyout>
+                            <Flyout Placement="Top">
+                                <StackPanel Width="280" Spacing="12" Margin="4">
+                                    <TextBlock Text="DÉMARRER L'ENREGISTREMENT"
+                                               FontSize="13" FontWeight="Bold"
+                                               Foreground="White"/>
+                                    <Rectangle Height="1" Fill="#333333"/>
+
+                                    <!-- Scene selection (Scenario 2, Step 5) -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Scène" Foreground="#9ca3af" FontSize="11"/>
+                                        <ComboBox HorizontalAlignment="Stretch"
+                                                  Background="#1e1e1e" BorderBrush="#333333">
+                                            <ComboBoxItem Content="Match Live" IsSelected="True"/>
+                                            <ComboBoxItem Content="Introduction"/>
+                                            <ComboBoxItem Content="Mi-Temps"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- Format selection (Scenario 2, Step 6) -->
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Format de sortie" Foreground="#9ca3af" FontSize="11"/>
+                                        <ComboBox HorizontalAlignment="Stretch"
+                                                  Background="#1e1e1e" BorderBrush="#333333">
+                                            <ComboBoxItem Content="MP4 (H.264 + AAC)" IsSelected="True"/>
+                                            <ComboBoxItem Content="MKV (H.264 + AAC)"/>
+                                            <ComboBoxItem Content="WebM (VP9 + Opus)"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- Start button (Scenario 2, Step 7) -->
+                                    <Button Content="DÉMARRER"
+                                            Classes="flyout-start"
+                                            Background="#f59e0b"
+                                            Foreground="White"/>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <!-- Stop Recording (Scenario 2, Step 8) -->
+                    <Button Content="ARRÊTER REC"
+                            Classes="ctrl-btn"
+                            Background="#3a0d0d"
+                            Foreground="#ef4444"
+                            BorderBrush="#5c1a1a"/>
 
                 </StackPanel>
             </Border>
