@@ -12,7 +12,7 @@ public partial class SourceItem : ObservableObject
     private string _type = "Vidéo";
 
     [ObservableProperty]
-    private string _color = "#c96cc0";
+    private string _color = "#5b8def";
 
     [ObservableProperty]
     private bool _isActive = true;

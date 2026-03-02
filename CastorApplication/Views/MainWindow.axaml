@@ -4,8 +4,8 @@
         x:Class="CastorApplication.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="Castor Studio"
-        Background="#011028"
-        Foreground="#f0f0f0"
+        Background="#0b0b12"
+        Foreground="#eaeaf0"
         MinWidth="1024" MinHeight="600"
         Width="1280" Height="800"
         WindowStartupLocation="CenterScreen"
@@ -25,7 +25,7 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#a1b1c8"/>
+            <Setter Property="Foreground" Value="#8888a0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Transitions">
                 <Transitions>
@@ -35,15 +35,15 @@
         </Style>
 
         <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#0a2540"/>
-            <Setter Property="Foreground" Value="#f0f0f0"/>
+            <Setter Property="Background" Value="#1c1c28"/>
+            <Setter Property="Foreground" Value="#eaeaf0"/>
         </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="48,*">
 
         <!-- ═══ NAVBAR ═══ -->
-        <Border Grid.Row="0" Background="#002137" BorderBrush="#0d3450" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0" Background="#13131c" BorderBrush="#2a2a38" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="220,*,220">
 
                 <!-- Logo -->
@@ -57,7 +57,7 @@
                     <TextBlock Text="CASTOR"
                                FontSize="15"
                                FontWeight="Bold"
-                               Foreground="#f0f0f0"
+                               Foreground="#eaeaf0"
                                VerticalAlignment="Center"/>
                 </StackPanel>
 
@@ -71,7 +71,7 @@
                         <Button Classes="nav" Content="STUDIO"
                                 Command="{Binding ShowStudioCommand}"/>
                         <Border Height="2" CornerRadius="1"
-                                Background="#c96cc0"
+                                Background="#5b8def"
                                 IsVisible="{Binding IsStudioActive}"
                                 Margin="8,0"/>
                     </StackPanel>
@@ -81,7 +81,7 @@
                         <Button Classes="nav" Content="MULTICAM"
                                 Command="{Binding ShowMulticamCommand}"/>
                         <Border Height="2" CornerRadius="1"
-                                Background="#c96cc0"
+                                Background="#5b8def"
                                 IsVisible="{Binding IsMulticamActive}"
                                 Margin="8,0"/>
                     </StackPanel>
@@ -91,7 +91,7 @@
                         <Button Classes="nav" Content="SCÈNES"
                                 Command="{Binding ShowScenesCommand}"/>
                         <Border Height="2" CornerRadius="1"
-                                Background="#c96cc0"
+                                Background="#5b8def"
                                 IsVisible="{Binding IsScenesActive}"
                                 Margin="8,0"/>
                     </StackPanel>
@@ -101,7 +101,7 @@
                         <Button Classes="nav" Content="PARAMÈTRES"
                                 Command="{Binding ShowSettingsCommand}"/>
                         <Border Height="2" CornerRadius="1"
-                                Background="#c96cc0"
+                                Background="#5b8def"
                                 IsVisible="{Binding IsSettingsActive}"
                                 Margin="8,0"/>
                     </StackPanel>
@@ -117,24 +117,24 @@
                             Margin="16,0">
 
                     <!-- Status badge -->
-                    <Border Background="#000d1a"
-                            BorderBrush="#0d3450"
+                    <Border Background="#09090f"
+                            BorderBrush="#2a2a38"
                             BorderThickness="1"
                             CornerRadius="12"
                             Padding="10,5">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="7" Height="7" Fill="#4a5a6d" VerticalAlignment="Center"/>
+                            <Ellipse Width="7" Height="7" Fill="#3c3c4e" VerticalAlignment="Center"/>
                             <TextBlock Text="OFFLINE"
                                        FontSize="11"
                                        FontWeight="SemiBold"
-                                       Foreground="#4a5a6d"
+                                       Foreground="#3c3c4e"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
 
                     <!-- Account button with login Flyout (F9/F10 - Account) -->
-                    <Button Background="#0d2a45"
-                            BorderBrush="#1a4060"
+                    <Button Background="#24242f"
+                            BorderBrush="#36364a"
                             BorderThickness="1"
                             CornerRadius="16"
                             Width="32" Height="32"
@@ -145,37 +145,37 @@
                                    VerticalAlignment="Center"
                                    FontSize="13"
                                    FontWeight="Bold"
-                                   Foreground="#c96cc0"/>
+                                   Foreground="#5b8def"/>
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedRight">
                                 <StackPanel Width="280" Spacing="14" Margin="4">
                                     <TextBlock Text="CONNEXION"
                                                FontSize="14"
                                                FontWeight="Bold"
-                                               Foreground="#f0f0f0"/>
-                                    <Rectangle Height="1" Fill="#1a4060"/>
+                                               Foreground="#eaeaf0"/>
+                                    <Rectangle Height="1" Fill="#36364a"/>
 
                                     <!-- Email (Scenario 10, Step 3) -->
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="Email"
-                                                   Foreground="#a1b1c8"
+                                                   Foreground="#8888a0"
                                                    FontSize="11"/>
                                         <TextBox Watermark="votre@email.com"
-                                                 Background="#0a2540"
-                                                 BorderBrush="#1a4060"
-                                                 Foreground="#d8dfe8"/>
+                                                 Background="#1c1c28"
+                                                 BorderBrush="#36364a"
+                                                 Foreground="#ccccd8"/>
                                     </StackPanel>
 
                                     <!-- Password (Scenario 10, Step 3) -->
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="Mot de passe"
-                                                   Foreground="#a1b1c8"
+                                                   Foreground="#8888a0"
                                                    FontSize="11"/>
                                         <TextBox PasswordChar="•"
                                                  Watermark="Mot de passe"
-                                                 Background="#0a2540"
-                                                 BorderBrush="#1a4060"
-                                                 Foreground="#d8dfe8"/>
+                                                 Background="#1c1c28"
+                                                 BorderBrush="#36364a"
+                                                 Foreground="#ccccd8"/>
                                     </StackPanel>
 
                                     <!-- Connect button (Scenario 10, Step 4) -->
@@ -183,8 +183,8 @@
                                             HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Center"
                                             Height="36"
-                                            Background="#c96cc0"
-                                            Foreground="#f0f0f0"
+                                            Background="#5b8def"
+                                            Foreground="#eaeaf0"
                                             BorderThickness="0"
                                             CornerRadius="6"
                                             FontSize="12"
@@ -194,11 +194,11 @@
                                     <!-- Create account link (F9) -->
                                     <StackPanel Spacing="6" HorizontalAlignment="Center">
                                         <TextBlock Text="Pas encore de compte ?"
-                                                   Foreground="#6b7a8d"
+                                                   Foreground="#5c5c72"
                                                    FontSize="11"
                                                    HorizontalAlignment="Center"/>
                                         <TextBlock Text="Inscrivez-vous sur castor-studio.app"
-                                                   Foreground="#c96cc0"
+                                                   Foreground="#5b8def"
                                                    FontSize="12"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"

@@ -19,16 +19,16 @@ public partial class ScenesViewModel : ViewModelBase
     {
         // Sample data
         var matchLive = new SceneItem("Match Live", isActive: true, isLive: true);
-        matchLive.Sources.Add(new SourceItem("Caméra terrain", "Vidéo", "#c96cc0"));
-        matchLive.Sources.Add(new SourceItem("Tableau de scores", "Vidéo", "#22c55e"));
-        matchLive.Sources.Add(new SourceItem("Audio système", "Audio", "#f59e0b"));
+        matchLive.Sources.Add(new SourceItem("Caméra terrain", "Vidéo", "#5b8def"));
+        matchLive.Sources.Add(new SourceItem("Tableau de scores", "Vidéo", "#34d399"));
+        matchLive.Sources.Add(new SourceItem("Audio système", "Audio", "#fbbf24"));
 
         var intro = new SceneItem("Introduction");
-        intro.Sources.Add(new SourceItem("Logo club", "Vidéo", "#c96cc0"));
-        intro.Sources.Add(new SourceItem("Musique intro", "Audio", "#f59e0b"));
+        intro.Sources.Add(new SourceItem("Logo club", "Vidéo", "#5b8def"));
+        intro.Sources.Add(new SourceItem("Musique intro", "Audio", "#fbbf24"));
 
         var miTemps = new SceneItem("Mi-Temps");
-        miTemps.Sources.Add(new SourceItem("Caméra plateau", "Vidéo", "#22c55e"));
+        miTemps.Sources.Add(new SourceItem("Caméra plateau", "Vidéo", "#34d399"));
 
         var finMatch = new SceneItem("Fin de Match");
         var plateau = new SceneItem("Plateau Studio");
@@ -81,37 +81,37 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void AddVideoSource()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Nouvelle source vidéo", "Vidéo", "#c96cc0"));
+        SelectedScene?.Sources.Add(new SourceItem("Nouvelle source vidéo", "Vidéo", "#5b8def"));
     }
 
     [RelayCommand]
     private void AddScreenCapture()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#c96cc0"));
+        SelectedScene?.Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
     }
 
     [RelayCommand]
     private void AddCamera()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Caméra", "Vidéo", "#22c55e"));
+        SelectedScene?.Sources.Add(new SourceItem("Caméra", "Vidéo", "#34d399"));
     }
 
     [RelayCommand]
     private void AddWindowCapture()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Capture de fenêtre", "Vidéo", "#a1b1c8"));
+        SelectedScene?.Sources.Add(new SourceItem("Capture de fenêtre", "Vidéo", "#8888a0"));
     }
 
     [RelayCommand]
     private void AddSystemAudio()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Audio système", "Audio", "#f59e0b"));
+        SelectedScene?.Sources.Add(new SourceItem("Audio système", "Audio", "#fbbf24"));
     }
 
     [RelayCommand]
     private void AddMicrophone()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Microphone", "Audio", "#ef4444"));
+        SelectedScene?.Sources.Add(new SourceItem("Microphone", "Audio", "#f87171"));
     }
 
     [RelayCommand]

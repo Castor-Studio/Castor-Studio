@@ -8,8 +8,8 @@
     <UserControl.Styles>
 
         <Style Selector="Button.cam-select">
-            <Setter Property="Background" Value="#0d2a45"/>
-            <Setter Property="Foreground" Value="#a1b1c8"/>
+            <Setter Property="Background" Value="#24242f"/>
+            <Setter Property="Foreground" Value="#8888a0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="CornerRadius" Value="4"/>
@@ -19,14 +19,14 @@
         </Style>
 
         <Style Selector="Button.cam-select:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1a4060"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#36364a"/>
+            <Setter Property="Foreground" Value="#eaeaf0"/>
         </Style>
 
         <Style Selector="Button.ai-mode">
-            <Setter Property="Background" Value="#0a2540"/>
-            <Setter Property="Foreground" Value="#6b7a8d"/>
-            <Setter Property="BorderBrush" Value="#1a4060"/>
+            <Setter Property="Background" Value="#1c1c28"/>
+            <Setter Property="Foreground" Value="#5c5c72"/>
+            <Setter Property="BorderBrush" Value="#36364a"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="14,7"/>
             <Setter Property="CornerRadius" Value="6"/>
@@ -36,14 +36,14 @@
         </Style>
 
         <Style Selector="Button.ai-mode:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#0d2a45"/>
-            <Setter Property="Foreground" Value="#d8dfe8"/>
+            <Setter Property="Background" Value="#24242f"/>
+            <Setter Property="Foreground" Value="#ccccd8"/>
         </Style>
 
         <Style Selector="Button.ai-active">
-            <Setter Property="Background" Value="#2a0028"/>
-            <Setter Property="Foreground" Value="#c96cc0"/>
-            <Setter Property="BorderBrush" Value="#c96cc0"/>
+            <Setter Property="Background" Value="#162040"/>
+            <Setter Property="Foreground" Value="#5b8def"/>
+            <Setter Property="BorderBrush" Value="#5b8def"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="14,7"/>
             <Setter Property="CornerRadius" Value="6"/>
@@ -54,29 +54,29 @@
 
     </UserControl.Styles>
 
-    <Grid RowDefinitions="56, Auto, *" Background="#011028">
+    <Grid RowDefinitions="56, Auto, *" Background="#0b0b12">
 
         <!-- ═══ HEADER ═══ -->
         <Border Grid.Row="0"
-                Background="#002137" BorderBrush="#0d3450" BorderThickness="0,0,0,1"
+                Background="#13131c" BorderBrush="#2a2a38" BorderThickness="0,0,0,1"
                 Padding="16,0">
             <Grid ColumnDefinitions="*, Auto">
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal"
                             VerticalAlignment="Center" Spacing="10">
                     <TextBlock Text="MULTI-CAMÉRAS"
-                               FontSize="14" FontWeight="Bold" Foreground="#f0f0f0"
+                               FontSize="14" FontWeight="Bold" Foreground="#eaeaf0"
                                VerticalAlignment="Center"/>
-                    <Border Background="#0d2a45" CornerRadius="10" Padding="8,3">
+                    <Border Background="#24242f" CornerRadius="10" Padding="8,3">
                         <TextBlock Text="{Binding Cameras.Count, StringFormat='{}{0} caméras'}"
-                                   FontSize="11" Foreground="#6b7a8d"/>
+                                   FontSize="11" Foreground="#5c5c72"/>
                     </Border>
                 </StackPanel>
 
                 <Button Grid.Column="1"
                         Content="+ AJOUTER UNE CAMÉRA"
                         Command="{Binding AddCameraCommand}"
-                        Background="#2a0028" Foreground="#c96cc0"
+                        Background="#162040" Foreground="#5b8def"
                         BorderThickness="0" Padding="14,8" CornerRadius="6"
                         FontSize="12" FontWeight="SemiBold"
                         VerticalAlignment="Center" Cursor="Hand"/>
@@ -86,21 +86,21 @@
 
         <!-- ═══ AI MODE BAR ═══ -->
         <Border Grid.Row="1"
-                Background="#011830" BorderBrush="#0d3450" BorderThickness="0,0,0,1"
+                Background="#101019" BorderBrush="#2a2a38" BorderThickness="0,0,0,1"
                 Padding="16,10">
             <Grid ColumnDefinitions="Auto, *, Auto">
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"
                             VerticalAlignment="Center">
-                    <TextBlock Text="IA :" Foreground="#a1b1c8" FontSize="12"
+                    <TextBlock Text="IA :" Foreground="#8888a0" FontSize="12"
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
 
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <!-- Off (active when IsAiOff) -->
                         <Button IsVisible="{Binding IsAiOff}"
                                 Content="DÉSACTIVÉ"
-                                Background="#0d2a45" Foreground="#a1b1c8"
-                                BorderBrush="#1a4060" BorderThickness="1"
+                                Background="#24242f" Foreground="#8888a0"
+                                BorderBrush="#36364a" BorderThickness="1"
                                 Padding="12,6" CornerRadius="6"
                                 FontSize="11" FontWeight="SemiBold" Cursor="Hand"/>
                         <Button IsVisible="{Binding !IsAiOff}"
@@ -132,11 +132,11 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center"
                             IsVisible="{Binding IsAiEnabled}">
-                    <TextBlock Text="Modèle IA :" Foreground="#6b7a8d"
+                    <TextBlock Text="Modèle IA :" Foreground="#5c5c72"
                                FontSize="11" VerticalAlignment="Center"/>
                     <ComboBox MinWidth="180"
                               SelectedIndex="{Binding SelectedAiModelIndex}"
-                              Background="#0a2540" BorderBrush="#1a4060" FontSize="12">
+                              Background="#1c1c28" BorderBrush="#36364a" FontSize="12">
                         <ComboBoxItem Content="Sport - Suivi de ballon"/>
                         <ComboBoxItem Content="Conférence - Suivi vocal"/>
                         <ComboBoxItem Content="Général - Détection mouvement"/>
@@ -164,25 +164,25 @@
                                     Command="{Binding $parent[UserControl].((vm:MulticamViewModel)DataContext).SelectCameraCommand}"
                                     CommandParameter="{Binding}">
                                 <Border Width="290" Height="195"
-                                        Background="#002137"
+                                        Background="#13131c"
                                         CornerRadius="8">
                                     <Grid RowDefinitions="*, Auto">
 
-                                        <Border Grid.Row="0" Background="#000d1a"
+                                        <Border Grid.Row="0" Background="#09090f"
                                                 CornerRadius="6,6,0,0">
                                             <Panel>
                                                 <TextBlock Text="{Binding Label}"
-                                                           Foreground="#011830" HorizontalAlignment="Center"
+                                                           Foreground="#101019" HorizontalAlignment="Center"
                                                            VerticalAlignment="Center" FontSize="28" FontWeight="Bold"/>
 
                                                 <!-- Live badge (only shown when live) -->
                                                 <Border IsVisible="{Binding IsLive}"
                                                         VerticalAlignment="Top" HorizontalAlignment="Left"
                                                         Margin="8" Padding="7,3" CornerRadius="4"
-                                                        Background="#c96cc0">
+                                                        Background="#5b8def">
                                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                                        <Ellipse Width="6" Height="6" Fill="#f0f0f0" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="LIVE" FontSize="10" FontWeight="Bold" Foreground="#f0f0f0"/>
+                                                        <Ellipse Width="6" Height="6" Fill="#eaeaf0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="LIVE" FontSize="10" FontWeight="Bold" Foreground="#eaeaf0"/>
                                                     </StackPanel>
                                                 </Border>
                                             </Panel>
@@ -190,21 +190,21 @@
 
                                         <Grid Grid.Row="1" ColumnDefinitions="*, Auto" Margin="10,7">
                                             <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                                       Foreground="#a1b1c8" FontSize="12"
+                                                       Foreground="#8888a0" FontSize="12"
                                                        VerticalAlignment="Center"/>
 
                                             <!-- Active badge -->
                                             <Border Grid.Column="1"
                                                     IsVisible="{Binding IsActive}"
-                                                    Background="#2a0028" CornerRadius="4" Padding="8,4">
-                                                <TextBlock Text="ACTIVE" Foreground="#c96cc0"
+                                                    Background="#162040" CornerRadius="4" Padding="8,4">
+                                                <TextBlock Text="ACTIVE" Foreground="#5b8def"
                                                            FontSize="10" FontWeight="Bold"/>
                                             </Border>
                                             <!-- Select button -->
                                             <Border Grid.Column="1"
                                                     IsVisible="{Binding !IsActive}"
-                                                    Background="#0d2a45" CornerRadius="4" Padding="8,4">
-                                                <TextBlock Text="SÉLECTIONNER" Foreground="#a1b1c8"
+                                                    Background="#24242f" CornerRadius="4" Padding="8,4">
+                                                <TextBlock Text="SÉLECTIONNER" Foreground="#8888a0"
                                                            FontSize="10" FontWeight="SemiBold"/>
                                             </Border>
                                         </Grid>
@@ -218,18 +218,18 @@
 
                 <!-- Add Camera Card (static) -->
                 <Border Width="290" Height="195"
-                        Background="#011828" BorderBrush="#0d2a45" BorderThickness="1"
+                        Background="#0f0f18" BorderBrush="#24242f" BorderThickness="1"
                         CornerRadius="8" Margin="0,0,12,12" Cursor="Hand">
                     <Button Background="Transparent" BorderThickness="0"
                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                             Command="{Binding AddCameraCommand}">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                            <Border Background="#0a2540" CornerRadius="30" Width="40" Height="40"
+                            <Border Background="#1c1c28" CornerRadius="30" Width="40" Height="40"
                                     HorizontalAlignment="Center">
-                                <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="#1a4060"
+                                <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="#36364a"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Text="Ajouter une caméra" Foreground="#4a5a6d" FontSize="12"
+                            <TextBlock Text="Ajouter une caméra" Foreground="#3c3c4e" FontSize="12"
                                        HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Button>

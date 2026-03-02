@@ -10,7 +10,7 @@
         <Style Selector="TextBlock.section-header">
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#6b7a8d"/>
+            <Setter Property="Foreground" Value="#5c5c72"/>
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
@@ -42,17 +42,17 @@
 
         <!-- ═══ VIDEO PREVIEW ═══ -->
         <Border Grid.Row="0"
-                Background="#00081a" Margin="8" CornerRadius="8"
-                BorderBrush="#0d3450" BorderThickness="1">
+                Background="#07070d" Margin="8" CornerRadius="8"
+                BorderBrush="#2a2a38" BorderThickness="1">
             <Panel>
                 <TextBlock Text="APERÇU VIDÉO"
-                           Foreground="#0a2540" HorizontalAlignment="Center"
+                           Foreground="#1c1c28" HorizontalAlignment="Center"
                            VerticalAlignment="Center" FontSize="22" FontWeight="Bold"/>
 
                 <!-- Status badge -->
                 <Border VerticalAlignment="Top" HorizontalAlignment="Right"
                         Margin="12" Padding="10,6" CornerRadius="6"
-                        Background="#000d1a" BorderBrush="#0d3450" BorderThickness="1">
+                        Background="#09090f" BorderBrush="#2a2a38" BorderThickness="1">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <Ellipse Width="8" Height="8" Fill="{Binding StreamStatusBrush}"
                                  VerticalAlignment="Center"/>
@@ -65,7 +65,7 @@
                 <!-- Timer -->
                 <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
                         Margin="12" Padding="8,4" CornerRadius="4"
-                        Background="#000d1a" BorderBrush="#002137" BorderThickness="1">
+                        Background="#09090f" BorderBrush="#13131c" BorderThickness="1">
                     <TextBlock Text="00:00:00"
                                Foreground="{Binding StreamTimerBrush}"
                                FontSize="14" FontFamily="Courier New"/>
@@ -74,29 +74,29 @@
                 <!-- Resolution -->
                 <Border VerticalAlignment="Bottom" HorizontalAlignment="Right"
                         Margin="12" Padding="8,4" CornerRadius="4"
-                        Background="#000d1a" BorderBrush="#002137" BorderThickness="1">
-                    <TextBlock Text="1920 × 1080" Foreground="#1a4060" FontSize="12"/>
+                        Background="#09090f" BorderBrush="#13131c" BorderThickness="1">
+                    <TextBlock Text="1920 × 1080" Foreground="#36364a" FontSize="12"/>
                 </Border>
             </Panel>
         </Border>
 
         <!-- ═══ SCENE SELECTOR BAR ═══ -->
         <Border Grid.Row="1"
-                Background="#002137" CornerRadius="6" Margin="8,0,8,4"
-                Padding="12,0" BorderBrush="#0d3450" BorderThickness="1">
+                Background="#13131c" CornerRadius="6" Margin="8,0,8,4"
+                Padding="12,0" BorderBrush="#2a2a38" BorderThickness="1">
             <Grid ColumnDefinitions="Auto, Auto, *, Auto">
                 <TextBlock Grid.Column="0" Text="SCÈNE ACTIVE :"
-                           Foreground="#6b7a8d" FontSize="11" FontWeight="SemiBold"
+                           Foreground="#5c5c72" FontSize="11" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox Grid.Column="1"
                           ItemsSource="{Binding SceneNames}"
                           SelectedIndex="{Binding SelectedSceneIndex}"
                           MinWidth="180" VerticalAlignment="Center"
-                          Background="#0a2540" BorderBrush="#1a4060"/>
+                          Background="#1c1c28" BorderBrush="#36364a"/>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
                             VerticalAlignment="Center">
-                    <Ellipse Width="7" Height="7" Fill="#22c55e" VerticalAlignment="Center"/>
-                    <TextBlock Text="Prêt" Foreground="#22c55e" FontSize="11"
+                    <Ellipse Width="7" Height="7" Fill="#34d399" VerticalAlignment="Center"/>
+                    <TextBlock Text="Prêt" Foreground="#34d399" FontSize="11"
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
@@ -108,7 +108,7 @@
               Margin="8,0,8,8">
 
             <!-- ── SOURCES ── -->
-            <Border Grid.Column="0" Background="#002137" CornerRadius="8" Padding="14">
+            <Border Grid.Column="0" Background="#13131c" CornerRadius="8" Padding="14">
                 <Grid RowDefinitions="Auto, 10, *">
 
                     <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
@@ -116,28 +116,28 @@
                                    VerticalAlignment="Center" Margin="0"/>
                         <Button Grid.Column="1" Content="+"
                                 Command="{Binding AddSourceCommand}"
-                                Background="#2a0028" Foreground="#c96cc0"
+                                Background="#162040" Foreground="#5b8def"
                                 BorderThickness="0" Padding="10,4" CornerRadius="5"
                                 FontSize="16" FontWeight="Bold" Cursor="Hand"/>
                     </Grid>
 
-                    <Rectangle Grid.Row="1" Height="1" Fill="#0d3450"/>
+                    <Rectangle Grid.Row="1" Height="1" Fill="#2a2a38"/>
 
                     <!-- Dynamic source list -->
                     <ScrollViewer Grid.Row="2">
                         <ItemsControl ItemsSource="{Binding Sources}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="m:SourceItem">
-                                    <Border Background="#0a2540" CornerRadius="5"
+                                    <Border Background="#1c1c28" CornerRadius="5"
                                             Padding="10,8" Margin="0,0,0,4">
                                         <Grid ColumnDefinitions="12, *, Auto">
                                             <Ellipse Grid.Column="0" Width="7" Height="7"
                                                      Fill="{Binding ColorBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                                       Foreground="#d8dfe8" FontSize="13"
+                                                       Foreground="#ccccd8" FontSize="13"
                                                        VerticalAlignment="Center" Margin="8,0"/>
                                             <Button Grid.Column="2" Content="✕"
-                                                    Background="Transparent" Foreground="#4a5a6d"
+                                                    Background="Transparent" Foreground="#3c3c4e"
                                                     BorderThickness="0" FontSize="11" Padding="4,2"
                                                     Cursor="Hand"
                                                     Command="{Binding $parent[UserControl].((vm:StudioViewModel)DataContext).RemoveSourceCommand}"
@@ -154,47 +154,47 @@
             <Rectangle Grid.Column="1" Fill="Transparent"/>
 
             <!-- ── AUDIO MIXER ── -->
-            <Border Grid.Column="2" Background="#002137" CornerRadius="8" Padding="14">
+            <Border Grid.Column="2" Background="#13131c" CornerRadius="8" Padding="14">
                 <Grid RowDefinitions="Auto, 10, *">
 
                     <TextBlock Grid.Row="0" Text="MIXEUR AUDIO" Classes="section-header"/>
-                    <Rectangle Grid.Row="1" Height="1" Fill="#0d3450"/>
+                    <Rectangle Grid.Row="1" Height="1" Fill="#2a2a38"/>
 
                     <StackPanel Grid.Row="2" Spacing="14">
 
                         <!-- Desktop Audio -->
                         <Grid ColumnDefinitions="90, *, 40">
                             <TextBlock Grid.Column="0" Text="Bureau"
-                                       Foreground="#a1b1c8" FontSize="12" VerticalAlignment="Center"/>
+                                       Foreground="#8888a0" FontSize="12" VerticalAlignment="Center"/>
                             <Slider Grid.Column="1" Minimum="0" Maximum="100"
                                     Value="{Binding DesktopVolume}"
                                     VerticalAlignment="Center" Margin="6,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding DesktopVolumeDisplay}"
-                                       Foreground="#6b7a8d" FontSize="11"
+                                       Foreground="#5c5c72" FontSize="11"
                                        VerticalAlignment="Center" HorizontalAlignment="Right"/>
                         </Grid>
 
                         <!-- Microphone -->
                         <Grid ColumnDefinitions="90, *, 40">
                             <TextBlock Grid.Column="0" Text="Microphone"
-                                       Foreground="#a1b1c8" FontSize="12" VerticalAlignment="Center"/>
+                                       Foreground="#8888a0" FontSize="12" VerticalAlignment="Center"/>
                             <Slider Grid.Column="1" Minimum="0" Maximum="100"
                                     Value="{Binding MicVolume}"
                                     VerticalAlignment="Center" Margin="6,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding MicVolumeDisplay}"
-                                       Foreground="#6b7a8d" FontSize="11"
+                                       Foreground="#5c5c72" FontSize="11"
                                        VerticalAlignment="Center" HorizontalAlignment="Right"/>
                         </Grid>
 
                         <!-- Music -->
                         <Grid ColumnDefinitions="90, *, 40">
                             <TextBlock Grid.Column="0" Text="Musique"
-                                       Foreground="#a1b1c8" FontSize="12" VerticalAlignment="Center"/>
+                                       Foreground="#8888a0" FontSize="12" VerticalAlignment="Center"/>
                             <Slider Grid.Column="1" Minimum="0" Maximum="100"
                                     Value="{Binding MusicVolume}"
                                     VerticalAlignment="Center" Margin="6,0"/>
                             <TextBlock Grid.Column="2" Text="{Binding MusicVolumeDisplay}"
-                                       Foreground="#6b7a8d" FontSize="11"
+                                       Foreground="#5c5c72" FontSize="11"
                                        VerticalAlignment="Center" HorizontalAlignment="Right"/>
                         </Grid>
 
@@ -205,7 +205,7 @@
             <Rectangle Grid.Column="3" Fill="Transparent"/>
 
             <!-- ── CONTROLS ── -->
-            <Border Grid.Column="4" Background="#002137" CornerRadius="8" Padding="12">
+            <Border Grid.Column="4" Background="#13131c" CornerRadius="8" Padding="12">
                 <StackPanel Spacing="6" VerticalAlignment="Center">
 
                     <!-- STREAMING -->
@@ -215,28 +215,28 @@
                     <Button Content="GO LIVE"
                             IsVisible="{Binding !IsStreaming}"
                             Classes="ctrl-btn"
-                            Background="#0a1e14" Foreground="#22c55e"
-                            BorderBrush="#0d2a1a">
+                            Background="#0e2420" Foreground="#34d399"
+                            BorderBrush="#142e25">
                         <Button.Flyout>
                             <Flyout Placement="Top">
                                 <StackPanel Width="280" Spacing="12" Margin="4">
                                     <TextBlock Text="DÉMARRER LE STREAM"
-                                               FontSize="13" FontWeight="Bold" Foreground="#f0f0f0"/>
-                                    <Rectangle Height="1" Fill="#1a4060"/>
+                                               FontSize="13" FontWeight="Bold" Foreground="#eaeaf0"/>
+                                    <Rectangle Height="1" Fill="#36364a"/>
 
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène" Foreground="#a1b1c8" FontSize="11"/>
+                                        <TextBlock Text="Scène" Foreground="#8888a0" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   ItemsSource="{Binding SceneNames}"
                                                   SelectedIndex="{Binding StreamSceneIndex}"
-                                                  Background="#0a2540" BorderBrush="#1a4060"/>
+                                                  Background="#1c1c28" BorderBrush="#36364a"/>
                                     </StackPanel>
 
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Plateforme" Foreground="#a1b1c8" FontSize="11"/>
+                                        <TextBlock Text="Plateforme" Foreground="#8888a0" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   SelectedIndex="{Binding StreamPlatformIndex}"
-                                                  Background="#0a2540" BorderBrush="#1a4060">
+                                                  Background="#1c1c28" BorderBrush="#36364a">
                                             <ComboBoxItem Content="Twitch"/>
                                             <ComboBoxItem Content="YouTube Live"/>
                                             <ComboBoxItem Content="Facebook Live"/>
@@ -245,17 +245,17 @@
                                     </StackPanel>
 
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Clé RTMP (optionnel)" Foreground="#6b7a8d" FontSize="11"/>
+                                        <TextBlock Text="Clé RTMP (optionnel)" Foreground="#5c5c72" FontSize="11"/>
                                         <TextBox PasswordChar="•"
                                                  Text="{Binding StreamRtmpKey}"
                                                  Watermark="rtmp://..."
-                                                 Background="#0a2540" BorderBrush="#1a4060" Foreground="#d8dfe8"/>
+                                                 Background="#1c1c28" BorderBrush="#36364a" Foreground="#ccccd8"/>
                                     </StackPanel>
 
                                     <Button Content="DÉMARRER"
                                             Command="{Binding StartStreamingCommand}"
                                             Classes="flyout-start"
-                                            Background="#22c55e" Foreground="#f0f0f0"/>
+                                            Background="#34d399" Foreground="#eaeaf0"/>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>
@@ -266,10 +266,10 @@
                             IsVisible="{Binding IsStreaming}"
                             Command="{Binding StopStreamingCommand}"
                             Classes="ctrl-btn"
-                            Background="#200d14" Foreground="#ef4444"
-                            BorderBrush="#2a1420"/>
+                            Background="#251218" Foreground="#f87171"
+                            BorderBrush="#2f1820"/>
 
-                    <Rectangle Height="1" Fill="#0d3450" Margin="0,2"/>
+                    <Rectangle Height="1" Fill="#2a2a38" Margin="0,2"/>
 
                     <!-- RECORDING -->
                     <TextBlock Text="ENREGISTREMENT" Classes="section-header"/>
@@ -278,28 +278,28 @@
                     <Button Content="ENREGISTRER"
                             IsVisible="{Binding !IsRecording}"
                             Classes="ctrl-btn"
-                            Background="#201800" Foreground="#f59e0b"
-                            BorderBrush="#2a2000">
+                            Background="#251e0e" Foreground="#fbbf24"
+                            BorderBrush="#2f2814">
                         <Button.Flyout>
                             <Flyout Placement="Top">
                                 <StackPanel Width="280" Spacing="12" Margin="4">
                                     <TextBlock Text="DÉMARRER L'ENREGISTREMENT"
-                                               FontSize="13" FontWeight="Bold" Foreground="#f0f0f0"/>
-                                    <Rectangle Height="1" Fill="#1a4060"/>
+                                               FontSize="13" FontWeight="Bold" Foreground="#eaeaf0"/>
+                                    <Rectangle Height="1" Fill="#36364a"/>
 
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène" Foreground="#a1b1c8" FontSize="11"/>
+                                        <TextBlock Text="Scène" Foreground="#8888a0" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   ItemsSource="{Binding SceneNames}"
                                                   SelectedIndex="{Binding RecordSceneIndex}"
-                                                  Background="#0a2540" BorderBrush="#1a4060"/>
+                                                  Background="#1c1c28" BorderBrush="#36364a"/>
                                     </StackPanel>
 
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Format de sortie" Foreground="#a1b1c8" FontSize="11"/>
+                                        <TextBlock Text="Format de sortie" Foreground="#8888a0" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   SelectedIndex="{Binding RecordFormatIndex}"
-                                                  Background="#0a2540" BorderBrush="#1a4060">
+                                                  Background="#1c1c28" BorderBrush="#36364a">
                                             <ComboBoxItem Content="MP4 (H.264 + AAC)"/>
                                             <ComboBoxItem Content="MKV (H.264 + AAC)"/>
                                             <ComboBoxItem Content="WebM (VP9 + Opus)"/>
@@ -309,7 +309,7 @@
                                     <Button Content="DÉMARRER"
                                             Command="{Binding StartRecordingCommand}"
                                             Classes="flyout-start"
-                                            Background="#f59e0b" Foreground="#f0f0f0"/>
+                                            Background="#fbbf24" Foreground="#eaeaf0"/>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>
@@ -320,8 +320,8 @@
                             IsVisible="{Binding IsRecording}"
                             Command="{Binding StopRecordingCommand}"
                             Classes="ctrl-btn"
-                            Background="#200d14" Foreground="#ef4444"
-                            BorderBrush="#2a1420"/>
+                            Background="#251218" Foreground="#f87171"
+                            BorderBrush="#2f1820"/>
 
                 </StackPanel>
             </Border>

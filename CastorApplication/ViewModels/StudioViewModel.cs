@@ -60,11 +60,11 @@ public partial class StudioViewModel : ViewModelBase
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
     public IBrush StreamStatusBrush => IsStreaming
-        ? SolidColorBrush.Parse("#ef4444")
-        : SolidColorBrush.Parse("#4a5a6d");
+        ? SolidColorBrush.Parse("#f87171")
+        : SolidColorBrush.Parse("#3c3c4e");
     public IBrush StreamTimerBrush => IsStreaming
-        ? SolidColorBrush.Parse("#ef4444")
-        : SolidColorBrush.Parse("#4a5a6d");
+        ? SolidColorBrush.Parse("#f87171")
+        : SolidColorBrush.Parse("#3c3c4e");
 
     partial void OnIsStreamingChanged(bool value)
     {
@@ -95,9 +95,9 @@ public partial class StudioViewModel : ViewModelBase
 
     public StudioViewModel()
     {
-        Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#c96cc0"));
-        Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#22c55e"));
-        Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#4a5a6d") { IsActive = false });
+        Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
+        Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#34d399"));
+        Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#3c3c4e") { IsActive = false });
     }
 
     // ── Streaming commands ──
@@ -133,7 +133,7 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private void AddSource()
     {
-        Sources.Add(new SourceItem("Nouvelle source", "Vidéo", "#c96cc0"));
+        Sources.Add(new SourceItem("Nouvelle source", "Vidéo", "#5b8def"));
     }
 
     [RelayCommand]
