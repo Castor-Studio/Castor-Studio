@@ -8,7 +8,7 @@
     <UserControl.Styles>
 
         <Style Selector="Button.cam-select">
-            <Setter Property="Background" Value="{DynamicResource AppNavBadgeBg}"/>
+            <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
             <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="10,5"/>
@@ -36,7 +36,7 @@
         </Style>
 
         <Style Selector="Button.ai-mode:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AppNavBadgeBg}"/>
+            <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
             <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
         </Style>
 
@@ -67,7 +67,7 @@
                     <TextBlock Text="MULTI-CAMÉRAS"
                                FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"
                                VerticalAlignment="Center"/>
-                    <Border Background="{DynamicResource AppNavBadgeBg}" CornerRadius="10" Padding="8,3">
+                    <Border Background="{DynamicResource AppBadgeBg}" CornerRadius="10" Padding="8,3">
                         <TextBlock Text="{Binding Cameras.Count, StringFormat='{}{0} caméras'}"
                                    FontSize="11" Foreground="{DynamicResource AppFg4}"/>
                     </Border>
@@ -99,7 +99,7 @@
                         <!-- Off (active when IsAiOff) -->
                         <Button IsVisible="{Binding IsAiOff}"
                                 Content="DÉSACTIVÉ"
-                                Background="{DynamicResource AppNavBadgeBg}" Foreground="{DynamicResource AppFg3}"
+                                Background="{DynamicResource AppBadgeBg}" Foreground="{DynamicResource AppFg3}"
                                 BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
                                 Padding="12,6" CornerRadius="6"
                                 FontSize="11" FontWeight="SemiBold" Cursor="Hand"/>
@@ -203,7 +203,7 @@
                                             <!-- Select button -->
                                             <Border Grid.Column="1"
                                                     IsVisible="{Binding !IsActive}"
-                                                    Background="{DynamicResource AppNavBadgeBg}" CornerRadius="4" Padding="8,4">
+                                                    Background="{DynamicResource AppBadgeBg}" CornerRadius="4" Padding="8,4">
                                                 <TextBlock Text="SÉLECTIONNER" Foreground="{DynamicResource AppFg3}"
                                                            FontSize="10" FontWeight="SemiBold"/>
                                             </Border>

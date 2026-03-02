@@ -47,6 +47,12 @@ public partial class SettingsViewModel : ViewModelBase
             value == 1 ? ThemeVariant.Light : ThemeVariant.Dark;
     }
 
+    public SettingsViewModel()
+    {
+        // Sync the ComboBox with the currently active theme (no OnChanged triggered via backing field)
+        _selectedThemeIndex = Application.Current?.RequestedThemeVariant == ThemeVariant.Light ? 1 : 0;
+    }
+
     // ── Video settings ──
 
     [ObservableProperty]

@@ -21,6 +21,7 @@
                     <SolidColorBrush x:Key="AppSurface3"    Color="#09090f"/>
                     <SolidColorBrush x:Key="AppVeryDarkBg"  Color="#07070d"/>
                     <SolidColorBrush x:Key="AppNavBadgeBg"  Color="#24242f"/>
+                    <SolidColorBrush x:Key="AppBadgeBg"     Color="#24242f"/>
                     <SolidColorBrush x:Key="AppNavHoverBg"  Color="#1c1c28"/>
                     <SolidColorBrush x:Key="AppAccentBg"    Color="#162040"/>
                     <SolidColorBrush x:Key="AppAccentBg2"   Color="#141c30"/>
@@ -52,6 +53,7 @@
                     <SolidColorBrush x:Key="AppSurface3"    Color="#e2e2ee"/>
                     <SolidColorBrush x:Key="AppVeryDarkBg"  Color="#d4d4e8"/>
                     <SolidColorBrush x:Key="AppNavBadgeBg"  Color="#2a2a3a"/>
+                    <SolidColorBrush x:Key="AppBadgeBg"     Color="#dcdcee"/>
                     <SolidColorBrush x:Key="AppNavHoverBg"  Color="#e0e0f0"/>
                     <SolidColorBrush x:Key="AppAccentBg"    Color="#dce8ff"/>
                     <SolidColorBrush x:Key="AppAccentBg2"   Color="#e2ebff"/>
