@@ -11,7 +11,7 @@ public partial class SourceItem : ObservableObject
     private string _type = "Vidéo"; // "Vidéo" or "Audio"
 
     [ObservableProperty]
-    private string _color = "#3498db";
+    private string _color = "#c96cc0";
 
     [ObservableProperty]
     private bool _isActive = true;

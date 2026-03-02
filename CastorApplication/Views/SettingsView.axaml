@@ -12,18 +12,18 @@
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="Padding" Value="18,10"/>
-            <Setter Property="Foreground" Value="#9ca3af"/>
+            <Setter Property="Foreground" Value="#a1b1c8"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
         <Style Selector="Button.settings-nav:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1e1e1e"/>
-            <Setter Property="Foreground" Value="#d1d5db"/>
+            <Setter Property="Background" Value="#0a2540"/>
+            <Setter Property="Foreground" Value="#d8dfe8"/>
         </Style>
 
         <Style Selector="TextBlock.setting-label">
-            <Setter Property="Foreground" Value="#9ca3af"/>
+            <Setter Property="Foreground" Value="#a1b1c8"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -31,13 +31,13 @@
         <Style Selector="TextBlock.section-title">
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="#6b7280"/>
+            <Setter Property="Foreground" Value="#6b7a8d"/>
             <Setter Property="Margin" Value="0,0,0,12"/>
         </Style>
 
         <Style Selector="Button.platform-connect">
-            <Setter Property="Background" Value="#1e3a5f"/>
-            <Setter Property="Foreground" Value="#3498db"/>
+            <Setter Property="Background" Value="#2a0028"/>
+            <Setter Property="Foreground" Value="#c96cc0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="14,7"/>
             <Setter Property="CornerRadius" Value="6"/>
@@ -47,33 +47,33 @@
         </Style>
 
         <Style Selector="Button.platform-connect:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#254a70"/>
+            <Setter Property="Background" Value="#3a0038"/>
         </Style>
 
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="200, 1, *" Background="#121212">
+    <Grid ColumnDefinitions="200, 1, *" Background="#011028">
 
         <!-- ═══ SIDEBAR ═══ -->
-        <Border Grid.Column="0" Background="#1a1a1a">
+        <Border Grid.Column="0" Background="#002137">
             <Grid RowDefinitions="56, 1, *">
 
                 <TextBlock Grid.Row="0"
                            Text="PARAMÈTRES"
                            FontSize="11"
                            FontWeight="Bold"
-                           Foreground="#6b7280"
+                           Foreground="#6b7a8d"
                            VerticalAlignment="Center"
                            Margin="18,0"/>
 
-                <Rectangle Grid.Row="1" Fill="#2a2a2a"/>
+                <Rectangle Grid.Row="1" Fill="#0d3450"/>
 
                 <StackPanel Grid.Row="2" Margin="0,8">
 
                     <!-- Général -->
                     <Border IsVisible="{Binding IsGeneralActive}"
-                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Général" Foreground="White" FontSize="13"
+                            Background="#180d2a" BorderBrush="#c96cc0" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Général" Foreground="#f0f0f0" FontSize="13"
                                    FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
                     <Button IsVisible="{Binding !IsGeneralActive}"
@@ -82,8 +82,8 @@
 
                     <!-- Vidéo -->
                     <Border IsVisible="{Binding IsVideoActive}"
-                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Vidéo" Foreground="White" FontSize="13"
+                            Background="#180d2a" BorderBrush="#c96cc0" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Vidéo" Foreground="#f0f0f0" FontSize="13"
                                    FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
                     <Button IsVisible="{Binding !IsVideoActive}"
@@ -92,8 +92,8 @@
 
                     <!-- Audio -->
                     <Border IsVisible="{Binding IsAudioActive}"
-                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Audio" Foreground="White" FontSize="13"
+                            Background="#180d2a" BorderBrush="#c96cc0" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Audio" Foreground="#f0f0f0" FontSize="13"
                                    FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
                     <Button IsVisible="{Binding !IsAudioActive}"
@@ -102,8 +102,8 @@
 
                     <!-- Streaming -->
                     <Border IsVisible="{Binding IsStreamingActive}"
-                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Streaming" Foreground="White" FontSize="13"
+                            Background="#180d2a" BorderBrush="#c96cc0" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Streaming" Foreground="#f0f0f0" FontSize="13"
                                    FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
                     <Button IsVisible="{Binding !IsStreamingActive}"
@@ -112,8 +112,8 @@
 
                     <!-- Sortie -->
                     <Border IsVisible="{Binding IsOutputActive}"
-                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Sortie" Foreground="White" FontSize="13"
+                            Background="#180d2a" BorderBrush="#c96cc0" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Sortie" Foreground="#f0f0f0" FontSize="13"
                                    FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
                     <Button IsVisible="{Binding !IsOutputActive}"
@@ -122,8 +122,8 @@
 
                     <!-- Comptes -->
                     <Border IsVisible="{Binding IsAccountsActive}"
-                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Comptes" Foreground="White" FontSize="13"
+                            Background="#180d2a" BorderBrush="#c96cc0" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Comptes" Foreground="#f0f0f0" FontSize="13"
                                    FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
                     <Button IsVisible="{Binding !IsAccountsActive}"
@@ -132,8 +132,8 @@
 
                     <!-- Plugins -->
                     <Border IsVisible="{Binding IsPluginsActive}"
-                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Plugins" Foreground="White" FontSize="13"
+                            Background="#180d2a" BorderBrush="#c96cc0" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Plugins" Foreground="#f0f0f0" FontSize="13"
                                    FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
                     <Button IsVisible="{Binding !IsPluginsActive}"
@@ -144,7 +144,7 @@
             </Grid>
         </Border>
 
-        <Rectangle Grid.Column="1" Fill="#2a2a2a"/>
+        <Rectangle Grid.Column="1" Fill="#0d3450"/>
 
         <!-- ═══ SETTINGS CONTENT ═══ -->
         <ScrollViewer Grid.Column="2">
@@ -220,7 +220,7 @@
                                     Value="{Binding VideoBitrate}"
                                     Width="220" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding VideoBitrateDisplay}"
-                                       Foreground="#6b7280" FontSize="12"
+                                       Foreground="#6b7a8d" FontSize="12"
                                        VerticalAlignment="Center" Width="50"/>
                         </StackPanel>
                     </Grid>
@@ -282,7 +282,7 @@
                                  Text="{Binding StreamKey}"
                                  Watermark="Entrez votre clé de stream..."
                                  MaxWidth="320" HorizontalAlignment="Left"
-                                 Background="#1e1e1e" BorderBrush="#333333" Foreground="#d1d5db"/>
+                                 Background="#0a2540" BorderBrush="#1a4060" Foreground="#d8dfe8"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
@@ -291,7 +291,7 @@
                                  Text="{Binding RtmpUrl}"
                                  Watermark="rtmp://live.twitch.tv/app"
                                  MaxWidth="320" HorizontalAlignment="Left"
-                                 Background="#1e1e1e" BorderBrush="#333333" Foreground="#d1d5db"/>
+                                 Background="#0a2540" BorderBrush="#1a4060" Foreground="#d8dfe8"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
@@ -325,7 +325,7 @@
                                  Text="{Binding OutputPath}"
                                  Watermark="C:\Users\...\Videos"
                                  MaxWidth="320" HorizontalAlignment="Left"
-                                 Background="#1e1e1e" BorderBrush="#333333" Foreground="#d1d5db"/>
+                                 Background="#0a2540" BorderBrush="#1a4060" Foreground="#d8dfe8"/>
                     </Grid>
                 </StackPanel>
 
@@ -334,20 +334,20 @@
                     <TextBlock Text="COMPTES ET PLATEFORMES" Classes="section-title"/>
 
                     <TextBlock Text="Connectez vos comptes de streaming pour diffuser directement depuis Castor."
-                               Foreground="#6b7280" FontSize="12" Margin="0,0,0,4"/>
+                               Foreground="#6b7a8d" FontSize="12" Margin="0,0,0,4"/>
 
                     <!-- Twitch -->
-                    <Border Background="#1a1a1a" BorderBrush="#2a2a2a" BorderThickness="1"
+                    <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
                                 <Border Background="#9146FF" CornerRadius="6" Width="36" Height="36">
-                                    <TextBlock Text="T" Foreground="White" FontWeight="Bold" FontSize="16"
+                                    <TextBlock Text="T" Foreground="#f0f0f0" FontWeight="Bold" FontSize="16"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Twitch" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding TwitchStatus}" Foreground="#6b7280" FontSize="11"/>
+                                    <TextBlock Text="Twitch" Foreground="#f0f0f0" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding TwitchStatus}" Foreground="#6b7a8d" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
                             <Button Grid.Column="2" Content="{Binding TwitchButtonText}"
@@ -357,17 +357,17 @@
                     </Border>
 
                     <!-- YouTube -->
-                    <Border Background="#1a1a1a" BorderBrush="#2a2a2a" BorderThickness="1"
+                    <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
                                 <Border Background="#FF0000" CornerRadius="6" Width="36" Height="36">
-                                    <TextBlock Text="Y" Foreground="White" FontWeight="Bold" FontSize="16"
+                                    <TextBlock Text="Y" Foreground="#f0f0f0" FontWeight="Bold" FontSize="16"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="YouTube Live" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding YoutubeStatus}" Foreground="#6b7280" FontSize="11"/>
+                                    <TextBlock Text="YouTube Live" Foreground="#f0f0f0" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding YoutubeStatus}" Foreground="#6b7a8d" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
                             <Button Grid.Column="2" Content="{Binding YoutubeButtonText}"
@@ -377,17 +377,17 @@
                     </Border>
 
                     <!-- Facebook -->
-                    <Border Background="#1a1a1a" BorderBrush="#2a2a2a" BorderThickness="1"
+                    <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
                                 <Border Background="#1877F2" CornerRadius="6" Width="36" Height="36">
-                                    <TextBlock Text="F" Foreground="White" FontWeight="Bold" FontSize="16"
+                                    <TextBlock Text="F" Foreground="#f0f0f0" FontWeight="Bold" FontSize="16"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Facebook Live" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding FacebookStatus}" Foreground="#6b7280" FontSize="11"/>
+                                    <TextBlock Text="Facebook Live" Foreground="#f0f0f0" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding FacebookStatus}" Foreground="#6b7a8d" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
                             <Button Grid.Column="2" Content="{Binding FacebookButtonText}"
@@ -402,10 +402,10 @@
                     <TextBlock Text="PLUGINS" Classes="section-title"/>
 
                     <TextBlock Text="Aucun plugin installé. Les plugins permettent d'ajouter des fonctionnalités avancées à Castor."
-                               Foreground="#6b7280" FontSize="12"/>
+                               Foreground="#6b7a8d" FontSize="12"/>
 
                     <Button Content="PARCOURIR LES PLUGINS"
-                            Background="#1e3a5f" Foreground="#3498db"
+                            Background="#2a0028" Foreground="#c96cc0"
                             BorderThickness="0" Padding="14,8" CornerRadius="6"
                             FontSize="12" FontWeight="SemiBold"
                             HorizontalAlignment="Left" Cursor="Hand"/>

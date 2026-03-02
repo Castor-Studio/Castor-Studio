@@ -19,12 +19,12 @@ public partial class ScenesViewModel : ViewModelBase
     {
         // Sample data
         var matchLive = new SceneItem("Match Live", isActive: true, isLive: true);
-        matchLive.Sources.Add(new SourceItem("Caméra terrain", "Vidéo", "#3498db"));
+        matchLive.Sources.Add(new SourceItem("Caméra terrain", "Vidéo", "#c96cc0"));
         matchLive.Sources.Add(new SourceItem("Tableau de scores", "Vidéo", "#22c55e"));
         matchLive.Sources.Add(new SourceItem("Audio système", "Audio", "#f59e0b"));
 
         var intro = new SceneItem("Introduction");
-        intro.Sources.Add(new SourceItem("Logo club", "Vidéo", "#3498db"));
+        intro.Sources.Add(new SourceItem("Logo club", "Vidéo", "#c96cc0"));
         intro.Sources.Add(new SourceItem("Musique intro", "Audio", "#f59e0b"));
 
         var miTemps = new SceneItem("Mi-Temps");
@@ -81,13 +81,13 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void AddVideoSource()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Nouvelle source vidéo", "Vidéo", "#3498db"));
+        SelectedScene?.Sources.Add(new SourceItem("Nouvelle source vidéo", "Vidéo", "#c96cc0"));
     }
 
     [RelayCommand]
     private void AddScreenCapture()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#3498db"));
+        SelectedScene?.Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#c96cc0"));
     }
 
     [RelayCommand]
@@ -99,7 +99,7 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void AddWindowCapture()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Capture de fenêtre", "Vidéo", "#9b59b6"));
+        SelectedScene?.Sources.Add(new SourceItem("Capture de fenêtre", "Vidéo", "#a1b1c8"));
     }
 
     [RelayCommand]
@@ -111,7 +111,7 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void AddMicrophone()
     {
-        SelectedScene?.Sources.Add(new SourceItem("Microphone", "Audio", "#e74c3c"));
+        SelectedScene?.Sources.Add(new SourceItem("Microphone", "Audio", "#ef4444"));
     }
 
     [RelayCommand]

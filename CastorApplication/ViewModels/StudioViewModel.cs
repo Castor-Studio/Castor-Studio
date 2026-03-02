@@ -58,8 +58,8 @@ public partial class StudioViewModel : ViewModelBase
     private string _streamRtmpKey = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
-    public string StreamStatusColor => IsStreaming ? "#ef4444" : "#555555";
-    public string StreamTimerColor => IsStreaming ? "#ef4444" : "#333333";
+    public string StreamStatusColor => IsStreaming ? "#ef4444" : "#4a5a6d";
+    public string StreamTimerColor => IsStreaming ? "#ef4444" : "#4a5a6d";
 
     partial void OnIsStreamingChanged(bool value)
     {
@@ -90,9 +90,9 @@ public partial class StudioViewModel : ViewModelBase
 
     public StudioViewModel()
     {
-        Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#3498db"));
+        Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#c96cc0"));
         Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#22c55e"));
-        Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#333333") { IsActive = false });
+        Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#4a5a6d") { IsActive = false });
     }
 
     // ── Streaming commands ──
@@ -128,7 +128,7 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private void AddSource()
     {
-        Sources.Add(new SourceItem("Nouvelle source", "Vidéo", "#3498db"));
+        Sources.Add(new SourceItem("Nouvelle source", "Vidéo", "#c96cc0"));
     }
 
     [RelayCommand]
