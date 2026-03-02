@@ -1,14 +1,240 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="CastorApplication.Views.MulticamView">
-    
-    <Grid>
-        <TextBlock Text="Welcome to Multicam !" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"/>
+
+    <UserControl.Styles>
+
+        <Style Selector="Button.cam-select">
+            <Setter Property="Background" Value="#252525"/>
+            <Setter Property="Foreground" Value="#9ca3af"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.cam-select:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="56, *" Background="#121212">
+
+        <!-- ═══ HEADER ═══ -->
+        <Border Grid.Row="0"
+                Background="#1a1a1a"
+                BorderBrush="#2a2a2a"
+                BorderThickness="0,0,0,1"
+                Padding="16,0">
+            <Grid ColumnDefinitions="*, Auto">
+
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Spacing="10">
+                    <TextBlock Text="MULTI-CAMÉRAS"
+                               FontSize="14"
+                               FontWeight="Bold"
+                               Foreground="White"
+                               VerticalAlignment="Center"/>
+                    <Border Background="#252525"
+                            CornerRadius="10"
+                            Padding="8,3">
+                        <TextBlock Text="3 caméras"
+                                   FontSize="11"
+                                   Foreground="#6b7280"/>
+                    </Border>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="+ AJOUTER UNE CAMÉRA"
+                        Background="#1e3a5f"
+                        Foreground="#3498db"
+                        BorderThickness="0"
+                        Padding="14,8"
+                        CornerRadius="6"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        VerticalAlignment="Center"
+                        Cursor="Hand"/>
+
+            </Grid>
+        </Border>
+
+        <!-- ═══ CAMERA GRID ═══ -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <WrapPanel Margin="16" HorizontalAlignment="Left">
+
+                <!-- ── CAM 1 (Active / Live) ── -->
+                <Border Width="290" Height="195"
+                        Background="#1a1a1a"
+                        BorderBrush="#3498db"
+                        BorderThickness="2"
+                        CornerRadius="8"
+                        Margin="0,0,12,12">
+                    <Grid RowDefinitions="*, Auto">
+
+                        <!-- Preview area -->
+                        <Border Grid.Row="0"
+                                Background="#0a0a14"
+                                CornerRadius="6,6,0,0">
+                            <Panel>
+                                <TextBlock Text="CAM 1"
+                                           Foreground="#1a1a2a"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="28"
+                                           FontWeight="Bold"/>
+                                <!-- Live badge -->
+                                <Border VerticalAlignment="Top"
+                                        HorizontalAlignment="Left"
+                                        Margin="8"
+                                        Padding="7,3"
+                                        CornerRadius="4"
+                                        Background="#3498db">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Ellipse Width="6" Height="6" Fill="White" VerticalAlignment="Center"/>
+                                        <TextBlock Text="LIVE"
+                                                   FontSize="10"
+                                                   FontWeight="Bold"
+                                                   Foreground="White"/>
+                                    </StackPanel>
+                                </Border>
+                            </Panel>
+                        </Border>
+
+                        <!-- Info bar -->
+                        <Grid Grid.Row="1"
+                              ColumnDefinitions="*, Auto"
+                              Margin="10,7">
+                            <TextBlock Grid.Column="0"
+                                       Text="Caméra Principale"
+                                       Foreground="White"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <Border Grid.Column="1"
+                                    Background="#1e3a5f"
+                                    CornerRadius="4"
+                                    Padding="8,4">
+                                <TextBlock Text="ACTIVE"
+                                           Foreground="#3498db"
+                                           FontSize="10"
+                                           FontWeight="Bold"/>
+                            </Border>
+                        </Grid>
+
+                    </Grid>
+                </Border>
+
+                <!-- ── CAM 2 ── -->
+                <Border Width="290" Height="195"
+                        Background="#1a1a1a"
+                        BorderBrush="#2a2a2a"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Margin="0,0,12,12">
+                    <Grid RowDefinitions="*, Auto">
+
+                        <Border Grid.Row="0"
+                                Background="#0d0d0d"
+                                CornerRadius="6,6,0,0">
+                            <TextBlock Text="CAM 2"
+                                       Foreground="#1a1a1a"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="28"
+                                       FontWeight="Bold"/>
+                        </Border>
+
+                        <Grid Grid.Row="1"
+                              ColumnDefinitions="*, Auto"
+                              Margin="10,7">
+                            <TextBlock Grid.Column="0"
+                                       Text="Caméra Terrain"
+                                       Foreground="#9ca3af"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="SÉLECTIONNER"
+                                    Classes="cam-select"/>
+                        </Grid>
+
+                    </Grid>
+                </Border>
+
+                <!-- ── CAM 3 ── -->
+                <Border Width="290" Height="195"
+                        Background="#1a1a1a"
+                        BorderBrush="#2a2a2a"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Margin="0,0,12,12">
+                    <Grid RowDefinitions="*, Auto">
+
+                        <Border Grid.Row="0"
+                                Background="#0d0d0d"
+                                CornerRadius="6,6,0,0">
+                            <TextBlock Text="CAM 3"
+                                       Foreground="#1a1a1a"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="28"
+                                       FontWeight="Bold"/>
+                        </Border>
+
+                        <Grid Grid.Row="1"
+                              ColumnDefinitions="*, Auto"
+                              Margin="10,7">
+                            <TextBlock Grid.Column="0"
+                                       Text="Vue Tribunes"
+                                       Foreground="#9ca3af"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="SÉLECTIONNER"
+                                    Classes="cam-select"/>
+                        </Grid>
+
+                    </Grid>
+                </Border>
+
+                <!-- ── Add Camera Card ── -->
+                <Border Width="290" Height="195"
+                        Background="#141414"
+                        BorderBrush="#252525"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Margin="0,0,12,12"
+                        Cursor="Hand">
+                    <StackPanel HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="8">
+                        <Border Background="#1e1e1e"
+                                CornerRadius="30"
+                                Width="40" Height="40"
+                                HorizontalAlignment="Center">
+                            <TextBlock Text="+"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="#333333"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Ajouter une caméra"
+                                   Foreground="#4a4a4a"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+            </WrapPanel>
+        </ScrollViewer>
+
     </Grid>
-    
+
 </UserControl>

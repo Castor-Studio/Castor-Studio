@@ -6,7 +6,8 @@
         Title="Castor Studio"
         Background="#121212"
         Foreground="White"
-        Width="1920" Height="1000"
+        MinWidth="1024" MinHeight="600"
+        Width="1280" Height="800"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         Icon="/Assets/castor.png">
@@ -19,45 +20,139 @@
         <Style Selector="Button.nav">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="15,0"/>
-            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="20,0"/>
+            <Setter Property="Height" Value="46"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#9ca3af"/>
+            <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Transitions">
                 <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
                 </Transitions>
             </Setter>
         </Style>
-        
+
         <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#2d2d2d"/>
-            <Setter Property="Foreground" Value="#3498db"/>
+            <Setter Property="Background" Value="#1e1e1e"/>
+            <Setter Property="Foreground" Value="#ffffff"/>
         </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="40, *">
-        <Border Grid.Row="0" Background="#1e1e1e" BorderBrush="#333333" BorderThickness="0,0,0,1">
-            <Grid ColumnDefinitions="Auto, *, Auto">
-                
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0">
-                   <Image Margin="60,0,0,0" Height="0" Width="0" 
-                          Source="avares://CastorApplication/Assets/castor.png"/>
+    <Grid RowDefinitions="48,*">
+
+        <!-- ═══ NAVBAR ═══ -->
+        <Border Grid.Row="0" Background="#1a1a1a" BorderBrush="#2a2a2a" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="220,*,220">
+
+                <!-- Logo -->
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            Margin="16,0">
+                    <Image Height="26" Width="26"
+                           Source="avares://CastorApplication/Assets/castor.png"/>
+                    <TextBlock Text="CASTOR"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="White"
+                               VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button Classes="nav" Content="STUDIO" Command="{Binding ShowStudioCommand}"/>
-                    <Button Classes="nav" Content="MULTICAM" Command="{Binding ShowMulticamCommand}"/>
-                    <Button Classes="nav" Content="SCENES" Command="{Binding ShowScenesCommand}"/>
-                    <Button Classes="nav" Content="PARAMETRES" Command="{Binding ShowSettingsCommand}"/>
+                <!-- Navigation tabs -->
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center">
+
+                    <!-- STUDIO -->
+                    <StackPanel Orientation="Vertical">
+                        <Button Classes="nav" Content="STUDIO"
+                                Command="{Binding ShowStudioCommand}"/>
+                        <Border Height="2" CornerRadius="1"
+                                Background="#3498db"
+                                IsVisible="{Binding IsStudioActive}"
+                                Margin="8,0"/>
+                    </StackPanel>
+
+                    <!-- MULTICAM -->
+                    <StackPanel Orientation="Vertical">
+                        <Button Classes="nav" Content="MULTICAM"
+                                Command="{Binding ShowMulticamCommand}"/>
+                        <Border Height="2" CornerRadius="1"
+                                Background="#3498db"
+                                IsVisible="{Binding IsMulticamActive}"
+                                Margin="8,0"/>
+                    </StackPanel>
+
+                    <!-- SCENES -->
+                    <StackPanel Orientation="Vertical">
+                        <Button Classes="nav" Content="SCÈNES"
+                                Command="{Binding ShowScenesCommand}"/>
+                        <Border Height="2" CornerRadius="1"
+                                Background="#3498db"
+                                IsVisible="{Binding IsScenesActive}"
+                                Margin="8,0"/>
+                    </StackPanel>
+
+                    <!-- PARAMETRES -->
+                    <StackPanel Orientation="Vertical">
+                        <Button Classes="nav" Content="PARAMÈTRES"
+                                Command="{Binding ShowSettingsCommand}"/>
+                        <Border Height="2" CornerRadius="1"
+                                Background="#3498db"
+                                IsVisible="{Binding IsSettingsActive}"
+                                Margin="8,0"/>
+                    </StackPanel>
+
                 </StackPanel>
-                
-                <TextBlock Grid.Column="2" Text="ACCOUNT" VerticalAlignment="Center" Margin="20,0" Foreground="#666666"/>
+
+                <!-- Status + Account -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            Margin="16,0">
+
+                    <!-- Status badge -->
+                    <Border Background="#0d0d0d"
+                            BorderBrush="#2a2a2a"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="10,5">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="7" Height="7" Fill="#555555" VerticalAlignment="Center"/>
+                            <TextBlock Text="OFFLINE"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="#555555"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Account avatar -->
+                    <Border Background="#252525"
+                            BorderBrush="#333333"
+                            BorderThickness="1"
+                            CornerRadius="16"
+                            Width="32" Height="32">
+                        <TextBlock Text="U"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="13"
+                                   FontWeight="Bold"
+                                   Foreground="#3498db"/>
+                    </Border>
+
+                </StackPanel>
+
             </Grid>
         </Border>
 
-        <ContentControl Grid.Row="1" Content="{Binding CurrentPage}" Margin="10">
-        </ContentControl>
+        <!-- Page content -->
+        <ContentControl Grid.Row="1" Content="{Binding CurrentPage}"/>
+
     </Grid>
 </Window>

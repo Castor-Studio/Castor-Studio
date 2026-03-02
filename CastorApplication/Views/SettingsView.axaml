@@ -1,14 +1,258 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="CastorApplication.Views.SettingsView">
-    
-    <Grid>
-        <TextBlock Text="Welcome to Settings !" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"/>
+
+    <UserControl.Styles>
+
+        <Style Selector="Button.settings-nav">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="Foreground" Value="#9ca3af"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.settings-nav:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1e1e1e"/>
+            <Setter Property="Foreground" Value="#d1d5db"/>
+        </Style>
+
+        <Style Selector="TextBlock.setting-label">
+            <Setter Property="Foreground" Value="#9ca3af"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style Selector="TextBlock.section-title">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#6b7280"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="200, 1, *" Background="#121212">
+
+        <!-- ═══ SIDEBAR ═══ -->
+        <Border Grid.Column="0" Background="#1a1a1a">
+            <Grid RowDefinitions="56, 1, *">
+
+                <!-- Header -->
+                <TextBlock Grid.Row="0"
+                           Text="PARAMÈTRES"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           Foreground="#6b7280"
+                           VerticalAlignment="Center"
+                           Margin="18,0"/>
+
+                <Rectangle Grid.Row="1" Fill="#2a2a2a"/>
+
+                <!-- Category list -->
+                <StackPanel Grid.Row="2" Margin="0,8">
+
+                    <!-- Active: Général -->
+                    <Border Background="#1e2a3a"
+                            BorderBrush="#3498db"
+                            BorderThickness="3,0,0,0">
+                        <TextBlock Text="Général"
+                                   Foreground="White"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Margin="15,10"/>
+                    </Border>
+
+                    <Button Classes="settings-nav" Content="Vidéo"/>
+                    <Button Classes="settings-nav" Content="Audio"/>
+                    <Button Classes="settings-nav" Content="Streaming"/>
+                    <Button Classes="settings-nav" Content="Sortie"/>
+                    <Button Classes="settings-nav" Content="Plugins"/>
+
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+        <!-- Vertical divider -->
+        <Rectangle Grid.Column="1" Fill="#2a2a2a"/>
+
+        <!-- ═══ SETTINGS CONTENT ═══ -->
+        <ScrollViewer Grid.Column="2">
+            <StackPanel Margin="28,20" Spacing="28">
+
+                <!-- ── GÉNÉRAL ── -->
+                <StackPanel Spacing="14">
+                    <TextBlock Text="GÉNÉRAL" Classes="section-title"/>
+
+                    <!-- Language -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Langue" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="Français" IsSelected="True"/>
+                            <ComboBoxItem Content="English"/>
+                            <ComboBoxItem Content="Español"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Auto-start -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Démarrage auto" Classes="setting-label"/>
+                        <CheckBox Grid.Column="1" IsChecked="False" Foreground="#9ca3af"/>
+                    </Grid>
+
+                    <!-- Theme -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Thème" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="Sombre" IsSelected="True"/>
+                            <ComboBoxItem Content="Clair"/>
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Divider -->
+                <Rectangle Height="1" Fill="#2a2a2a"/>
+
+                <!-- ── VIDÉO ── -->
+                <StackPanel Spacing="14">
+                    <TextBlock Text="VIDÉO" Classes="section-title"/>
+
+                    <!-- Resolution -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Résolution de base" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="3840 × 2160 (4K)" />
+                            <ComboBoxItem Content="1920 × 1080 (Full HD)" IsSelected="True"/>
+                            <ComboBoxItem Content="1280 × 720 (HD)"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Output resolution -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Résolution de sortie" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="1920 × 1080 (Full HD)" IsSelected="True"/>
+                            <ComboBoxItem Content="1280 × 720 (HD)"/>
+                            <ComboBoxItem Content="854 × 480 (SD)"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- FPS -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Images par seconde" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="60 fps" IsSelected="True"/>
+                            <ComboBoxItem Content="30 fps"/>
+                            <ComboBoxItem Content="25 fps"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Video bitrate -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Débit vidéo (kbps)" Classes="setting-label"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" MaxWidth="320">
+                            <Slider Minimum="1000" Maximum="20000" Value="6000"
+                                    Width="220" VerticalAlignment="Center"/>
+                            <TextBlock Text="6000"
+                                       Foreground="#6b7280"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                </StackPanel>
+
+                <!-- Divider -->
+                <Rectangle Height="1" Fill="#2a2a2a"/>
+
+                <!-- ── AUDIO ── -->
+                <StackPanel Spacing="14">
+                    <TextBlock Text="AUDIO" Classes="section-title"/>
+
+                    <!-- Sample rate -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Fréquence d'échantillonnage" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="48 kHz" IsSelected="True"/>
+                            <ComboBoxItem Content="44.1 kHz"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Channels -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Canaux" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="Stéréo" IsSelected="True"/>
+                            <ComboBoxItem Content="Mono"/>
+                            <ComboBoxItem Content="5.1 Surround"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Audio bitrate -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Débit audio (kbps)" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="320 kbps"/>
+                            <ComboBoxItem Content="192 kbps" IsSelected="True"/>
+                            <ComboBoxItem Content="128 kbps"/>
+                        </ComboBox>
+                    </Grid>
+
+                </StackPanel>
+
+                <!-- Divider -->
+                <Rectangle Height="1" Fill="#2a2a2a"/>
+
+                <!-- ── STREAMING ── -->
+                <StackPanel Spacing="14">
+                    <TextBlock Text="STREAMING" Classes="section-title"/>
+
+                    <!-- Platform -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Plateforme" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="Twitch" IsSelected="True"/>
+                            <ComboBoxItem Content="YouTube Live"/>
+                            <ComboBoxItem Content="Facebook Live"/>
+                            <ComboBoxItem Content="Personnalisé (RTMP)"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <!-- Stream key -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Clé de stream" Classes="setting-label"/>
+                        <TextBox Grid.Column="1"
+                                 PasswordChar="•"
+                                 Watermark="Entrez votre clé de stream..."
+                                 MaxWidth="320"
+                                 HorizontalAlignment="Left"
+                                 Background="#1e1e1e"
+                                 BorderBrush="#333333"
+                                 Foreground="#d1d5db"/>
+                    </Grid>
+
+                    <!-- Server URL -->
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Serveur" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                            <ComboBoxItem Content="Auto (recommandé)" IsSelected="True"/>
+                            <ComboBoxItem Content="Europe - Paris"/>
+                            <ComboBoxItem Content="Europe - Amsterdam"/>
+                        </ComboBox>
+                    </Grid>
+
+                </StackPanel>
+
+                <!-- Bottom padding -->
+                <Rectangle Height="20" Fill="Transparent"/>
+
+            </StackPanel>
+        </ScrollViewer>
+
     </Grid>
-    
+
 </UserControl>
