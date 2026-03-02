@@ -1,24 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="CastorApplication.Views.ScenesView">
+             xmlns:vm="using:CastorApplication.ViewModels"
+             xmlns:m="using:CastorApplication.Models"
+             x:Class="CastorApplication.Views.ScenesView"
+             x:DataType="vm:ScenesViewModel">
 
     <UserControl.Styles>
-
-        <Style Selector="Button.scene-item">
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="Padding" Value="14,10"/>
-            <Setter Property="Foreground" Value="#9ca3af"/>
-            <Setter Property="FontSize" Value="13"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <Style Selector="Button.scene-item:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1e1e1e"/>
-            <Setter Property="Foreground" Value="#d1d5db"/>
-        </Style>
 
         <Style Selector="Button.source-type-btn">
             <Setter Property="Background" Value="#1e1e1e"/>
@@ -38,66 +25,57 @@
             <Setter Property="Foreground" Value="White"/>
         </Style>
 
+        <Style Selector="Button.scene-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.scene-btn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1e1e1e"/>
+        </Style>
+
     </UserControl.Styles>
 
     <Grid ColumnDefinitions="240, 1, *" Background="#121212">
 
-        <!-- ═══ SCENES LIST (F3 - Scenes Management) ═══ -->
+        <!-- ═══ SCENES LIST ═══ -->
         <Border Grid.Column="0" Background="#1a1a1a">
             <Grid RowDefinitions="56, 1, *">
 
-                <!-- Header -->
-                <Grid Grid.Row="0"
-                      ColumnDefinitions="*, Auto"
-                      Margin="14,0">
-                    <TextBlock Grid.Column="0"
-                               Text="SCÈNES"
-                               FontSize="11"
-                               FontWeight="Bold"
-                               Foreground="#6b7280"
+                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="14,0">
+                    <TextBlock Grid.Column="0" Text="SCÈNES"
+                               FontSize="11" FontWeight="Bold" Foreground="#6b7280"
                                VerticalAlignment="Center"/>
 
-                    <!-- Create Scene button with Flyout (Scenario 3, Steps 1-3) -->
+                    <!-- Create Scene Flyout -->
                     <Button Grid.Column="1"
                             Content="+"
-                            Background="#1e3a5f"
-                            Foreground="#3498db"
-                            BorderThickness="0"
-                            Padding="10,4"
-                            CornerRadius="5"
-                            FontSize="16"
-                            FontWeight="Bold"
-                            VerticalAlignment="Center"
-                            Cursor="Hand">
+                            Background="#1e3a5f" Foreground="#3498db"
+                            BorderThickness="0" Padding="10,4" CornerRadius="5"
+                            FontSize="16" FontWeight="Bold"
+                            VerticalAlignment="Center" Cursor="Hand">
                         <Button.Flyout>
                             <Flyout Placement="Right">
                                 <StackPanel Width="260" Spacing="12" Margin="4">
                                     <TextBlock Text="NOUVELLE SCÈNE"
-                                               FontSize="13"
-                                               FontWeight="Bold"
-                                               Foreground="White"/>
+                                               FontSize="13" FontWeight="Bold" Foreground="White"/>
                                     <Rectangle Height="1" Fill="#333333"/>
-
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Nom de la scène"
-                                                   Foreground="#9ca3af" FontSize="11"/>
-                                        <TextBox Watermark="Ex: Match Live"
-                                                 Background="#1e1e1e"
-                                                 BorderBrush="#333333"
-                                                 Foreground="#d1d5db"/>
+                                        <TextBlock Text="Nom de la scène" Foreground="#9ca3af" FontSize="11"/>
+                                        <TextBox Text="{Binding NewSceneName}"
+                                                 Watermark="Ex: Match Live"
+                                                 Background="#1e1e1e" BorderBrush="#333333" Foreground="#d1d5db"/>
                                     </StackPanel>
-
                                     <Button Content="CRÉER LA SCÈNE"
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Center"
-                                            Height="36"
-                                            Background="#3498db"
-                                            Foreground="White"
-                                            BorderThickness="0"
-                                            CornerRadius="6"
-                                            FontSize="12"
-                                            FontWeight="Bold"
-                                            Cursor="Hand"/>
+                                            Command="{Binding CreateSceneCommand}"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Height="36" Background="#3498db" Foreground="White"
+                                            BorderThickness="0" CornerRadius="6"
+                                            FontSize="12" FontWeight="Bold" Cursor="Hand"/>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>
@@ -106,45 +84,48 @@
 
                 <Rectangle Grid.Row="1" Fill="#2a2a2a"/>
 
-                <!-- Scene list -->
+                <!-- Dynamic scene list -->
                 <ScrollViewer Grid.Row="2">
-                    <StackPanel>
+                    <ItemsControl ItemsSource="{Binding Scenes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:SceneItem">
+                                <Button Classes="scene-btn"
+                                        Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).SelectSceneCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Panel>
+                                        <!-- Active scene display -->
+                                        <Border IsVisible="{Binding IsActive}"
+                                                Background="#1e2a3a"
+                                                BorderBrush="#3498db"
+                                                BorderThickness="3,0,0,0">
+                                            <Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="▶" Foreground="#3498db" FontSize="10"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" Foreground="White"
+                                                               FontSize="13" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="1"
+                                                        IsVisible="{Binding IsLive}"
+                                                        Background="#3498db" CornerRadius="3" Padding="6,2">
+                                                    <TextBlock Text="EN DIRECT" Foreground="White"
+                                                               FontSize="9" FontWeight="Bold"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
 
-                        <!-- Active scene (F4 - Currently streaming) -->
-                        <Border Background="#1e2a3a"
-                                BorderBrush="#3498db"
-                                BorderThickness="3,0,0,0">
-                            <Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="▶"
-                                               Foreground="#3498db"
-                                               FontSize="10"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Text="Match Live"
-                                               Foreground="White"
-                                               FontSize="13"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <Border Grid.Column="1"
-                                        Background="#3498db"
-                                        CornerRadius="3"
-                                        Padding="6,2">
-                                    <TextBlock Text="EN DIRECT"
-                                               Foreground="White"
-                                               FontSize="9"
-                                               FontWeight="Bold"/>
-                                </Border>
-                            </Grid>
-                        </Border>
-
-                        <!-- Other scenes (selectable for F4 scene switching) -->
-                        <Button Classes="scene-item" Content="  Introduction"/>
-                        <Button Classes="scene-item" Content="  Mi-Temps"/>
-                        <Button Classes="scene-item" Content="  Fin de Match"/>
-                        <Button Classes="scene-item" Content="  Plateau Studio"/>
-
-                    </StackPanel>
+                                        <!-- Inactive scene display -->
+                                        <Border IsVisible="{Binding !IsActive}"
+                                                Padding="14,10">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="#9ca3af" FontSize="13"/>
+                                        </Border>
+                                    </Panel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </ScrollViewer>
 
             </Grid>
@@ -157,91 +138,61 @@
 
             <!-- Scene preview -->
             <Border Grid.Row="0"
-                    Background="#000000"
-                    CornerRadius="8"
-                    BorderBrush="#2a2a2a"
-                    BorderThickness="1">
+                    Background="#000000" CornerRadius="8"
+                    BorderBrush="#2a2a2a" BorderThickness="1">
                 <Panel>
                     <TextBlock Text="APERÇU DE LA SCÈNE"
-                               Foreground="#1e1e1e"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               FontSize="18"
-                               FontWeight="Bold"/>
+                               Foreground="#1e1e1e" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" FontSize="18" FontWeight="Bold"/>
 
-                    <Border VerticalAlignment="Bottom"
-                            HorizontalAlignment="Left"
-                            Margin="12"
-                            Padding="10,6"
-                            CornerRadius="5"
-                            Background="#0d0d14"
-                            BorderBrush="#2a2a2a"
-                            BorderThickness="1">
-                        <TextBlock Text="Match Live"
-                                   Foreground="#9ca3af"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"/>
+                    <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                            Margin="12" Padding="10,6" CornerRadius="5"
+                            Background="#0d0d14" BorderBrush="#2a2a2a" BorderThickness="1">
+                        <TextBlock Text="{Binding SelectedScene.Name}"
+                                   Foreground="#9ca3af" FontSize="12" FontWeight="SemiBold"/>
                     </Border>
                 </Panel>
             </Border>
 
             <Rectangle Grid.Row="1" Fill="Transparent"/>
 
-            <!-- Sources of selected scene (Scenario 3 - source management) -->
-            <Border Grid.Row="2"
-                    Background="#1a1a1a"
-                    CornerRadius="8"
-                    Padding="14">
+            <!-- Sources of selected scene -->
+            <Border Grid.Row="2" Background="#1a1a1a" CornerRadius="8" Padding="14">
                 <Grid RowDefinitions="Auto, 10, *">
 
                     <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
-                        <TextBlock Grid.Column="0"
-                                   Text="SOURCES DE LA SCÈNE"
-                                   FontSize="11"
-                                   FontWeight="Bold"
-                                   Foreground="#6b7280"
+                        <TextBlock Grid.Column="0" Text="SOURCES DE LA SCÈNE"
+                                   FontSize="11" FontWeight="Bold" Foreground="#6b7280"
                                    VerticalAlignment="Center"/>
 
-                        <!-- Add Source with type selection Flyout -->
+                        <!-- Add Source Flyout -->
                         <Button Grid.Column="1"
                                 Content="+"
-                                Background="#1e3a5f"
-                                Foreground="#3498db"
-                                BorderThickness="0"
-                                Padding="10,4"
-                                CornerRadius="5"
-                                FontSize="16"
-                                FontWeight="Bold"
-                                Cursor="Hand">
+                                Background="#1e3a5f" Foreground="#3498db"
+                                BorderThickness="0" Padding="10,4" CornerRadius="5"
+                                FontSize="16" FontWeight="Bold" Cursor="Hand">
                             <Button.Flyout>
                                 <Flyout Placement="Top">
                                     <StackPanel Width="240" Spacing="8" Margin="4">
                                         <TextBlock Text="AJOUTER UNE SOURCE"
-                                                   FontSize="12"
-                                                   FontWeight="Bold"
-                                                   Foreground="White"/>
+                                                   FontSize="12" FontWeight="Bold" Foreground="White"/>
                                         <Rectangle Height="1" Fill="#333333"/>
 
-                                        <!-- Source types (Scenario 3 - video + audio sources) -->
-                                        <TextBlock Text="Sources vidéo"
-                                                   Foreground="#6b7280"
-                                                   FontSize="10"
-                                                   Margin="0,4,0,0"/>
-                                        <Button Classes="source-type-btn"
-                                                Content="Capture d'écran"/>
-                                        <Button Classes="source-type-btn"
-                                                Content="Caméra"/>
-                                        <Button Classes="source-type-btn"
-                                                Content="Capture de fenêtre"/>
+                                        <TextBlock Text="Sources vidéo" Foreground="#6b7280"
+                                                   FontSize="10" Margin="0,4,0,0"/>
+                                        <Button Classes="source-type-btn" Content="Capture d'écran"
+                                                Command="{Binding AddScreenCaptureCommand}"/>
+                                        <Button Classes="source-type-btn" Content="Caméra"
+                                                Command="{Binding AddCameraCommand}"/>
+                                        <Button Classes="source-type-btn" Content="Capture de fenêtre"
+                                                Command="{Binding AddWindowCaptureCommand}"/>
 
-                                        <TextBlock Text="Sources audio"
-                                                   Foreground="#6b7280"
-                                                   FontSize="10"
-                                                   Margin="0,4,0,0"/>
-                                        <Button Classes="source-type-btn"
-                                                Content="Audio système"/>
-                                        <Button Classes="source-type-btn"
-                                                Content="Microphone"/>
+                                        <TextBlock Text="Sources audio" Foreground="#6b7280"
+                                                   FontSize="10" Margin="0,4,0,0"/>
+                                        <Button Classes="source-type-btn" Content="Audio système"
+                                                Command="{Binding AddSystemAudioCommand}"/>
+                                        <Button Classes="source-type-btn" Content="Microphone"
+                                                Command="{Binding AddMicrophoneCommand}"/>
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>
@@ -250,58 +201,34 @@
 
                     <Rectangle Grid.Row="1" Height="1" Fill="#2a2a2a"/>
 
-                    <!-- Current sources -->
-                    <StackPanel Grid.Row="2" Spacing="4">
-
-                        <Border Background="#1e1e1e" CornerRadius="5" Padding="10,7">
-                            <Grid ColumnDefinitions="12, *, Auto, Auto">
-                                <Ellipse Grid.Column="0" Width="7" Height="7"
-                                         Fill="#3498db" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="Caméra terrain"
-                                           Foreground="#d1d5db" FontSize="12"
-                                           Margin="8,0" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="2" Text="Vidéo"
-                                           Foreground="#3498db" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="3" Text="✕"
-                                           Foreground="#4a4a4a" FontSize="11"
-                                           VerticalAlignment="Center" Cursor="Hand"/>
-                            </Grid>
-                        </Border>
-
-                        <Border Background="#1e1e1e" CornerRadius="5" Padding="10,7">
-                            <Grid ColumnDefinitions="12, *, Auto, Auto">
-                                <Ellipse Grid.Column="0" Width="7" Height="7"
-                                         Fill="#22c55e" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="Tableau de scores"
-                                           Foreground="#d1d5db" FontSize="12"
-                                           Margin="8,0" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="2" Text="Vidéo"
-                                           Foreground="#22c55e" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="3" Text="✕"
-                                           Foreground="#4a4a4a" FontSize="11"
-                                           VerticalAlignment="Center" Cursor="Hand"/>
-                            </Grid>
-                        </Border>
-
-                        <Border Background="#1e1e1e" CornerRadius="5" Padding="10,7">
-                            <Grid ColumnDefinitions="12, *, Auto, Auto">
-                                <Ellipse Grid.Column="0" Width="7" Height="7"
-                                         Fill="#f59e0b" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Text="Audio système"
-                                           Foreground="#d1d5db" FontSize="12"
-                                           Margin="8,0" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="2" Text="Audio"
-                                           Foreground="#f59e0b" FontSize="10"
-                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="3" Text="✕"
-                                           Foreground="#4a4a4a" FontSize="11"
-                                           VerticalAlignment="Center" Cursor="Hand"/>
-                            </Grid>
-                        </Border>
-
-                    </StackPanel>
+                    <!-- Dynamic source list -->
+                    <ScrollViewer Grid.Row="2">
+                        <ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="m:SourceItem">
+                                    <Border Background="#1e1e1e" CornerRadius="5" Padding="10,7" Margin="0,2">
+                                        <Grid ColumnDefinitions="12, *, Auto, Auto">
+                                            <Ellipse Grid.Column="0" Width="7" Height="7"
+                                                     Fill="{Binding Color}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                       Foreground="#d1d5db" FontSize="12"
+                                                       Margin="8,0" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Type}"
+                                                       Foreground="#6b7280" FontSize="10"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <Button Grid.Column="3"
+                                                    Content="✕"
+                                                    Background="Transparent" Foreground="#4a4a4a"
+                                                    BorderThickness="0" FontSize="11" Padding="4,2"
+                                                    Cursor="Hand"
+                                                    Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).RemoveSourceCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </Grid>
             </Border>
 

@@ -1,6 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="CastorApplication.Views.SettingsView">
+             xmlns:vm="using:CastorApplication.ViewModels"
+             x:Class="CastorApplication.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
 
     <UserControl.Styles>
 
@@ -68,26 +70,77 @@
 
                 <StackPanel Grid.Row="2" Margin="0,8">
 
-                    <!-- Active category -->
-                    <Border Background="#1e2a3a"
-                            BorderBrush="#3498db"
-                            BorderThickness="3,0,0,0">
-                        <TextBlock Text="Général"
-                                   Foreground="White"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Margin="15,10"/>
+                    <!-- Général -->
+                    <Border IsVisible="{Binding IsGeneralActive}"
+                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Général" Foreground="White" FontSize="13"
+                                   FontWeight="SemiBold" Margin="15,10"/>
                     </Border>
+                    <Button IsVisible="{Binding !IsGeneralActive}"
+                            Classes="settings-nav" Content="Général"
+                            Command="{Binding ShowGeneralCommand}"/>
 
-                    <Button Classes="settings-nav" Content="Vidéo"/>
-                    <Button Classes="settings-nav" Content="Audio"/>
-                    <Button Classes="settings-nav" Content="Streaming"/>
-                    <Button Classes="settings-nav" Content="Sortie"/>
-                    <Button Classes="settings-nav" Content="Comptes"/>
-                    <Button Classes="settings-nav" Content="Plugins"/>
+                    <!-- Vidéo -->
+                    <Border IsVisible="{Binding IsVideoActive}"
+                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Vidéo" Foreground="White" FontSize="13"
+                                   FontWeight="SemiBold" Margin="15,10"/>
+                    </Border>
+                    <Button IsVisible="{Binding !IsVideoActive}"
+                            Classes="settings-nav" Content="Vidéo"
+                            Command="{Binding ShowVideoCommand}"/>
+
+                    <!-- Audio -->
+                    <Border IsVisible="{Binding IsAudioActive}"
+                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Audio" Foreground="White" FontSize="13"
+                                   FontWeight="SemiBold" Margin="15,10"/>
+                    </Border>
+                    <Button IsVisible="{Binding !IsAudioActive}"
+                            Classes="settings-nav" Content="Audio"
+                            Command="{Binding ShowAudioCommand}"/>
+
+                    <!-- Streaming -->
+                    <Border IsVisible="{Binding IsStreamingActive}"
+                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Streaming" Foreground="White" FontSize="13"
+                                   FontWeight="SemiBold" Margin="15,10"/>
+                    </Border>
+                    <Button IsVisible="{Binding !IsStreamingActive}"
+                            Classes="settings-nav" Content="Streaming"
+                            Command="{Binding ShowStreamingCommand}"/>
+
+                    <!-- Sortie -->
+                    <Border IsVisible="{Binding IsOutputActive}"
+                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Sortie" Foreground="White" FontSize="13"
+                                   FontWeight="SemiBold" Margin="15,10"/>
+                    </Border>
+                    <Button IsVisible="{Binding !IsOutputActive}"
+                            Classes="settings-nav" Content="Sortie"
+                            Command="{Binding ShowOutputCommand}"/>
+
+                    <!-- Comptes -->
+                    <Border IsVisible="{Binding IsAccountsActive}"
+                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Comptes" Foreground="White" FontSize="13"
+                                   FontWeight="SemiBold" Margin="15,10"/>
+                    </Border>
+                    <Button IsVisible="{Binding !IsAccountsActive}"
+                            Classes="settings-nav" Content="Comptes"
+                            Command="{Binding ShowAccountsCommand}"/>
+
+                    <!-- Plugins -->
+                    <Border IsVisible="{Binding IsPluginsActive}"
+                            Background="#1e2a3a" BorderBrush="#3498db" BorderThickness="3,0,0,0">
+                        <TextBlock Text="Plugins" Foreground="White" FontSize="13"
+                                   FontWeight="SemiBold" Margin="15,10"/>
+                    </Border>
+                    <Button IsVisible="{Binding !IsPluginsActive}"
+                            Classes="settings-nav" Content="Plugins"
+                            Command="{Binding ShowPluginsCommand}"/>
 
                 </StackPanel>
-
             </Grid>
         </Border>
 
@@ -97,52 +150,54 @@
         <ScrollViewer Grid.Column="2">
             <StackPanel Margin="28,20" Spacing="28">
 
-                <!-- ── GÉNÉRAL ── -->
-                <StackPanel Spacing="14">
+                <!-- ══ GÉNÉRAL ══ -->
+                <StackPanel IsVisible="{Binding IsGeneralActive}" Spacing="14">
                     <TextBlock Text="GÉNÉRAL" Classes="section-title"/>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Langue" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Français" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedLanguageIndex}">
+                            <ComboBoxItem Content="Français"/>
                             <ComboBoxItem Content="English"/>
                             <ComboBoxItem Content="Español"/>
                         </ComboBox>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
-                        <TextBlock Grid.Column="0" Text="Démarrage auto" Classes="setting-label"/>
-                        <CheckBox Grid.Column="1" IsChecked="False" Foreground="#9ca3af"/>
+                        <TextBlock Grid.Column="0" Text="Démarrage automatique" Classes="setting-label"/>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding AutoStart}"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Thème" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Sombre" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedThemeIndex}">
+                            <ComboBoxItem Content="Sombre"/>
                             <ComboBoxItem Content="Clair"/>
                         </ComboBox>
                     </Grid>
                 </StackPanel>
 
-                <Rectangle Height="1" Fill="#2a2a2a"/>
-
-                <!-- ── VIDÉO ── -->
-                <StackPanel Spacing="14">
+                <!-- ══ VIDÉO ══ -->
+                <StackPanel IsVisible="{Binding IsVideoActive}" Spacing="14">
                     <TextBlock Text="VIDÉO" Classes="section-title"/>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Résolution de base" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedBaseResolutionIndex}">
                             <ComboBoxItem Content="3840 × 2160 (4K)"/>
-                            <ComboBoxItem Content="1920 × 1080 (Full HD)" IsSelected="True"/>
+                            <ComboBoxItem Content="1920 × 1080 (Full HD)"/>
                             <ComboBoxItem Content="1280 × 720 (HD)"/>
                         </ComboBox>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Résolution de sortie" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="1920 × 1080 (Full HD)" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedOutputResolutionIndex}">
+                            <ComboBoxItem Content="1920 × 1080 (Full HD)"/>
                             <ComboBoxItem Content="1280 × 720 (HD)"/>
                             <ComboBoxItem Content="854 × 480 (SD)"/>
                         </ComboBox>
@@ -150,8 +205,9 @@
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Images par seconde" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="60 fps" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedFpsIndex}">
+                            <ComboBoxItem Content="60 fps"/>
                             <ComboBoxItem Content="30 fps"/>
                             <ComboBoxItem Content="25 fps"/>
                         </ComboBox>
@@ -160,34 +216,34 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Débit vidéo (kbps)" Classes="setting-label"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" MaxWidth="320">
-                            <Slider Minimum="1000" Maximum="20000" Value="6000"
+                            <Slider Minimum="1000" Maximum="20000"
+                                    Value="{Binding VideoBitrate}"
                                     Width="220" VerticalAlignment="Center"/>
-                            <TextBlock Text="6000"
-                                       Foreground="#6b7280"
-                                       FontSize="12"
-                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding VideoBitrateDisplay}"
+                                       Foreground="#6b7280" FontSize="12"
+                                       VerticalAlignment="Center" Width="50"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
 
-                <Rectangle Height="1" Fill="#2a2a2a"/>
-
-                <!-- ── AUDIO ── -->
-                <StackPanel Spacing="14">
+                <!-- ══ AUDIO ══ -->
+                <StackPanel IsVisible="{Binding IsAudioActive}" Spacing="14">
                     <TextBlock Text="AUDIO" Classes="section-title"/>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Fréquence d'échantillonnage" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="48 kHz" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedSampleRateIndex}">
+                            <ComboBoxItem Content="48 kHz"/>
                             <ComboBoxItem Content="44.1 kHz"/>
                         </ComboBox>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Canaux" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Stéréo" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedChannelsIndex}">
+                            <ComboBoxItem Content="Stéréo"/>
                             <ComboBoxItem Content="Mono"/>
                             <ComboBoxItem Content="5.1 Surround"/>
                         </ComboBox>
@@ -195,24 +251,24 @@
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Débit audio (kbps)" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedAudioBitrateIndex}">
                             <ComboBoxItem Content="320 kbps"/>
-                            <ComboBoxItem Content="192 kbps" IsSelected="True"/>
+                            <ComboBoxItem Content="192 kbps"/>
                             <ComboBoxItem Content="128 kbps"/>
                         </ComboBox>
                     </Grid>
                 </StackPanel>
 
-                <Rectangle Height="1" Fill="#2a2a2a"/>
-
-                <!-- ── STREAMING (F1/F6) ── -->
-                <StackPanel Spacing="14">
+                <!-- ══ STREAMING ══ -->
+                <StackPanel IsVisible="{Binding IsStreamingActive}" Spacing="14">
                     <TextBlock Text="STREAMING" Classes="section-title"/>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Plateforme" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Twitch" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedPlatformIndex}">
+                            <ComboBoxItem Content="Twitch"/>
                             <ComboBoxItem Content="YouTube Live"/>
                             <ComboBoxItem Content="Facebook Live"/>
                             <ComboBoxItem Content="Personnalisé (RTMP)"/>
@@ -223,148 +279,136 @@
                         <TextBlock Grid.Column="0" Text="Clé de stream" Classes="setting-label"/>
                         <TextBox Grid.Column="1"
                                  PasswordChar="•"
+                                 Text="{Binding StreamKey}"
                                  Watermark="Entrez votre clé de stream..."
-                                 MaxWidth="320"
-                                 HorizontalAlignment="Left"
-                                 Background="#1e1e1e"
-                                 BorderBrush="#333333"
-                                 Foreground="#d1d5db"/>
+                                 MaxWidth="320" HorizontalAlignment="Left"
+                                 Background="#1e1e1e" BorderBrush="#333333" Foreground="#d1d5db"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="URL RTMP" Classes="setting-label"/>
                         <TextBox Grid.Column="1"
+                                 Text="{Binding RtmpUrl}"
                                  Watermark="rtmp://live.twitch.tv/app"
-                                 MaxWidth="320"
-                                 HorizontalAlignment="Left"
-                                 Background="#1e1e1e"
-                                 BorderBrush="#333333"
-                                 Foreground="#d1d5db"/>
+                                 MaxWidth="320" HorizontalAlignment="Left"
+                                 Background="#1e1e1e" BorderBrush="#333333" Foreground="#d1d5db"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Serveur" Classes="setting-label"/>
-                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left">
-                            <ComboBoxItem Content="Auto (recommandé)" IsSelected="True"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedServerIndex}">
+                            <ComboBoxItem Content="Auto (recommandé)"/>
                             <ComboBoxItem Content="Europe - Paris"/>
                             <ComboBoxItem Content="Europe - Amsterdam"/>
                         </ComboBox>
                     </Grid>
                 </StackPanel>
 
-                <Rectangle Height="1" Fill="#2a2a2a"/>
+                <!-- ══ SORTIE ══ -->
+                <StackPanel IsVisible="{Binding IsOutputActive}" Spacing="14">
+                    <TextBlock Text="SORTIE" Classes="section-title"/>
 
-                <!-- ── COMPTES & PLATEFORMES (F6 - Streaming Platform Management, F10 - Connect) ── -->
-                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Format d'enregistrement" Classes="setting-label"/>
+                        <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
+                                  SelectedIndex="{Binding SelectedOutputFormatIndex}">
+                            <ComboBoxItem Content="MP4 (H.264 + AAC)"/>
+                            <ComboBoxItem Content="MKV (H.264 + AAC)"/>
+                            <ComboBoxItem Content="WebM (VP9 + Opus)"/>
+                        </ComboBox>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="180, *">
+                        <TextBlock Grid.Column="0" Text="Dossier de sortie" Classes="setting-label"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding OutputPath}"
+                                 Watermark="C:\Users\...\Videos"
+                                 MaxWidth="320" HorizontalAlignment="Left"
+                                 Background="#1e1e1e" BorderBrush="#333333" Foreground="#d1d5db"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- ══ COMPTES ══ -->
+                <StackPanel IsVisible="{Binding IsAccountsActive}" Spacing="14">
                     <TextBlock Text="COMPTES ET PLATEFORMES" Classes="section-title"/>
 
                     <TextBlock Text="Connectez vos comptes de streaming pour diffuser directement depuis Castor."
-                               Foreground="#6b7280"
-                               FontSize="12"
-                               Margin="0,0,0,4"/>
+                               Foreground="#6b7280" FontSize="12" Margin="0,0,0,4"/>
 
-                    <!-- Twitch (Scenario 6, Step 3 - OAuth) -->
-                    <Border Background="#1a1a1a"
-                            BorderBrush="#2a2a2a"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="14">
+                    <!-- Twitch -->
+                    <Border Background="#1a1a1a" BorderBrush="#2a2a2a" BorderThickness="1"
+                            CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                <Border Background="#9146FF"
-                                        CornerRadius="6"
-                                        Width="36" Height="36">
-                                    <TextBlock Text="T"
-                                               Foreground="White"
-                                               FontWeight="Bold"
-                                               FontSize="16"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
+                                <Border Background="#9146FF" CornerRadius="6" Width="36" Height="36">
+                                    <TextBlock Text="T" Foreground="White" FontWeight="Bold" FontSize="16"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Twitch"
-                                               Foreground="White"
-                                               FontSize="13"
-                                               FontWeight="SemiBold"/>
-                                    <TextBlock Text="Non connecté"
-                                               Foreground="#6b7280"
-                                               FontSize="11"/>
+                                    <TextBlock Text="Twitch" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding TwitchStatus}" Foreground="#6b7280" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="2"
-                                    Content="Connecter"
-                                    Classes="platform-connect"/>
+                            <Button Grid.Column="2" Content="{Binding TwitchButtonText}"
+                                    Classes="platform-connect"
+                                    Command="{Binding ToggleTwitchCommand}"/>
                         </Grid>
                     </Border>
 
-                    <!-- YouTube (Scenario 6, Step 3 - OAuth) -->
-                    <Border Background="#1a1a1a"
-                            BorderBrush="#2a2a2a"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="14">
+                    <!-- YouTube -->
+                    <Border Background="#1a1a1a" BorderBrush="#2a2a2a" BorderThickness="1"
+                            CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                <Border Background="#FF0000"
-                                        CornerRadius="6"
-                                        Width="36" Height="36">
-                                    <TextBlock Text="Y"
-                                               Foreground="White"
-                                               FontWeight="Bold"
-                                               FontSize="16"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
+                                <Border Background="#FF0000" CornerRadius="6" Width="36" Height="36">
+                                    <TextBlock Text="Y" Foreground="White" FontWeight="Bold" FontSize="16"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="YouTube Live"
-                                               Foreground="White"
-                                               FontSize="13"
-                                               FontWeight="SemiBold"/>
-                                    <TextBlock Text="Non connecté"
-                                               Foreground="#6b7280"
-                                               FontSize="11"/>
+                                    <TextBlock Text="YouTube Live" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding YoutubeStatus}" Foreground="#6b7280" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="2"
-                                    Content="Connecter"
-                                    Classes="platform-connect"/>
+                            <Button Grid.Column="2" Content="{Binding YoutubeButtonText}"
+                                    Classes="platform-connect"
+                                    Command="{Binding ToggleYoutubeCommand}"/>
                         </Grid>
                     </Border>
 
-                    <!-- Facebook Live (Scenario 6, Step 3 - OAuth) -->
-                    <Border Background="#1a1a1a"
-                            BorderBrush="#2a2a2a"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Padding="14">
+                    <!-- Facebook -->
+                    <Border Background="#1a1a1a" BorderBrush="#2a2a2a" BorderThickness="1"
+                            CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
-                                <Border Background="#1877F2"
-                                        CornerRadius="6"
-                                        Width="36" Height="36">
-                                    <TextBlock Text="F"
-                                               Foreground="White"
-                                               FontWeight="Bold"
-                                               FontSize="16"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
+                                <Border Background="#1877F2" CornerRadius="6" Width="36" Height="36">
+                                    <TextBlock Text="F" Foreground="White" FontWeight="Bold" FontSize="16"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Facebook Live"
-                                               Foreground="White"
-                                               FontSize="13"
-                                               FontWeight="SemiBold"/>
-                                    <TextBlock Text="Non connecté"
-                                               Foreground="#6b7280"
-                                               FontSize="11"/>
+                                    <TextBlock Text="Facebook Live" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding FacebookStatus}" Foreground="#6b7280" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="2"
-                                    Content="Connecter"
-                                    Classes="platform-connect"/>
+                            <Button Grid.Column="2" Content="{Binding FacebookButtonText}"
+                                    Classes="platform-connect"
+                                    Command="{Binding ToggleFacebookCommand}"/>
                         </Grid>
                     </Border>
+                </StackPanel>
 
+                <!-- ══ PLUGINS ══ -->
+                <StackPanel IsVisible="{Binding IsPluginsActive}" Spacing="14">
+                    <TextBlock Text="PLUGINS" Classes="section-title"/>
+
+                    <TextBlock Text="Aucun plugin installé. Les plugins permettent d'ajouter des fonctionnalités avancées à Castor."
+                               Foreground="#6b7280" FontSize="12"/>
+
+                    <Button Content="PARCOURIR LES PLUGINS"
+                            Background="#1e3a5f" Foreground="#3498db"
+                            BorderThickness="0" Padding="14,8" CornerRadius="6"
+                            FontSize="12" FontWeight="SemiBold"
+                            HorizontalAlignment="Left" Cursor="Hand"/>
                 </StackPanel>
 
                 <Rectangle Height="20" Fill="Transparent"/>
