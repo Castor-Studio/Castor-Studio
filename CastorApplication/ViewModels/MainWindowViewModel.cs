@@ -12,23 +12,28 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isStudioActive = true;
 
     [ObservableProperty]
-    private bool _isMulticamActive = false;
+    private bool _isMulticamActive;
 
     [ObservableProperty]
-    private bool _isScenesActive = false;
+    private bool _isScenesActive;
 
     [ObservableProperty]
-    private bool _isSettingsActive = false;
+    private bool _isSettingsActive;
+
+    // Singleton pour préserver l'état du docking entre navigations
+    private StudioViewModel? _studioPage;
+
+    public StudioViewModel StudioPage => _studioPage ??= new StudioViewModel();
 
     public MainWindowViewModel()
     {
-        CurrentPage = new StudioViewModel();
+        ShowStudio();
     }
 
     [RelayCommand]
     private void ShowStudio()
     {
-        CurrentPage = new StudioViewModel();
+        CurrentPage = StudioPage;
         ResetTabs();
         IsStudioActive = true;
     }

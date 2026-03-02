@@ -1,13 +1,24 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.IO;
 using Avalonia.Media;
+using CastorApplication.Factories;
 using CastorApplication.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Dock.Model.Controls;
+using Dock.Model.Core;
+using Dock.Serializer;
 
 namespace CastorApplication.ViewModels;
 
 public partial class StudioViewModel : ViewModelBase
 {
+    // ── Docking layout ──
+
+    [ObservableProperty]
+    private IRootDock? _layout;
+
     // ── Scene selection (F4 - Scene Switching) ──
 
     public ObservableCollection<string> SceneNames { get; } = new()
@@ -95,38 +106,78 @@ public partial class StudioViewModel : ViewModelBase
 
     public StudioViewModel()
     {
+        // Sample sources
         Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
         Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#34d399"));
         Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#3c3c4e") { IsActive = false });
+
+        // Docking layout
+        var factory = new StudioDockFactory(this);
+
+        if (File.Exists("layout.json"))
+        {
+            LoadLayout(factory);
+        }
+
+        if (Layout == null)
+        {
+            Layout = factory.CreateLayout();
+            if (Layout != null)
+            {
+                factory.InitLayout(Layout);
+                SaveLayout();
+            }
+        }
+
+        if (Layout is INotifyPropertyChanged notify)
+        {
+            notify.PropertyChanged += (_, _) => SaveLayout();
+        }
+    }
+
+    // ── Docking commands ──
+
+    public void SaveLayout()
+    {
+        if (Layout != null)
+        {
+            var serializer = new DockSerializer();
+            var json = serializer.Serialize(Layout);
+            File.WriteAllText("layout.json", json);
+        }
+    }
+
+    public void LoadLayout(IFactory factory)
+    {
+        if (File.Exists("layout.json"))
+        {
+            var json = File.ReadAllText("layout.json");
+            var serializer = new DockSerializer();
+            var layout = serializer.Deserialize<IRootDock>(json);
+
+            if (layout != null)
+            {
+                Layout = layout;
+                factory.InitLayout(Layout);
+            }
+        }
     }
 
     // ── Streaming commands ──
 
     [RelayCommand]
-    private void StartStreaming()
-    {
-        IsStreaming = true;
-    }
+    private void StartStreaming() => IsStreaming = true;
 
     [RelayCommand]
-    private void StopStreaming()
-    {
-        IsStreaming = false;
-    }
+    private void StopStreaming() => IsStreaming = false;
 
     // ── Recording commands ──
 
     [RelayCommand]
-    private void StartRecording()
-    {
-        IsRecording = true;
-    }
+    private void StartRecording() => IsRecording = true;
 
     [RelayCommand]
-    private void StopRecording()
-    {
-        IsRecording = false;
-    }
+    private void StopRecording() => IsRecording = false;
 
     // ── Source management ──
 
