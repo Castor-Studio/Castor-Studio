@@ -2,27 +2,27 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:CastorApplication.Models"
-             xmlns:dock="using:Dock.Avalonia.Controls"
              x:Class="CastorApplication.Views.StudioView"
              x:DataType="vm:StudioViewModel">
 
-   <UserControl.Styles>
+    <UserControl.Styles>
 
         <Style Selector="TextBlock.section-header">
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="LetterSpacing" Value="1"/>
         </Style>
 
         <Style Selector="Button.ctrl-btn">
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="CornerRadius" Value="5"/>
             <Setter Property="Cursor" Value="Hand"/>
         </Style>
 
@@ -39,14 +39,168 @@
 
     </UserControl.Styles>
 
-    <Grid RowDefinitions="*, 38, 150">
+    <Grid RowDefinitions="*, 38, 72">
 
-        <!-- ═══ DOCKABLE AREA (Preview vidéo plein écran) ═══ -->
-        <dock:DockControl Grid.Row="0" Layout="{Binding Layout}" Margin="4"/>
+        <!-- ═══ ZONE PRINCIPALE : Preview + Outils (redimensionnable) ═══ -->
+        <Grid Grid.Row="0" ColumnDefinitions="*, 5, 290" Margin="4,4,4,0">
+
+            <!-- ── PREVIEW VIDÉO ── -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource AppSurface3}"
+                    CornerRadius="8" ClipToBounds="True"
+                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                <Panel>
+                    <!-- Placeholder texte -->
+                    <TextBlock Text="APERÇU VIDÉO"
+                               Foreground="{DynamicResource AppSurface2}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="22" FontWeight="Bold" LetterSpacing="3"/>
+
+                    <!-- Badge statut (haut droite) -->
+                    <Border VerticalAlignment="Top" HorizontalAlignment="Right"
+                            Margin="10" Padding="8,4" CornerRadius="4"
+                            Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding StreamStatusText}"
+                                       Foreground="{Binding StreamStatusBrush}"
+                                       FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Timer (bas gauche) -->
+                    <TextBlock VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                               Margin="14,0,0,12" Text="00:00:00"
+                               Foreground="{Binding StreamTimerBrush}"
+                               FontSize="16" FontFamily="Courier New"/>
+                </Panel>
+            </Border>
+
+            <!-- Séparateur glissable vertical -->
+            <GridSplitter Grid.Column="1"
+                          ResizeDirection="Columns"
+                          Background="{DynamicResource AppBorder}"
+                          HorizontalAlignment="Stretch"
+                          Cursor="SizeWestEast"/>
+
+            <!-- ── PANNEAU OUTILS (Sources + Audio) ── -->
+            <Grid Grid.Column="2" RowDefinitions="*, 5, *">
+
+                <!-- SOURCES -->
+                <Border Grid.Row="0"
+                        Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
+                        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                    <Grid RowDefinitions="Auto, *, Auto">
+
+                        <TextBlock Grid.Row="0" Text="SOURCES" Classes="section-header"/>
+
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding Sources}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="4,3"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="m:SourceItem">
+                                    <Grid ColumnDefinitions="Auto, *, Auto">
+                                        <Ellipse Grid.Column="0" Width="7" Height="7"
+                                                 Fill="{Binding ColorBrush}"
+                                                 VerticalAlignment="Center" Margin="0,0,7,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                   Foreground="{DynamicResource AppFg2}" FontSize="12"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Type}"
+                                                   Foreground="{DynamicResource AppFg4}" FontSize="10"
+                                                   VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <Button Grid.Row="2"
+                                Content="+ Ajouter une source"
+                                Command="{Binding AddSourceCommand}"
+                                Height="28" FontSize="11"
+                                Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
+                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
+                                CornerRadius="5" HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Margin="0,6,0,0" Cursor="Hand"/>
+                    </Grid>
+                </Border>
+
+                <!-- Séparateur glissable horizontal -->
+                <GridSplitter Grid.Row="1"
+                              ResizeDirection="Rows"
+                              Background="{DynamicResource AppBorder}"
+                              VerticalAlignment="Stretch"
+                              Cursor="SizeNorthSouth"/>
+
+                <!-- MIXER AUDIO -->
+                <Border Grid.Row="2"
+                        Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
+                        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                    <Grid RowDefinitions="Auto, *">
+
+                        <TextBlock Grid.Row="0" Text="MIXER AUDIO" Classes="section-header"/>
+
+                        <StackPanel Grid.Row="1" VerticalAlignment="Center" Spacing="8">
+
+                            <!-- Bureau -->
+                            <Grid ColumnDefinitions="56, *, 38">
+                                <TextBlock Grid.Column="0" Text="Bureau"
+                                           Foreground="{DynamicResource AppFg3}" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="100"
+                                        Value="{Binding DesktopVolume}"
+                                        VerticalAlignment="Center" Margin="4,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding DesktopVolumeDisplay}"
+                                           Foreground="{DynamicResource AppFg2}" FontSize="11"
+                                           VerticalAlignment="Center" TextAlignment="Right"/>
+                            </Grid>
+
+                            <!-- Micro -->
+                            <Grid ColumnDefinitions="56, *, 38">
+                                <TextBlock Grid.Column="0" Text="Micro"
+                                           Foreground="{DynamicResource AppFg3}" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="100"
+                                        Value="{Binding MicVolume}"
+                                        VerticalAlignment="Center" Margin="4,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding MicVolumeDisplay}"
+                                           Foreground="{DynamicResource AppFg2}" FontSize="11"
+                                           VerticalAlignment="Center" TextAlignment="Right"/>
+                            </Grid>
+
+                            <!-- Musique -->
+                            <Grid ColumnDefinitions="56, *, 38">
+                                <TextBlock Grid.Column="0" Text="Musique"
+                                           Foreground="{DynamicResource AppFg3}" FontSize="11"
+                                           VerticalAlignment="Center"/>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="100"
+                                        Value="{Binding MusicVolume}"
+                                        VerticalAlignment="Center" Margin="4,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding MusicVolumeDisplay}"
+                                           Foreground="{DynamicResource AppFg2}" FontSize="11"
+                                           VerticalAlignment="Center" TextAlignment="Right"/>
+                            </Grid>
+
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+            </Grid>
+        </Grid>
 
         <!-- ═══ SCENE SELECTOR BAR ═══ -->
         <Border Grid.Row="1"
-                Background="{DynamicResource AppSurface}" CornerRadius="6" Margin="8,0,8,4"
+                Background="{DynamicResource AppSurface}" CornerRadius="6" Margin="8,4,8,4"
                 Padding="12,0" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
             <Grid ColumnDefinitions="Auto, Auto, *, Auto">
                 <TextBlock Grid.Column="0" Text="SCÈNE ACTIVE :"
@@ -66,138 +220,49 @@
             </Grid>
         </Border>
 
-        <!-- ═══ BARRE DU BAS (Sources + Mixer Audio + Contrôles) ═══ -->
+        <!-- ═══ BARRE DE CONTRÔLES ═══ -->
         <Grid Grid.Row="2"
-              ColumnDefinitions="*, 8, *, 8, 220"
+              ColumnDefinitions="*, 8, 220"
               Margin="8,0,8,8">
 
-            <!-- ── SOURCES ── -->
-            <Border Grid.Column="0" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8">
-                <Grid RowDefinitions="Auto, *, Auto">
+            <!-- ── STATUT ── -->
+            <Border Grid.Column="0" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="12,0"
+                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                <Grid ColumnDefinitions="Auto, *, Auto">
 
-                    <TextBlock Grid.Row="0" Text="SOURCES" Classes="section-header"/>
+                    <Border Grid.Column="0" Padding="8,4" CornerRadius="5"
+                            Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding StreamStatusText}"
+                                       Foreground="{Binding StreamStatusBrush}"
+                                       FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
 
-                    <ListBox Grid.Row="1"
-                             ItemsSource="{Binding Sources}"
-                             Background="Transparent"
-                             BorderThickness="0"
-                             Padding="0"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <ListBox.Styles>
-                            <Style Selector="ListBoxItem">
-                                <Setter Property="Padding" Value="4,3"/>
-                                <Setter Property="Background" Value="Transparent"/>
-                            </Style>
-                        </ListBox.Styles>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="m:SourceItem">
-                                <Grid ColumnDefinitions="Auto, *, Auto">
-                                    <Ellipse Grid.Column="0" Width="7" Height="7"
-                                             Fill="{Binding ColorBrush}"
-                                             VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}"
-                                               Foreground="{DynamicResource AppFg2}" FontSize="11"
-                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Type}"
-                                               Foreground="{DynamicResource AppFg4}" FontSize="10"
-                                               VerticalAlignment="Center" Margin="6,0,0,0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                    <TextBlock Grid.Column="1" Text="00:00:00"
+                               Foreground="{Binding StreamTimerBrush}"
+                               FontSize="14" FontFamily="Courier New"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
-                    <Button Grid.Row="2"
-                            Content="+ Ajouter source"
-                            Command="{Binding AddSourceCommand}"
-                            Height="26" FontSize="10"
-                            Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
-                            BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
-                            CornerRadius="4" HorizontalAlignment="Stretch"
-                            HorizontalContentAlignment="Center"
-                            Margin="0,4,0,0" Cursor="Hand"/>
+                    <TextBlock Grid.Column="2" Text="1920 × 1080"
+                               Foreground="{DynamicResource AppFg6}" FontSize="11"
+                               VerticalAlignment="Center"/>
                 </Grid>
             </Border>
 
             <Rectangle Grid.Column="1" Fill="Transparent"/>
 
-            <!-- ── MIXER AUDIO ── -->
-            <Border Grid.Column="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8">
-                <StackPanel>
-                    <TextBlock Text="MIXER AUDIO" Classes="section-header"/>
+            <!-- ── BOUTONS DIFFUSION + ENREGISTREMENT ── -->
+            <Border Grid.Column="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
+                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                <Grid ColumnDefinitions="*, 6, *" VerticalAlignment="Center">
 
-                    <!-- Bureau -->
-                    <Grid ColumnDefinitions="52, *, 36" Margin="0,0,0,5">
-                        <TextBlock Grid.Column="0" Text="Bureau"
-                                   Foreground="{DynamicResource AppFg3}" FontSize="10"
-                                   VerticalAlignment="Center"/>
-                        <Slider Grid.Column="1" Minimum="0" Maximum="100"
-                                Value="{Binding DesktopVolume}"
-                                VerticalAlignment="Center" Margin="4,0"/>
-                        <TextBlock Grid.Column="2" Text="{Binding DesktopVolumeDisplay}"
-                                   Foreground="{DynamicResource AppFg2}" FontSize="10"
-                                   VerticalAlignment="Center" TextAlignment="Right"/>
-                    </Grid>
-
-                    <!-- Micro -->
-                    <Grid ColumnDefinitions="52, *, 36" Margin="0,0,0,5">
-                        <TextBlock Grid.Column="0" Text="Micro"
-                                   Foreground="{DynamicResource AppFg3}" FontSize="10"
-                                   VerticalAlignment="Center"/>
-                        <Slider Grid.Column="1" Minimum="0" Maximum="100"
-                                Value="{Binding MicVolume}"
-                                VerticalAlignment="Center" Margin="4,0"/>
-                        <TextBlock Grid.Column="2" Text="{Binding MicVolumeDisplay}"
-                                   Foreground="{DynamicResource AppFg2}" FontSize="10"
-                                   VerticalAlignment="Center" TextAlignment="Right"/>
-                    </Grid>
-
-                    <!-- Musique -->
-                    <Grid ColumnDefinitions="52, *, 36">
-                        <TextBlock Grid.Column="0" Text="Musique"
-                                   Foreground="{DynamicResource AppFg3}" FontSize="10"
-                                   VerticalAlignment="Center"/>
-                        <Slider Grid.Column="1" Minimum="0" Maximum="100"
-                                Value="{Binding MusicVolume}"
-                                VerticalAlignment="Center" Margin="4,0"/>
-                        <TextBlock Grid.Column="2" Text="{Binding MusicVolumeDisplay}"
-                                   Foreground="{DynamicResource AppFg2}" FontSize="10"
-                                   VerticalAlignment="Center" TextAlignment="Right"/>
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <Rectangle Grid.Column="3" Fill="Transparent"/>
-
-            <!-- ── CONTRÔLES (Statut + Diffusion + Enregistrement) ── -->
-            <Border Grid.Column="4" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8">
-                <StackPanel Spacing="5">
-
-                    <!-- Statut compact -->
-                    <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,2">
-                        <Border Grid.Column="0" Padding="5,2" CornerRadius="4"
-                                Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-                            <StackPanel Orientation="Horizontal" Spacing="5">
-                                <Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}"
-                                         VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding StreamStatusText}"
-                                           Foreground="{Binding StreamStatusBrush}"
-                                           FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Grid.Column="1" Text="00:00:00"
-                                   Foreground="{Binding StreamTimerBrush}"
-                                   FontSize="12" FontFamily="Courier New"
-                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <TextBlock Grid.Column="2" Text="1080p"
-                                   Foreground="{DynamicResource AppFg6}" FontSize="10"
-                                   VerticalAlignment="Center"/>
-                    </Grid>
-
-                    <!-- DIFFUSION -->
-                    <Button Content="GO LIVE"
+                    <!-- GO LIVE / STOP STREAM -->
+                    <Button Grid.Column="0"
+                            Content="GO LIVE"
                             IsVisible="{Binding !IsStreaming}"
                             Classes="ctrl-btn"
-                            Height="30"
                             Background="{DynamicResource AppLiveBg}" Foreground="#34d399"
                             BorderBrush="{DynamicResource AppLiveBorder}">
                         <Button.Flyout>
@@ -226,35 +291,32 @@
                                     </StackPanel>
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="Clé RTMP (optionnel)" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
-                                        <TextBox PasswordChar="•"
-                                                 Text="{Binding StreamRtmpKey}"
+                                        <TextBox PasswordChar="•" Text="{Binding StreamRtmpKey}"
                                                  Watermark="rtmp://..."
                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
                                     </StackPanel>
                                     <Button Content="DÉMARRER"
                                             Command="{Binding StartStreamingCommand}"
                                             Classes="flyout-start"
-                                            Background="#34d399" Foreground="#eaeaf0"/>
+                                            Background="#34d399" Foreground="#0b0b12"/>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>
                     </Button>
 
-                    <Button Content="ARRÊTER STREAM"
+                    <Button Grid.Column="0"
+                            Content="STOP STREAM"
                             IsVisible="{Binding IsStreaming}"
                             Command="{Binding StopStreamingCommand}"
                             Classes="ctrl-btn"
-                            Height="30"
                             Background="{DynamicResource AppStopBg}" Foreground="#f87171"
                             BorderBrush="{DynamicResource AppStopBorder}"/>
 
-                    <Rectangle Height="1" Fill="{DynamicResource AppBorder}"/>
-
-                    <!-- ENREGISTREMENT -->
-                    <Button Content="ENREGISTRER"
+                    <!-- ENREGISTRER / STOP REC -->
+                    <Button Grid.Column="2"
+                            Content="ENREGISTRER"
                             IsVisible="{Binding !IsRecording}"
                             Classes="ctrl-btn"
-                            Height="30"
                             Background="{DynamicResource AppRecBg}" Foreground="#ef4444"
                             BorderBrush="{DynamicResource AppRecBorder}">
                         <Button.Flyout>
@@ -289,14 +351,15 @@
                         </Button.Flyout>
                     </Button>
 
-                    <Button Content="ARRÊTER REC"
+                    <Button Grid.Column="2"
+                            Content="STOP REC"
                             IsVisible="{Binding IsRecording}"
                             Command="{Binding StopRecordingCommand}"
                             Classes="ctrl-btn"
-                            Height="30"
                             Background="{DynamicResource AppStopBg}" Foreground="#f87171"
                             BorderBrush="{DynamicResource AppStopBorder}"/>
-                </StackPanel>
+
+                </Grid>
             </Border>
 
         </Grid>

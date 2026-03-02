@@ -1,25 +1,14 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.IO;
 using Avalonia.Media;
-using CastorApplication.Factories;
 using CastorApplication.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Dock.Model.Controls;
-using Dock.Model.Core;
-using Dock.Serializer;
 
 namespace CastorApplication.ViewModels;
 
 public partial class StudioViewModel : ViewModelBase
 {
-    // ── Docking layout ──
-
-    [ObservableProperty]
-    private IRootDock? _layout;
-
-    // ── Scene selection (F4 - Scene Switching) ──
+    // ── Scene selection ──
 
     public ObservableCollection<string> SceneNames { get; } = new()
     {
@@ -111,45 +100,6 @@ public partial class StudioViewModel : ViewModelBase
         Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#34d399"));
         Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#3c3c4e") { IsActive = false });
 
-        // Docking layout — on supprime l'ancien layout.json pour éviter les conflits
-        // si la structure du dock a changé (Sources/Audio retirés du dock)
-        if (File.Exists("layout.json"))
-            File.Delete("layout.json");
-
-        var factory = new StudioDockFactory(this);
-        Layout = factory.CreateLayout();
-        if (Layout != null)
-        {
-            factory.InitLayout(Layout);
-        }
-    }
-
-    // ── Docking commands ──
-
-    public void SaveLayout()
-    {
-        if (Layout != null)
-        {
-            var serializer = new DockSerializer();
-            var json = serializer.Serialize(Layout);
-            File.WriteAllText("layout.json", json);
-        }
-    }
-
-    public void LoadLayout(IFactory factory)
-    {
-        if (File.Exists("layout.json"))
-        {
-            var json = File.ReadAllText("layout.json");
-            var serializer = new DockSerializer();
-            var layout = serializer.Deserialize<IRootDock>(json);
-
-            if (layout != null)
-            {
-                Layout = layout;
-                factory.InitLayout(Layout);
-            }
-        }
     }
 
     // ── Streaming commands ──
