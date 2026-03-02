@@ -192,11 +192,18 @@
                                             Cursor="Hand"/>
 
                                     <!-- Create account link (F9) -->
-                                    <TextBlock Text="Créer un compte"
-                                               Foreground="#c96cc0"
-                                               FontSize="12"
-                                               HorizontalAlignment="Center"
-                                               Cursor="Hand"/>
+                                    <StackPanel Spacing="6" HorizontalAlignment="Center">
+                                        <TextBlock Text="Pas encore de compte ?"
+                                                   Foreground="#6b7a8d"
+                                                   FontSize="11"
+                                                   HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Inscrivez-vous sur castor-studio.app"
+                                                   Foreground="#c96cc0"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center"
+                                                   Cursor="Hand"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>

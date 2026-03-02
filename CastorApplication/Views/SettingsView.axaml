@@ -177,6 +177,39 @@
                             <ComboBoxItem Content="Clair"/>
                         </ComboBox>
                     </Grid>
+
+                    <!-- Separator -->
+                    <Rectangle Height="1" Fill="#0d3450" Margin="0,4"/>
+
+                    <!-- About / Website -->
+                    <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
+                            CornerRadius="8" Padding="16,14">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Castor Studio" Foreground="#f0f0f0"
+                                           FontSize="13" FontWeight="SemiBold"/>
+                                <TextBlock Text="Libérez le flot de vos événements"
+                                           Foreground="#6b7a8d" FontSize="11" FontStyle="Italic"/>
+                                <TextBlock Text="castor-studio.app"
+                                           Foreground="#c96cc0" FontSize="12"
+                                           FontWeight="SemiBold" Cursor="Hand"
+                                           Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                                <Button Content="Documentation"
+                                        Background="#2a0028" Foreground="#c96cc0"
+                                        BorderThickness="0" Padding="12,6" CornerRadius="5"
+                                        FontSize="11" FontWeight="SemiBold" Cursor="Hand"
+                                        HorizontalContentAlignment="Center" MinWidth="120"/>
+                                <Button Content="Support"
+                                        Background="#0a2540" Foreground="#a1b1c8"
+                                        BorderThickness="1" BorderBrush="#1a4060"
+                                        Padding="12,6" CornerRadius="5"
+                                        FontSize="11" FontWeight="SemiBold" Cursor="Hand"
+                                        HorizontalContentAlignment="Center" MinWidth="120"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </StackPanel>
 
                 <!-- ══ VIDÉO ══ -->
@@ -398,20 +431,40 @@
                                     Command="{Binding ToggleFacebookCommand}"/>
                         </Grid>
                     </Border>
+
+                    <!-- Account hint -->
+                    <Border Background="#011830" CornerRadius="6" Padding="12,10">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Gérez votre abonnement et vos préférences sur"
+                                       Foreground="#6b7a8d" FontSize="11" VerticalAlignment="Center"/>
+                            <TextBlock Text="castor-studio.app"
+                                       Foreground="#c96cc0" FontSize="11" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" Cursor="Hand"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- ══ PLUGINS ══ -->
                 <StackPanel IsVisible="{Binding IsPluginsActive}" Spacing="14">
                     <TextBlock Text="PLUGINS" Classes="section-title"/>
 
-                    <TextBlock Text="Aucun plugin installé. Les plugins permettent d'ajouter des fonctionnalités avancées à Castor."
-                               Foreground="#6b7a8d" FontSize="12"/>
-
-                    <Button Content="PARCOURIR LES PLUGINS"
-                            Background="#2a0028" Foreground="#c96cc0"
-                            BorderThickness="0" Padding="14,8" CornerRadius="6"
-                            FontSize="12" FontWeight="SemiBold"
-                            HorizontalAlignment="Left" Cursor="Hand"/>
+                    <Border Background="#002137" BorderBrush="#0d3450" BorderThickness="1"
+                            CornerRadius="8" Padding="20">
+                        <StackPanel Spacing="12" HorizontalAlignment="Center">
+                            <TextBlock Text="Aucun plugin installé"
+                                       Foreground="#a1b1c8" FontSize="14" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Les plugins permettent d'ajouter des overlays, des effets&#x0a;et des fonctionnalités avancées à vos diffusions."
+                                       Foreground="#6b7a8d" FontSize="12"
+                                       HorizontalAlignment="Center" TextAlignment="Center"/>
+                            <Button Content="PARCOURIR SUR CASTOR-STUDIO.APP"
+                                    Background="#2a0028" Foreground="#c96cc0"
+                                    BorderThickness="0" Padding="18,10" CornerRadius="6"
+                                    FontSize="12" FontWeight="SemiBold"
+                                    HorizontalAlignment="Center" Cursor="Hand"
+                                    Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <Rectangle Height="20" Fill="Transparent"/>
