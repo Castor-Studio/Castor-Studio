@@ -1,6 +1,7 @@
 #include "Recorder.h"
 #include "VideoEncode.h"
 #include "AudioEncode.h"
+#include "Muxer.h"
 
 #include <windows.h>
 #include <process.h>
@@ -18,7 +19,7 @@ struct CastorRecorder {
     AudioCaptureContext actx;
     VideoEncoder        venc;
     AudioEncoder        aenc;
-    FILE*               video_out;
+    CastorMuxer         mux;
 
     AVFrame*            last_video_frame;
     CRITICAL_SECTION    frame_lock;
@@ -49,7 +50,7 @@ static unsigned __stdcall thread_video_capture(void* arg) {
 
 /* ------------------------------------------------------------------ *
  *  Thread 2 : encodage video (boucle fps strict)
- *  Lit last_video_frame et encode vers video_out.
+ *  Lit last_video_frame et encode vers le muxer MP4.
  * ------------------------------------------------------------------ */
 static unsigned __stdcall thread_video_encode(void* arg) {
     CastorRecorder* rec = (CastorRecorder*)arg;
@@ -81,7 +82,7 @@ static unsigned __stdcall thread_video_encode(void* arg) {
         LeaveCriticalSection(&rec->frame_lock);
 
         if (vframe) {
-            video_encoder_encode_frame(&rec->venc, vframe, rec->video_out);
+            video_encoder_encode_frame(&rec->venc, vframe, &rec->mux);
             av_frame_free(&vframe);
             frames_encoded++;
         }
@@ -106,7 +107,7 @@ static unsigned __stdcall thread_audio(void* arg) {
     while (rec->running) {
         AVFrame* aframe = audio_capture_next_frame(&rec->actx);
         if (aframe) {
-            audio_encoder_encode_frame(&rec->aenc, aframe);
+            audio_encoder_encode_frame(&rec->aenc, aframe, &rec->mux);
             av_frame_free(&aframe);
         }
     }
@@ -139,28 +140,48 @@ CASTOR_CORE_API int recorder_start(CastorRecorder* rec) {
     }
     if (rec->actx.channels > 2) rec->actx.channels = 2;
 
-    /* 3. Fichier de sortie video */
-    fopen_s(&rec->video_out, rec->config.video_path, "wb");
-    if (!rec->video_out) {
-        fprintf(stderr, "[Recorder] Impossible d'ouvrir: %s\n", rec->config.video_path);
-        video_capture_cleanup(&rec->vctx);
-        audio_capture_cleanup(&rec->actx);
-        return -1;
-    }
-
-    /* 4. Init encodeurs */
+    /* 3. Init encodeurs (codec context seulement, pas de fichier) */
     if (video_encoder_init(&rec->venc, rec->vctx.width, rec->vctx.height, rec->config.fps) < 0) {
         fprintf(stderr, "[Recorder] Init encodeur video echoue\n");
-        fclose(rec->video_out);
         video_capture_cleanup(&rec->vctx);
         audio_capture_cleanup(&rec->actx);
         return -1;
     }
 
-    if (audio_encoder_init(&rec->aenc, rec->actx.sample_rate, rec->config.audio_path) < 0) {
+    if (audio_encoder_init(&rec->aenc, rec->actx.sample_rate) < 0) {
         fprintf(stderr, "[Recorder] Init encodeur audio echoue\n");
-        video_encoder_cleanup(&rec->venc, rec->video_out);
-        fclose(rec->video_out);
+        video_encoder_cleanup(&rec->venc, &rec->mux);
+        video_capture_cleanup(&rec->vctx);
+        audio_capture_cleanup(&rec->actx);
+        return -1;
+    }
+
+    /* 4. Ouvrir le muxer MP4 et ajouter les deux streams */
+    if (muxer_open(&rec->mux, rec->config.output_path) < 0) {
+        fprintf(stderr, "[Recorder] muxer_open echoue\n");
+        video_encoder_cleanup(&rec->venc, &rec->mux);
+        audio_encoder_cleanup(&rec->aenc, &rec->mux);
+        video_capture_cleanup(&rec->vctx);
+        audio_capture_cleanup(&rec->actx);
+        return -1;
+    }
+
+    if (muxer_add_video_stream(&rec->mux, rec->venc.ctx) < 0 ||
+        muxer_add_audio_stream(&rec->mux, rec->aenc.ctx) < 0) {
+        fprintf(stderr, "[Recorder] muxer_add_stream echoue\n");
+        muxer_close(&rec->mux);
+        video_encoder_cleanup(&rec->venc, &rec->mux);
+        audio_encoder_cleanup(&rec->aenc, &rec->mux);
+        video_capture_cleanup(&rec->vctx);
+        audio_capture_cleanup(&rec->actx);
+        return -1;
+    }
+
+    if (muxer_write_header(&rec->mux) < 0) {
+        fprintf(stderr, "[Recorder] muxer_write_header echoue\n");
+        muxer_close(&rec->mux);
+        video_encoder_cleanup(&rec->venc, &rec->mux);
+        audio_encoder_cleanup(&rec->aenc, &rec->mux);
         video_capture_cleanup(&rec->vctx);
         audio_capture_cleanup(&rec->actx);
         return -1;
@@ -203,15 +224,13 @@ CASTOR_CORE_API void recorder_stop(CastorRecorder* rec) {
         rec->last_video_frame = NULL;
     }
 
-    video_encoder_cleanup(&rec->venc, rec->video_out);
-    audio_encoder_cleanup(&rec->aenc);
+    /* Flush encodeurs puis fermer le muxer (ecrit le trailer MP4) */
+    video_encoder_cleanup(&rec->venc, &rec->mux);
+    audio_encoder_cleanup(&rec->aenc, &rec->mux);
+    muxer_close(&rec->mux);
+
     video_capture_cleanup(&rec->vctx);
     audio_capture_cleanup(&rec->actx);
-
-    if (rec->video_out) {
-        fclose(rec->video_out);
-        rec->video_out = NULL;
-    }
 }
 
 CASTOR_CORE_API void recorder_destroy(CastorRecorder* rec) {

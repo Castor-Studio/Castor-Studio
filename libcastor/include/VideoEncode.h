@@ -1,8 +1,10 @@
 #pragma once
 #include "castor_api.h"
-#include <stdio.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+
+/* Forward declaration — evite d'inclure Muxer.h et windows.h ici */
+typedef struct CastorMuxer CastorMuxer;
 
 #ifdef __cplusplus
 extern "C" {
@@ -10,50 +12,50 @@ extern "C" {
 
 typedef struct {
     AVCodecContext* ctx;
-    AVFrame* frame;
-    AVPacket* pkt;
+    AVFrame*        frame;
+    AVPacket*       pkt;
 
-    int frame_index;
-    struct SwsContext* sws_ctx;      // BGRA→YUV420P
+    int             frame_index;
+    struct SwsContext* sws_ctx;   /* BGRA -> YUV420P */
 
-    int64_t     first_pts;
-    int         first_pts_set;
+    int64_t         first_pts;
+    int             first_pts_set;
 } VideoEncoder;
 
 /*
  * Initialise l'encodeur H.264 (libx264).
  * Configure le codec, alloue le frame YUV420P de travail et le SwsContext
- * pour la conversion BGRA→YUV420P.
+ * pour la conversion BGRA->YUV420P.
  *
- * enc    : encodeur à initialiser
+ * enc    : encodeur a initialiser
  * width  : largeur de la source en pixels
  * height : hauteur de la source en pixels
- * fps    : fréquence d'images cible
+ * fps    : frequence d'images cible
  *
- * Retourne 0 si succès, -1 en cas d'erreur.
+ * Retourne 0 si succes, -1 en cas d'erreur.
  */
 CASTOR_CORE_API int  video_encoder_init(VideoEncoder* enc, int width, int height, int fps);
 
 /*
  * Convertit un frame BGRA en YUV420P puis l'encode en H.264.
- * Ecrit les NAL units directement dans le fichier de sortie.
+ * Ecrit les paquets dans le container MP4 via le muxer partage.
  *
- * enc : encodeur initialisé
- * src : frame vidéo source au format BGRA (issu de la capture)
- * out : fichier de sortie ouvert en écriture binaire (.h264)
+ * enc : encodeur initialise
+ * src : frame video source au format BGRA (issu de la capture)
+ * mux : muxer MP4 partage (thread-safe)
  *
- * Retourne 0 si succès, code d'erreur FFmpeg négatif sinon.
+ * Retourne 0 si succes, code d'erreur FFmpeg negatif sinon.
  */
-CASTOR_CORE_API int  video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, FILE* out);
+CASTOR_CORE_API int  video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, CastorMuxer* mux);
 
 /*
  * Flush les derniers paquets en attente dans l'encodeur,
- * puis libère le codec context, le frame et le SwsContext.
+ * puis libere le codec context, le frame et le SwsContext.
  *
- * enc : encodeur à nettoyer
- * out : fichier de sortie (pour le flush final)
+ * enc : encodeur a nettoyer
+ * mux : muxer MP4 partage (pour le flush final)
  */
-CASTOR_CORE_API void video_encoder_cleanup(VideoEncoder* enc, FILE* out);
+CASTOR_CORE_API void video_encoder_cleanup(VideoEncoder* enc, CastorMuxer* mux);
 
 #ifdef __cplusplus
 }

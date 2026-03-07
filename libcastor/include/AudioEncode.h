@@ -1,9 +1,11 @@
 #pragma once
 #include "castor_api.h"
 #include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
 #include <libswresample/swresample.h>
+
+/* Forward declaration — evite d'inclure Muxer.h et windows.h ici */
+typedef struct CastorMuxer CastorMuxer;
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,42 +18,42 @@ typedef struct {
     AVAudioFifo*     fifo;
     SwrContext*      swr;
     int64_t          sample_index;
-    AVFormatContext* fmt_ctx;
-    AVStream*        stream;
 } AudioEncoder;
 
 /*
- * Initialise l'encodeur AAC et ouvre le fichier de sortie avec le muxer ADTS.
- * Chaque paquet encodé sera précédé d'un en-tête ADTS (7 octets),
- * ce qui rend le fichier .aac directement lisible par les lecteurs.
+ * Initialise l'encodeur AAC (codec context, frame de travail, FIFO).
+ * Ne cree pas de fichier de sortie — l'ecriture se fait via le muxer partage.
  *
- * enc         : encodeur à initialiser
- * sample_rate : fréquence d'échantillonnage de la source (Hz)
- * output_path : chemin du fichier .aac à créer
+ * enc         : encodeur a initialiser
+ * sample_rate : frequence d'echantillonnage de la source (Hz)
  *
- * Retourne 0 si succès, -1 en cas d'erreur.
+ * Retourne 0 si succes, -1 en cas d'erreur.
  */
-CASTOR_CORE_API int  audio_encoder_init        (AudioEncoder* enc, int sample_rate, const char* output_path);
+CASTOR_CORE_API int  audio_encoder_init        (AudioEncoder* enc, int sample_rate);
 
 /*
  * Encode un frame audio vers AAC.
- * Rééchantillonne si le format/rate/canaux diffèrent de ceux de l'encodeur,
+ * Reechantillonne si le format/rate/canaux different de ceux de l'encodeur,
  * accumule les samples dans un FIFO, puis flush par blocs de frame_size (~1024 samples).
+ * Ecrit les paquets dans le container MP4 via le muxer partage.
  *
- * enc : encodeur initialisé
+ * enc : encodeur initialise
  * src : frame audio source (format, sample_rate et canaux quelconques)
+ * mux : muxer MP4 partage (thread-safe)
  *
- * Retourne 0 si succès, -1 en cas d'erreur.
+ * Retourne 0 si succes, -1 en cas d'erreur.
  */
-CASTOR_CORE_API int  audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src);
+CASTOR_CORE_API int  audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src, CastorMuxer* mux);
 
 /*
- * Flush les samples résiduels du FIFO, vide le pipeline de l'encodeur,
- * écrit le trailer ADTS, ferme le fichier et libère toutes les ressources.
+ * Flush les samples residuels du FIFO, vide le pipeline de l'encodeur
+ * et libere toutes les ressources.
+ * Le trailer MP4 est ecrit par muxer_close — ne pas l'ecrire ici.
  *
- * enc : encodeur à nettoyer
+ * enc : encodeur a nettoyer
+ * mux : muxer MP4 partage (pour le flush final)
  */
-CASTOR_CORE_API void audio_encoder_cleanup     (AudioEncoder* enc);
+CASTOR_CORE_API void audio_encoder_cleanup     (AudioEncoder* enc, CastorMuxer* mux);
 
 #ifdef __cplusplus
 }

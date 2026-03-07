@@ -1,10 +1,11 @@
 #include "AudioEncode.h"
+#include "Muxer.h"
 #include <libavutil/channel_layout.h>
 #include <libavutil/audio_fifo.h>
 #include <libswresample/swresample.h>
 #include <math.h>
 
-CASTOR_CORE_API int audio_encoder_init(AudioEncoder* enc, int sample_rate, const char* output_path) {
+CASTOR_CORE_API int audio_encoder_init(AudioEncoder* enc, int sample_rate) {
     const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
     if (!codec) return -1;
 
@@ -15,28 +16,6 @@ CASTOR_CORE_API int audio_encoder_init(AudioEncoder* enc, int sample_rate, const
     av_channel_layout_default(&enc->ctx->ch_layout, 2);
 
     if (avcodec_open2(enc->ctx, codec, NULL) < 0) return -1;
-
-    /* --- Setup avformat avec le muxer ADTS --- */
-    if (avformat_alloc_output_context2(&enc->fmt_ctx, NULL, "adts", output_path) < 0) {
-        fprintf(stderr, "[AudioEncoder] avformat_alloc_output_context2 failed\n");
-        return -1;
-    }
-
-    enc->stream = avformat_new_stream(enc->fmt_ctx, NULL);
-    if (!enc->stream) return -1;
-
-    avcodec_parameters_from_context(enc->stream->codecpar, enc->ctx);
-    enc->stream->time_base = (AVRational){ 1, sample_rate };
-
-    if (avio_open(&enc->fmt_ctx->pb, output_path, AVIO_FLAG_WRITE) < 0) {
-        fprintf(stderr, "[AudioEncoder] avio_open failed: %s\n", output_path);
-        return -1;
-    }
-
-    if (avformat_write_header(enc->fmt_ctx, NULL) < 0) {
-        fprintf(stderr, "[AudioEncoder] avformat_write_header failed\n");
-        return -1;
-    }
 
     /* --- Frame / Packet / FIFO --- */
     enc->frame = av_frame_alloc();
@@ -58,9 +37,9 @@ CASTOR_CORE_API int audio_encoder_init(AudioEncoder* enc, int sample_rate, const
 }
 
 /* ------------------------------------------------------------------ *
- *  Interne : envoyer un frame plein à l'encodeur et écrire les paquets
+ *  Interne : envoyer un frame plein a l'encodeur et ecrire les paquets
  * ------------------------------------------------------------------ */
-static int encode_one_frame(AudioEncoder* enc) {
+static int encode_one_frame(AudioEncoder* enc, CastorMuxer* mux) {
     av_frame_make_writable(enc->frame);
     enc->frame->nb_samples = enc->ctx->frame_size;
 
@@ -74,9 +53,9 @@ static int encode_one_frame(AudioEncoder* enc) {
     if (avcodec_send_frame(enc->ctx, enc->frame) < 0) return -1;
 
     while (avcodec_receive_packet(enc->ctx, enc->pkt) == 0) {
-        enc->pkt->stream_index = enc->stream->index;
-        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base, enc->stream->time_base);
-        av_interleaved_write_frame(enc->fmt_ctx, enc->pkt);
+        enc->pkt->stream_index = mux->audio_stream->index;
+        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base, mux->audio_stream->time_base);
+        muxer_write_packet(mux, enc->pkt);
         av_packet_unref(enc->pkt);
     }
     return 0;
@@ -85,7 +64,7 @@ static int encode_one_frame(AudioEncoder* enc) {
 /* ------------------------------------------------------------------ *
  *  audio_encoder_encode_frame
  * ------------------------------------------------------------------ */
-CASTOR_CORE_API int audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src) {
+CASTOR_CORE_API int audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src, CastorMuxer* mux) {
     if (!src) return 0;
 
     /* ---- 1. Créer/recréer le resampler si le format source change ---- */
@@ -158,7 +137,7 @@ CASTOR_CORE_API int audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src) 
 
     /* ---- 4. Encoder tant qu'on a frame_size samples ---- */
     while (av_audio_fifo_size(enc->fifo) >= enc->ctx->frame_size) {
-        int ret = encode_one_frame(enc);
+        int ret = encode_one_frame(enc, mux);
         if (ret < 0) return ret;
     }
 
@@ -168,8 +147,8 @@ CASTOR_CORE_API int audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src) 
 /* ------------------------------------------------------------------ *
  *  audio_encoder_cleanup — flush le FIFO restant avant de fermer
  * ------------------------------------------------------------------ */
-CASTOR_CORE_API void audio_encoder_cleanup(AudioEncoder* enc) {
-    /* Flush les samples résiduels dans le FIFO (< frame_size) */
+CASTOR_CORE_API void audio_encoder_cleanup(AudioEncoder* enc, CastorMuxer* mux) {
+    /* Flush les samples residuels dans le FIFO (< frame_size) */
     int leftover = av_audio_fifo_size(enc->fifo);
     if (leftover > 0) {
         av_frame_make_writable(enc->frame);
@@ -183,15 +162,11 @@ CASTOR_CORE_API void audio_encoder_cleanup(AudioEncoder* enc) {
     /* Flush encodeur */
     avcodec_send_frame(enc->ctx, NULL);
     while (avcodec_receive_packet(enc->ctx, enc->pkt) == 0) {
-        enc->pkt->stream_index = enc->stream->index;
-        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base, enc->stream->time_base);
-        av_interleaved_write_frame(enc->fmt_ctx, enc->pkt);
+        enc->pkt->stream_index = mux->audio_stream->index;
+        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base, mux->audio_stream->time_base);
+        muxer_write_packet(mux, enc->pkt);
         av_packet_unref(enc->pkt);
     }
-
-    av_write_trailer(enc->fmt_ctx);
-    avio_closep(&enc->fmt_ctx->pb);
-    avformat_free_context(enc->fmt_ctx);
 
     av_audio_fifo_free(enc->fifo);
     if (enc->swr) swr_free(&enc->swr);
