@@ -1,0 +1,219 @@
+#include "Recorder.h"
+#include "VideoEncode.h"
+#include "AudioEncode.h"
+
+#include <windows.h>
+#include <process.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <libavutil/frame.h>
+
+/* ------------------------------------------------------------------ *
+ *  Structure interne (opaque dans le header)
+ * ------------------------------------------------------------------ */
+struct CastorRecorder {
+    RecorderConfig      config;
+
+    VideoCaptureContext vctx;
+    AudioCaptureContext actx;
+    VideoEncoder        venc;
+    AudioEncoder        aenc;
+    FILE*               video_out;
+
+    AVFrame*            last_video_frame;
+    CRITICAL_SECTION    frame_lock;
+    volatile int        running;
+
+    HANDLE              th_video_capture;
+    HANDLE              th_video_encode;
+    HANDLE              th_audio;
+};
+
+/* ------------------------------------------------------------------ *
+ *  Thread 1 : capture video
+ *  Alimente last_video_frame en continu.
+ * ------------------------------------------------------------------ */
+static unsigned __stdcall thread_video_capture(void* arg) {
+    CastorRecorder* rec = (CastorRecorder*)arg;
+    while (rec->running) {
+        AVFrame* f = video_capture_next_frame(&rec->vctx);
+        if (f) {
+            EnterCriticalSection(&rec->frame_lock);
+            if (rec->last_video_frame) av_frame_free(&rec->last_video_frame);
+            rec->last_video_frame = f;
+            LeaveCriticalSection(&rec->frame_lock);
+        }
+    }
+    return 0;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Thread 2 : encodage video (boucle fps strict)
+ *  Lit last_video_frame et encode vers video_out.
+ * ------------------------------------------------------------------ */
+static unsigned __stdcall thread_video_encode(void* arg) {
+    CastorRecorder* rec = (CastorRecorder*)arg;
+
+    timeBeginPeriod(1);
+
+    LARGE_INTEGER freq, start, now;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&start);
+
+    const double frame_interval = 1.0 / rec->config.fps;
+    double       next_frame_time = 0.0;
+    int          frames_encoded  = 0;
+
+    while (rec->running) {
+        QueryPerformanceCounter(&now);
+        double elapsed = (double)(now.QuadPart - start.QuadPart) / freq.QuadPart;
+
+        if (elapsed < next_frame_time) {
+            Sleep(1);
+            continue;
+        }
+        next_frame_time += frame_interval;
+
+        EnterCriticalSection(&rec->frame_lock);
+        AVFrame* vframe = rec->last_video_frame
+                          ? av_frame_clone(rec->last_video_frame)
+                          : NULL;
+        LeaveCriticalSection(&rec->frame_lock);
+
+        if (vframe) {
+            video_encoder_encode_frame(&rec->venc, vframe, rec->video_out);
+            av_frame_free(&vframe);
+            frames_encoded++;
+        }
+    }
+
+    timeEndPeriod(1);
+
+    QueryPerformanceCounter(&now);
+    double total = (double)(now.QuadPart - start.QuadPart) / freq.QuadPart;
+    if (total > 0.0)
+        fprintf(stderr, "[Recorder] Total: %.2fs — %d frames — fps effectif: %.1f\n",
+                total, frames_encoded, frames_encoded / total);
+
+    return 0;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Thread 3 : capture + encodage audio
+ * ------------------------------------------------------------------ */
+static unsigned __stdcall thread_audio(void* arg) {
+    CastorRecorder* rec = (CastorRecorder*)arg;
+    while (rec->running) {
+        AVFrame* aframe = audio_capture_next_frame(&rec->actx);
+        if (aframe) {
+            audio_encoder_encode_frame(&rec->aenc, aframe);
+            av_frame_free(&aframe);
+        }
+    }
+    return 0;
+}
+
+/* ================================================================== *
+ *  API publique
+ * ================================================================== */
+
+CASTOR_CORE_API CastorRecorder* recorder_create(const RecorderConfig* config) {
+    CastorRecorder* rec = (CastorRecorder*)calloc(1, sizeof(CastorRecorder));
+    if (!rec) return NULL;
+    rec->config = *config;
+    return rec;
+}
+
+CASTOR_CORE_API int recorder_start(CastorRecorder* rec) {
+    /* 1. Init capture video — fournit width/height pour l'encodeur */
+    if (video_capture_init_source(&rec->vctx, &rec->config.video_src) < 0) {
+        fprintf(stderr, "[Recorder] Init capture video echouee\n");
+        return -1;
+    }
+
+    /* 2. Init capture audio — fournit sample_rate pour l'encodeur */
+    if (audio_capture_init_source(&rec->actx, &rec->config.audio_src) < 0) {
+        fprintf(stderr, "[Recorder] Init capture audio echouee\n");
+        video_capture_cleanup(&rec->vctx);
+        return -1;
+    }
+    if (rec->actx.channels > 2) rec->actx.channels = 2;
+
+    /* 3. Fichier de sortie video */
+    fopen_s(&rec->video_out, rec->config.video_path, "wb");
+    if (!rec->video_out) {
+        fprintf(stderr, "[Recorder] Impossible d'ouvrir: %s\n", rec->config.video_path);
+        video_capture_cleanup(&rec->vctx);
+        audio_capture_cleanup(&rec->actx);
+        return -1;
+    }
+
+    /* 4. Init encodeurs */
+    if (video_encoder_init(&rec->venc, rec->vctx.width, rec->vctx.height, rec->config.fps) < 0) {
+        fprintf(stderr, "[Recorder] Init encodeur video echoue\n");
+        fclose(rec->video_out);
+        video_capture_cleanup(&rec->vctx);
+        audio_capture_cleanup(&rec->actx);
+        return -1;
+    }
+
+    if (audio_encoder_init(&rec->aenc, rec->actx.sample_rate, rec->config.audio_path) < 0) {
+        fprintf(stderr, "[Recorder] Init encodeur audio echoue\n");
+        video_encoder_cleanup(&rec->venc, rec->video_out);
+        fclose(rec->video_out);
+        video_capture_cleanup(&rec->vctx);
+        audio_capture_cleanup(&rec->actx);
+        return -1;
+    }
+
+    /* 5. Init synchronisation */
+    InitializeCriticalSection(&rec->frame_lock);
+    rec->running = 1;
+
+    /* 6. Lancer les 3 threads */
+    rec->th_video_capture = (HANDLE)_beginthreadex(NULL, 0, thread_video_capture, rec, 0, NULL);
+    rec->th_video_encode  = (HANDLE)_beginthreadex(NULL, 0, thread_video_encode,  rec, 0, NULL);
+    rec->th_audio         = (HANDLE)_beginthreadex(NULL, 0, thread_audio,          rec, 0, NULL);
+
+    if (!rec->th_video_capture || !rec->th_video_encode || !rec->th_audio) {
+        fprintf(stderr, "[Recorder] Creation d'un thread echouee\n");
+        recorder_stop(rec);
+        return -1;
+    }
+
+    return 0;
+}
+
+CASTOR_CORE_API void recorder_stop(CastorRecorder* rec) {
+    rec->running = 0;
+
+    HANDLE threads[3] = { rec->th_video_capture, rec->th_video_encode, rec->th_audio };
+    for (int i = 0; i < 3; i++)
+        if (threads[i]) WaitForSingleObject(threads[i], 5000);
+    for (int i = 0; i < 3; i++)
+        if (threads[i]) CloseHandle(threads[i]);
+
+    rec->th_video_capture = NULL;
+    rec->th_video_encode  = NULL;
+    rec->th_audio         = NULL;
+
+    DeleteCriticalSection(&rec->frame_lock);
+    if (rec->last_video_frame) {
+        av_frame_free(&rec->last_video_frame);
+        rec->last_video_frame = NULL;
+    }
+
+    video_encoder_cleanup(&rec->venc, rec->video_out);
+    audio_encoder_cleanup(&rec->aenc);
+    video_capture_cleanup(&rec->vctx);
+    audio_capture_cleanup(&rec->actx);
+
+    if (rec->video_out) {
+        fclose(rec->video_out);
+        rec->video_out = NULL;
+    }
+}
+
+CASTOR_CORE_API void recorder_destroy(CastorRecorder* rec) {
+    if (rec) free(rec);
+}
