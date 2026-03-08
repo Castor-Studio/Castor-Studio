@@ -286,14 +286,16 @@ CASTOR_CORE_API AVFrame* audio_capture_next_frame(AudioCaptureContext* ctx) {
             AVFrame* frame = NULL;
 
             if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
-                /* Silence — generer un frame vide plutôt que de skipper */
+                /* Silence — generer un frame vide plutot que de skipper */
                 frame = av_frame_alloc();
                 frame->format      = AV_SAMPLE_FMT_FLTP;
                 frame->sample_rate = internal->sample_rate;
                 frame->nb_samples  = (int)count;
                 av_channel_layout_default(&frame->ch_layout, internal->channels);
                 av_frame_get_buffer(frame, 0);
-                /* av_frame_get_buffer zero-init les plans */
+                /* av_frame_get_buffer appelle av_malloc (pas av_mallocz) -> zero explicite */
+                for (int ch = 0; ch < frame->ch_layout.nb_channels; ch++)
+                    memset(frame->data[ch], 0, (int)count * sizeof(float));
             } else {
                 frame = wasapi_to_avframe(data, count, internal->wave_fmt);
             }

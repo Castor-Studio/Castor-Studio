@@ -101,13 +101,62 @@ static unsigned __stdcall thread_video_encode(void* arg) {
 
 /* ------------------------------------------------------------------ *
  *  Thread 3 : capture + encodage audio
+ *
+ *  Strategrie de synchronisation basee sur l'horloge QPC absolue :
+ *  On compare en permanence le nombre de samples soumis au FIFO
+ *  (submitted) avec le nombre attendu selon le temps ecoule depuis t0.
+ *  Tout ecart est comble par du silence, que WASAPI livre NULL, des
+ *  paquets SILENT a rythme irregulier, ou des vraies donnees.
  * ------------------------------------------------------------------ */
 static unsigned __stdcall thread_audio(void* arg) {
     CastorRecorder* rec = (CastorRecorder*)arg;
+
+    const int sample_rate = rec->actx.sample_rate > 0 ? rec->actx.sample_rate : 48000;
+    const int channels    = rec->actx.channels;
+
+    LARGE_INTEGER freq, t0;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&t0);
+
+    int64_t submitted = 0;   /* total de samples envoyes au FIFO de l'encodeur */
+
     while (rec->running) {
         AVFrame* aframe = audio_capture_next_frame(&rec->actx);
+
+        /* Temps ecoule depuis le debut de l'enregistrement */
+        LARGE_INTEGER t_now;
+        QueryPerformanceCounter(&t_now);
+        double elapsed  = (double)(t_now.QuadPart - t0.QuadPart) / freq.QuadPart;
+        int64_t expected = (int64_t)(elapsed * sample_rate);
+
+        /* Samples reels qu'on s'apprete a soumettre (peut etre 0) */
+        int wasapi_samples = aframe ? aframe->nb_samples : 0;
+
+        /* Gap = samples de silence a inserer AVANT les samples reels
+         * pour que submitted + gap + wasapi_samples == expected */
+        int64_t gap = expected - submitted - wasapi_samples;
+        if (gap < 0) gap = 0;
+
+        if (gap > 0) {
+            AVFrame* silence = av_frame_alloc();
+            silence->format      = AV_SAMPLE_FMT_FLTP;
+            silence->sample_rate = sample_rate;
+            silence->nb_samples  = (int)gap;
+            av_channel_layout_default(&silence->ch_layout, channels);
+            if (av_frame_get_buffer(silence, 0) == 0) {
+                /* av_frame_get_buffer appelle av_malloc (pas av_mallocz) :
+                 * les plans peuvent contenir des NaN/Inf -> zero explicitement. */
+                for (int ch = 0; ch < silence->ch_layout.nb_channels; ch++)
+                    memset(silence->data[ch], 0, silence->nb_samples * sizeof(float));
+                audio_encoder_encode_frame(&rec->aenc, silence, &rec->mux);
+                submitted += gap;
+            }
+            av_frame_free(&silence);
+        }
+
         if (aframe) {
             audio_encoder_encode_frame(&rec->aenc, aframe, &rec->mux);
+            submitted += wasapi_samples;
             av_frame_free(&aframe);
         }
     }

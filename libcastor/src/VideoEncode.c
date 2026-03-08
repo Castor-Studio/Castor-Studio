@@ -16,6 +16,7 @@ CASTOR_CORE_API int video_encoder_init(VideoEncoder* enc, int width, int height,
     enc->ctx->pix_fmt     = AV_PIX_FMT_YUV420P;
     enc->ctx->gop_size    = 12;
     enc->ctx->max_b_frames = 0;
+    enc->ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     enc->first_pts     = 0;
     enc->first_pts_set = 0;
     
