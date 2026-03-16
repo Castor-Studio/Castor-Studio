@@ -2,14 +2,86 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="CastorApplication.App"
              xmlns:local="using:CastorApplication"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
 
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
-  
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+
+                <!-- ═══ THÈME SOMBRE ═══ -->
+                <ResourceDictionary x:Key="Dark">
+                    <!-- Fonds -->
+                    <SolidColorBrush x:Key="AppBg"          Color="#0b0b12"/>
+                    <SolidColorBrush x:Key="AppSurface"     Color="#13131c"/>
+                    <SolidColorBrush x:Key="AppSurface2"    Color="#1c1c28"/>
+                    <SolidColorBrush x:Key="AppSurface3"    Color="#09090f"/>
+                    <SolidColorBrush x:Key="AppVeryDarkBg"  Color="#07070d"/>
+                    <SolidColorBrush x:Key="AppNavBadgeBg"  Color="#24242f"/>
+                    <SolidColorBrush x:Key="AppBadgeBg"     Color="#24242f"/>
+                    <SolidColorBrush x:Key="AppNavHoverBg"  Color="#1c1c28"/>
+                    <SolidColorBrush x:Key="AppAccentBg"    Color="#162040"/>
+                    <SolidColorBrush x:Key="AppAccentBg2"   Color="#141c30"/>
+                    <!-- Bordures -->
+                    <SolidColorBrush x:Key="AppBorder"      Color="#2a2a38"/>
+                    <SolidColorBrush x:Key="AppBorder2"     Color="#36364a"/>
+                    <!-- Textes -->
+                    <SolidColorBrush x:Key="AppFg1"         Color="#eaeaf0"/>
+                    <SolidColorBrush x:Key="AppFg2"         Color="#ccccd8"/>
+                    <SolidColorBrush x:Key="AppFg3"         Color="#8888a0"/>
+                    <SolidColorBrush x:Key="AppFg4"         Color="#5c5c72"/>
+                    <SolidColorBrush x:Key="AppFg5"         Color="#3c3c4e"/>
+                    <SolidColorBrush x:Key="AppFg6"         Color="#36364a"/>
+                    <!-- Boutons d'action -->
+                    <SolidColorBrush x:Key="AppLiveBg"      Color="#0e2420"/>
+                    <SolidColorBrush x:Key="AppLiveBorder"  Color="#142e25"/>
+                    <SolidColorBrush x:Key="AppStopBg"      Color="#251218"/>
+                    <SolidColorBrush x:Key="AppStopBorder"  Color="#2f1820"/>
+                    <SolidColorBrush x:Key="AppRecBg"       Color="#2d1212"/>
+                    <SolidColorBrush x:Key="AppRecBorder"   Color="#3d1a1a"/>
+                </ResourceDictionary>
+
+                <!-- ═══ THÈME CLAIR ═══ -->
+                <ResourceDictionary x:Key="Light">
+                    <!-- Fonds — blanc cassé avec teinte bleue/grise subtile -->
+                    <SolidColorBrush x:Key="AppBg"          Color="#eeeef6"/>
+                    <SolidColorBrush x:Key="AppSurface"     Color="#f6f6fc"/>
+                    <SolidColorBrush x:Key="AppSurface2"    Color="#eaeaf4"/>
+                    <SolidColorBrush x:Key="AppSurface3"    Color="#e2e2ee"/>
+                    <SolidColorBrush x:Key="AppVeryDarkBg"  Color="#d4d4e8"/>
+                    <SolidColorBrush x:Key="AppNavBadgeBg"  Color="#2a2a3a"/>
+                    <SolidColorBrush x:Key="AppBadgeBg"     Color="#dcdcee"/>
+                    <SolidColorBrush x:Key="AppNavHoverBg"  Color="#e0e0f0"/>
+                    <SolidColorBrush x:Key="AppAccentBg"    Color="#dce8ff"/>
+                    <SolidColorBrush x:Key="AppAccentBg2"   Color="#e2ebff"/>
+                    <!-- Bordures -->
+                    <SolidColorBrush x:Key="AppBorder"      Color="#ccccde"/>
+                    <SolidColorBrush x:Key="AppBorder2"     Color="#bcbcd2"/>
+                    <!-- Textes -->
+                    <SolidColorBrush x:Key="AppFg1"         Color="#18182a"/>
+                    <SolidColorBrush x:Key="AppFg2"         Color="#282844"/>
+                    <SolidColorBrush x:Key="AppFg3"         Color="#484888"/>
+                    <SolidColorBrush x:Key="AppFg4"         Color="#6868a0"/>
+                    <SolidColorBrush x:Key="AppFg5"         Color="#8888b8"/>
+                    <SolidColorBrush x:Key="AppFg6"         Color="#a0a0c0"/>
+                    <!-- Boutons d'action -->
+                    <SolidColorBrush x:Key="AppLiveBg"      Color="#d0f5e8"/>
+                    <SolidColorBrush x:Key="AppLiveBorder"  Color="#6ee7b7"/>
+                    <SolidColorBrush x:Key="AppStopBg"      Color="#fce8e8"/>
+                    <SolidColorBrush x:Key="AppStopBorder"  Color="#f0a0a0"/>
+                    <SolidColorBrush x:Key="AppRecBg"       Color="#fce8e8"/>
+                    <SolidColorBrush x:Key="AppRecBorder"   Color="#f0a0a0"/>
+                </ResourceDictionary>
+
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
         <FluentTheme />
+        <StyleInclude Source="avares://Dock.Avalonia.Themes.Fluent/DockFluentTheme.axaml" />
     </Application.Styles>
 </Application>

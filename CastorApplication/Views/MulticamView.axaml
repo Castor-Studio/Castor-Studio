@@ -1,14 +1,243 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="CastorApplication.Views.MulticamView">
-    
-    <Grid>
-        <TextBlock Text="Welcome to Multicam !" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"/>
+             xmlns:vm="using:CastorApplication.ViewModels"
+             xmlns:m="using:CastorApplication.Models"
+             x:Class="CastorApplication.Views.MulticamView"
+             x:DataType="vm:MulticamViewModel">
+
+    <UserControl.Styles>
+
+        <Style Selector="Button.cam-select">
+            <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.cam-select:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppBorder2}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        </Style>
+
+        <Style Selector="Button.ai-mode">
+            <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.ai-mode:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        </Style>
+
+        <Style Selector="Button.ai-active">
+            <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+            <Setter Property="Foreground" Value="#5b8def"/>
+            <Setter Property="BorderBrush" Value="#5b8def"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,7"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="56, Auto, *" Background="{DynamicResource AppBg}">
+
+        <!-- ═══ HEADER ═══ -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
+                Padding="16,0">
+            <Grid ColumnDefinitions="*, Auto">
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center" Spacing="10">
+                    <TextBlock Text="MULTI-CAMÉRAS"
+                               FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"
+                               VerticalAlignment="Center"/>
+                    <Border Background="{DynamicResource AppBadgeBg}" CornerRadius="10" Padding="8,3">
+                        <TextBlock Text="{Binding Cameras.Count, StringFormat='{}{0} caméras'}"
+                                   FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+                    </Border>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="+ AJOUTER UNE CAMÉRA"
+                        Command="{Binding AddCameraCommand}"
+                        Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
+                        BorderThickness="0" Padding="14,8" CornerRadius="6"
+                        FontSize="12" FontWeight="SemiBold"
+                        VerticalAlignment="Center" Cursor="Hand"/>
+
+            </Grid>
+        </Border>
+
+        <!-- ═══ AI MODE BAR ═══ -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="IA :" Foreground="{DynamicResource AppFg3}" FontSize="12"
+                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <!-- Off (active when IsAiOff) -->
+                        <Button IsVisible="{Binding IsAiOff}"
+                                Content="DÉSACTIVÉ"
+                                Background="{DynamicResource AppBadgeBg}" Foreground="{DynamicResource AppFg3}"
+                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
+                                Padding="12,6" CornerRadius="6"
+                                FontSize="11" FontWeight="SemiBold" Cursor="Hand"/>
+                        <Button IsVisible="{Binding !IsAiOff}"
+                                Content="DÉSACTIVÉ"
+                                Command="{Binding SetAiOffCommand}"
+                                Classes="ai-mode"/>
+
+                        <!-- Agent Mode -->
+                        <Button IsVisible="{Binding IsAiAgent}"
+                                Content="MODE AGENT"
+                                Classes="ai-active"/>
+                        <Button IsVisible="{Binding !IsAiAgent}"
+                                Content="MODE AGENT"
+                                Command="{Binding SetAiAgentCommand}"
+                                Classes="ai-mode"/>
+
+                        <!-- Auto Mode -->
+                        <Button IsVisible="{Binding IsAiAuto}"
+                                Content="MODE AUTO"
+                                Classes="ai-active"/>
+                        <Button IsVisible="{Binding !IsAiAuto}"
+                                Content="MODE AUTO"
+                                Command="{Binding SetAiAutoCommand}"
+                                Classes="ai-mode"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- AI Model Selector (visible when AI is enabled) -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding IsAiEnabled}">
+                    <TextBlock Text="Modèle IA :" Foreground="{DynamicResource AppFg4}"
+                               FontSize="11" VerticalAlignment="Center"/>
+                    <ComboBox MinWidth="180"
+                              SelectedIndex="{Binding SelectedAiModelIndex}"
+                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="12">
+                        <ComboBoxItem Content="Sport - Suivi de ballon"/>
+                        <ComboBoxItem Content="Conférence - Suivi vocal"/>
+                        <ComboBoxItem Content="Général - Détection mouvement"/>
+                    </ComboBox>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+        <!-- ═══ CAMERA GRID ═══ -->
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
+            <WrapPanel Margin="16" HorizontalAlignment="Left">
+
+                <!-- Dynamic camera cards -->
+                <ItemsControl ItemsSource="{Binding Cameras}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:CameraItem">
+                            <Button Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,12,12"
+                                    Cursor="Hand"
+                                    Command="{Binding $parent[UserControl].((vm:MulticamViewModel)DataContext).SelectCameraCommand}"
+                                    CommandParameter="{Binding}">
+                                <Border Width="290" Height="195"
+                                        Background="{DynamicResource AppSurface}"
+                                        CornerRadius="8">
+                                    <Grid RowDefinitions="*, Auto">
+
+                                        <Border Grid.Row="0" Background="{DynamicResource AppSurface3}"
+                                                CornerRadius="6,6,0,0">
+                                            <Panel>
+                                                <TextBlock Text="{Binding Label}"
+                                                           Foreground="{DynamicResource AppSurface2}" HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" FontSize="28" FontWeight="Bold"/>
+
+                                                <!-- Live badge (only shown when live) -->
+                                                <Border IsVisible="{Binding IsLive}"
+                                                        VerticalAlignment="Top" HorizontalAlignment="Left"
+                                                        Margin="8" Padding="7,3" CornerRadius="4"
+                                                        Background="#5b8def">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <Ellipse Width="6" Height="6" Fill="#eaeaf0" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="LIVE" FontSize="10" FontWeight="Bold" Foreground="#eaeaf0"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Panel>
+                                        </Border>
+
+                                        <Grid Grid.Row="1" ColumnDefinitions="*, Auto" Margin="10,7">
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                                       Foreground="{DynamicResource AppFg3}" FontSize="12"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- Active badge -->
+                                            <Border Grid.Column="1"
+                                                    IsVisible="{Binding IsActive}"
+                                                    Background="{DynamicResource AppAccentBg}" CornerRadius="4" Padding="8,4">
+                                                <TextBlock Text="ACTIVE" Foreground="#5b8def"
+                                                           FontSize="10" FontWeight="Bold"/>
+                                            </Border>
+                                            <!-- Select button -->
+                                            <Border Grid.Column="1"
+                                                    IsVisible="{Binding !IsActive}"
+                                                    Background="{DynamicResource AppBadgeBg}" CornerRadius="4" Padding="8,4">
+                                                <TextBlock Text="SÉLECTIONNER" Foreground="{DynamicResource AppFg3}"
+                                                           FontSize="10" FontWeight="SemiBold"/>
+                                            </Border>
+                                        </Grid>
+
+                                    </Grid>
+                                </Border>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Add Camera Card (static) -->
+                <Border Width="290" Height="195"
+                        Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppNavBadgeBg}" BorderThickness="1"
+                        CornerRadius="8" Margin="0,0,12,12" Cursor="Hand">
+                    <Button Background="Transparent" BorderThickness="0"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                            Command="{Binding AddCameraCommand}">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                            <Border Background="{DynamicResource AppSurface2}" CornerRadius="30" Width="40" Height="40"
+                                    HorizontalAlignment="Center">
+                                <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource AppFg6}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Ajouter une caméra" Foreground="{DynamicResource AppFg5}" FontSize="12"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+            </WrapPanel>
+        </ScrollViewer>
+
     </Grid>
-    
+
 </UserControl>

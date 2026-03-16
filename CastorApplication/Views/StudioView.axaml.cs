@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using CastorApplication.Factories;
+using CastorApplication.ViewModels;
 
 namespace CastorApplication.Views;
 
