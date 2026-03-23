@@ -77,3 +77,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+static inline OBS_NORETURN void bcrash(const char* msg)
+{
+	fprintf(stderr, "CRASH: %s\n", msg);
+	abort();
+}

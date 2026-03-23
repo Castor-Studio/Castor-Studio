@@ -4,7 +4,7 @@ static source_info_array_t g_source_types = { 0 };
 
 void source_registry_init()
 {
-	darray_init(&g_source_types);
+	da_init(g_source_types);
 }
 
 void source_register(source_info_t* info)

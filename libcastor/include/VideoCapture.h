@@ -7,6 +7,7 @@
 #endif
 
 #ifdef __cplusplus
+#include <stdbool.h>
 extern "C" {
 #endif
 
@@ -119,6 +120,11 @@ CASTOR_CORE_API int video_capture_select_source_cli(CaptureSourceInfo* out);
 
 /* Génère un frame BGRA de test (contenu indéfini). Debug uniquement. */
 CASTOR_CORE_API AVFrame* capture_dummy_video_frame(void);
+
+/* Enregistre le type "video_capture" dans le registre de sources.
+ * Doit etre appele apres source_registry_init().
+ * Retourne true si succes. */
+CASTOR_CORE_API bool video_capture_module_load(void);
 
 #ifdef __cplusplus
 }

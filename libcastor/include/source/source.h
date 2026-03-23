@@ -15,7 +15,9 @@ typedef struct source_t {
 	volatile AVFrame* frame;
 } source_t;
 
-CASTOR_CORE_API source_t* source_create(const char* id);
+/* id       : identifiant du type de source (doit etre enregistre dans le registre)
+ * settings : donnees de configuration passees au callback create (ex: CaptureSourceInfo*) */
+CASTOR_CORE_API source_t* source_create(const char* id, void* settings);
 CASTOR_CORE_API void source_activate(source_t* src);
 CASTOR_CORE_API void source_deactivate(source_t* src);
 CASTOR_CORE_API void source_destroy(source_t* src);

@@ -9,3 +9,4 @@ endif()
 project("Castor")
 
 add_subdirectory("libcastor")
+add_subdirectory("libcastor/_main")

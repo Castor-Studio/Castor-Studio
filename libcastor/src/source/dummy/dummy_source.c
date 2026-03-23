@@ -63,7 +63,7 @@ static void* capture_thread(void* arg)
 
         source_output_frame(src->source, frame);
 
-		printf("[%lu] Output frame %lld\n", src->thread, frame->pts);
+		printf("[%p] Output frame %lld\n", src->thread.p, frame->pts);
 
         //sleep_ms(33);  // ~30 FPS
     }
@@ -73,15 +73,15 @@ static void* capture_thread(void* arg)
     return NULL;
 }
 
-void* dummy_create(void* data)
+void* dummy_create(source_t* self, void* settings)
 {
+    (void)settings;
+
     dummy_source_t* dummy = malloc(sizeof(dummy_source_t));
 
     dummy->running = 0;
-
-	dummy->source = data;
-
-	dummy->frame_count = 0;
+    dummy->source = self;
+    dummy->frame_count = 0;
 
     return dummy;
 }

@@ -387,9 +387,7 @@ CASTOR_CORE_API void recorder_destroy(CastorRecorder* rec) {
     if (rec) free(rec);
 }
 
-CASTOR_CORE_API int recorder_switch_video_source(CastorRecorder*          rec,
-                                                   int                      stream_index,
-                                                   const CaptureSourceInfo* new_src) {
+CASTOR_CORE_API int recorder_switch_video_source(CastorRecorder* rec, int stream_index, const CaptureSourceInfo* new_src) {
     if (!rec || stream_index < 0 || stream_index >= rec->num_streams || !new_src)
         return -1;
 

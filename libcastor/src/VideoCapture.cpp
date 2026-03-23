@@ -1,10 +1,14 @@
 #include "VideoCapture.h"
+#include "source/source.h"
+#include "source/source_registry.h"
 
 extern "C" {
     #include <libavutil/frame.h>
     #include <libavutil/imgutils.h>
     #include <libavutil/time.h>
 }
+
+#include <process.h>
 
 // D3D/DXGI en premier
 #include <d3d11_4.h>
@@ -527,6 +531,80 @@ CASTOR_CORE_API int video_capture_select_source_cli(CaptureSourceInfo* out) {
 
     *out = sources[choice];
     return 0;
+}
+
+/* ================================================================== *
+ *  SOURCE PLUGIN — "video_capture"
+ *  Integre directement dans VideoCapture.cpp pour eviter tout fichier
+ *  intermediaire. Reutilise l'API C publique existante.
+ * ================================================================== */
+
+typedef struct {
+    source_t*           source;
+    CaptureSourceInfo   src_info;
+    VideoCaptureContext vctx;
+    HANDLE              thread;
+    volatile int        running;
+    int64_t             frame_count;
+} VideoCaptureSrcData;
+
+static unsigned __stdcall vc_capture_thread(void* arg) {
+    VideoCaptureSrcData* d = (VideoCaptureSrcData*)arg;
+    while (d->running) {
+        AVFrame* f = video_capture_next_frame(&d->vctx);
+        if (f) {
+            f->pts = d->frame_count++;
+            source_output_frame(d->source, f);
+        }
+    }
+    return 0;
+}
+
+static void* vc_create(source_t* self, void* settings) {
+    VideoCaptureSrcData* d = (VideoCaptureSrcData*)calloc(1, sizeof(VideoCaptureSrcData));
+    if (!d) return NULL;
+    d->source = self;
+    if (settings)
+        d->src_info = *(CaptureSourceInfo*)settings;
+    return d;
+}
+
+static void vc_activate(void* data) {
+    VideoCaptureSrcData* d = (VideoCaptureSrcData*)data;
+    if (video_capture_init_source(&d->vctx, &d->src_info) < 0) {
+        fprintf(stderr, "[video_capture source] Echec init '%s'\n", d->src_info.label);
+        return;
+    }
+    d->running = 1;
+    d->thread  = (HANDLE)_beginthreadex(NULL, 0, vc_capture_thread, d, 0, NULL);
+}
+
+static void vc_deactivate(void* data) {
+    VideoCaptureSrcData* d = (VideoCaptureSrcData*)data;
+    d->running = 0;
+    if (d->thread) {
+        WaitForSingleObject(d->thread, 5000);
+        CloseHandle(d->thread);
+        d->thread = NULL;
+    }
+    video_capture_cleanup(&d->vctx);
+}
+
+static void vc_destroy(void* data) {
+    free(data);
+}
+
+static source_info_t s_vc_info = {
+    "video_capture",
+    vc_create,
+    vc_destroy,
+    vc_activate,
+    vc_deactivate
+};
+
+CASTOR_CORE_API bool video_capture_module_load(void) {
+    source_register(&s_vc_info);
+    return true;
 }
 
 } // extern "C"

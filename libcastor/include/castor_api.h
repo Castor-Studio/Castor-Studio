@@ -33,6 +33,8 @@
  * ```
  */
 
+#include <stdbool.h>
+
 #ifdef _WIN32
     #ifdef CASTOR_CORE_BUILD_DLL
         #define CASTOR_CORE_API __declspec(dllexport)

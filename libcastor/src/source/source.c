@@ -3,7 +3,7 @@
 
 #include "source_registry.h"
 
-source_t* source_create(const char* id)
+source_t* source_create(const char* id, void* settings)
 {
     source_info_t* info = source_get_type(id);
 
@@ -13,7 +13,7 @@ source_t* source_create(const char* id)
     source_t* src = malloc(sizeof(source_t));
 
     src->info = info;
-    src->data = info->create(src);
+    src->data = info->create(src, settings);
     src->frame = NULL;
 
     return src;

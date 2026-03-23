@@ -8,7 +8,10 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 #include "AudioCapture.h"
+#include "source/source.h"
+#include "source/source_registry.h"
 
 #pragma comment(lib, "mf.lib")
 #pragma comment(lib, "mfplat.lib")
@@ -618,4 +621,71 @@ CASTOR_CORE_API int audio_capture_select_source_cli(AudioSourceInfo* out) {
 
     *out = sources[choice];
     return 0;
+}
+
+/* ================================================================== *
+ *  SOURCE PLUGIN — "audio_capture"
+ *  Integre directement dans AudioCapture.c pour eviter tout fichier
+ *  intermediaire. Reutilise l'API C publique existante.
+ * ================================================================== */
+
+typedef struct {
+    source_t*           source;
+    AudioSourceInfo     src_info;
+    AudioCaptureContext actx;
+    pthread_t           thread;
+    volatile int        running;
+} AudioCaptureSrcData;
+
+static void* ac_capture_thread(void* arg) {
+    AudioCaptureSrcData* d = (AudioCaptureSrcData*)arg;
+    while (d->running) {
+        AVFrame* f = audio_capture_next_frame(&d->actx);
+        if (f)
+            source_output_frame(d->source, f);
+    }
+    return NULL;
+}
+
+static void* ac_create(source_t* self, void* settings) {
+    AudioCaptureSrcData* d = (AudioCaptureSrcData*)calloc(1, sizeof(AudioCaptureSrcData));
+    if (!d) return NULL;
+    d->source = self;
+    if (settings)
+        d->src_info = *(AudioSourceInfo*)settings;
+    return d;
+}
+
+static void ac_activate(void* data) {
+    AudioCaptureSrcData* d = (AudioCaptureSrcData*)data;
+    if (audio_capture_init_source(&d->actx, &d->src_info) < 0) {
+        fprintf(stderr, "[audio_capture source] Echec init '%s'\n", d->src_info.label);
+        return;
+    }
+    d->running = 1;
+    pthread_create(&d->thread, NULL, ac_capture_thread, d);
+}
+
+static void ac_deactivate(void* data) {
+    AudioCaptureSrcData* d = (AudioCaptureSrcData*)data;
+    d->running = 0;
+    pthread_join(d->thread, NULL);
+    audio_capture_cleanup(&d->actx);
+}
+
+static void ac_destroy(void* data) {
+    free(data);
+}
+
+static source_info_t s_ac_info = {
+    "audio_capture",
+    ac_create,
+    ac_destroy,
+    ac_activate,
+    ac_deactivate
+};
+
+CASTOR_CORE_API bool audio_capture_module_load(void) {
+    source_register(&s_ac_info);
+    return true;
 }

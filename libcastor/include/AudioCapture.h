@@ -96,6 +96,11 @@ CASTOR_CORE_API int audio_capture_select_source_cli(AudioSourceInfo* out);
 /* Génère un frame sinusoïdal de test (440Hz, 1024 samples, 48kHz stéréo). Debug uniquement. */
 CASTOR_CORE_API AVFrame* capture_dummy_audio_frame(void);
 
+/* Enregistre le type "audio_capture" dans le registre de sources.
+ * Doit etre appele apres source_registry_init().
+ * Retourne true si succes. */
+CASTOR_CORE_API bool audio_capture_module_load(void);
+
 #ifdef __cplusplus
 }
 #endif
