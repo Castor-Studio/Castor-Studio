@@ -440,8 +440,12 @@ static AVFrame* next_frame_camera(VideoCaptureContextInternal* internal) {
         (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
         0, &stream_index, &flags, &timestamp, &sample);
 
-    if (FAILED(hr) || !sample) {
+    if (FAILED(hr)) {
         fprintf(stderr, "[Camera] ReadSample failed: 0x%lx\n", hr);
+        return nullptr;
+    }
+    if (!sample) {
+        /* S_OK sans sample = camera pas encore prete ou frame droppee — on reessaie silencieusement. */
         return nullptr;
     }
 

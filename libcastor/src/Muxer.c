@@ -59,6 +59,7 @@ CASTOR_CORE_API int muxer_write_header(CastorMuxer* mux) {
         return -1;
     }
 
+    fprintf(stderr, "[Muxer] write_header OK — connexion etablie : %s\n", mux->fmt_ctx->url);
     return 0;
 }
 

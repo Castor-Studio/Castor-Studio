@@ -1,6 +1,9 @@
 {
   "dependencies": [
     "pthreads",
-    "ffmpeg"
+    {
+      "name": "ffmpeg",
+      "features": [ "x264" ]
+    }
   ]
 }

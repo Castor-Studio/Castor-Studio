@@ -33,7 +33,30 @@
  * ```
  */
 
-#include <stdbool.h>
+/* Compatibilite bool C17 cross-compilateur.
+ *
+ * MSVC C17 : _Bool est un type natif, mais bool/true/false ne sont pas
+ * automatiquement definis sans <stdbool.h>. On les mappe manuellement
+ * pour eviter la dependance au chemin SDK dans l'environnement de build.
+ *
+ * GCC / Clang : <stdbool.h> suffit.
+ *
+ * C++ : bool est un mot-cle, aucun include necessaire. */
+#ifndef __cplusplus
+#  ifdef _MSC_VER
+#    ifndef bool
+#      define bool  _Bool
+#    endif
+#    ifndef true
+#      define true  1
+#    endif
+#    ifndef false
+#      define false 0
+#    endif
+#  else
+#    include <stdbool.h>
+#  endif
+#endif
 
 #ifdef _WIN32
     #ifdef CASTOR_CORE_BUILD_DLL

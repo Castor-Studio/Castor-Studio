@@ -4,13 +4,33 @@
 #include <libavutil/audio_fifo.h>
 #include <libswresample/swresample.h>
 
-/* Forward declaration — evite d'inclure Muxer.h et windows.h ici */
-typedef struct CastorMuxer CastorMuxer;
+/* Forward declarations */
+typedef struct CastorMuxer  CastorMuxer;
+typedef struct CastorOutput CastorOutput;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* ================================================================== *
+ *  AudioEncoderConfig — parametres d'encodage audio.
+ *
+ *  audio_bitrate_kbps : 0 = defaut (128 kb/s)
+ * ================================================================== */
+typedef struct {
+    int audio_bitrate_kbps;
+} AudioEncoderConfig;
+
+static inline AudioEncoderConfig audio_encoder_config_default(void)
+{
+    AudioEncoderConfig c;
+    c.audio_bitrate_kbps = 128;
+    return c;
+}
+
+/* ================================================================== *
+ *  AudioEncoder
+ * ================================================================== */
 typedef struct {
     AVCodecContext*  ctx;
     AVFrame*         frame;
@@ -21,39 +41,31 @@ typedef struct {
 } AudioEncoder;
 
 /*
- * Initialise l'encodeur AAC (codec context, frame de travail, FIFO).
- * Ne cree pas de fichier de sortie — l'ecriture se fait via le muxer partage.
+ * Initialise l'encodeur AAC avec la configuration par defaut (128 kb/s).
+ */
+CASTOR_CORE_API int  audio_encoder_init   (AudioEncoder* enc, int sample_rate);
+
+/*
+ * Initialise l'encodeur AAC avec une configuration complete.
  *
  * enc         : encodeur a initialiser
  * sample_rate : frequence d'echantillonnage de la source (Hz)
+ * cfg         : parametres d'encodage (NULL = defaut)
  *
  * Retourne 0 si succes, -1 en cas d'erreur.
  */
-CASTOR_CORE_API int  audio_encoder_init        (AudioEncoder* enc, int sample_rate);
+CASTOR_CORE_API int  audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
+                                           const AudioEncoderConfig* cfg);
 
 /*
- * Encode un frame audio vers AAC.
- * Reechantillonne si le format/rate/canaux different de ceux de l'encodeur,
- * accumule les samples dans un FIFO, puis flush par blocs de frame_size (~1024 samples).
- * Ecrit les paquets dans le container MP4 via le muxer partage.
- *
- * enc : encodeur initialise
- * src : frame audio source (format, sample_rate et canaux quelconques)
- * mux : muxer MP4 partage (thread-safe)
- *
- * Retourne 0 si succes, -1 en cas d'erreur.
+ * Encode un frame audio vers AAC et ecrit les paquets via CastorOutput.
  */
-CASTOR_CORE_API int  audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src, CastorMuxer* mux);
+CASTOR_CORE_API int  audio_encoder_encode_frame(AudioEncoder* enc, AVFrame* src, CastorOutput* out);
 
 /*
- * Flush les samples residuels du FIFO, vide le pipeline de l'encodeur
- * et libere toutes les ressources.
- * Le trailer MP4 est ecrit par muxer_close — ne pas l'ecrire ici.
- *
- * enc : encodeur a nettoyer
- * mux : muxer MP4 partage (pour le flush final)
+ * Flush les samples residuels et libere toutes les ressources.
  */
-CASTOR_CORE_API void audio_encoder_cleanup     (AudioEncoder* enc, CastorMuxer* mux);
+CASTOR_CORE_API void audio_encoder_cleanup     (AudioEncoder* enc, CastorOutput* out);
 
 #ifdef __cplusplus
 }

@@ -1,31 +1,71 @@
 #include "VideoEncode.h"
-#include "Muxer.h"
+#include "output/output.h"
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
+#include <stdio.h>
 
-CASTOR_CORE_API int video_encoder_init(VideoEncoder* enc, int width, int height, int fps) {
-    const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_H264);
-    if (!codec) return -1;
+/* ------------------------------------------------------------------ *
+ *  video_encoder_init_ex — implementation centrale
+ * ------------------------------------------------------------------ */
+CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int height, int fps,
+                                          const VideoEncoderConfig* cfg)
+{
+    VideoEncoderConfig defaults = video_encoder_config_default();
+    if (!cfg) cfg = &defaults;
+
+    /* Preferer libx264 : supporte CBR, preset, tune=zerolatency.
+     * h264_mf (Media Foundation) ignore ces options et est deconseille pour RTMP. */
+    const AVCodec* codec = avcodec_find_encoder_by_name("libx264");
+    if (!codec) {
+        fprintf(stderr, "[VideoEncoder] libx264 introuvable, fallback vers codec H264 systeme\n");
+        codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    }
+    if (!codec) {
+        fprintf(stderr, "[VideoEncoder] aucun codec H264 disponible\n");
+        return -1;
+    }
+    fprintf(stderr, "[VideoEncoder] codec : %s\n", codec->name);
 
     enc->ctx = avcodec_alloc_context3(codec);
-    enc->ctx->width       = width;
-    enc->ctx->height      = height;
-    enc->ctx->time_base   = (AVRational){ 1, fps };
-    enc->ctx->framerate   = (AVRational){ fps, 1 };
-    enc->ctx->pix_fmt     = AV_PIX_FMT_YUV420P;
-    enc->ctx->gop_size    = 12;
+    if (!enc->ctx) return -1;
+
+    const int gop = (cfg->gop_seconds > 0 ? cfg->gop_seconds : 2) * fps;
+
+    enc->ctx->width        = width;
+    enc->ctx->height       = height;
+    enc->ctx->time_base    = (AVRational){ 1, fps };
+    enc->ctx->framerate    = (AVRational){ fps, 1 };
+    enc->ctx->pix_fmt      = AV_PIX_FMT_YUV420P;
+    enc->ctx->gop_size     = gop;
     enc->ctx->max_b_frames = 0;
-    enc->ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    enc->ctx->flags       |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
     enc->first_pts     = 0;
     enc->first_pts_set = 0;
-    
-    av_opt_set(enc->ctx->priv_data, "preset", "veryfast", 0);
 
-    if (avcodec_open2(enc->ctx, codec, NULL) < 0) return -1;
+    /* --- Preset --- */
+    av_opt_set(enc->ctx->priv_data, "preset",
+               cfg->zerolatency ? "ultrafast" : "veryfast", 0);
 
-    // fprintf(stderr, "[VideoEncoder] time_base effectif = %d/%d\n",
-    //         enc->ctx->time_base.num, enc->ctx->time_base.den);
+    /* --- Latence zero (streaming) --- */
+    if (cfg->zerolatency)
+        av_opt_set(enc->ctx->priv_data, "tune", "zerolatency", 0);
+
+    /* --- Mode CBR ou CRF --- */
+    if (cfg->cbr && cfg->video_bitrate_kbps > 0) {
+        const int bps = cfg->video_bitrate_kbps * 1000;
+        enc->ctx->bit_rate  = bps;
+        enc->ctx->rc_min_rate = bps;
+        enc->ctx->rc_max_rate = bps;
+        enc->ctx->rc_buffer_size = bps * 2;  /* buffer = 2 * bitrate */
+    }
+
+    if (avcodec_open2(enc->ctx, codec, NULL) < 0) {
+        fprintf(stderr, "[VideoEncoder] avcodec_open2 failed\n");
+        avcodec_free_context(&enc->ctx);
+        return -1;
+    }
 
     enc->frame = av_frame_alloc();
     enc->frame->format = AV_PIX_FMT_YUV420P;
@@ -33,39 +73,62 @@ CASTOR_CORE_API int video_encoder_init(VideoEncoder* enc, int width, int height,
     enc->frame->height = height;
     av_frame_get_buffer(enc->frame, 32);
 
-    // ← Creer le contexte sws une seule fois ici
     enc->sws_ctx = sws_getContext(
-        width, height, AV_PIX_FMT_BGRA,      // src = WGC
-        width, height, AV_PIX_FMT_YUV420P,   // dst = encodeur
+        width, height, AV_PIX_FMT_BGRA,
+        width, height, AV_PIX_FMT_YUV420P,
         SWS_BILINEAR, NULL, NULL, NULL
     );
-    if (!enc->sws_ctx) return -1;
+    if (!enc->sws_ctx) {
+        fprintf(stderr, "[VideoEncoder] sws_getContext failed\n");
+        avcodec_free_context(&enc->ctx);
+        av_frame_free(&enc->frame);
+        return -1;
+    }
 
     enc->pkt         = av_packet_alloc();
     enc->frame_index = 0;
     return 0;
 }
 
-static int flush_encoder(VideoEncoder* enc, CastorMuxer* mux) {
+/* Compatibilite — utilise la config par defaut (CRF) */
+CASTOR_CORE_API int video_encoder_init(VideoEncoder* enc, int width, int height, int fps)
+{
+    return video_encoder_init_ex(enc, width, height, fps, NULL);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Flush interne
+ * ------------------------------------------------------------------ */
+static int flush_encoder(VideoEncoder* enc, CastorOutput* out)
+{
     if (avcodec_send_frame(enc->ctx, NULL) < 0) return -1;
     while (avcodec_receive_packet(enc->ctx, enc->pkt) == 0) {
-        enc->pkt->stream_index = mux->video_stream->index;
-        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base, mux->video_stream->time_base);
-        muxer_write_packet(mux, enc->pkt);
+        enc->pkt->stream_index = out->video_stream_index;
+        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base,
+                             out->video_stream_time_base);
+        output_write_packet(out, enc->pkt);
         av_packet_unref(enc->pkt);
     }
     return 0;
 }
 
-CASTOR_CORE_API void video_encoder_cleanup(VideoEncoder* enc, CastorMuxer* mux) {
-    flush_encoder(enc, mux);
+/* ------------------------------------------------------------------ *
+ *  video_encoder_cleanup
+ * ------------------------------------------------------------------ */
+CASTOR_CORE_API void video_encoder_cleanup(VideoEncoder* enc, CastorOutput* out)
+{
+    flush_encoder(enc, out);
     sws_freeContext(enc->sws_ctx);
     avcodec_free_context(&enc->ctx);
     av_frame_free(&enc->frame);
     av_packet_free(&enc->pkt);
 }
 
-CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, CastorMuxer* mux) {
+/* ------------------------------------------------------------------ *
+ *  video_encoder_encode_frame
+ * ------------------------------------------------------------------ */
+CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, CastorOutput* out)
+{
     av_frame_make_writable(enc->frame);
 
     sws_scale(
@@ -91,9 +154,10 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
     }
 
     while (avcodec_receive_packet(enc->ctx, enc->pkt) == 0) {
-        enc->pkt->stream_index = mux->video_stream->index;
-        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base, mux->video_stream->time_base);
-        muxer_write_packet(mux, enc->pkt);
+        enc->pkt->stream_index = out->video_stream_index;
+        av_packet_rescale_ts(enc->pkt, enc->ctx->time_base,
+                             out->video_stream_time_base);
+        output_write_packet(out, enc->pkt);
         av_packet_unref(enc->pkt);
     }
     return 0;

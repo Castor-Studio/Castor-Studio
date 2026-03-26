@@ -3,59 +3,94 @@
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
 
-/* Forward declaration — evite d'inclure Muxer.h et windows.h ici */
-typedef struct CastorMuxer CastorMuxer;
+/* Forward declarations */
+typedef struct CastorMuxer  CastorMuxer;
+typedef struct CastorOutput CastorOutput;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* ================================================================== *
+ *  VideoEncoderConfig — parametres d'encodage video.
+ *
+ *  Deux modes :
+ *    - CRF  (cbr=0) : qualite constante, taille variable. Ideal pour fichier.
+ *    - CBR  (cbr=1) : debit constant, latence maitrisee.  Ideal pour RTMP.
+ *
+ *  Helpers fournis :
+ *    video_encoder_config_default() -> CRF, preset veryfast, GOP 2s
+ *    video_encoder_config_rtmp(bitrate, gop) -> CBR, zerolatency
+ * ================================================================== */
 typedef struct {
-    AVCodecContext* ctx;
-    AVFrame*        frame;
-    AVPacket*       pkt;
+    int cbr;                  /* 0 = CRF (qualite), 1 = CBR (debit constant) */
+    int video_bitrate_kbps;   /* debit video en kb/s     — utilise si cbr=1  */
+    int gop_seconds;          /* intervalle keyframe (s) — 0 = defaut (2s)   */
+    int zerolatency;          /* 1 = tune zerolatency    — recommande RTMP   */
+} VideoEncoderConfig;
 
-    int             frame_index;
-    struct SwsContext* sws_ctx;   /* BGRA -> YUV420P */
+static inline VideoEncoderConfig video_encoder_config_default(void)
+{
+    VideoEncoderConfig c;
+    c.cbr               = 0;
+    c.video_bitrate_kbps = 0;
+    c.gop_seconds       = 2;
+    c.zerolatency       = 0;
+    return c;
+}
 
-    int64_t         first_pts;
-    int             first_pts_set;
+static inline VideoEncoderConfig video_encoder_config_rtmp(int bitrate_kbps, int gop_seconds)
+{
+    VideoEncoderConfig c;
+    c.cbr               = 1;
+    c.video_bitrate_kbps = bitrate_kbps > 0 ? bitrate_kbps : 4000;
+    c.gop_seconds       = gop_seconds  > 0 ? gop_seconds  : 2;
+    c.zerolatency       = 1;
+    return c;
+}
+
+/* ================================================================== *
+ *  VideoEncoder
+ * ================================================================== */
+typedef struct {
+    AVCodecContext*    ctx;
+    AVFrame*           frame;
+    AVPacket*          pkt;
+    int                frame_index;
+    struct SwsContext* sws_ctx;     /* BGRA -> YUV420P */
+    int64_t            first_pts;
+    int                first_pts_set;
 } VideoEncoder;
 
 /*
- * Initialise l'encodeur H.264 (libx264).
- * Configure le codec, alloue le frame YUV420P de travail et le SwsContext
- * pour la conversion BGRA->YUV420P.
+ * Initialise l'encodeur H.264 avec configuration par defaut (CRF).
+ * Pour du streaming, preferer video_encoder_init_ex avec une config RTMP.
+ */
+CASTOR_CORE_API int  video_encoder_init   (VideoEncoder* enc, int width, int height, int fps);
+
+/*
+ * Initialise l'encodeur H.264 avec une configuration complete.
  *
  * enc    : encodeur a initialiser
  * width  : largeur de la source en pixels
  * height : hauteur de la source en pixels
  * fps    : frequence d'images cible
+ * cfg    : parametres d'encodage (NULL = defaut CRF)
  *
  * Retourne 0 si succes, -1 en cas d'erreur.
  */
-CASTOR_CORE_API int  video_encoder_init(VideoEncoder* enc, int width, int height, int fps);
+CASTOR_CORE_API int  video_encoder_init_ex(VideoEncoder* enc, int width, int height, int fps,
+                                           const VideoEncoderConfig* cfg);
 
 /*
- * Convertit un frame BGRA en YUV420P puis l'encode en H.264.
- * Ecrit les paquets dans le container MP4 via le muxer partage.
- *
- * enc : encodeur initialise
- * src : frame video source au format BGRA (issu de la capture)
- * mux : muxer MP4 partage (thread-safe)
- *
- * Retourne 0 si succes, code d'erreur FFmpeg negatif sinon.
+ * Encode un frame BGRA vers H.264 et ecrit les paquets via CastorOutput.
  */
-CASTOR_CORE_API int  video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, CastorMuxer* mux);
+CASTOR_CORE_API int  video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, CastorOutput* out);
 
 /*
- * Flush les derniers paquets en attente dans l'encodeur,
- * puis libere le codec context, le frame et le SwsContext.
- *
- * enc : encodeur a nettoyer
- * mux : muxer MP4 partage (pour le flush final)
+ * Flush les derniers paquets et libere toutes les ressources.
  */
-CASTOR_CORE_API void video_encoder_cleanup(VideoEncoder* enc, CastorMuxer* mux);
+CASTOR_CORE_API void video_encoder_cleanup     (VideoEncoder* enc, CastorOutput* out);
 
 #ifdef __cplusplus
 }

@@ -6,18 +6,20 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-file(GLOB_RECURSE SRC "src/*.c" "src/*.cpp" "src/**/*.c" "src/**/*.cpp")
+file(GLOB_RECURSE SRC "src/*.c" "src/*.cpp" "src/**/*.c" "src/**/*.cpp" "src/output/*.c")
 
 add_library(castor_core SHARED ${SRC})
 
 target_include_directories(castor_core PRIVATE "include")
+target_include_directories(castor_core PRIVATE "include/output")
+target_include_directories(castor_core PRIVATE "include/services")
 target_include_directories(castor_core PRIVATE "include/core")
 target_include_directories(castor_core PRIVATE "include/scene")
 target_include_directories(castor_core PRIVATE "include/source")
 
 if (WIN32)
     target_compile_definitions(castor_core PRIVATE CASTOR_CORE_BUILD_DLL)
-    target_link_libraries(castor_core PRIVATE winmm dwmapi mmdevapi windowsapp d3d11)
+    target_link_libraries(castor_core PRIVATE winmm dwmapi mmdevapi windowsapp d3d11 winhttp)
 endif()
 
 find_package(FFMPEG REQUIRED)
