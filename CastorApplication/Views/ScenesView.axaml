@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:CastorApplication.Models"
+             xmlns:native="using:Castor.Native"
              x:Class="CastorApplication.Views.ScenesView"
              x:DataType="vm:ScenesViewModel">
 
@@ -178,21 +179,85 @@
                                                    FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
                                         <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 
-                                        <TextBlock Text="Sources vidéo" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" Margin="0,4,0,0"/>
-                                        <Button Classes="source-type-btn" Content="Capture d'écran"
-                                                Command="{Binding AddScreenCaptureCommand}"/>
-                                        <Button Classes="source-type-btn" Content="Caméra"
-                                                Command="{Binding AddCameraCommand}"/>
-                                        <Button Classes="source-type-btn" Content="Capture de fenêtre"
-                                                Command="{Binding AddWindowCaptureCommand}"/>
+                                        <!-- Moniteurs -->
+                                        <TextBlock Text="MONITEURS" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,4,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableMonitors}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificVideoSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableMonitors.Count}"
+                                                   Text="Aucun moniteur détecté" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
 
-                                        <TextBlock Text="Sources audio" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" Margin="0,4,0,0"/>
-                                        <Button Classes="source-type-btn" Content="Audio système"
-                                                Command="{Binding AddSystemAudioCommand}"/>
-                                        <Button Classes="source-type-btn" Content="Microphone"
-                                                Command="{Binding AddMicrophoneCommand}"/>
+                                        <!-- Caméras -->
+                                        <TextBlock Text="CAMÉRAS" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableCameras}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificVideoSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableCameras.Count}"
+                                                   Text="Aucune caméra détectée" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+
+                                        <!-- Fenêtres -->
+                                        <TextBlock Text="FENÊTRES" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ScrollViewer MaxHeight="120">
+                                            <ItemsControl ItemsSource="{Binding AvailableWindows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                        <Button Classes="source-type-btn"
+                                                                Content="{Binding Label}"
+                                                                Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificVideoSourceCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                        <TextBlock IsVisible="{Binding !AvailableWindows.Count}"
+                                                   Text="Aucune fenêtre détectée" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+
+                                        <!-- Audio -->
+                                        <TextBlock Text="SOURCES AUDIO" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableLoopbacks}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:AudioSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificAudioSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding AvailableMics}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:AudioSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificAudioSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableLoopbacks.Count}"
+                                                   Text="Aucun périphérique audio détecté" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>

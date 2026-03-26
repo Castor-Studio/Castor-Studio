@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Linq;
+using Castor.Native;
 using CastorApplication.Models;
+using CastorApplication.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -7,7 +10,9 @@ namespace CastorApplication.ViewModels;
 
 public partial class ScenesViewModel : ViewModelBase
 {
-    public ObservableCollection<SceneItem> Scenes { get; } = new();
+    // ── Scènes ────────────────────────────────────────────────────────────────
+
+    public ObservableCollection<SceneItem> Scenes => SceneService.Instance.Scenes;
 
     [ObservableProperty]
     private SceneItem? _selectedScene;
@@ -15,108 +20,98 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty]
     private string _newSceneName = "";
 
+    // ── Sources disponibles (pour le flyout d'ajout) ──────────────────────────
+
+    public ObservableCollection<CaptureSourceOption> AvailableMonitors  { get; } = new();
+    public ObservableCollection<CaptureSourceOption> AvailableCameras   { get; } = new();
+    public ObservableCollection<CaptureSourceOption> AvailableWindows   { get; } = new();
+    public ObservableCollection<AudioSourceOption>   AvailableLoopbacks { get; } = new();
+    public ObservableCollection<AudioSourceOption>   AvailableMics      { get; } = new();
+
+    // ── Constructeur ─────────────────────────────────────────────────────────
+
     public ScenesViewModel()
     {
-        // Sample data
-        var matchLive = new SceneItem("Match Live", isActive: true, isLive: true);
-        matchLive.Sources.Add(new SourceItem("Caméra terrain", "Vidéo", "#5b8def"));
-        matchLive.Sources.Add(new SourceItem("Tableau de scores", "Vidéo", "#34d399"));
-        matchLive.Sources.Add(new SourceItem("Audio système", "Audio", "#fbbf24"));
+        // Synchronise la sélection UI avec la scène active du service
+        SelectedScene = SceneService.Instance.ActiveScene;
 
-        var intro = new SceneItem("Introduction");
-        intro.Sources.Add(new SourceItem("Logo club", "Vidéo", "#5b8def"));
-        intro.Sources.Add(new SourceItem("Musique intro", "Audio", "#fbbf24"));
-
-        var miTemps = new SceneItem("Mi-Temps");
-        miTemps.Sources.Add(new SourceItem("Caméra plateau", "Vidéo", "#34d399"));
-
-        var finMatch = new SceneItem("Fin de Match");
-        var plateau = new SceneItem("Plateau Studio");
-
-        Scenes.Add(matchLive);
-        Scenes.Add(intro);
-        Scenes.Add(miTemps);
-        Scenes.Add(finMatch);
-        Scenes.Add(plateau);
-
-        SelectedScene = matchLive;
+        // Charge les sources disponibles depuis la DLL
+        LoadAvailableSources();
     }
+
+    private void LoadAvailableSources()
+    {
+        try
+        {
+            foreach (var src in CastorNative.ListVideoSources())
+            {
+                var opt = new CaptureSourceOption(src);
+                switch (src.Type)
+                {
+                    case CaptureSourceType.Monitor: AvailableMonitors.Add(opt);  break;
+                    case CaptureSourceType.Camera:  AvailableCameras.Add(opt);   break;
+                    case CaptureSourceType.Window:  AvailableWindows.Add(opt);   break;
+                }
+            }
+
+            foreach (var src in CastorNative.ListAudioSources())
+            {
+                var opt = new AudioSourceOption(src);
+                if (src.Type is AudioSourceType.Microphone or AudioSourceType.CameraMic)
+                    AvailableMics.Add(opt);
+                else
+                    AvailableLoopbacks.Add(opt);
+            }
+        }
+        catch { /* DLL non chargée en mode design */ }
+    }
+
+    // ── Commandes scènes ──────────────────────────────────────────────────────
 
     [RelayCommand]
     private void SelectScene(SceneItem scene)
     {
-        // Deselect all
-        foreach (var s in Scenes)
-            s.IsActive = false;
-
-        scene.IsActive = true;
+        SceneService.Instance.SetActiveScene(scene);
         SelectedScene = scene;
     }
 
     [RelayCommand]
     private void CreateScene()
     {
-        if (string.IsNullOrWhiteSpace(NewSceneName))
-            return;
+        if (string.IsNullOrWhiteSpace(NewSceneName)) return;
 
-        var scene = new SceneItem(NewSceneName.Trim());
-        Scenes.Add(scene);
+        var scene = SceneService.Instance.CreateScene(NewSceneName.Trim());
         NewSceneName = "";
-
         SelectScene(scene);
     }
 
     [RelayCommand]
-    private void DeleteScene(SceneItem scene)
-    {
-        if (Scenes.Count <= 1)
-            return;
+    private void DeleteScene(SceneItem scene) => SceneService.Instance.DeleteScene(scene);
 
-        Scenes.Remove(scene);
+    // ── Commandes d'ajout de sources ─────────────────────────────────────────
 
-        if (SelectedScene == scene && Scenes.Count > 0)
-            SelectScene(Scenes[0]);
-    }
-
+    /// <summary>Ajoute une source vidéo spécifique à la scène sélectionnée.</summary>
     [RelayCommand]
-    private void AddVideoSource()
+    private void AddSpecificVideoSource(CaptureSourceOption opt)
     {
-        SelectedScene?.Sources.Add(new SourceItem("Nouvelle source vidéo", "Vidéo", "#5b8def"));
+        if (SelectedScene == null) return;
+        SceneService.Instance.AddVideoSource(SelectedScene, opt.Info);
     }
 
+    /// <summary>Ajoute une source audio spécifique à la scène sélectionnée.</summary>
     [RelayCommand]
-    private void AddScreenCapture()
+    private void AddSpecificAudioSource(AudioSourceOption opt)
     {
-        SelectedScene?.Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
+        if (SelectedScene == null) return;
+        SceneService.Instance.AddAudioSource(SelectedScene, opt.Info);
     }
 
-    [RelayCommand]
-    private void AddCamera()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Caméra", "Vidéo", "#34d399"));
-    }
-
-    [RelayCommand]
-    private void AddWindowCapture()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Capture de fenêtre", "Vidéo", "#8888a0"));
-    }
-
-    [RelayCommand]
-    private void AddSystemAudio()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Audio système", "Audio", "#fbbf24"));
-    }
-
-    [RelayCommand]
-    private void AddMicrophone()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Microphone", "Audio", "#f87171"));
-    }
+    // ── Suppression de source ─────────────────────────────────────────────────
 
     [RelayCommand]
     private void RemoveSource(SourceItem source)
     {
-        SelectedScene?.Sources.Remove(source);
+        if (SelectedScene == null) return;
+        SceneService.Instance.RemoveSource(SelectedScene, source);
     }
 }

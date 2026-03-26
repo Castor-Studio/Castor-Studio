@@ -12,7 +12,7 @@ public class StudioDockFactory : Factory
 {
     private readonly StudioViewModel _vm;
     private SourcesPanelContext? _sourcesCtx;
-    private AudioPanelContext? _audioCtx;
+    private AudioPanelContext?   _audioCtx;
 
     public StudioDockFactory(StudioViewModel vm)
     {
@@ -24,7 +24,6 @@ public class StudioDockFactory : Factory
         _sourcesCtx = new SourcesPanelContext(_vm);
         _audioCtx   = new AudioPanelContext(_vm);
 
-        // ── Documents ──
         var videoDoc = new Document
         {
             Id       = "Video",
@@ -34,7 +33,6 @@ public class StudioDockFactory : Factory
             CanClose = false,
         };
 
-        // ── Tools ──
         var sourcesTool = new Tool
         {
             Id       = "Sources",
@@ -53,7 +51,6 @@ public class StudioDockFactory : Factory
             CanClose = false,
         };
 
-        // ── Right panel : Sources (haut) + Audio (bas), tous deux visibles ──
         var rightDock = new ProportionalDock
         {
             Id          = "RightDock",
@@ -82,7 +79,6 @@ public class StudioDockFactory : Factory
             ),
         };
 
-        // ── Left panel : preview vidéo ──
         var videoPane = new DocumentDock
         {
             Id                = "VideoPane",

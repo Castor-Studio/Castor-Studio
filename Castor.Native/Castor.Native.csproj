@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
@@ -6,13 +6,5 @@
 		<PlatformTarget>x64</PlatformTarget>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<None Include="..\libcastor\cmake-build-release\*.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Link>%(FileName)%(Extension)</Link>
-			<Visible>false</Visible>
-		</None>
-	</ItemGroup>
 
 </Project>

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -15,6 +16,9 @@ public partial class SceneItem : ObservableObject
     private bool _isLive;
 
     public ObservableCollection<SourceItem> Sources { get; } = new();
+
+    /// <summary>Pointeur vers le scene_t* natif. IntPtr.Zero si non initialisé.</summary>
+    public IntPtr NativePtr { get; set; } = IntPtr.Zero;
 
     public SceneItem() { }
 

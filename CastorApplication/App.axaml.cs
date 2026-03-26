@@ -4,6 +4,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Castor.Native;
+using CastorApplication.Services;
 using CastorApplication.ViewModels;
 using CastorApplication.Views;
 
@@ -18,6 +20,8 @@ namespace CastorApplication
 
         public override void OnFrameworkInitializationCompleted()
         {
+            CastorNative.Initialize();
+
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 // Avoid duplicate validations from both Avalonia and the CommunityToolkit.

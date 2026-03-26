@@ -1,7 +1,15 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using CastorApplication.Factories;
 using CastorApplication.Models;
+using CastorApplication.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Dock.Model.Controls;
@@ -12,13 +20,13 @@ public partial class StudioViewModel : ViewModelBase
 {
     // ── Scene selection ──
 
-    public ObservableCollection<string> SceneNames { get; } = new()
+    public ObservableCollection<SceneItem> Scenes => SceneService.Instance.Scenes;
+
+    public SceneItem? ActiveScene
     {
-        "Match Live",
-        "Introduction",
-        "Mi-Temps",
-        "Fin de Match"
-    };
+        get => SceneService.Instance.ActiveScene;
+        set => SceneService.Instance.SetActiveScene(value!);
+    }
 
     [ObservableProperty]
     private int _selectedSceneIndex;
@@ -84,7 +92,7 @@ public partial class StudioViewModel : ViewModelBase
     private int _recordSceneIndex;
 
     [ObservableProperty]
-    private int _recordFormatIndex;
+    private string _recordError = "";
 
     public string RecordStatusText => IsRecording ? "REC" : "";
 
@@ -101,10 +109,6 @@ public partial class StudioViewModel : ViewModelBase
 
     public StudioViewModel()
     {
-        Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
-        Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#34d399"));
-        Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#3c3c4e") { IsActive = false });
-
         var factory = new StudioDockFactory(this);
         Layout = factory.CreateLayout();
         factory.InitLayout(Layout);
@@ -121,10 +125,65 @@ public partial class StudioViewModel : ViewModelBase
     // ── Recording commands ──
 
     [RelayCommand]
-    private void StartRecording() => IsRecording = true;
+    private async Task StartRecording()
+    {
+        RecordError = "";
+
+        var scene = SceneService.Instance.ActiveScene;
+        if (scene == null || scene.Sources.All(s => s.Type != "Vidéo"))
+        {
+            RecordError = "Aucune source vidéo dans la scène active.";
+            return;
+        }
+
+        var path = await PickOutputFileAsync();
+        if (path == null) return; // annulé par l'utilisateur
+
+        int result = RecorderService.Instance.Start(scene, path);
+        if (result == 0)
+        {
+            IsRecording = true;
+        }
+        else
+        {
+            RecordError = result switch
+            {
+                -2 => "Aucune source vidéo dans la scène.",
+                -3 => "Impossible de créer le recorder natif.",
+                _  => $"Erreur recorder (code {result})."
+            };
+        }
+    }
 
     [RelayCommand]
-    private void StopRecording() => IsRecording = false;
+    private void StopRecording()
+    {
+        RecorderService.Instance.Stop();
+        IsRecording = false;
+    }
+
+    private static async Task<string?> PickOutputFileAsync()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+        if (topLevel == null) return null;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title             = "Enregistrer la vidéo sous...",
+            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}",
+            FileTypeChoices   =
+            [
+                new FilePickerFileType("MP4 (H.264 + AAC)") { Patterns = ["*.mp4"] },
+                new FilePickerFileType("MKV (H.264 + AAC)") { Patterns = ["*.mkv"] },
+            ]
+        });
+
+        return file?.Path.LocalPath;
+    }
 
     // ── Source management ──
 
@@ -141,8 +200,6 @@ public partial class StudioViewModel : ViewModelBase
     }
 }
 
-// ── Dock panel context markers ──
-
 public sealed class SourcesPanelContext(StudioViewModel studio)
 {
     public StudioViewModel Studio => studio;
@@ -152,3 +209,4 @@ public sealed class AudioPanelContext(StudioViewModel studio)
 {
     public StudioViewModel Studio => studio;
 }
+

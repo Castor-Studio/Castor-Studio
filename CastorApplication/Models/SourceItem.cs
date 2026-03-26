@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -22,6 +23,15 @@ public partial class SourceItem : ObservableObject
     partial void OnColorChanged(string value) => OnPropertyChanged(nameof(ColorBrush));
 
     public SourceItem() { }
+
+    /// <summary>Pointeur vers le source_t* natif. IntPtr.Zero si source purement UI.</summary>
+    public IntPtr NativePtr { get; set; } = IntPtr.Zero;
+
+    /// <summary>
+    /// Infos natives brutes (CaptureSourceInfo ou AudioSourceInfo).
+    /// Utilisé pour initialiser la capture au démarrage de l'enregistrement.
+    /// </summary>
+    public object? Tag { get; set; }
 
     public SourceItem(string name, string type, string color)
     {

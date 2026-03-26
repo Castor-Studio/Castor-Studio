@@ -1,5 +1,8 @@
+using System.Collections.ObjectModel;
+using System.Linq;
 using Avalonia;
 using Avalonia.Styling;
+using Castor.Native;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -49,9 +52,22 @@ public partial class SettingsViewModel : ViewModelBase
 
     public SettingsViewModel()
     {
-        // Sync the ComboBox with the currently active theme (no OnChanged triggered via backing field)
         _selectedThemeIndex = Application.Current?.RequestedThemeVariant == ThemeVariant.Light ? 1 : 0;
+
+        try
+        {
+            foreach (var src in CastorNative.ListAudioSources())
+            {
+                if (src.Type is AudioSourceType.LoopbackGlobal or AudioSourceType.LoopbackWindow)
+                    LoopbackSources.Add(src.Label);
+                else
+                    MicrophoneSources.Add(src.Label);
+            }
+        }
+        catch { /* module non chargé ou erreur native, listes restent vides */ }
     }
+
+    public string LibraryVersion { get; } = CastorNative.GetVersion();
 
     // ── Video settings ──
 
@@ -75,6 +91,12 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     // ── Audio settings ──
+
+    /// <summary>Sources loopback (système, fenêtre) détectées par libcastor.</summary>
+    public ObservableCollection<string> LoopbackSources { get; } = new();
+
+    /// <summary>Micros (USB, jack, bluetooth, micro caméra) détectés par libcastor.</summary>
+    public ObservableCollection<string> MicrophoneSources { get; } = new();
 
     [ObservableProperty]
     private int _selectedSampleRateIndex;

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -33,6 +34,17 @@
   <ItemGroup>
     <ProjectReference Include="..\Castor.Native\Castor.Native.csproj" />
   </ItemGroup>
+
+  <!-- ── Build natif automatique avant chaque build .NET ── -->
+  <Target Name="BuildNative" BeforeTargets="PreBuildEvent">
+    <PropertyGroup>
+      <CmakePreset>x64-$([System.String]::Copy('$(Configuration)').ToLower())</CmakePreset>
+      <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..'))</RepoRoot>
+    </PropertyGroup>
+    <Exec Command="&quot;$(RepoRoot)\build-native.cmd&quot; $(CmakePreset)"
+          WorkingDirectory="$(RepoRoot)"
+          ConsoleToMSBuild="true" />
+  </Target>
   <ItemGroup>
     <Compile Update="Views\MulticamView.axaml.cs">
       <DependentUpon>MulticamView.axaml</DependentUpon>
