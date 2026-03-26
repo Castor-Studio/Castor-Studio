@@ -426,3 +426,10 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Vcpkg generated files
+vcpkg_installed/
+
+# Results file directory for testing
+results/
+/.claude

@@ -1,0 +1,31 @@
+cmake_minimum_required(VERSION 3.10)
+project(libcastor C CXX)
+
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+file(GLOB_RECURSE SRC "src/*.c" "src/*.cpp" "src/**/*.c" "src/**/*.cpp" "src/output/*.c")
+
+add_library(castor_core SHARED ${SRC})
+
+target_include_directories(castor_core PRIVATE "include")
+target_include_directories(castor_core PRIVATE "include/output")
+target_include_directories(castor_core PRIVATE "include/services")
+target_include_directories(castor_core PRIVATE "include/core")
+target_include_directories(castor_core PRIVATE "include/scene")
+target_include_directories(castor_core PRIVATE "include/source")
+
+if (WIN32)
+    target_compile_definitions(castor_core PRIVATE CASTOR_CORE_BUILD_DLL)
+    target_link_libraries(castor_core PRIVATE winmm dwmapi mmdevapi windowsapp d3d11 winhttp)
+endif()
+
+find_package(FFMPEG REQUIRED)
+target_include_directories(castor_core PRIVATE ${FFMPEG_INCLUDE_DIRS})
+target_link_directories(castor_core PRIVATE ${FFMPEG_LIBRARY_DIRS})
+target_link_libraries(castor_core PRIVATE ${FFMPEG_LIBRARIES})
+
+find_package(PThreads4W REQUIRED)
+target_link_libraries(castor_core PRIVATE PThreads4W::PThreads4W)
