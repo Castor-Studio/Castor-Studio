@@ -83,4 +83,19 @@ public sealed class RecorderService
         CastorNative.RecorderDestroy(_recorderPtr);
         _recorderPtr = IntPtr.Zero;
     }
+
+    /// <summary>
+    /// Change la source vidéo du stream 0 à la volée (pendant l'enregistrement).
+    /// Utilise la première source vidéo de la scène donnée.
+    /// </summary>
+    public int SwitchScene(SceneItem scene)
+    {
+        if (!IsRecording) return 0;
+
+        var videoItem = scene.Sources.FirstOrDefault(s => s.Type == "Vidéo" && s.Tag is CaptureSourceInfo);
+        if (videoItem == null) return -1; // scène sans source vidéo
+
+        var videoSrc = (CaptureSourceInfo)videoItem.Tag!;
+        return CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc);
+    }
 }

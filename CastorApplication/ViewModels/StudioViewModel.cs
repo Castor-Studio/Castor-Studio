@@ -25,7 +25,16 @@ public partial class StudioViewModel : ViewModelBase
     public SceneItem? ActiveScene
     {
         get => SceneService.Instance.ActiveScene;
-        set => SceneService.Instance.SetActiveScene(value!);
+        set
+        {
+            if (value == null) return;
+            SceneService.Instance.SetActiveScene(value);
+            OnPropertyChanged();
+
+            // Switch de source vidéo à la volée si un enregistrement est en cours
+            if (IsRecording)
+                RecorderService.Instance.SwitchScene(value);
+        }
     }
 
     [ObservableProperty]

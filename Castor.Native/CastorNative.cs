@@ -247,9 +247,26 @@ namespace Castor.Native
             }
         }
 
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern int recorder_switch_video_source(IntPtr rec, int streamIndex, IntPtr newSrc);
+
         public static int  RecorderStart(IntPtr rec)   => recorder_start(rec);
         public static void RecorderStop(IntPtr rec)    { if (rec != IntPtr.Zero) recorder_stop(rec);    }
         public static void RecorderDestroy(IntPtr rec) { if (rec != IntPtr.Zero) recorder_destroy(rec); }
+
+        public static int RecorderSwitchVideoSource(IntPtr rec, int streamIndex, CaptureSourceInfo info)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(Marshal.SizeOf<CaptureSourceInfo>());
+            try
+            {
+                Marshal.StructureToPtr(info, buf, false);
+                return recorder_switch_video_source(rec, streamIndex, buf);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buf);
+            }
+        }
     }
 
     // ── Recorder structs ──────────────────────────────────────────────────────

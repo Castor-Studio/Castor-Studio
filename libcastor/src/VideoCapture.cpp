@@ -211,22 +211,45 @@ CASTOR_CORE_API int video_capture_list_sources(CaptureSourceInfo* out, int max_c
  * ================================================================== */
 
 static int init_wgc_capture(VideoCaptureContext* ctx, GraphicsCaptureItem item) {
-    winrt::init_apartment(winrt::apartment_type::multi_threaded);
+    // init_apartment est idempotent sur le même thread (renvoie S_FALSE si déjà MTA),
+    // mais peut throw RPC_E_CHANGED_MODE si le thread est STA — on ignore cette erreur.
+    try { winrt::init_apartment(winrt::apartment_type::multi_threaded); }
+    catch (...) { /* déjà initialisé, c'est OK */ }
 
     auto* internal = new VideoCaptureContextInternal();
     internal->is_camera = false;
 
-    D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
+    HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
         D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0,
         D3D11_SDK_VERSION, &internal->d3d_device, nullptr, &internal->d3d_ctx);
 
+    if (FAILED(hr) || !internal->d3d_device) {
+        fprintf(stderr, "[WGC] D3D11CreateDevice echoue: 0x%lx\n", hr);
+        delete internal;
+        return -1;
+    }
+
     IDXGIDevice* dxgi_device = nullptr;
-    internal->d3d_device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgi_device);
+    hr = internal->d3d_device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgi_device);
+    if (FAILED(hr) || !dxgi_device) {
+        fprintf(stderr, "[WGC] QueryInterface IDXGIDevice echoue: 0x%lx\n", hr);
+        internal->d3d_ctx->Release();
+        internal->d3d_device->Release();
+        delete internal;
+        return -1;
+    }
 
     winrt::com_ptr<IInspectable> inspectable;
-    CreateDirect3D11DeviceFromDXGIDevice(dxgi_device, inspectable.put());
-    internal->winrt_device = inspectable.as<IDirect3DDevice>();
+    hr = CreateDirect3D11DeviceFromDXGIDevice(dxgi_device, inspectable.put());
     dxgi_device->Release();
+    if (FAILED(hr)) {
+        fprintf(stderr, "[WGC] CreateDirect3D11DeviceFromDXGIDevice echoue: 0x%lx\n", hr);
+        internal->d3d_ctx->Release();
+        internal->d3d_device->Release();
+        delete internal;
+        return -1;
+    }
+    internal->winrt_device = inspectable.as<IDirect3DDevice>();
 
     auto size = item.Size();
     internal->width  = size.Width;
@@ -255,19 +278,35 @@ static int init_wgc_capture(VideoCaptureContext* ctx, GraphicsCaptureItem item) 
 }
 
 CASTOR_CORE_API int video_capture_init_window(VideoCaptureContext* ctx, void* hwnd) {
-    auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
-    GraphicsCaptureItem item = { nullptr };
-    interop->CreateForWindow((HWND)hwnd, winrt::guid_of<GraphicsCaptureItem>(),
-        reinterpret_cast<void**>(winrt::put_abi(item)));
-    return init_wgc_capture(ctx, item);
+    try {
+        auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
+        GraphicsCaptureItem item = { nullptr };
+        interop->CreateForWindow((HWND)hwnd, winrt::guid_of<GraphicsCaptureItem>(),
+            reinterpret_cast<void**>(winrt::put_abi(item)));
+        return init_wgc_capture(ctx, item);
+    } catch (winrt::hresult_error const& e) {
+        fprintf(stderr, "[WGC] init_window exception: 0x%lx\n", (long)e.code());
+        return -1;
+    } catch (...) {
+        fprintf(stderr, "[WGC] init_window exception inconnue\n");
+        return -1;
+    }
 }
 
 CASTOR_CORE_API int video_capture_init_monitor(VideoCaptureContext* ctx, void* hmonitor) {
-    auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
-    GraphicsCaptureItem item = { nullptr };
-    interop->CreateForMonitor((HMONITOR)hmonitor, winrt::guid_of<GraphicsCaptureItem>(),
-        reinterpret_cast<void**>(winrt::put_abi(item)));
-    return init_wgc_capture(ctx, item);
+    try {
+        auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
+        GraphicsCaptureItem item = { nullptr };
+        interop->CreateForMonitor((HMONITOR)hmonitor, winrt::guid_of<GraphicsCaptureItem>(),
+            reinterpret_cast<void**>(winrt::put_abi(item)));
+        return init_wgc_capture(ctx, item);
+    } catch (winrt::hresult_error const& e) {
+        fprintf(stderr, "[WGC] init_monitor exception: 0x%lx\n", (long)e.code());
+        return -1;
+    } catch (...) {
+        fprintf(stderr, "[WGC] init_monitor exception inconnue\n");
+        return -1;
+    }
 }
 
 /* ================================================================== *
