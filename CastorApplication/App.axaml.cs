@@ -8,6 +8,7 @@ using Castor.Native;
 using CastorApplication.Services;
 using CastorApplication.ViewModels;
 using CastorApplication.Views;
+using System;
 
 namespace CastorApplication
 {
@@ -28,6 +29,10 @@ namespace CastorApplication
                 // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
                 DisableAvaloniaDataAnnotationValidation();
                 desktop.MainWindow = new MainWindow { DataContext = new MainWindowViewModel() };
+
+                // Arrêt propre des threads natifs avant la fermeture de l'app
+                desktop.ShutdownRequested += (_, _) => RecorderService.Instance.Stop();
+                AppDomain.CurrentDomain.ProcessExit += (_, _) => RecorderService.Instance.Stop();
             }
 
             base.OnFrameworkInitializationCompleted();

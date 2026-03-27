@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Castor.Native;
 using CastorApplication.Factories;
 using CastorApplication.Models;
 using CastorApplication.Services;
@@ -123,13 +124,66 @@ public partial class StudioViewModel : ViewModelBase
         factory.InitLayout(Layout);
     }
 
+    // ── Streaming error ──
+
+    [ObservableProperty]
+    private string _streamError = "";
+
     // ── Streaming commands ──
 
     [RelayCommand]
-    private void StartStreaming() => IsStreaming = true;
+    private async Task StartStreaming()
+    {
+        StreamError = "";
+
+        var scene = StreamSceneIndex >= 0 && StreamSceneIndex < Scenes.Count
+            ? Scenes[StreamSceneIndex]
+            : SceneService.Instance.ActiveScene;
+
+        if (scene == null || scene.Sources.All(s => s.Type != "Vidéo"))
+        {
+            StreamError = "Aucune source vidéo dans la scène sélectionnée.";
+            return;
+        }
+
+        // Mapping index UI flyout → CastorServiceType
+        // 0=Twitch, 1=YouTube Live, 2=Facebook Live, 3=RTMP Manuel
+        CastorServiceType service;
+        string keyOrUrl = StreamRtmpKey;
+        service = StreamPlatformIndex switch
+        {
+            0 => CastorServiceType.Twitch,
+            1 => CastorServiceType.YouTube,
+            _ => CastorServiceType.Custom   // Facebook ou RTMP Manuel
+        };
+
+        if (string.IsNullOrWhiteSpace(keyOrUrl))
+        {
+            StreamError = "Clé de stream ou URL RTMP manquante.";
+            return;
+        }
+
+        // streaming_service_get_url peut faire un appel HTTPS (Twitch) → thread BG
+        int result = await Task.Run(() => RecorderService.Instance.StartStream(scene, service, keyOrUrl));
+
+        if (result == 0)
+            IsStreaming = true;
+        else
+            StreamError = result switch
+            {
+                -2 => "Aucune source vidéo dans la scène.",
+                -3 => "Impossible de créer le recorder natif.",
+                -4 => "Impossible de construire l'URL RTMP (clé invalide ?).",
+                _  => $"Erreur streaming (code {result})."
+            };
+    }
 
     [RelayCommand]
-    private void StopStreaming() => IsStreaming = false;
+    private void StopStreaming()
+    {
+        RecorderService.Instance.StopStream();
+        IsStreaming = false;
+    }
 
     // ── Recording commands ──
 

@@ -8,6 +8,8 @@ extern "C" {
     #include <libavutil/time.h>
 }
 
+#include <atomic>
+#include <memory>
 #include <process.h>
 
 // D3D/DXGI en premier
@@ -67,6 +69,10 @@ struct VideoCaptureContextInternal {
     GraphicsCaptureSession     session      = nullptr;
     Direct3D11CaptureFramePool frame_pool   = nullptr;
     HANDLE                     frame_event  = nullptr;
+
+    /* Flag partagé avec le callback FrameArrived pour éviter le use-after-free
+     * lorsque WGC dispatche un dernier événement après la fermeture de la session. */
+    std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
 
     /* --- Chemin MF (webcam) --- */
     IMFSourceReader* mf_reader = nullptr;
@@ -262,10 +268,16 @@ static int init_wgc_capture(VideoCaptureContext* ctx, GraphicsCaptureItem item) 
 
     internal->frame_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
+    // Utilise un weak_ptr sur le flag alive pour éviter le use-after-free :
+    // si WGC dispatche FrameArrived après delete internal, le weak_ptr ne peut
+    // plus être locké et on n'accède pas à la mémoire libérée.
+    std::weak_ptr<std::atomic<bool>> weak_alive = internal->alive;
+    HANDLE evt = internal->frame_event;
     internal->frame_pool.FrameArrived(
-        [internal](Direct3D11CaptureFramePool const&,
-                   winrt::Windows::Foundation::IInspectable const&) {
-            SetEvent(internal->frame_event);
+        [weak_alive, evt](Direct3D11CaptureFramePool const&,
+                          winrt::Windows::Foundation::IInspectable const&) {
+            if (auto a = weak_alive.lock(); a && a->load())
+                SetEvent(evt);
         });
 
     internal->session = internal->frame_pool.CreateCaptureSession(item);
@@ -444,17 +456,37 @@ static AVFrame* next_frame_wgc(VideoCaptureContextInternal* internal) {
     desc.MiscFlags      = 0;
 
     ID3D11Texture2D* staging = nullptr;
-    internal->d3d_device->CreateTexture2D(&desc, nullptr, &staging);
+    hr = internal->d3d_device->CreateTexture2D(&desc, nullptr, &staging);
+    if (FAILED(hr) || !staging) {
+        fprintf(stderr, "[WGC] CreateTexture2D failed: 0x%lx\n", hr);
+        capture_frame.Close();
+        return nullptr;
+    }
+
     internal->d3d_ctx->CopyResource(staging, texture.get());
 
     D3D11_MAPPED_SUBRESOURCE mapped;
-    internal->d3d_ctx->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
+    hr = internal->d3d_ctx->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
+    if (FAILED(hr)) {
+        fprintf(stderr, "[WGC] Map failed: 0x%lx\n", hr);
+        staging->Release();
+        capture_frame.Close();
+        return nullptr;
+    }
 
     AVFrame* frame = av_frame_alloc();
     frame->format = AV_PIX_FMT_BGRA;
     frame->width  = (int)desc.Width;
     frame->height = (int)desc.Height;
-    av_frame_get_buffer(frame, 0);
+
+    if (av_frame_get_buffer(frame, 0) < 0) {
+        fprintf(stderr, "[WGC] av_frame_get_buffer failed\n");
+        av_frame_free(&frame);
+        internal->d3d_ctx->Unmap(staging, 0);
+        staging->Release();
+        capture_frame.Close();
+        return nullptr;
+    }
 
     for (int y = 0; y < (int)desc.Height; y++) {
         memcpy(frame->data[0] + y * frame->linesize[0],
@@ -540,9 +572,14 @@ CASTOR_CORE_API void video_capture_cleanup(VideoCaptureContext* ctx) {
         if (internal->mf_reader) internal->mf_reader->Release();
         MFShutdown();
     } else {
+        // Signale au callback FrameArrived qu'il ne doit plus accéder aux ressources
+        if (internal->alive) internal->alive->store(false);
+
+        if (internal->session)    internal->session.Close();
+        if (internal->frame_pool) internal->frame_pool.Close();
+        // Petit délai pour laisser les callbacks WGC en vol se terminer proprement
+        Sleep(50);
         if (internal->frame_event) CloseHandle(internal->frame_event);
-        if (internal->session)     internal->session.Close();
-        if (internal->frame_pool)  internal->frame_pool.Close();
         if (internal->d3d_ctx)     internal->d3d_ctx->Release();
         if (internal->d3d_device)  internal->d3d_device->Release();
     }

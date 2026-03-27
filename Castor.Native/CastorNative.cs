@@ -267,11 +267,34 @@ namespace Castor.Native
                 Marshal.FreeHGlobal(buf);
             }
         }
+
+        // ── Streaming service ─────────────────────────────────────────────────
+
+        [DllImport(DllName, CallingConvention = Convention, CharSet = CharSet.Ansi)]
+        private static extern int streaming_service_get_url(
+            CastorServiceType type,
+            [MarshalAs(UnmanagedType.LPStr)] string streamKey,
+            System.Text.StringBuilder urlOut,
+            int urlLen);
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern IntPtr streaming_service_name(CastorServiceType type);
+
+        public static string? GetStreamingUrl(CastorServiceType type, string streamKey)
+        {
+            var sb = new System.Text.StringBuilder(512);
+            int ret = streaming_service_get_url(type, streamKey, sb, 512);
+            return ret == 0 ? sb.ToString() : null;
+        }
+
+        public static string GetStreamingServiceName(CastorServiceType type)
+            => Marshal.PtrToStringAnsi(streaming_service_name(type)) ?? "";
     }
 
     // ── Recorder structs ──────────────────────────────────────────────────────
 
-    public enum CastorOutputType { File = 0, Rtmp = 1 }
+    public enum CastorOutputType  { File = 0, Rtmp = 1 }
+    public enum CastorServiceType { Custom = 0, Twitch = 1, YouTube = 2 }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
     public struct OutputConfig

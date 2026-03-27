@@ -16,7 +16,10 @@ public sealed class RecorderService
 
     // ── État ──────────────────────────────────────────────────────────────────
     private IntPtr _recorderPtr = IntPtr.Zero;
-    public bool IsRecording => _recorderPtr != IntPtr.Zero;
+    private IntPtr _streamPtr   = IntPtr.Zero;
+
+    public bool IsRecording  => _recorderPtr != IntPtr.Zero;
+    public bool IsStreaming  => _streamPtr   != IntPtr.Zero;
 
     private RecorderService() { }
 
@@ -78,10 +81,78 @@ public sealed class RecorderService
     /// <summary>Arrête l'enregistrement en cours.</summary>
     public void Stop()
     {
-        if (_recorderPtr == IntPtr.Zero) return;
-        CastorNative.RecorderStop(_recorderPtr);
-        CastorNative.RecorderDestroy(_recorderPtr);
-        _recorderPtr = IntPtr.Zero;
+        if (_recorderPtr != IntPtr.Zero)
+        {
+            CastorNative.RecorderStop(_recorderPtr);
+            CastorNative.RecorderDestroy(_recorderPtr);
+            _recorderPtr = IntPtr.Zero;
+        }
+        StopStream();
+    }
+
+    // ── Streaming ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Démarre un stream RTMP vers la plateforme donnée.
+    /// Retourne 0 si succès, code d'erreur négatif sinon.
+    /// </summary>
+    public int StartStream(SceneItem scene, CastorServiceType service, string streamKeyOrUrl, int fps = 30)
+    {
+        if (IsStreaming) return -1;
+
+        var videoItem = scene.Sources.FirstOrDefault(s => s.Type == "Vidéo" && s.Tag is CaptureSourceInfo);
+        var audioItem = scene.Sources.FirstOrDefault(s => s.Type == "Audio" && s.Tag is AudioSourceInfo);
+
+        if (videoItem == null) return -2;
+
+        string? rtmpUrl = CastorNative.GetStreamingUrl(service, streamKeyOrUrl);
+        if (string.IsNullOrEmpty(rtmpUrl)) return -4;
+
+        var videoSrc = (CaptureSourceInfo)videoItem.Tag!;
+        var audioSrc = audioItem != null ? (AudioSourceInfo)audioItem.Tag! : default;
+
+        var config = new RecorderConfig
+        {
+            Streams    = new StreamConfig[8],
+            NumStreams = 1,
+            Fps        = fps
+        };
+
+        config.Streams[0] = new StreamConfig
+        {
+            VideoSrc = videoSrc,
+            AudioSrc = audioSrc,
+            Output   = new OutputConfig
+            {
+                Type               = CastorOutputType.Rtmp,
+                Destination        = rtmpUrl,
+                VideoBitrateKbps   = 4000,
+                AudioBitrateKbps   = 128,
+                GopSeconds         = 2
+            }
+        };
+
+        _streamPtr = CastorNative.RecorderCreate(ref config);
+        if (_streamPtr == IntPtr.Zero) return -3;
+
+        int result = CastorNative.RecorderStart(_streamPtr);
+        if (result != 0)
+        {
+            CastorNative.RecorderDestroy(_streamPtr);
+            _streamPtr = IntPtr.Zero;
+            return result;
+        }
+
+        return 0;
+    }
+
+    /// <summary>Arrête le stream RTMP en cours.</summary>
+    public void StopStream()
+    {
+        if (_streamPtr == IntPtr.Zero) return;
+        CastorNative.RecorderStop(_streamPtr);
+        CastorNative.RecorderDestroy(_streamPtr);
+        _streamPtr = IntPtr.Zero;
     }
 
     /// <summary>

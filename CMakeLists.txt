@@ -29,9 +29,10 @@ add_custom_target(CastorCopyDlls ALL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "$<TARGET_FILE:castor_core>"
         "${NET_OUT}"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${VCPKG_DLL_DIR}"
-        "${NET_OUT}"
+    COMMAND ${CMAKE_COMMAND}
+        -DSRC="${VCPKG_DLL_DIR}"
+        -DDST="${NET_OUT}"
+        -P "${SLN_DIR}/cmake/copy_dir_if_exists.cmake"
     DEPENDS castor_core
     COMMENT "[Castor] Copie des DLLs natives → ${NET_OUT}"
 )

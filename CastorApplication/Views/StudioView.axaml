@@ -147,6 +147,10 @@
                                             Command="{Binding StartStreamingCommand}"
                                             Classes="flyout-start"
                                             Background="#34d399" Foreground="#0b0b12"/>
+                                    <TextBlock Text="{Binding StreamError}"
+                                               IsVisible="{Binding StreamError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Foreground="#f87171" FontSize="11"
+                                               TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>

@@ -3,6 +3,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Styling;
 using Castor.Native;
+using CastorApplication.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -111,12 +112,15 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _selectedPlatformIndex;
+    partial void OnSelectedPlatformIndexChanged(int value) => AppSettings.StreamPlatformIndex = value;
 
     [ObservableProperty]
     private string _streamKey = "";
+    partial void OnStreamKeyChanged(string value) => AppSettings.StreamKey = value;
 
     [ObservableProperty]
     private string _rtmpUrl = "";
+    partial void OnRtmpUrlChanged(string value) => AppSettings.CustomRtmpUrl = value;
 
     [ObservableProperty]
     private int _selectedServerIndex;
