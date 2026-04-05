@@ -7,6 +7,7 @@
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
@@ -27,6 +28,9 @@
     <PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="11.3.2" />
     <PackageReference Include="Dock.Model.Mvvm" Version="11.3.2" />
     <PackageReference Include="Dock.Serializer.Newtonsoft" Version="11.3.2" />
+    <PackageReference Include="LibVLCSharp" Version="3.9.6" />
+    <PackageReference Include="LibVLCSharp.Avalonia" Version="3.9.6" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Models\" />

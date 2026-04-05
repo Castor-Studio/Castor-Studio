@@ -3,6 +3,7 @@
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:CastorApplication.Models"
              xmlns:dock="using:Dock.Avalonia.Controls"
+			 xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
              x:Class="CastorApplication.Views.StudioView"
              x:DataType="vm:StudioViewModel">
 
@@ -43,7 +44,29 @@
     <Grid RowDefinitions="*, 38, 72">
 
         <!-- ═══ ZONE PRINCIPALE : DockControl (Preview + Outils déplaçables) ═══ -->
-        <dock:DockControl Grid.Row="0" Layout="{Binding Layout}"/>
+		<Panel Grid.Row="0" Background="Black">
+
+			<vlc:VideoView x:Name="VideoPlayer"
+						   HorizontalAlignment="Stretch"
+						   VerticalAlignment="Stretch"
+						   AttachedToVisualTree="VideoView_OnAttached" />
+
+			<Border VerticalAlignment="Top" HorizontalAlignment="Right"
+					Margin="10" Padding="8,4" CornerRadius="4"
+					Background="#AA0B0B12" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+				<StackPanel Orientation="Horizontal" Spacing="5">
+					<Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
+					<TextBlock Text="{Binding StreamStatusText}"
+							   Foreground="{Binding StreamStatusBrush}"
+							   FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+				</StackPanel>
+			</Border>
+
+			<TextBlock VerticalAlignment="Bottom" HorizontalAlignment="Left"
+					   Margin="14,0,0,12" Text="00:00:00"
+					   Foreground="{Binding StreamTimerBrush}"
+					   FontSize="16" FontFamily="Courier New"/>
+		</Panel>
 
         <!-- ═══ SCENE SELECTOR BAR ═══ -->
         <Border Grid.Row="1"
