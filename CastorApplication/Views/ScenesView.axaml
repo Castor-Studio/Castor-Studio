@@ -3,6 +3,7 @@
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:CastorApplication.Models"
              xmlns:native="using:Castor.Native"
+             xmlns:services="using:CastorApplication.Services"
              x:Class="CastorApplication.Views.ScenesView"
              x:DataType="vm:ScenesViewModel">
 
@@ -231,6 +232,72 @@
                                         <TextBlock IsVisible="{Binding !AvailableWindows.Count}"
                                                    Text="Aucune fenêtre détectée" Foreground="{DynamicResource AppFg5}"
                                                    FontSize="10" Margin="4,0"/>
+
+                                        <!-- Flux réseau -->
+                                        <TextBlock Text="FLUX RÉSEAU (RTMP/RTSP/HTTP)"
+                                                   Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+
+                                        <!-- Saisie manuelle URL -->
+                                        <Grid ColumnDefinitions="*, 6, Auto">
+                                            <TextBox Grid.Column="0"
+                                                     Text="{Binding NetworkSourceUrl}"
+                                                     Watermark="rtmp:// ou rtsp://..."
+                                                     FontSize="11" Padding="6,4"
+                                                     Background="{DynamicResource AppSurface2}"
+                                                     Foreground="{DynamicResource AppFg1}"
+                                                     BorderBrush="{DynamicResource AppBorder2}"
+                                                     CornerRadius="4"/>
+                                            <Button Grid.Column="2"
+                                                    Content="+"
+                                                    Command="{Binding AddNetworkSourceCommand}"
+                                                    Background="{DynamicResource AppAccentBg}"
+                                                    Foreground="#5b8def"
+                                                    BorderThickness="0"
+                                                    Padding="10,4" CornerRadius="4"
+                                                    FontSize="14" FontWeight="Bold"/>
+                                        </Grid>
+
+                                        <!-- Scan WS-Discovery -->
+                                        <Button Command="{Binding ScanNetworkCamerasCommand}"
+                                                IsEnabled="{Binding !IsScanning}"
+                                                Classes="source-type-btn"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center">
+                                            <Panel>
+                                                <TextBlock Text="⏳ Scan en cours…"
+                                                           IsVisible="{Binding IsScanning}"
+                                                           HorizontalAlignment="Center"/>
+                                                <TextBlock Text="🔍 Scanner le réseau"
+                                                           IsVisible="{Binding !IsScanning}"
+                                                           HorizontalAlignment="Center"/>
+                                            </Panel>
+                                        </Button>
+
+                                        <!-- Résultats du scan -->
+                                        <ItemsControl ItemsSource="{Binding DiscoveredCameras}"
+                                                      IsVisible="{Binding DiscoveredCameras.Count}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="services:DiscoveredCamera">
+                                                    <Button Classes="source-type-btn"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddDiscoveredCameraCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Label}" FontSize="11"/>
+                                                            <TextBlock Text="{Binding SuggestedUrl}"
+                                                                       FontSize="9"
+                                                                       Foreground="{DynamicResource AppFg4}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock Text="{Binding NetworkSourceError}"
+                                                   IsVisible="{Binding NetworkSourceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
 
                                         <!-- Audio -->
                                         <TextBlock Text="SOURCES AUDIO" Foreground="{DynamicResource AppFg4}"

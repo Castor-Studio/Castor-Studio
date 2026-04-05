@@ -6,6 +6,9 @@ extern "C" {
     #include <libavutil/frame.h>
     #include <libavutil/imgutils.h>
     #include <libavutil/time.h>
+    #include <libavformat/avformat.h>
+    #include <libavcodec/avcodec.h>
+    #include <libswscale/swscale.h>
 }
 
 #include <atomic>
@@ -60,9 +63,9 @@ using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
  *  Contexte interne — deux chemins : WGC (ecran/fenêtre) et MF (cam)
  * ------------------------------------------------------------------ */
 struct VideoCaptureContextInternal {
-    bool is_camera = false;
+    CaptureSourceType capture_type = CAPTURE_SOURCE_WINDOW;
 
-    /* --- Chemin WGC --- */
+    /* --- Chemin WGC (Window / Monitor) --- */
     ID3D11Device*              d3d_device   = nullptr;
     ID3D11DeviceContext*       d3d_ctx      = nullptr;
     IDirect3DDevice            winrt_device = nullptr;
@@ -70,12 +73,18 @@ struct VideoCaptureContextInternal {
     Direct3D11CaptureFramePool frame_pool   = nullptr;
     HANDLE                     frame_event  = nullptr;
 
-    /* Flag partagé avec le callback FrameArrived pour éviter le use-after-free
-     * lorsque WGC dispatche un dernier événement après la fermeture de la session. */
+    /* Flag partagé avec le callback FrameArrived pour éviter le use-after-free. */
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
 
     /* --- Chemin MF (webcam) --- */
     IMFSourceReader* mf_reader = nullptr;
+
+    /* --- Chemin réseau (RTMP / RTSP / HTTP) --- */
+    AVFormatContext* net_fmt_ctx    = nullptr;
+    AVCodecContext*  net_codec_ctx  = nullptr;
+    SwsContext*      net_sws_ctx    = nullptr;
+    int              net_stream_idx = -1;
+
     int width  = 0;
     int height = 0;
 };
@@ -223,7 +232,7 @@ static int init_wgc_capture(VideoCaptureContext* ctx, GraphicsCaptureItem item) 
     catch (...) { /* déjà initialisé, c'est OK */ }
 
     auto* internal = new VideoCaptureContextInternal();
-    internal->is_camera = false;
+    internal->capture_type = CAPTURE_SOURCE_WINDOW;
 
     HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
         D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0,
@@ -329,7 +338,7 @@ CASTOR_CORE_API int video_capture_init_camera(VideoCaptureContext* ctx, const ch
     MFStartup(MF_VERSION);
 
     auto* internal = new VideoCaptureContextInternal();
-    internal->is_camera = true;
+    internal->capture_type = CAPTURE_SOURCE_CAMERA;
 
     WCHAR link_w[512] = {};
     MultiByteToWideChar(CP_UTF8, 0, symbolic_link, -1, link_w, 512);
@@ -405,11 +414,82 @@ CASTOR_CORE_API int video_capture_init_camera(VideoCaptureContext* ctx, const ch
  *  INIT SOURCE (dispatch selon type)
  * ================================================================== */
 
+/* ================================================================== *
+ *  INIT RÉSEAU (RTMP / RTSP / HTTP)
+ * ================================================================== */
+
+CASTOR_CORE_API int video_capture_init_network(VideoCaptureContext* ctx, const char* url) {
+    if (!url || !url[0]) return -1;
+
+    auto* internal = new VideoCaptureContextInternal();
+    internal->capture_type = CAPTURE_SOURCE_NETWORK;
+
+    AVDictionary* opts = nullptr;
+    av_dict_set(&opts, "rtsp_transport", "tcp",     0);  /* RTSP : force TCP */
+    av_dict_set(&opts, "stimeout",       "5000000", 0);  /* timeout 5s       */
+    av_dict_set(&opts, "timeout",        "5000000", 0);  /* HTTP timeout 5s  */
+
+    int ret = avformat_open_input(&internal->net_fmt_ctx, url, nullptr, &opts);
+    av_dict_free(&opts);
+    if (ret < 0) {
+        char err[128]; av_strerror(ret, err, sizeof(err));
+        fprintf(stderr, "[Network] Impossible d'ouvrir '%s': %s\n", url, err);
+        delete internal;
+        return -1;
+    }
+
+    if (avformat_find_stream_info(internal->net_fmt_ctx, nullptr) < 0) {
+        fprintf(stderr, "[Network] find_stream_info echoue\n");
+        avformat_close_input(&internal->net_fmt_ctx);
+        delete internal;
+        return -1;
+    }
+
+    internal->net_stream_idx = av_find_best_stream(
+        internal->net_fmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+    if (internal->net_stream_idx < 0) {
+        fprintf(stderr, "[Network] Aucun flux video dans '%s'\n", url);
+        avformat_close_input(&internal->net_fmt_ctx);
+        delete internal;
+        return -1;
+    }
+
+    AVStream*       stream = internal->net_fmt_ctx->streams[internal->net_stream_idx];
+    const AVCodec*  codec  = avcodec_find_decoder(stream->codecpar->codec_id);
+    if (!codec) {
+        fprintf(stderr, "[Network] Codec introuvable\n");
+        avformat_close_input(&internal->net_fmt_ctx);
+        delete internal;
+        return -1;
+    }
+
+    internal->net_codec_ctx = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(internal->net_codec_ctx, stream->codecpar);
+    if (avcodec_open2(internal->net_codec_ctx, codec, nullptr) < 0) {
+        fprintf(stderr, "[Network] avcodec_open2 echoue\n");
+        avcodec_free_context(&internal->net_codec_ctx);
+        avformat_close_input(&internal->net_fmt_ctx);
+        delete internal;
+        return -1;
+    }
+
+    internal->width  = internal->net_codec_ctx->width;
+    internal->height = internal->net_codec_ctx->height;
+    ctx->internal    = internal;
+    ctx->width       = internal->width;
+    ctx->height      = internal->height;
+
+    fprintf(stderr, "[Network] Flux ouvert : %s (%dx%d)\n",
+            url, internal->width, internal->height);
+    return 0;
+}
+
 CASTOR_CORE_API int video_capture_init_source(VideoCaptureContext* ctx, CaptureSourceInfo* src) {
     switch (src->type) {
         case CAPTURE_SOURCE_WINDOW:  return video_capture_init_window(ctx, src->hwnd);
         case CAPTURE_SOURCE_MONITOR: return video_capture_init_monitor(ctx, src->hmonitor);
         case CAPTURE_SOURCE_CAMERA:  return video_capture_init_camera(ctx, src->symbolic_link);
+        case CAPTURE_SOURCE_NETWORK: return video_capture_init_network(ctx, src->symbolic_link);
         default: return -1;
     }
 }
@@ -553,11 +633,66 @@ static AVFrame* next_frame_camera(VideoCaptureContextInternal* internal) {
     return frame;
 }
 
+static AVFrame* next_frame_network(VideoCaptureContextInternal* internal) {
+    AVPacket* pkt = av_packet_alloc();
+    if (!pkt) return nullptr;
+
+    while (av_read_frame(internal->net_fmt_ctx, pkt) >= 0) {
+        if (pkt->stream_index != internal->net_stream_idx) {
+            av_packet_unref(pkt);
+            continue;
+        }
+
+        int ret = avcodec_send_packet(internal->net_codec_ctx, pkt);
+        av_packet_unref(pkt);
+        if (ret < 0) break;
+
+        AVFrame* decoded = av_frame_alloc();
+        ret = avcodec_receive_frame(internal->net_codec_ctx, decoded);
+        if (ret == AVERROR(EAGAIN)) { av_frame_free(&decoded); continue; }
+        if (ret < 0)                { av_frame_free(&decoded); break;    }
+
+        /* Convertit en BGRA (format attendu par l'encodeur) */
+        if (!internal->net_sws_ctx) {
+            internal->net_sws_ctx = sws_getContext(
+                decoded->width, decoded->height, (AVPixelFormat)decoded->format,
+                decoded->width, decoded->height, AV_PIX_FMT_BGRA,
+                SWS_BILINEAR, nullptr, nullptr, nullptr);
+        }
+
+        AVFrame* out = av_frame_alloc();
+        out->format = AV_PIX_FMT_BGRA;
+        out->width  = decoded->width;
+        out->height = decoded->height;
+
+        if (av_frame_get_buffer(out, 0) < 0) {
+            av_frame_free(&out);
+            av_frame_free(&decoded);
+            break;
+        }
+
+        sws_scale(internal->net_sws_ctx,
+                  decoded->data, decoded->linesize, 0, decoded->height,
+                  out->data, out->linesize);
+        out->pts = av_gettime_relative();
+
+        av_frame_free(&decoded);
+        av_packet_free(&pkt);
+        return out;
+    }
+
+    av_packet_free(&pkt);
+    return nullptr;
+}
+
 CASTOR_CORE_API AVFrame* video_capture_next_frame(VideoCaptureContext* ctx) {
     auto* internal = reinterpret_cast<VideoCaptureContextInternal*>(ctx->internal);
     if (!internal) return nullptr;
-    return internal->is_camera ? next_frame_camera(internal)
-                                : next_frame_wgc(internal);
+    switch (internal->capture_type) {
+        case CAPTURE_SOURCE_CAMERA:  return next_frame_camera(internal);
+        case CAPTURE_SOURCE_NETWORK: return next_frame_network(internal);
+        default:                     return next_frame_wgc(internal);
+    }
 }
 
 /* ================================================================== *
@@ -568,9 +703,13 @@ CASTOR_CORE_API void video_capture_cleanup(VideoCaptureContext* ctx) {
     auto* internal = reinterpret_cast<VideoCaptureContextInternal*>(ctx->internal);
     if (!internal) return;
 
-    if (internal->is_camera) {
+    if (internal->capture_type == CAPTURE_SOURCE_CAMERA) {
         if (internal->mf_reader) internal->mf_reader->Release();
         MFShutdown();
+    } else if (internal->capture_type == CAPTURE_SOURCE_NETWORK) {
+        if (internal->net_sws_ctx)   sws_freeContext(internal->net_sws_ctx);
+        if (internal->net_codec_ctx) avcodec_free_context(&internal->net_codec_ctx);
+        if (internal->net_fmt_ctx)   avformat_close_input(&internal->net_fmt_ctx);
     } else {
         // Signale au callback FrameArrived qu'il ne doit plus accéder aux ressources
         if (internal->alive) internal->alive->store(false);

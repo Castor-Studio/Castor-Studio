@@ -10,6 +10,7 @@ namespace Castor.Native
         Window  = 0,
         Monitor = 1,
         Camera  = 2,
+        Network = 3,   // Flux RTMP / RTSP / HTTP — URL dans SymbolicLink
     }
 
     public enum AudioSourceType

@@ -1,5 +1,7 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using Castor.Native;
 using CastorApplication.Models;
 using CastorApplication.Services;
@@ -88,6 +90,19 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void DeleteScene(SceneItem scene) => SceneService.Instance.DeleteScene(scene);
 
+    // ── Flux réseau ───────────────────────────────────────────────────────────
+
+    [ObservableProperty]
+    private string _networkSourceUrl = "";
+
+    [ObservableProperty]
+    private string _networkSourceError = "";
+
+    [ObservableProperty]
+    private bool _isScanning;
+
+    public ObservableCollection<DiscoveredCamera> DiscoveredCameras { get; } = new();
+
     // ── Commandes d'ajout de sources ─────────────────────────────────────────
 
     /// <summary>Ajoute une source vidéo spécifique à la scène sélectionnée.</summary>
@@ -96,6 +111,91 @@ public partial class ScenesViewModel : ViewModelBase
     {
         if (SelectedScene == null) return;
         SceneService.Instance.AddVideoSource(SelectedScene, opt.Info);
+    }
+
+    /// <summary>Scanne le réseau local via WS-Discovery pour trouver des caméras ONVIF.</summary>
+    [RelayCommand]
+    private async Task ScanNetworkCameras()
+    {
+        if (IsScanning) return;
+        IsScanning = true;
+        NetworkSourceError = "";
+        DiscoveredCameras.Clear();
+
+        try
+        {
+            var found = await NetworkScanService.ScanAsync(TimeSpan.FromSeconds(3));
+            foreach (var cam in found)
+                DiscoveredCameras.Add(cam);
+
+            if (DiscoveredCameras.Count == 0)
+                NetworkSourceError = "Aucune caméra ONVIF trouvée sur le réseau.";
+        }
+        catch (Exception ex)
+        {
+            NetworkSourceError = $"Erreur scan : {ex.Message}";
+        }
+        finally
+        {
+            IsScanning = false;
+        }
+    }
+
+    /// <summary>Ajoute une caméra découverte à la scène.</summary>
+    [RelayCommand]
+    private void AddDiscoveredCamera(DiscoveredCamera cam)
+    {
+        if (SelectedScene == null) return;
+        var info = new CaptureSourceInfo
+        {
+            Label        = cam.Label,
+            Type         = CaptureSourceType.Network,
+            SymbolicLink = cam.SuggestedUrl,
+            Index        = -1,
+        };
+        SceneService.Instance.AddVideoSource(SelectedScene, info);
+    }
+
+    /// <summary>Ajoute un flux réseau RTMP/RTSP/HTTP à la scène sélectionnée.</summary>
+    [RelayCommand]
+    private void AddNetworkSource()
+    {
+        NetworkSourceError = "";
+        var url = NetworkSourceUrl.Trim();
+
+        if (string.IsNullOrEmpty(url))
+        {
+            NetworkSourceError = "Entrez une URL valide.";
+            return;
+        }
+
+        if (!url.StartsWith("rtmp://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("rtmps://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            NetworkSourceError = "URL invalide (rtmp://, rtsp://, http://)";
+            return;
+        }
+
+        if (SelectedScene == null)
+        {
+            NetworkSourceError = "Sélectionnez une scène d'abord.";
+            return;
+        }
+
+        // Construit un CaptureSourceInfo de type Network
+        var info = new CaptureSourceInfo
+        {
+            Label        = url.Length > 30 ? url[..30] + "…" : url,
+            Type         = CaptureSourceType.Network,
+            SymbolicLink = url,
+            Index        = -1,
+        };
+
+        SceneService.Instance.AddVideoSource(SelectedScene, info);
+        NetworkSourceUrl = "";
     }
 
     /// <summary>Ajoute une source audio spécifique à la scène sélectionnée.</summary>
