@@ -226,6 +226,14 @@ CASTOR_CORE_API int video_capture_list_sources(CaptureSourceInfo* out, int max_c
  * ================================================================== */
 
 static int init_wgc_capture(VideoCaptureContext* ctx, GraphicsCaptureItem item) {
+    // Garde défensive : si CreateForWindow/Monitor a renvoyé un HRESULT d'erreur
+    // (et que l'appelant n'a pas vérifié), item est null — accéder à item.Size()
+    // causerait un AV (SEH) non rattrapable par catch(...) sans /EHa.
+    if (!item) {
+        fprintf(stderr, "[WGC] init_wgc_capture: GraphicsCaptureItem est null\n");
+        return -1;
+    }
+
     // init_apartment est idempotent sur le même thread (renvoie S_FALSE si déjà MTA),
     // mais peut throw RPC_E_CHANGED_MODE si le thread est STA — on ignore cette erreur.
     try { winrt::init_apartment(winrt::apartment_type::multi_threaded); }
@@ -299,11 +307,19 @@ static int init_wgc_capture(VideoCaptureContext* ctx, GraphicsCaptureItem item) 
 }
 
 CASTOR_CORE_API int video_capture_init_window(VideoCaptureContext* ctx, void* hwnd) {
+    if (!hwnd) {
+        fprintf(stderr, "[WGC] init_window: HWND null\n");
+        return -1;
+    }
     try {
         auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
         GraphicsCaptureItem item = { nullptr };
-        interop->CreateForWindow((HWND)hwnd, winrt::guid_of<GraphicsCaptureItem>(),
+        HRESULT hr = interop->CreateForWindow((HWND)hwnd, winrt::guid_of<GraphicsCaptureItem>(),
             reinterpret_cast<void**>(winrt::put_abi(item)));
+        if (FAILED(hr) || !item) {
+            fprintf(stderr, "[WGC] CreateForWindow echoue (hr=0x%lx, hwnd=%p)\n", hr, hwnd);
+            return -1;
+        }
         return init_wgc_capture(ctx, item);
     } catch (winrt::hresult_error const& e) {
         fprintf(stderr, "[WGC] init_window exception: 0x%lx\n", (long)e.code());
@@ -315,11 +331,19 @@ CASTOR_CORE_API int video_capture_init_window(VideoCaptureContext* ctx, void* hw
 }
 
 CASTOR_CORE_API int video_capture_init_monitor(VideoCaptureContext* ctx, void* hmonitor) {
+    if (!hmonitor) {
+        fprintf(stderr, "[WGC] init_monitor: HMONITOR null\n");
+        return -1;
+    }
     try {
         auto interop = winrt::get_activation_factory<GraphicsCaptureItem, IGraphicsCaptureItemInterop>();
         GraphicsCaptureItem item = { nullptr };
-        interop->CreateForMonitor((HMONITOR)hmonitor, winrt::guid_of<GraphicsCaptureItem>(),
+        HRESULT hr = interop->CreateForMonitor((HMONITOR)hmonitor, winrt::guid_of<GraphicsCaptureItem>(),
             reinterpret_cast<void**>(winrt::put_abi(item)));
+        if (FAILED(hr) || !item) {
+            fprintf(stderr, "[WGC] CreateForMonitor echoue (hr=0x%lx, hmonitor=%p)\n", hr, hmonitor);
+            return -1;
+        }
         return init_wgc_capture(ctx, item);
     } catch (winrt::hresult_error const& e) {
         fprintf(stderr, "[WGC] init_monitor exception: 0x%lx\n", (long)e.code());

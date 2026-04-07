@@ -4,6 +4,7 @@
              xmlns:m="using:CastorApplication.Models"
              xmlns:native="using:Castor.Native"
              xmlns:services="using:CastorApplication.Services"
+             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
              x:Class="CastorApplication.Views.ScenesView"
              x:DataType="vm:ScenesViewModel">
 
@@ -140,16 +141,27 @@
 
             <!-- Scene preview -->
             <Border Grid.Row="0"
-                    Background="{DynamicResource AppVeryDarkBg}" CornerRadius="8"
-                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                    Background="Black" CornerRadius="8"
+                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
+                    ClipToBounds="True">
                 <Panel>
+                    <!-- Flux RTMP de la scène sélectionnée -->
+                    <vlc:VideoView x:Name="ScenePreviewPlayer"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"
+                                   AttachedToVisualTree="SceneVideoView_OnAttached"/>
+
+                    <!-- Placeholder quand aucune scène n'est sélectionnée -->
                     <TextBlock Text="APERÇU DE LA SCÈNE"
+                               IsVisible="{Binding SelectedScene, Converter={x:Static ObjectConverters.IsNull}}"
                                Foreground="{DynamicResource AppSurface2}" HorizontalAlignment="Center"
                                VerticalAlignment="Center" FontSize="18" FontWeight="Bold"/>
 
+                    <!-- Nom de la scène en overlay -->
                     <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
                             Margin="12" Padding="10,6" CornerRadius="5"
-                            Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                            IsVisible="{Binding SelectedScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Background="#AA0B0B12" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
                         <TextBlock Text="{Binding SelectedScene.Name}"
                                    Foreground="{DynamicResource AppFg3}" FontSize="12" FontWeight="SemiBold"/>
                     </Border>

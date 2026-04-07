@@ -32,9 +32,17 @@ public partial class StudioViewModel : ViewModelBase
             SceneService.Instance.SetActiveScene(value);
             OnPropertyChanged();
 
-            // Switch de source vidéo à la volée si un enregistrement est en cours
-            if (IsRecording)
-                RecorderService.Instance.SwitchScene(value);
+            // Switch de source vidéo à la volée (en background pour ne pas bloquer le UI)
+            if (IsRecording || IsStreaming)
+                _ = System.Threading.Tasks.Task.Run(() => RecorderService.Instance.SwitchScene(value));
+
+            // Démarre le preview de la nouvelle scène si pas encore actif
+            if (value.Sources.Any(s => s.Type == "Vidéo") && !RecorderService.Instance.IsPreviewActive(value.Id))
+                _ = System.Threading.Tasks.Task.Run(() =>
+                {
+                    int r = RecorderService.Instance.StartPreview(value);
+                    System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview (scene switch) retourné : {r}");
+                });
         }
     }
 
@@ -124,6 +132,41 @@ public partial class StudioViewModel : ViewModelBase
         factory.InitLayout(Layout);
     }
 
+    /// <summary>
+    /// Démarre le preview si une scène vidéo est active et que le preview ne tourne pas déjà.
+    /// Appelé à chaque fois que la vue Studio est affichée.
+    /// </summary>
+    public void EnsurePreviewRunning()
+    {
+        var scene = SceneService.Instance.ActiveScene;
+        if (scene == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[Preview] EnsurePreviewRunning : aucune scène active.");
+            return;
+        }
+
+        var hasVideo = scene.Sources.Any(s => s.Type == "Vidéo");
+        System.Diagnostics.Debug.WriteLine($"[Preview] EnsurePreviewRunning : scène='{scene.Name}', sources={scene.Sources.Count}, hasVideo={hasVideo}, isPreviewActive={RecorderService.Instance.IsPreviewActive(scene.Id)}");
+
+        if (!hasVideo)
+        {
+            System.Diagnostics.Debug.WriteLine("[Preview] Aucune source vidéo dans la scène — preview ignoré.");
+            return;
+        }
+
+        if (RecorderService.Instance.IsPreviewActive(scene.Id))
+        {
+            System.Diagnostics.Debug.WriteLine($"[Preview] '{scene.Name}' déjà actif (Studio) — ignoré.");
+            return;
+        }
+
+        _ = System.Threading.Tasks.Task.Run(() =>
+        {
+            int result = RecorderService.Instance.StartPreview(scene);
+            System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview retourné : {result}");
+        });
+    }
+
     // ── Streaming error ──
 
     [ObservableProperty]
@@ -162,6 +205,14 @@ public partial class StudioViewModel : ViewModelBase
             StreamError = "Clé de stream ou URL RTMP manquante.";
             return;
         }
+
+        // Lance le preview local si pas encore actif
+        if (!RecorderService.Instance.IsPreviewActive(scene.Id))
+            _ = Task.Run(() =>
+            {
+                int r = RecorderService.Instance.StartPreview(scene);
+                System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview (StartStreaming) retourné : {r}");
+            });
 
         // streaming_service_get_url peut faire un appel HTTPS (Twitch) → thread BG
         int result = await Task.Run(() => RecorderService.Instance.StartStream(scene, service, keyOrUrl));

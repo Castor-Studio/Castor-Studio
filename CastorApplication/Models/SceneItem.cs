@@ -6,6 +6,9 @@ namespace CastorApplication.Models;
 
 public partial class SceneItem : ObservableObject
 {
+    /// <summary>Identifiant unique de la scène — utilisé pour l'URL RTMP de preview.</summary>
+    public Guid Id { get; } = Guid.NewGuid();
+
     [ObservableProperty]
     private string _name = "";
 

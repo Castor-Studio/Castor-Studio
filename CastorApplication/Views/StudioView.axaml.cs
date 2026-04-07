@@ -4,6 +4,9 @@ using Avalonia.Markup.Xaml;
 using LibVLCSharp.Shared;
 using LibVLCSharp.Avalonia;
 using System;
+using System.Threading.Tasks;
+using CastorApplication.Services;
+using CastorApplication.ViewModels;
 
 namespace CastorApplication.Views
 {
@@ -11,6 +14,7 @@ namespace CastorApplication.Views
     {
         private LibVLC? _libVLC;
         private MediaPlayer? _mediaPlayer;
+        private Media? _currentMedia;
 
         public StudioView()
         {
@@ -25,27 +29,51 @@ namespace CastorApplication.Views
                 System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC : {ex.Message}");
             }
 
-            // On initialise le moteur et le player ici
-            _libVLC = new LibVLC("--network-caching=400");
+            _libVLC      = new LibVLC("--network-caching=400");
             _mediaPlayer = new MediaPlayer(_libVLC);
+
+            // Retry automatique si le flux n'est pas encore disponible ou se coupe
+            // ConfigureAwait(false) pour sortir du thread d'événement VLC avant de rappeler Play
+            _mediaPlayer.EncounteredError += async (_, _) =>
+            {
+                await Task.Delay(2000).ConfigureAwait(false);
+                PlayPreview();
+            };
+
+            _mediaPlayer.EndReached += async (_, _) =>
+            {
+                await Task.Delay(1000).ConfigureAwait(false);
+                PlayPreview();
+            };
         }
 
-        // Cette méthode doit être SEULE, en dehors du constructeur
+        private void PlayPreview()
+        {
+            if (_libVLC == null || _mediaPlayer == null) return;
+
+            var scene = SceneService.Instance.ActiveScene;
+            if (scene == null) return;
+
+            var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
+            var old = _currentMedia;
+            _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=400");
+            _mediaPlayer.Play(_currentMedia);
+            old?.Dispose();
+        }
+
         private void VideoView_OnAttached(object? sender, VisualTreeAttachmentEventArgs e)
         {
             if (sender is VideoView videoView && _mediaPlayer != null)
             {
-                // On ne branche le player que s'il n'est pas déjà branché
                 if (videoView.MediaPlayer == null)
-                {
                     videoView.MediaPlayer = _mediaPlayer;
-                }
+
+                // S'assure que libcastor pousse vers MediaMTX avant de lire
+                if (DataContext is StudioViewModel vm)
+                    vm.EnsurePreviewRunning();
 
                 if (!_mediaPlayer.IsPlaying)
-                {
-                    var media = new Media(_libVLC!, new Uri("rtmp://127.0.0.1/live/test"), ":network-caching=400");
-                    _mediaPlayer.Play(media);
-                }
+                    PlayPreview();
             }
         }
 
@@ -69,6 +97,8 @@ namespace CastorApplication.Views
                 }
 
                 // 3. On libère dans l'ordre
+                _currentMedia?.Dispose();
+                _currentMedia = null;
                 _mediaPlayer.Dispose();
                 _libVLC?.Dispose();
 

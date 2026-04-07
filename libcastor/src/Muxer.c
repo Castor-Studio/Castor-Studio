@@ -78,7 +78,10 @@ CASTOR_CORE_API int muxer_write_packet(CastorMuxer* mux, AVPacket* pkt) {
 CASTOR_CORE_API void muxer_close(CastorMuxer* mux) {
     if (!mux->fmt_ctx) return;
 
-    av_write_trailer(mux->fmt_ctx);
+    /* N'appelle av_write_trailer que si la connexion a été ouverte (pb != NULL).
+     * Si avio_open a échoué, pb est NULL et av_write_trailer crasherait (SEH). */
+    if (mux->fmt_ctx->pb || (mux->fmt_ctx->oformat->flags & AVFMT_NOFILE))
+        av_write_trailer(mux->fmt_ctx);
 
     if (!(mux->fmt_ctx->oformat->flags & AVFMT_NOFILE))
         avio_closep(&mux->fmt_ctx->pb);

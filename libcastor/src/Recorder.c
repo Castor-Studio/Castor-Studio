@@ -208,6 +208,16 @@ static int stream_init(StreamState* s) {
         return -1;
     }
 
+    /* Sanity check : un codec comme x264 crashe si on l'ouvre avec des dimensions nulles */
+    if (s->vctx.width <= 0 || s->vctx.height <= 0) {
+        fprintf(stderr, "[Stream %d] Dimensions invalides apres init capture: %dx%d\n",
+                s->index, s->vctx.width, s->vctx.height);
+        video_capture_cleanup(&s->vctx);
+        return -1;
+    }
+    fprintf(stderr, "[Stream %d] Capture video OK — %dx%d (type=%d)\n",
+            s->index, s->vctx.width, s->vctx.height, s->config.video_src.type);
+
     if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0) {
         fprintf(stderr, "[Stream %d] Init capture audio echouee\n", s->index);
         video_capture_cleanup(&s->vctx);

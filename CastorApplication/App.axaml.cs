@@ -22,6 +22,7 @@ namespace CastorApplication
         public override void OnFrameworkInitializationCompleted()
         {
             CastorNative.Initialize();
+            MediaMtxService.Instance.Start();
 
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -30,9 +31,17 @@ namespace CastorApplication
                 DisableAvaloniaDataAnnotationValidation();
                 desktop.MainWindow = new MainWindow { DataContext = new MainWindowViewModel() };
 
-                // Arrêt propre des threads natifs avant la fermeture de l'app
-                desktop.ShutdownRequested += (_, _) => RecorderService.Instance.Stop();
-                AppDomain.CurrentDomain.ProcessExit += (_, _) => RecorderService.Instance.Stop();
+                // Arrêt propre des threads natifs et de MediaMTX avant la fermeture de l'app
+                desktop.ShutdownRequested += (_, _) =>
+                {
+                    RecorderService.Instance.Stop();
+                    MediaMtxService.Instance.Stop();
+                };
+                AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+                {
+                    RecorderService.Instance.Stop();
+                    MediaMtxService.Instance.Stop();
+                };
             }
 
             base.OnFrameworkInitializationCompleted();
