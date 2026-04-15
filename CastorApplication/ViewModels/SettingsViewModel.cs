@@ -27,9 +27,6 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isAccountsActive;
 
-    [ObservableProperty]
-    private bool _isPluginsActive;
-
     // ── General settings ──
 
     [ObservableProperty]
@@ -164,9 +161,6 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private void ShowAccounts() { ResetCategories(); IsAccountsActive = true; }
 
-    [RelayCommand]
-    private void ShowPlugins() { ResetCategories(); IsPluginsActive = true; }
-
     private void ResetCategories()
     {
         IsGeneralActive = false;
@@ -175,7 +169,6 @@ public partial class SettingsViewModel : ViewModelBase
         IsStreamingActive = false;
         IsOutputActive = false;
         IsAccountsActive = false;
-        IsPluginsActive = false;
     }
 
     // ── Platform connection commands ──
