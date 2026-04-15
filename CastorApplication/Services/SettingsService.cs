@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using CastorApplication.Models;
@@ -7,6 +8,9 @@ namespace CastorApplication.Services;
 
 public sealed class SettingsService
 {
+    private const string CurrentAppFolderName = "castor-studio";
+    private const string LegacyAppFolderName = "cator-studio";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -16,11 +20,13 @@ public sealed class SettingsService
 
     public SettingsService(string? settingsFilePath = null)
     {
-        _settingsFilePath = settingsFilePath ?? BuildDefaultSettingsPath();
+        _settingsFilePath = settingsFilePath ?? BuildDefaultSettingsPath(CurrentAppFolderName);
     }
 
     public ApplicationSettings Load()
     {
+        MigrateLegacySettingsIfNeeded();
+
         try
         {
             if (!File.Exists(_settingsFilePath))
@@ -29,10 +35,20 @@ public sealed class SettingsService
             }
 
             var json = File.ReadAllText(_settingsFilePath);
-            return JsonSerializer.Deserialize<ApplicationSettings>(json, JsonOptions) ?? new ApplicationSettings();
+            try
+            {
+                return JsonSerializer.Deserialize<ApplicationSettings>(json, JsonOptions) ?? new ApplicationSettings();
+            }
+            catch (JsonException ex)
+            {
+                BackupCorruptSettingsFile();
+                LogError("Failed to deserialize settings JSON.", ex);
+                return new ApplicationSettings();
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            LogError("Failed to load settings from disk.", ex);
             return new ApplicationSettings();
         }
     }
@@ -46,12 +62,76 @@ public sealed class SettingsService
         }
 
         var json = JsonSerializer.Serialize(settings, JsonOptions);
-        File.WriteAllText(_settingsFilePath, json);
+        WriteFileAtomically(_settingsFilePath, json);
     }
 
-    private static string BuildDefaultSettingsPath()
+    private void MigrateLegacySettingsIfNeeded()
+    {
+        var legacyPath = BuildDefaultSettingsPath(LegacyAppFolderName);
+
+        if (File.Exists(_settingsFilePath) || !File.Exists(legacyPath))
+        {
+            return;
+        }
+
+        var directory = Path.GetDirectoryName(_settingsFilePath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        File.Copy(legacyPath, _settingsFilePath, overwrite: false);
+    }
+
+    private void BackupCorruptSettingsFile()
+    {
+        try
+        {
+            if (!File.Exists(_settingsFilePath))
+            {
+                return;
+            }
+
+            var backupPath = $"{_settingsFilePath}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            File.Copy(_settingsFilePath, backupPath, overwrite: false);
+        }
+        catch (Exception ex)
+        {
+            LogError("Failed to back up corrupt settings file.", ex);
+        }
+    }
+
+    private static void WriteFileAtomically(string destinationPath, string content)
+    {
+        var directory = Path.GetDirectoryName(destinationPath)
+            ?? throw new InvalidOperationException("Settings destination directory is invalid.");
+
+        var tempPath = Path.Combine(directory, $"{Path.GetFileName(destinationPath)}.{Guid.NewGuid():N}.tmp");
+        File.WriteAllText(tempPath, content);
+
+        try
+        {
+            File.Move(tempPath, destinationPath, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+
+            throw;
+        }
+    }
+
+    private static void LogError(string message, Exception ex)
+    {
+        Debug.WriteLine($"[SettingsService] {message} {ex.GetType().Name}: {ex.Message}");
+    }
+
+    private static string BuildDefaultSettingsPath(string appFolderName)
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "cator-studio", "settings.json");
+        return Path.Combine(appData, appFolderName, "settings.json");
     }
 }
