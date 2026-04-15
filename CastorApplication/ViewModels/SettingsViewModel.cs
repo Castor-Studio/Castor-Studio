@@ -1,12 +1,41 @@
 using Avalonia;
 using Avalonia.Styling;
+using CastorApplication.Models;
+using CastorApplication.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace CastorApplication.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase
 {
+    private static readonly HashSet<string> NonDirtyProperties = new()
+    {
+        nameof(IsGeneralActive),
+        nameof(IsVideoActive),
+        nameof(IsAudioActive),
+        nameof(IsStreamingActive),
+        nameof(IsOutputActive),
+        nameof(IsAccountsActive),
+        nameof(HasUnsavedChanges),
+        nameof(VideoBitrateDisplay),
+        nameof(TwitchStatus),
+        nameof(YoutubeStatus),
+        nameof(FacebookStatus),
+        nameof(TwitchButtonText),
+        nameof(YoutubeButtonText),
+        nameof(FacebookButtonText)
+    };
+
+    private readonly SettingsService _settingsService;
+    private bool _isApplyingSettings;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveSettingsCommand))]
+    private bool _hasUnsavedChanges;
+
     // ── Category navigation ──
 
     [ObservableProperty]
@@ -44,10 +73,21 @@ public partial class SettingsViewModel : ViewModelBase
             value == 1 ? ThemeVariant.Light : ThemeVariant.Dark;
     }
 
-    public SettingsViewModel()
+    public SettingsViewModel(SettingsService settingsService)
     {
+        _settingsService = settingsService;
+
+        var loadedSettings = _settingsService.Load();
+        ApplySettings(loadedSettings);
+
         // Sync the ComboBox with the currently active theme (no OnChanged triggered via backing field)
-        _selectedThemeIndex = Application.Current?.RequestedThemeVariant == ThemeVariant.Light ? 1 : 0;
+        if (loadedSettings.SelectedThemeIndex is < 0 or > 1)
+        {
+            _selectedThemeIndex = Application.Current?.RequestedThemeVariant == ThemeVariant.Light ? 1 : 0;
+        }
+
+        PropertyChanged += OnTrackedPropertyChanged;
+        HasUnsavedChanges = false;
     }
 
     // ── Video settings ──
@@ -181,4 +221,88 @@ public partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private void ToggleFacebook() => IsFacebookConnected = !IsFacebookConnected;
+
+    private bool CanSaveSettings => HasUnsavedChanges;
+
+    [RelayCommand(CanExecute = nameof(CanSaveSettings))]
+    private void SaveSettings()
+    {
+        _settingsService.Save(BuildCurrentSettings());
+        HasUnsavedChanges = false;
+    }
+
+    private void ApplySettings(ApplicationSettings settings)
+    {
+        _isApplyingSettings = true;
+
+        SelectedLanguageIndex = settings.SelectedLanguageIndex;
+        AutoStart = settings.AutoStart;
+        SelectedThemeIndex = settings.SelectedThemeIndex;
+
+        SelectedBaseResolutionIndex = settings.SelectedBaseResolutionIndex;
+        SelectedOutputResolutionIndex = settings.SelectedOutputResolutionIndex;
+        SelectedFpsIndex = settings.SelectedFpsIndex;
+        VideoBitrate = settings.VideoBitrate;
+
+        SelectedSampleRateIndex = settings.SelectedSampleRateIndex;
+        SelectedChannelsIndex = settings.SelectedChannelsIndex;
+        SelectedAudioBitrateIndex = settings.SelectedAudioBitrateIndex;
+
+        SelectedPlatformIndex = settings.SelectedPlatformIndex;
+        StreamKey = settings.StreamKey;
+        RtmpUrl = settings.RtmpUrl;
+        SelectedServerIndex = settings.SelectedServerIndex;
+
+        IsTwitchConnected = settings.IsTwitchConnected;
+        IsYoutubeConnected = settings.IsYoutubeConnected;
+        IsFacebookConnected = settings.IsFacebookConnected;
+
+        SelectedOutputFormatIndex = settings.SelectedOutputFormatIndex;
+        OutputPath = settings.OutputPath;
+
+        _isApplyingSettings = false;
+    }
+
+    private void OnTrackedPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_isApplyingSettings)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(e.PropertyName) || NonDirtyProperties.Contains(e.PropertyName))
+        {
+            return;
+        }
+
+        HasUnsavedChanges = true;
+    }
+
+    private ApplicationSettings BuildCurrentSettings() => new()
+    {
+        SelectedLanguageIndex = SelectedLanguageIndex,
+        AutoStart = AutoStart,
+        SelectedThemeIndex = SelectedThemeIndex,
+
+        SelectedBaseResolutionIndex = SelectedBaseResolutionIndex,
+        SelectedOutputResolutionIndex = SelectedOutputResolutionIndex,
+        SelectedFpsIndex = SelectedFpsIndex,
+        VideoBitrate = VideoBitrate,
+
+        SelectedSampleRateIndex = SelectedSampleRateIndex,
+        SelectedChannelsIndex = SelectedChannelsIndex,
+        SelectedAudioBitrateIndex = SelectedAudioBitrateIndex,
+
+        SelectedPlatformIndex = SelectedPlatformIndex,
+        StreamKey = StreamKey,
+        RtmpUrl = RtmpUrl,
+        SelectedServerIndex = SelectedServerIndex,
+
+        IsTwitchConnected = IsTwitchConnected,
+        IsYoutubeConnected = IsYoutubeConnected,
+        IsFacebookConnected = IsFacebookConnected,
+
+        SelectedOutputFormatIndex = SelectedOutputFormatIndex,
+        OutputPath = OutputPath
+    };
 }

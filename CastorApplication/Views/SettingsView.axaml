@@ -137,8 +137,9 @@
         <Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}"/>
 
         <!-- ═══ SETTINGS CONTENT ═══ -->
-        <ScrollViewer Grid.Column="2">
-            <StackPanel Margin="28,20" Spacing="28">
+        <Grid Grid.Column="2" RowDefinitions="*,Auto">
+            <ScrollViewer Grid.Row="0">
+                <StackPanel Margin="28,20" Spacing="28">
 
                 <!-- ══ GÉNÉRAL ══ -->
                 <StackPanel IsVisible="{Binding IsGeneralActive}" Spacing="14">
@@ -433,10 +434,24 @@
                     </Border>
                 </StackPanel>
 
-                <Rectangle Height="20" Fill="Transparent"/>
+                    <Rectangle Height="20" Fill="Transparent"/>
 
-            </StackPanel>
-        </ScrollViewer>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="1"
+                    Background="{DynamicResource AppSurface}"
+                    BorderBrush="{DynamicResource AppBorder}"
+                    BorderThickness="0,1,0,0"
+                    Padding="24,12">
+                <Button Content="Enregistrer"
+                        Classes="platform-connect"
+                        Command="{Binding SaveSettingsCommand}"
+                    IsEnabled="{Binding HasUnsavedChanges}"
+                        HorizontalAlignment="Right"
+                        MinWidth="130"/>
+            </Border>
+        </Grid>
 
     </Grid>
 
