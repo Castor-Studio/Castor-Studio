@@ -130,16 +130,6 @@
                             Classes="settings-nav" Content="Comptes"
                             Command="{Binding ShowAccountsCommand}"/>
 
-                    <!-- Plugins -->
-                    <Border IsVisible="{Binding IsPluginsActive}"
-                            Background="{DynamicResource AppAccentBg2}" BorderBrush="#5b8def" BorderThickness="3,0,0,0">
-                        <TextBlock Text="Plugins" Foreground="{DynamicResource AppFg1}" FontSize="13"
-                                   FontWeight="SemiBold" Margin="15,10"/>
-                    </Border>
-                    <Button IsVisible="{Binding !IsPluginsActive}"
-                            Classes="settings-nav" Content="Plugins"
-                            Command="{Binding ShowPluginsCommand}"/>
-
                 </StackPanel>
             </Grid>
         </Border>
@@ -439,29 +429,6 @@
                             <TextBlock Text="castor-studio.app"
                                        Foreground="#5b8def" FontSize="11" FontWeight="SemiBold"
                                        VerticalAlignment="Center" Cursor="Hand"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <!-- ══ PLUGINS ══ -->
-                <StackPanel IsVisible="{Binding IsPluginsActive}" Spacing="14">
-                    <TextBlock Text="PLUGINS" Classes="section-title"/>
-
-                    <Border Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
-                            CornerRadius="8" Padding="20">
-                        <StackPanel Spacing="12" HorizontalAlignment="Center">
-                            <TextBlock Text="Aucun plugin installé"
-                                       Foreground="{DynamicResource AppFg3}" FontSize="14" FontWeight="SemiBold"
-                                       HorizontalAlignment="Center"/>
-                            <TextBlock Text="Les plugins permettent d'ajouter des overlays, des effets&#x0a;et des fonctionnalités avancées à vos diffusions."
-                                       Foreground="{DynamicResource AppFg4}" FontSize="12"
-                                       HorizontalAlignment="Center" TextAlignment="Center"/>
-                            <Button Content="PARCOURIR SUR CASTOR-STUDIO.APP"
-                                    Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
-                                    BorderThickness="0" Padding="18,10" CornerRadius="6"
-                                    FontSize="12" FontWeight="SemiBold"
-                                    HorizontalAlignment="Center" Cursor="Hand"
-                                    Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
