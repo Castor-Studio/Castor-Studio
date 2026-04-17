@@ -137,8 +137,9 @@
         <Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}"/>
 
         <!-- ═══ SETTINGS CONTENT ═══ -->
-        <ScrollViewer Grid.Column="2">
-            <StackPanel Margin="28,20" Spacing="28">
+        <Grid Grid.Column="2" RowDefinitions="*,Auto">
+            <ScrollViewer Grid.Row="0">
+                <StackPanel Margin="28,20" Spacing="28">
 
                 <!-- ══ GÉNÉRAL ══ -->
                 <StackPanel IsVisible="{Binding IsGeneralActive}" Spacing="14">
@@ -147,7 +148,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Langue" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedLanguageIndex}">
+                                  SelectedIndex="{Binding General.SelectedLanguageIndex}">
                             <ComboBoxItem Content="Français"/>
                             <ComboBoxItem Content="English"/>
                             <ComboBoxItem Content="Español"/>
@@ -156,13 +157,13 @@
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Démarrage automatique" Classes="setting-label"/>
-                        <CheckBox Grid.Column="1" IsChecked="{Binding AutoStart}"/>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding General.AutoStart}"/>
                     </Grid>
 
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Thème" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedThemeIndex}">
+                                  SelectedIndex="{Binding General.SelectedThemeIndex}">
                             <ComboBoxItem Content="Sombre"/>
                             <ComboBoxItem Content="Clair"/>
                         </ComboBox>
@@ -181,20 +182,20 @@
                                            Foreground="{DynamicResource AppFg4}" FontSize="11" FontStyle="Italic"/>
                                 <TextBlock Text="castor-studio.app"
                                            Foreground="#5b8def" FontSize="12"
-                                           FontWeight="SemiBold" Cursor="Hand"
+                                           FontWeight="SemiBold"
                                            Margin="0,4,0,0"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
                                 <Button Content="Documentation"
                                         Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                                         BorderThickness="0" Padding="12,6" CornerRadius="5"
-                                        FontSize="11" FontWeight="SemiBold" Cursor="Hand"
+                                    FontSize="11" FontWeight="SemiBold"
                                         HorizontalContentAlignment="Center" MinWidth="120"/>
                                 <Button Content="Support"
                                         Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
                                         BorderThickness="1" BorderBrush="{DynamicResource AppBorder2}"
                                         Padding="12,6" CornerRadius="5"
-                                        FontSize="11" FontWeight="SemiBold" Cursor="Hand"
+                                    FontSize="11" FontWeight="SemiBold"
                                         HorizontalContentAlignment="Center" MinWidth="120"/>
                             </StackPanel>
                         </Grid>
@@ -208,7 +209,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Résolution de base" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedBaseResolutionIndex}">
+                                  SelectedIndex="{Binding Video.SelectedBaseResolutionIndex}">
                             <ComboBoxItem Content="3840 × 2160 (4K)"/>
                             <ComboBoxItem Content="1920 × 1080 (Full HD)"/>
                             <ComboBoxItem Content="1280 × 720 (HD)"/>
@@ -218,7 +219,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Résolution de sortie" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedOutputResolutionIndex}">
+                                  SelectedIndex="{Binding Video.SelectedOutputResolutionIndex}">
                             <ComboBoxItem Content="1920 × 1080 (Full HD)"/>
                             <ComboBoxItem Content="1280 × 720 (HD)"/>
                             <ComboBoxItem Content="854 × 480 (SD)"/>
@@ -228,7 +229,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Images par seconde" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedFpsIndex}">
+                                  SelectedIndex="{Binding Video.SelectedFpsIndex}">
                             <ComboBoxItem Content="60 fps"/>
                             <ComboBoxItem Content="30 fps"/>
                             <ComboBoxItem Content="25 fps"/>
@@ -239,9 +240,9 @@
                         <TextBlock Grid.Column="0" Text="Débit vidéo (kbps)" Classes="setting-label"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" MaxWidth="320">
                             <Slider Minimum="1000" Maximum="20000"
-                                    Value="{Binding VideoBitrate}"
+                                    Value="{Binding Video.VideoBitrate}"
                                     Width="220" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding VideoBitrateDisplay}"
+                            <TextBlock Text="{Binding Video.VideoBitrateDisplay}"
                                        Foreground="{DynamicResource AppFg4}" FontSize="12"
                                        VerticalAlignment="Center" Width="50"/>
                         </StackPanel>
@@ -255,7 +256,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Fréquence d'échantillonnage" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedSampleRateIndex}">
+                                  SelectedIndex="{Binding Audio.SelectedSampleRateIndex}">
                             <ComboBoxItem Content="48 kHz"/>
                             <ComboBoxItem Content="44.1 kHz"/>
                         </ComboBox>
@@ -264,7 +265,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Canaux" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedChannelsIndex}">
+                                  SelectedIndex="{Binding Audio.SelectedChannelsIndex}">
                             <ComboBoxItem Content="Stéréo"/>
                             <ComboBoxItem Content="Mono"/>
                             <ComboBoxItem Content="5.1 Surround"/>
@@ -274,7 +275,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Débit audio (kbps)" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedAudioBitrateIndex}">
+                                  SelectedIndex="{Binding Audio.SelectedAudioBitrateIndex}">
                             <ComboBoxItem Content="320 kbps"/>
                             <ComboBoxItem Content="192 kbps"/>
                             <ComboBoxItem Content="128 kbps"/>
@@ -289,7 +290,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Plateforme" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedPlatformIndex}">
+                                  SelectedIndex="{Binding Streaming.SelectedPlatformIndex}">
                             <ComboBoxItem Content="Twitch"/>
                             <ComboBoxItem Content="YouTube Live"/>
                             <ComboBoxItem Content="Facebook Live"/>
@@ -301,7 +302,7 @@
                         <TextBlock Grid.Column="0" Text="Clé de stream" Classes="setting-label"/>
                         <TextBox Grid.Column="1"
                                  PasswordChar="•"
-                                 Text="{Binding StreamKey}"
+                                 Text="{Binding Streaming.StreamKey}"
                                  Watermark="Entrez votre clé de stream..."
                                  MaxWidth="320" HorizontalAlignment="Left"
                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
@@ -310,7 +311,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="URL RTMP" Classes="setting-label"/>
                         <TextBox Grid.Column="1"
-                                 Text="{Binding RtmpUrl}"
+                                 Text="{Binding Streaming.RtmpUrl}"
                                  Watermark="rtmp://live.twitch.tv/app"
                                  MaxWidth="320" HorizontalAlignment="Left"
                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
@@ -319,7 +320,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Serveur" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedServerIndex}">
+                                  SelectedIndex="{Binding Streaming.SelectedServerIndex}">
                             <ComboBoxItem Content="Auto (recommandé)"/>
                             <ComboBoxItem Content="Europe - Paris"/>
                             <ComboBoxItem Content="Europe - Amsterdam"/>
@@ -334,7 +335,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Format d'enregistrement" Classes="setting-label"/>
                         <ComboBox Grid.Column="1" MaxWidth="260" HorizontalAlignment="Left"
-                                  SelectedIndex="{Binding SelectedOutputFormatIndex}">
+                                  SelectedIndex="{Binding Output.SelectedOutputFormatIndex}">
                             <ComboBoxItem Content="MP4 (H.264 + AAC)"/>
                             <ComboBoxItem Content="MKV (H.264 + AAC)"/>
                             <ComboBoxItem Content="WebM (VP9 + Opus)"/>
@@ -344,7 +345,7 @@
                     <Grid ColumnDefinitions="180, *">
                         <TextBlock Grid.Column="0" Text="Dossier de sortie" Classes="setting-label"/>
                         <TextBox Grid.Column="1"
-                                 Text="{Binding OutputPath}"
+                                 Text="{Binding Output.OutputPath}"
                                  Watermark="C:\Users\...\Videos"
                                  MaxWidth="320" HorizontalAlignment="Left"
                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
@@ -370,12 +371,12 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Twitch" Foreground="{DynamicResource AppFg1}" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding TwitchStatus}" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
+                                    <TextBlock Text="{Binding Accounts.TwitchStatus}" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="{Binding TwitchButtonText}"
+                                <Button Grid.Column="2" Content="{Binding Accounts.TwitchButtonText}"
                                     Classes="platform-connect"
-                                    Command="{Binding ToggleTwitchCommand}"/>
+                                    Command="{Binding Accounts.ToggleTwitchCommand}"/>
                         </Grid>
                     </Border>
 
@@ -391,12 +392,12 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="YouTube Live" Foreground="{DynamicResource AppFg1}" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding YoutubeStatus}" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
+                                    <TextBlock Text="{Binding Accounts.YoutubeStatus}" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="{Binding YoutubeButtonText}"
+                                <Button Grid.Column="2" Content="{Binding Accounts.YoutubeButtonText}"
                                     Classes="platform-connect"
-                                    Command="{Binding ToggleYoutubeCommand}"/>
+                                    Command="{Binding Accounts.ToggleYoutubeCommand}"/>
                         </Grid>
                     </Border>
 
@@ -412,12 +413,12 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Facebook Live" Foreground="{DynamicResource AppFg1}" FontSize="13" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding FacebookStatus}" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
+                                    <TextBlock Text="{Binding Accounts.FacebookStatus}" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="2" Content="{Binding FacebookButtonText}"
+                                <Button Grid.Column="2" Content="{Binding Accounts.FacebookButtonText}"
                                     Classes="platform-connect"
-                                    Command="{Binding ToggleFacebookCommand}"/>
+                                    Command="{Binding Accounts.ToggleFacebookCommand}"/>
                         </Grid>
                     </Border>
 
@@ -428,15 +429,28 @@
                                        Foreground="{DynamicResource AppFg4}" FontSize="11" VerticalAlignment="Center"/>
                             <TextBlock Text="castor-studio.app"
                                        Foreground="#5b8def" FontSize="11" FontWeight="SemiBold"
-                                       VerticalAlignment="Center" Cursor="Hand"/>
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
 
-                <Rectangle Height="20" Fill="Transparent"/>
+                    <Rectangle Height="20" Fill="Transparent"/>
 
-            </StackPanel>
-        </ScrollViewer>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Border Grid.Row="1"
+                    Background="{DynamicResource AppSurface}"
+                    BorderBrush="{DynamicResource AppBorder}"
+                    BorderThickness="0,1,0,0"
+                    Padding="24,12">
+                <Button Content="Enregistrer"
+                        Classes="platform-connect"
+                        Command="{Binding SaveSettingsCommand}"
+                        HorizontalAlignment="Right"
+                        MinWidth="130"/>
+            </Border>
+        </Grid>
 
     </Grid>
 
