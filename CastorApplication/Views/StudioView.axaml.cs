@@ -15,6 +15,7 @@ namespace CastorApplication.Views
         private LibVLC? _libVLC;
         private MediaPlayer? _mediaPlayer;
         private Media? _currentMedia;
+        private StudioViewModel? _vm;
 
         public StudioView()
         {
@@ -29,7 +30,7 @@ namespace CastorApplication.Views
                 System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC : {ex.Message}");
             }
 
-            _libVLC      = new LibVLC("--network-caching=400");
+            _libVLC      = new LibVLC("--network-caching=150");
             _mediaPlayer = new MediaPlayer(_libVLC);
 
             // Retry automatique si le flux n'est pas encore disponible ou se coupe
@@ -45,6 +46,37 @@ namespace CastorApplication.Views
                 await Task.Delay(1000).ConfigureAwait(false);
                 PlayPreview();
             };
+
+            DataContextChanged += OnDataContextChanged;
+        }
+
+        private void OnDataContextChanged(object? sender, EventArgs e)
+        {
+            if (_vm != null)
+                _vm.PropertyChanged -= OnVmPropertyChanged;
+
+            _vm = DataContext as StudioViewModel;
+
+            if (_vm != null)
+                _vm.PropertyChanged += OnVmPropertyChanged;
+        }
+
+        private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != nameof(StudioViewModel.ActiveScene)) return;
+
+            // La scène active a changé : démarre son preview si nécessaire, puis bascule VLC sur son URL.
+            _ = Task.Run(async () =>
+            {
+                var scene = SceneService.Instance.ActiveScene;
+                bool alreadyRunning = scene != null && RecorderService.Instance.IsPreviewActive(scene.Id);
+                _vm?.EnsurePreviewRunning();
+                // Délai uniquement si le recorder vient d'être créé (laisse le stream s'établir).
+                // Si le preview tournait déjà, on bascule VLC immédiatement.
+                if (!alreadyRunning)
+                    await Task.Delay(1200).ConfigureAwait(false);
+                PlayPreview();
+            });
         }
 
         private void PlayPreview()
@@ -56,7 +88,7 @@ namespace CastorApplication.Views
 
             var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
             var old = _currentMedia;
-            _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=400");
+            _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=150");
             _mediaPlayer.Play(_currentMedia);
             old?.Dispose();
         }
@@ -80,6 +112,12 @@ namespace CastorApplication.Views
         protected override void OnUnloaded(Avalonia.Interactivity.RoutedEventArgs e)
         {
             base.OnUnloaded(e);
+
+            if (_vm != null)
+            {
+                _vm.PropertyChanged -= OnVmPropertyChanged;
+                _vm = null;
+            }
 
             if (_mediaPlayer != null)
             {

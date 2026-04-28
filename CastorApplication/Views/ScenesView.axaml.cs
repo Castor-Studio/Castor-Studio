@@ -27,7 +27,7 @@ public partial class ScenesView : UserControl
         try { LibVLCSharp.Shared.Core.Initialize(); }
         catch (Exception ex) { Debug.WriteLine($"[ScenesPreview] Erreur init VLC : {ex.Message}"); }
 
-        _libVLC      = new LibVLC("--network-caching=400");
+        _libVLC      = new LibVLC("--network-caching=150");
         _mediaPlayer = new MediaPlayer(_libVLC);
 
         // Retry automatique si le flux n'est pas encore dispo ou se coupe
@@ -104,7 +104,7 @@ public partial class ScenesView : UserControl
 
         var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
         var old = _currentMedia;
-        _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=400");
+        _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=150");
         _mediaPlayer.Play(_currentMedia);
         old?.Dispose();
     }

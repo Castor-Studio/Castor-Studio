@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CastorApplication.Services;
 
 namespace CastorApplication.ViewModels;
 
@@ -22,11 +23,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // Singleton pour préserver l'état du docking entre navigations
     private StudioViewModel? _studioPage;
+    private readonly SettingsViewModel _settingsPage;
 
     public StudioViewModel StudioPage => _studioPage ??= new StudioViewModel();
 
     public MainWindowViewModel()
     {
+        _settingsPage = new SettingsViewModel(new SettingsService());
         ShowStudio();
     }
 
@@ -57,7 +60,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ShowSettings()
     {
-        CurrentPage = new SettingsViewModel();
+        CurrentPage = _settingsPage;
         ResetTabs();
         IsSettingsActive = true;
     }
