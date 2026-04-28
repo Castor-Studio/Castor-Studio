@@ -180,11 +180,7 @@
                                            FontSize="13" FontWeight="SemiBold"/>
                                 <TextBlock Text="Libérez le flot de vos événements"
                                            Foreground="{DynamicResource AppFg4}" FontSize="11" FontStyle="Italic"/>
-
-								<TextBlock Text="{Binding LibraryVersion, StringFormat='libcastor {0}'}"
-                                           Foreground="{DynamicResource AppFg4}" FontSize="11"/>
-
-								<TextBlock Text="castor-studio.app"
+                                <TextBlock Text="castor-studio.app"
                                            Foreground="#5b8def" FontSize="12"
                                            FontWeight="SemiBold"
                                            Margin="0,4,0,0"/>

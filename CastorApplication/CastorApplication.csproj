@@ -48,16 +48,6 @@
     <ProjectReference Include="..\Castor.Native\Castor.Native.csproj" />
   </ItemGroup>
 
-  <!-- ── Build natif automatique avant chaque build .NET ── -->
-  <Target Name="BuildNative" BeforeTargets="PreBuildEvent">
-    <PropertyGroup>
-      <CmakePreset>x64-$([System.String]::Copy('$(Configuration)').ToLower())</CmakePreset>
-      <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..'))</RepoRoot>
-    </PropertyGroup>
-    <Exec Command="&quot;$(RepoRoot)\build-native.cmd&quot; $(CmakePreset)"
-          WorkingDirectory="$(RepoRoot)"
-          ConsoleToMSBuild="true" />
-  </Target>
   <ItemGroup>
     <Compile Update="Views\MulticamView.axaml.cs">
       <DependentUpon>MulticamView.axaml</DependentUpon>
@@ -72,4 +62,5 @@
       <DependentUpon>StudioView.axaml</DependentUpon>
     </Compile>
   </ItemGroup>
+	
 </Project>
