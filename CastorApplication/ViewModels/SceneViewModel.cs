@@ -1,5 +1,10 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using Castor.Native;
 using CastorApplication.Models;
+using CastorApplication.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -7,7 +12,9 @@ namespace CastorApplication.ViewModels;
 
 public partial class ScenesViewModel : ViewModelBase
 {
-    public ObservableCollection<SceneItem> Scenes { get; } = new();
+    // ── Scènes ────────────────────────────────────────────────────────────────
+
+    public ObservableCollection<SceneItem> Scenes => SceneService.Instance.Scenes;
 
     [ObservableProperty]
     private SceneItem? _selectedScene;
@@ -15,108 +22,196 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty]
     private string _newSceneName = "";
 
+    // ── Sources disponibles (pour le flyout d'ajout) ──────────────────────────
+
+    public ObservableCollection<CaptureSourceOption> AvailableMonitors  { get; } = new();
+    public ObservableCollection<CaptureSourceOption> AvailableCameras   { get; } = new();
+    public ObservableCollection<CaptureSourceOption> AvailableWindows   { get; } = new();
+    public ObservableCollection<AudioSourceOption>   AvailableLoopbacks { get; } = new();
+    public ObservableCollection<AudioSourceOption>   AvailableMics      { get; } = new();
+
+    // ── Constructeur ─────────────────────────────────────────────────────────
+
     public ScenesViewModel()
     {
-        // Sample data
-        var matchLive = new SceneItem("Match Live", isActive: true, isLive: true);
-        matchLive.Sources.Add(new SourceItem("Caméra terrain", "Vidéo", "#5b8def"));
-        matchLive.Sources.Add(new SourceItem("Tableau de scores", "Vidéo", "#34d399"));
-        matchLive.Sources.Add(new SourceItem("Audio système", "Audio", "#fbbf24"));
+        // Synchronise la sélection UI avec la scène active du service
+        SelectedScene = SceneService.Instance.ActiveScene;
 
-        var intro = new SceneItem("Introduction");
-        intro.Sources.Add(new SourceItem("Logo club", "Vidéo", "#5b8def"));
-        intro.Sources.Add(new SourceItem("Musique intro", "Audio", "#fbbf24"));
-
-        var miTemps = new SceneItem("Mi-Temps");
-        miTemps.Sources.Add(new SourceItem("Caméra plateau", "Vidéo", "#34d399"));
-
-        var finMatch = new SceneItem("Fin de Match");
-        var plateau = new SceneItem("Plateau Studio");
-
-        Scenes.Add(matchLive);
-        Scenes.Add(intro);
-        Scenes.Add(miTemps);
-        Scenes.Add(finMatch);
-        Scenes.Add(plateau);
-
-        SelectedScene = matchLive;
+        // Charge les sources disponibles depuis la DLL
+        LoadAvailableSources();
     }
+
+    private void LoadAvailableSources()
+    {
+        try
+        {
+            foreach (var src in CastorNative.ListVideoSources())
+            {
+                var opt = new CaptureSourceOption(src);
+                switch (src.Type)
+                {
+                    case CaptureSourceType.Monitor: AvailableMonitors.Add(opt);  break;
+                    case CaptureSourceType.Camera:  AvailableCameras.Add(opt);   break;
+                    case CaptureSourceType.Window:  AvailableWindows.Add(opt);   break;
+                }
+            }
+
+            foreach (var src in CastorNative.ListAudioSources())
+            {
+                var opt = new AudioSourceOption(src);
+                if (src.Type is AudioSourceType.Microphone or AudioSourceType.CameraMic)
+                    AvailableMics.Add(opt);
+                else
+                    AvailableLoopbacks.Add(opt);
+            }
+        }
+        catch { /* DLL non chargée en mode design */ }
+    }
+
+    // ── Commandes scènes ──────────────────────────────────────────────────────
 
     [RelayCommand]
     private void SelectScene(SceneItem scene)
     {
-        // Deselect all
-        foreach (var s in Scenes)
-            s.IsActive = false;
-
-        scene.IsActive = true;
+        SceneService.Instance.SetActiveScene(scene);
         SelectedScene = scene;
     }
 
     [RelayCommand]
     private void CreateScene()
     {
-        if (string.IsNullOrWhiteSpace(NewSceneName))
-            return;
+        if (string.IsNullOrWhiteSpace(NewSceneName)) return;
 
-        var scene = new SceneItem(NewSceneName.Trim());
-        Scenes.Add(scene);
+        var scene = SceneService.Instance.CreateScene(NewSceneName.Trim());
         NewSceneName = "";
-
         SelectScene(scene);
     }
 
     [RelayCommand]
-    private void DeleteScene(SceneItem scene)
+    private void DeleteScene(SceneItem scene) => SceneService.Instance.DeleteScene(scene);
+
+    // ── Flux réseau ───────────────────────────────────────────────────────────
+
+    [ObservableProperty]
+    private string _networkSourceUrl = "";
+
+    [ObservableProperty]
+    private string _networkSourceError = "";
+
+    [ObservableProperty]
+    private bool _isScanning;
+
+    public ObservableCollection<DiscoveredCamera> DiscoveredCameras { get; } = new();
+
+    // ── Commandes d'ajout de sources ─────────────────────────────────────────
+
+    /// <summary>Ajoute une source vidéo spécifique à la scène sélectionnée.</summary>
+    [RelayCommand]
+    private void AddSpecificVideoSource(CaptureSourceOption opt)
     {
-        if (Scenes.Count <= 1)
+        if (SelectedScene == null) return;
+        SceneService.Instance.AddVideoSource(SelectedScene, opt.Info);
+    }
+
+    /// <summary>Scanne le réseau local via WS-Discovery pour trouver des caméras ONVIF.</summary>
+    [RelayCommand]
+    private async Task ScanNetworkCameras()
+    {
+        if (IsScanning) return;
+        IsScanning = true;
+        NetworkSourceError = "";
+        DiscoveredCameras.Clear();
+
+        try
+        {
+            var found = await NetworkScanService.ScanAsync(TimeSpan.FromSeconds(3));
+            foreach (var cam in found)
+                DiscoveredCameras.Add(cam);
+
+            if (DiscoveredCameras.Count == 0)
+                NetworkSourceError = "Aucune caméra ONVIF trouvée sur le réseau.";
+        }
+        catch (Exception ex)
+        {
+            NetworkSourceError = $"Erreur scan : {ex.Message}";
+        }
+        finally
+        {
+            IsScanning = false;
+        }
+    }
+
+    /// <summary>Ajoute une caméra découverte à la scène.</summary>
+    [RelayCommand]
+    private void AddDiscoveredCamera(DiscoveredCamera cam)
+    {
+        if (SelectedScene == null) return;
+        var info = new CaptureSourceInfo
+        {
+            Label        = cam.Label,
+            Type         = CaptureSourceType.Network,
+            SymbolicLink = cam.SuggestedUrl,
+            Index        = -1,
+        };
+        SceneService.Instance.AddVideoSource(SelectedScene, info);
+    }
+
+    /// <summary>Ajoute un flux réseau RTMP/RTSP/HTTP à la scène sélectionnée.</summary>
+    [RelayCommand]
+    private void AddNetworkSource()
+    {
+        NetworkSourceError = "";
+        var url = NetworkSourceUrl.Trim();
+
+        if (string.IsNullOrEmpty(url))
+        {
+            NetworkSourceError = "Entrez une URL valide.";
             return;
+        }
 
-        Scenes.Remove(scene);
+        if (!url.StartsWith("rtmp://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("rtmps://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            NetworkSourceError = "URL invalide (rtmp://, rtsp://, http://)";
+            return;
+        }
 
-        if (SelectedScene == scene && Scenes.Count > 0)
-            SelectScene(Scenes[0]);
+        if (SelectedScene == null)
+        {
+            NetworkSourceError = "Sélectionnez une scène d'abord.";
+            return;
+        }
+
+        // Construit un CaptureSourceInfo de type Network
+        var info = new CaptureSourceInfo
+        {
+            Label        = url.Length > 30 ? url[..30] + "…" : url,
+            Type         = CaptureSourceType.Network,
+            SymbolicLink = url,
+            Index        = -1,
+        };
+
+        SceneService.Instance.AddVideoSource(SelectedScene, info);
+        NetworkSourceUrl = "";
     }
 
+    /// <summary>Ajoute une source audio spécifique à la scène sélectionnée.</summary>
     [RelayCommand]
-    private void AddVideoSource()
+    private void AddSpecificAudioSource(AudioSourceOption opt)
     {
-        SelectedScene?.Sources.Add(new SourceItem("Nouvelle source vidéo", "Vidéo", "#5b8def"));
+        if (SelectedScene == null) return;
+        SceneService.Instance.AddAudioSource(SelectedScene, opt.Info);
     }
 
-    [RelayCommand]
-    private void AddScreenCapture()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
-    }
-
-    [RelayCommand]
-    private void AddCamera()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Caméra", "Vidéo", "#34d399"));
-    }
-
-    [RelayCommand]
-    private void AddWindowCapture()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Capture de fenêtre", "Vidéo", "#8888a0"));
-    }
-
-    [RelayCommand]
-    private void AddSystemAudio()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Audio système", "Audio", "#fbbf24"));
-    }
-
-    [RelayCommand]
-    private void AddMicrophone()
-    {
-        SelectedScene?.Sources.Add(new SourceItem("Microphone", "Audio", "#f87171"));
-    }
+    // ── Suppression de source ─────────────────────────────────────────────────
 
     [RelayCommand]
     private void RemoveSource(SourceItem source)
     {
-        SelectedScene?.Sources.Remove(source);
+        if (SelectedScene == null) return;
+        SceneService.Instance.RemoveSource(SelectedScene, source);
     }
 }

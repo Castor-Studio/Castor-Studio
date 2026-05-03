@@ -2,6 +2,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:CastorApplication.Models"
+             xmlns:native="using:Castor.Native"
+             xmlns:services="using:CastorApplication.Services"
+             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
              x:Class="CastorApplication.Views.ScenesView"
              x:DataType="vm:ScenesViewModel">
 
@@ -138,16 +141,27 @@
 
             <!-- Scene preview -->
             <Border Grid.Row="0"
-                    Background="{DynamicResource AppVeryDarkBg}" CornerRadius="8"
-                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                    Background="Black" CornerRadius="8"
+                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
+                    ClipToBounds="True">
                 <Panel>
+                    <!-- Flux RTMP de la scène sélectionnée -->
+                    <vlc:VideoView x:Name="ScenePreviewPlayer"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"
+                                   AttachedToVisualTree="SceneVideoView_OnAttached"/>
+
+                    <!-- Placeholder quand aucune scène n'est sélectionnée -->
                     <TextBlock Text="APERÇU DE LA SCÈNE"
+                               IsVisible="{Binding SelectedScene, Converter={x:Static ObjectConverters.IsNull}}"
                                Foreground="{DynamicResource AppSurface2}" HorizontalAlignment="Center"
                                VerticalAlignment="Center" FontSize="18" FontWeight="Bold"/>
 
+                    <!-- Nom de la scène en overlay -->
                     <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
                             Margin="12" Padding="10,6" CornerRadius="5"
-                            Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                            IsVisible="{Binding SelectedScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Background="#AA0B0B12" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
                         <TextBlock Text="{Binding SelectedScene.Name}"
                                    Foreground="{DynamicResource AppFg3}" FontSize="12" FontWeight="SemiBold"/>
                     </Border>
@@ -178,21 +192,151 @@
                                                    FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
                                         <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 
-                                        <TextBlock Text="Sources vidéo" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" Margin="0,4,0,0"/>
-                                        <Button Classes="source-type-btn" Content="Capture d'écran"
-                                                Command="{Binding AddScreenCaptureCommand}"/>
-                                        <Button Classes="source-type-btn" Content="Caméra"
-                                                Command="{Binding AddCameraCommand}"/>
-                                        <Button Classes="source-type-btn" Content="Capture de fenêtre"
-                                                Command="{Binding AddWindowCaptureCommand}"/>
+                                        <!-- Moniteurs -->
+                                        <TextBlock Text="MONITEURS" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,4,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableMonitors}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificVideoSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableMonitors.Count}"
+                                                   Text="Aucun moniteur détecté" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
 
-                                        <TextBlock Text="Sources audio" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" Margin="0,4,0,0"/>
-                                        <Button Classes="source-type-btn" Content="Audio système"
-                                                Command="{Binding AddSystemAudioCommand}"/>
-                                        <Button Classes="source-type-btn" Content="Microphone"
-                                                Command="{Binding AddMicrophoneCommand}"/>
+                                        <!-- Caméras -->
+                                        <TextBlock Text="CAMÉRAS" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableCameras}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificVideoSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableCameras.Count}"
+                                                   Text="Aucune caméra détectée" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+
+                                        <!-- Fenêtres -->
+                                        <TextBlock Text="FENÊTRES" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ScrollViewer MaxHeight="120">
+                                            <ItemsControl ItemsSource="{Binding AvailableWindows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                        <Button Classes="source-type-btn"
+                                                                Content="{Binding Label}"
+                                                                Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificVideoSourceCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                        <TextBlock IsVisible="{Binding !AvailableWindows.Count}"
+                                                   Text="Aucune fenêtre détectée" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+
+                                        <!-- Flux réseau -->
+                                        <TextBlock Text="FLUX RÉSEAU (RTMP/RTSP/HTTP)"
+                                                   Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+
+                                        <!-- Saisie manuelle URL -->
+                                        <Grid ColumnDefinitions="*, 6, Auto">
+                                            <TextBox Grid.Column="0"
+                                                     Text="{Binding NetworkSourceUrl}"
+                                                     Watermark="rtmp:// ou rtsp://..."
+                                                     FontSize="11" Padding="6,4"
+                                                     Background="{DynamicResource AppSurface2}"
+                                                     Foreground="{DynamicResource AppFg1}"
+                                                     BorderBrush="{DynamicResource AppBorder2}"
+                                                     CornerRadius="4"/>
+                                            <Button Grid.Column="2"
+                                                    Content="+"
+                                                    Command="{Binding AddNetworkSourceCommand}"
+                                                    Background="{DynamicResource AppAccentBg}"
+                                                    Foreground="#5b8def"
+                                                    BorderThickness="0"
+                                                    Padding="10,4" CornerRadius="4"
+                                                    FontSize="14" FontWeight="Bold"/>
+                                        </Grid>
+
+                                        <!-- Scan WS-Discovery -->
+                                        <Button Command="{Binding ScanNetworkCamerasCommand}"
+                                                IsEnabled="{Binding !IsScanning}"
+                                                Classes="source-type-btn"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center">
+                                            <Panel>
+                                                <TextBlock Text="⏳ Scan en cours…"
+                                                           IsVisible="{Binding IsScanning}"
+                                                           HorizontalAlignment="Center"/>
+                                                <TextBlock Text="🔍 Scanner le réseau"
+                                                           IsVisible="{Binding !IsScanning}"
+                                                           HorizontalAlignment="Center"/>
+                                            </Panel>
+                                        </Button>
+
+                                        <!-- Résultats du scan -->
+                                        <ItemsControl ItemsSource="{Binding DiscoveredCameras}"
+                                                      IsVisible="{Binding DiscoveredCameras.Count}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="services:DiscoveredCamera">
+                                                    <Button Classes="source-type-btn"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddDiscoveredCameraCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Label}" FontSize="11"/>
+                                                            <TextBlock Text="{Binding SuggestedUrl}"
+                                                                       FontSize="9"
+                                                                       Foreground="{DynamicResource AppFg4}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock Text="{Binding NetworkSourceError}"
+                                                   IsVisible="{Binding NetworkSourceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
+
+                                        <!-- Audio -->
+                                        <TextBlock Text="SOURCES AUDIO" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableLoopbacks}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:AudioSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificAudioSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding AvailableMics}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:AudioSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding $parent[UserControl].((vm:ScenesViewModel)DataContext).AddSpecificAudioSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableLoopbacks.Count}"
+                                                   Text="Aucun périphérique audio détecté" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>

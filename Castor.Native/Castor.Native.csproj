@@ -7,12 +7,15 @@
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
-	<ItemGroup>
-		<None Include="..\libcastor\cmake-build-release\*.dll">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-			<Link>%(FileName)%(Extension)</Link>
-			<Visible>false</Visible>
-		</None>
-	</ItemGroup>
+	<PropertyGroup>
+		<CastorBuildPreset Condition="'$(Configuration)' == 'Debug'">x64-debug</CastorBuildPreset>
+		<CastorBuildPreset Condition="'$(Configuration)' == 'Release'">x64-release</CastorBuildPreset>
+	</PropertyGroup>
 
+	<Target Name="BuildNative" AfterTargets="Build">
+		<Exec
+		  Command="powershell -ExecutionPolicy Bypass -File &quot;$(SolutionDir)build-native.ps1&quot; -Preset $(CastorBuildPreset)"
+		  WorkingDirectory="$(SolutionDir)" />
+	</Target>
+	
 </Project>

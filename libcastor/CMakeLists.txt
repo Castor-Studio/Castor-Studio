@@ -29,3 +29,13 @@ target_link_libraries(castor_core PRIVATE ${FFMPEG_LIBRARIES})
 
 find_package(PThreads4W REQUIRED)
 target_link_libraries(castor_core PRIVATE PThreads4W::PThreads4W)
+
+set(SLN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
+set(CASTOR_APP_BIN "${SLN_DIR}/CastorApplication/bin/$<CONFIG>/net8.0")
+
+add_custom_command(TARGET castor_core POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${CASTOR_APP_BIN}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "$<TARGET_FILE_DIR:castor_core>"
+        "${CASTOR_APP_BIN}"
+)

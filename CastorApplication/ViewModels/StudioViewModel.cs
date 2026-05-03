@@ -1,7 +1,16 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using Castor.Native;
 using CastorApplication.Factories;
 using CastorApplication.Models;
+using CastorApplication.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Dock.Model.Controls;
@@ -12,13 +21,30 @@ public partial class StudioViewModel : ViewModelBase
 {
     // ── Scene selection ──
 
-    public ObservableCollection<string> SceneNames { get; } = new()
+    public ObservableCollection<SceneItem> Scenes => SceneService.Instance.Scenes;
+
+    public SceneItem? ActiveScene
     {
-        "Match Live",
-        "Introduction",
-        "Mi-Temps",
-        "Fin de Match"
-    };
+        get => SceneService.Instance.ActiveScene;
+        set
+        {
+            if (value == null) return;
+            SceneService.Instance.SetActiveScene(value);
+            OnPropertyChanged();
+
+            // Switch de source vidéo à la volée (en background pour ne pas bloquer le UI)
+            if (IsRecording || IsStreaming)
+                _ = System.Threading.Tasks.Task.Run(() => RecorderService.Instance.SwitchScene(value));
+
+            // Démarre le preview de la nouvelle scène si pas encore actif
+            if (value.Sources.Any(s => s.Type == "Vidéo") && !RecorderService.Instance.IsPreviewActive(value.Id))
+                _ = System.Threading.Tasks.Task.Run(() =>
+                {
+                    int r = RecorderService.Instance.StartPreview(value);
+                    System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview (scene switch) retourné : {r}");
+                });
+        }
+    }
 
     [ObservableProperty]
     private int _selectedSceneIndex;
@@ -84,7 +110,7 @@ public partial class StudioViewModel : ViewModelBase
     private int _recordSceneIndex;
 
     [ObservableProperty]
-    private int _recordFormatIndex;
+    private string _recordError = "";
 
     public string RecordStatusText => IsRecording ? "REC" : "";
 
@@ -101,30 +127,177 @@ public partial class StudioViewModel : ViewModelBase
 
     public StudioViewModel()
     {
-        Sources.Add(new SourceItem("Capture d'écran", "Vidéo", "#5b8def"));
-        Sources.Add(new SourceItem("Caméra principale", "Vidéo", "#34d399"));
-        Sources.Add(new SourceItem("Capture de jeu", "Vidéo", "#3c3c4e") { IsActive = false });
-
         var factory = new StudioDockFactory(this);
         Layout = factory.CreateLayout();
         factory.InitLayout(Layout);
     }
 
+    /// <summary>
+    /// Démarre le preview si une scène vidéo est active et que le preview ne tourne pas déjà.
+    /// Appelé à chaque fois que la vue Studio est affichée.
+    /// </summary>
+    public void EnsurePreviewRunning()
+    {
+        var scene = SceneService.Instance.ActiveScene;
+        if (scene == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[Preview] EnsurePreviewRunning : aucune scène active.");
+            return;
+        }
+
+        var hasVideo = scene.Sources.Any(s => s.Type == "Vidéo");
+        System.Diagnostics.Debug.WriteLine($"[Preview] EnsurePreviewRunning : scène='{scene.Name}', sources={scene.Sources.Count}, hasVideo={hasVideo}, isPreviewActive={RecorderService.Instance.IsPreviewActive(scene.Id)}");
+
+        if (!hasVideo)
+        {
+            System.Diagnostics.Debug.WriteLine("[Preview] Aucune source vidéo dans la scène — preview ignoré.");
+            return;
+        }
+
+        if (RecorderService.Instance.IsPreviewActive(scene.Id))
+        {
+            System.Diagnostics.Debug.WriteLine($"[Preview] '{scene.Name}' déjà actif (Studio) — ignoré.");
+            return;
+        }
+
+        _ = System.Threading.Tasks.Task.Run(() =>
+        {
+            int result = RecorderService.Instance.StartPreview(scene);
+            System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview retourné : {result}");
+        });
+    }
+
+    // ── Streaming error ──
+
+    [ObservableProperty]
+    private string _streamError = "";
+
     // ── Streaming commands ──
 
     [RelayCommand]
-    private void StartStreaming() => IsStreaming = true;
+    private async Task StartStreaming()
+    {
+        StreamError = "";
+
+        var scene = StreamSceneIndex >= 0 && StreamSceneIndex < Scenes.Count
+            ? Scenes[StreamSceneIndex]
+            : SceneService.Instance.ActiveScene;
+
+        if (scene == null || scene.Sources.All(s => s.Type != "Vidéo"))
+        {
+            StreamError = "Aucune source vidéo dans la scène sélectionnée.";
+            return;
+        }
+
+        // Mapping index UI flyout → CastorServiceType
+        // 0=Twitch, 1=YouTube Live, 2=Facebook Live, 3=RTMP Manuel
+        CastorServiceType service;
+        string keyOrUrl = StreamRtmpKey;
+        service = StreamPlatformIndex switch
+        {
+            0 => CastorServiceType.Twitch,
+            1 => CastorServiceType.YouTube,
+            _ => CastorServiceType.Custom   // Facebook ou RTMP Manuel
+        };
+
+        if (string.IsNullOrWhiteSpace(keyOrUrl))
+        {
+            StreamError = "Clé de stream ou URL RTMP manquante.";
+            return;
+        }
+
+        // Lance le preview local si pas encore actif
+        if (!RecorderService.Instance.IsPreviewActive(scene.Id))
+            _ = Task.Run(() =>
+            {
+                int r = RecorderService.Instance.StartPreview(scene);
+                System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview (StartStreaming) retourné : {r}");
+            });
+
+        // streaming_service_get_url peut faire un appel HTTPS (Twitch) → thread BG
+        int result = await Task.Run(() => RecorderService.Instance.StartStream(scene, service, keyOrUrl));
+
+        if (result == 0)
+            IsStreaming = true;
+        else
+            StreamError = result switch
+            {
+                -2 => "Aucune source vidéo dans la scène.",
+                -3 => "Impossible de créer le recorder natif.",
+                -4 => "Impossible de construire l'URL RTMP (clé invalide ?).",
+                _  => $"Erreur streaming (code {result})."
+            };
+    }
 
     [RelayCommand]
-    private void StopStreaming() => IsStreaming = false;
+    private void StopStreaming()
+    {
+        RecorderService.Instance.StopStream();
+        IsStreaming = false;
+    }
 
     // ── Recording commands ──
 
     [RelayCommand]
-    private void StartRecording() => IsRecording = true;
+    private async Task StartRecording()
+    {
+        RecordError = "";
+
+        var scene = SceneService.Instance.ActiveScene;
+        if (scene == null || scene.Sources.All(s => s.Type != "Vidéo"))
+        {
+            RecordError = "Aucune source vidéo dans la scène active.";
+            return;
+        }
+
+        var path = await PickOutputFileAsync();
+        if (path == null) return; // annulé par l'utilisateur
+
+        int result = RecorderService.Instance.Start(scene, path);
+        if (result == 0)
+        {
+            IsRecording = true;
+        }
+        else
+        {
+            RecordError = result switch
+            {
+                -2 => "Aucune source vidéo dans la scène.",
+                -3 => "Impossible de créer le recorder natif.",
+                _  => $"Erreur recorder (code {result})."
+            };
+        }
+    }
 
     [RelayCommand]
-    private void StopRecording() => IsRecording = false;
+    private void StopRecording()
+    {
+        RecorderService.Instance.Stop();
+        IsRecording = false;
+    }
+
+    private static async Task<string?> PickOutputFileAsync()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+        if (topLevel == null) return null;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title             = "Enregistrer la vidéo sous...",
+            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}",
+            FileTypeChoices   =
+            [
+                new FilePickerFileType("MP4 (H.264 + AAC)") { Patterns = ["*.mp4"] },
+                new FilePickerFileType("MKV (H.264 + AAC)") { Patterns = ["*.mkv"] },
+            ]
+        });
+
+        return file?.Path.LocalPath;
+    }
 
     // ── Source management ──
 
@@ -141,8 +314,6 @@ public partial class StudioViewModel : ViewModelBase
     }
 }
 
-// ── Dock panel context markers ──
-
 public sealed class SourcesPanelContext(StudioViewModel studio)
 {
     public StudioViewModel Studio => studio;
@@ -152,3 +323,4 @@ public sealed class AudioPanelContext(StudioViewModel studio)
 {
     public StudioViewModel Studio => studio;
 }
+

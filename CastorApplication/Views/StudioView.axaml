@@ -77,8 +77,9 @@
                            Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="0,0,10,0"/>
                 <ComboBox Grid.Column="1"
-                          ItemsSource="{Binding SceneNames}"
-                          SelectedIndex="{Binding SelectedSceneIndex}"
+                          ItemsSource="{Binding Scenes}"
+                          DisplayMemberBinding="{Binding Name}"
+                          SelectedItem="{Binding ActiveScene}"
                           MinWidth="180" VerticalAlignment="Center"
                           Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
@@ -128,7 +129,6 @@
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
                 <Grid ColumnDefinitions="*, 6, *" VerticalAlignment="Center">
 
-                    <!-- GO LIVE / STOP STREAM -->
                     <Button Grid.Column="0"
                             Content="GO LIVE"
                             IsVisible="{Binding !IsStreaming}"
@@ -144,7 +144,8 @@
                                     <StackPanel Spacing="4">
                                         <TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <ComboBox HorizontalAlignment="Stretch"
-                                                  ItemsSource="{Binding SceneNames}"
+                                                  ItemsSource="{Binding Scenes}"
+                                                  DisplayMemberBinding="{Binding Name}"
                                                   SelectedIndex="{Binding StreamSceneIndex}"
                                                   Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                                     </StackPanel>
@@ -169,6 +170,10 @@
                                             Command="{Binding StartStreamingCommand}"
                                             Classes="flyout-start"
                                             Background="#34d399" Foreground="#0b0b12"/>
+                                    <TextBlock Text="{Binding StreamError}"
+                                               IsVisible="{Binding StreamError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Foreground="#f87171" FontSize="11"
+                                               TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Flyout>
                         </Button.Flyout>
@@ -182,7 +187,6 @@
                             Background="{DynamicResource AppStopBg}" Foreground="#f87171"
                             BorderBrush="{DynamicResource AppStopBorder}"/>
 
-                    <!-- ENREGISTRER / STOP REC -->
                     <Button Grid.Column="2"
                             Content="ENREGISTRER"
                             IsVisible="{Binding !IsRecording}"
@@ -195,24 +199,29 @@
                                     <TextBlock Text="DÉMARRER L'ENREGISTREMENT"
                                                FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
                                     <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-                                        <ComboBox HorizontalAlignment="Stretch"
-                                                  ItemsSource="{Binding SceneNames}"
-                                                  SelectedIndex="{Binding RecordSceneIndex}"
-                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+                                        <TextBlock Text="Scène active" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+                                        <Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7"
+                                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
+                                            <TextBlock Text="{Binding ActiveScene.Name, FallbackValue='Aucune scène'}"
+                                                       Foreground="{DynamicResource AppFg2}" FontSize="12"/>
+                                        </Border>
                                     </StackPanel>
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Format de sortie" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-                                        <ComboBox HorizontalAlignment="Stretch"
-                                                  SelectedIndex="{Binding RecordFormatIndex}"
-                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}">
-                                            <ComboBoxItem Content="MP4 (H.264 + AAC)"/>
-                                            <ComboBoxItem Content="MKV (H.264 + AAC)"/>
-                                            <ComboBoxItem Content="WebM (VP9 + Opus)"/>
-                                        </ComboBox>
-                                    </StackPanel>
-                                    <Button Content="DÉMARRER"
+
+                                    <!-- Message d'erreur -->
+                                    <Border IsVisible="{Binding RecordError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                            Background="#3b1219" CornerRadius="5" Padding="10,7"
+                                            BorderBrush="#7f1d1d" BorderThickness="1">
+                                        <TextBlock Text="{Binding RecordError}"
+                                                   Foreground="#f87171" FontSize="11" TextWrapping="Wrap"/>
+                                    </Border>
+
+                                    <TextBlock Text="Le fichier de destination sera choisi via la boîte de dialogue."
+                                               Foreground="{DynamicResource AppFg4}" FontSize="10"
+                                               TextWrapping="Wrap"/>
+
+                                    <Button Content="CHOISIR UN FICHIER ET DÉMARRER"
                                             Command="{Binding StartRecordingCommand}"
                                             Classes="flyout-start"
                                             Background="#ef4444" Foreground="#eaeaf0"/>
