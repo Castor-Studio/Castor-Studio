@@ -1,10 +1,10 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CastorApplication.Services;
+using CastorApplication.Services.Settings;
 
 namespace CastorApplication.ViewModels;
 
-public partial class MainWindowViewModel : ViewModelBase
+public partial class MainViewModel : ViewModelBase
 {
     [ObservableProperty]
     private ViewModelBase? _currentPage;
@@ -27,7 +27,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public StudioViewModel StudioPage => _studioPage ??= new StudioViewModel();
 
-    public MainWindowViewModel()
+    public MainViewModel()
     {
         _settingsPage = new SettingsViewModel(new SettingsService());
         ShowStudio();
