@@ -1,5 +1,5 @@
 using CastorApplication.Models;
-using CastorApplication.Services;
+using CastorApplication.Services.Settings;
 using CastorApplication.ViewModels.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;

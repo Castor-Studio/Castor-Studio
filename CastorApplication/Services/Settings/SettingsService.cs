@@ -4,7 +4,7 @@ using System.IO;
 using System.Text.Json;
 using CastorApplication.Models;
 
-namespace CastorApplication.Services;
+namespace CastorApplication.Services.Settings;
 
 public sealed class SettingsService
 {
