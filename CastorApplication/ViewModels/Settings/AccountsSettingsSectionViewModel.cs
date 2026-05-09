@@ -1,11 +1,29 @@
 using CastorApplication.Models;
+using CastorApplication.Services.Auth;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using OAuth_WPF.Services;
+using System;
+using System.Threading.Tasks;
+using TwitchLib.Api.Helix.Models.Entitlements;
 
 namespace CastorApplication.ViewModels.Settings;
 
 public partial class AccountsSettingsSectionViewModel : SettingsSectionViewModel
 {
+    private readonly IAuthService _authService;
+
+    public AccountsSettingsSectionViewModel(IAuthService authService)
+    {
+        _authService = authService;
+    }
+
+    [ObservableProperty]
+    private string? _twitchStatus;
+
+    [ObservableProperty]
+    private bool _isLoading;
+
     [ObservableProperty]
     private bool _isTwitchConnected;
 
@@ -15,9 +33,9 @@ public partial class AccountsSettingsSectionViewModel : SettingsSectionViewModel
     [ObservableProperty]
     private bool _isFacebookConnected;
 
-    public string TwitchStatus => IsTwitchConnected ? "Connecté" : "Non connecté";
-    public string YoutubeStatus => IsYoutubeConnected ? "Connecté" : "Non connecté";
-    public string FacebookStatus => IsFacebookConnected ? "Connecté" : "Non connecté";
+    public string TwitchStatusText => IsTwitchConnected ? "Connecté" : "Non connecté";
+    public string YoutubeStatusText => IsYoutubeConnected ? "Connecté" : "Non connecté";
+    public string FacebookStatusText => IsFacebookConnected ? "Connecté" : "Non connecté";
 
     public string TwitchButtonText => IsTwitchConnected ? "Déconnecter" : "Connecter";
     public string YoutubeButtonText => IsYoutubeConnected ? "Déconnecter" : "Connecter";
@@ -25,19 +43,19 @@ public partial class AccountsSettingsSectionViewModel : SettingsSectionViewModel
 
     partial void OnIsTwitchConnectedChanged(bool value)
     {
-        OnPropertyChanged(nameof(TwitchStatus));
+        OnPropertyChanged(nameof(TwitchStatusText));
         OnPropertyChanged(nameof(TwitchButtonText));
     }
 
     partial void OnIsYoutubeConnectedChanged(bool value)
     {
-        OnPropertyChanged(nameof(YoutubeStatus));
+        OnPropertyChanged(nameof(YoutubeStatusText));
         OnPropertyChanged(nameof(YoutubeButtonText));
     }
 
     partial void OnIsFacebookConnectedChanged(bool value)
     {
-        OnPropertyChanged(nameof(FacebookStatus));
+        OnPropertyChanged(nameof(FacebookStatusText));
         OnPropertyChanged(nameof(FacebookButtonText));
     }
 
@@ -71,5 +89,45 @@ public partial class AccountsSettingsSectionViewModel : SettingsSectionViewModel
         settings.IsTwitchConnected = IsTwitchConnected;
         settings.IsYoutubeConnected = IsYoutubeConnected;
         settings.IsFacebookConnected = IsFacebookConnected;
+    }
+
+    [RelayCommand]
+    public async Task ConnectTwitchAsync()
+    {
+        try
+        {
+            IsLoading = true;
+
+            TwitchStatus = "Requesting device code...";
+
+            var device =
+                await _authService.BeginLoginAsync("twitch");
+
+            WebBrowser.Open(device.VerificationUri);
+
+            TwitchStatus =
+                "Waiting for Twitch authorization...";
+
+            var session =
+                await _authService.CompleteLoginAsync("twitch", device);
+
+            TwitchStatus = "Connected";
+        }
+        catch (Exception ex)
+        {
+            TwitchStatus = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task LogoutAsync()
+    {
+        await _authService.LogoutAsync("twitch");
+
+        TwitchStatus = "Disconnected";
     }
 }

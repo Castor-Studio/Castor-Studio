@@ -27,9 +27,9 @@ public partial class MainViewModel : ViewModelBase
 
     public StudioViewModel StudioPage => _studioPage ??= new StudioViewModel();
 
-    public MainViewModel()
+    public MainViewModel(SettingsViewModel settingsViewModel)
     {
-        _settingsPage = new SettingsViewModel(new SettingsService());
+        _settingsPage = settingsViewModel;
         ShowStudio();
     }
 

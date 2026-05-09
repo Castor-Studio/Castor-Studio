@@ -1,0 +1,14 @@
+﻿{
+  "providers": {
+    "twitch": {
+      "clientId": "scbp8wnfpqgm4rjxij8r4fklq93dsh",
+      "scopes": [
+        "user:read:email"
+      ]
+    },
+    "youtube": {
+      "clientId": "your-youtube-client-id",
+      "scopes": []
+    }
+  }
+}

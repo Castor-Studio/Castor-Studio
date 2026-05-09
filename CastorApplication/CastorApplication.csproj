@@ -13,6 +13,9 @@
 		<AvaloniaResource Include="Assets\**" />
 	</ItemGroup>
 	<ItemGroup>
+	  <None Remove="config.json" />
+	</ItemGroup>
+	<ItemGroup>
 		<!-- MediaMTX : serveur RTMP local pour le preview et l'IA -->
 		<Content Include="mediamtx.yml">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -47,6 +50,11 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Castor.Native\Castor.Native.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Content Include="config.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
 	</ItemGroup>
 
 	<ItemGroup>

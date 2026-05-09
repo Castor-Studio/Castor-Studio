@@ -1,19 +1,22 @@
-using CastorApplication.Models;
-using CastorApplication.Services.Settings;
-using CastorApplication.ViewModels.Settings;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CastorApplication.Models;
+using CastorApplication.Services.Settings;
+using CastorApplication.Services.Auth;
+using CastorApplication.ViewModels.Settings;
 
 namespace CastorApplication.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase
 {
+    private readonly IAuthService _authService;
     private readonly SettingsService _settingsService;
+    
     private readonly SettingsSectionViewModel[] _sectionViewModels;
 
     public IReadOnlyList<ISettingsSection> Sections { get; }
@@ -37,16 +40,17 @@ public partial class SettingsViewModel : ViewModelBase
     public bool IsOutputActive => ReferenceEquals(CurrentSection, Output);
     public bool IsAccountsActive => ReferenceEquals(CurrentSection, Accounts);
 
-    public SettingsViewModel(SettingsService settingsService)
+    public SettingsViewModel(SettingsService settingsService, IAuthService authService)
     {
         _settingsService = settingsService;
+        _authService = authService;
 
         General = new GeneralSettingsSectionViewModel();
         Video = new VideoSettingsSectionViewModel();
         Audio = new AudioSettingsSectionViewModel();
         Streaming = new StreamingSettingsSectionViewModel();
         Output = new OutputSettingsSectionViewModel();
-        Accounts = new AccountsSettingsSectionViewModel();
+        Accounts = new AccountsSettingsSectionViewModel(_authService);
 
         _sectionViewModels = [General, Video, Audio, Streaming, Output, Accounts];
         Sections = _sectionViewModels;

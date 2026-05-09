@@ -376,11 +376,12 @@
                             </StackPanel>
                                 <Button Grid.Column="2" Content="{Binding Accounts.TwitchButtonText}"
                                     Classes="platform-connect"
-                                    Command="{Binding Accounts.ToggleTwitchCommand}"/>
+                                    Command="{Binding Accounts.ConnectTwitchCommand}"/>
                         </Grid>
                     </Border>
 
                     <!-- YouTube -->
+                    <!--
                     <Border Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
@@ -400,8 +401,10 @@
                                     Command="{Binding Accounts.ToggleYoutubeCommand}"/>
                         </Grid>
                     </Border>
+                    -->
 
                     <!-- Facebook -->
+                    <!--
                     <Border Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
                             CornerRadius="8" Padding="14">
                         <Grid ColumnDefinitions="Auto, *, Auto">
@@ -421,6 +424,7 @@
                                     Command="{Binding Accounts.ToggleFacebookCommand}"/>
                         </Grid>
                     </Border>
+                    -->
 
                     <!-- Account hint -->
                     <Border Background="{DynamicResource AppSurface3}" CornerRadius="6" Padding="12,10">

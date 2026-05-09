@@ -1,13 +1,15 @@
-﻿using System;
+﻿using CastorApplication.Models.Auth;
+using CastorApplication.Models.Auth.Options;
+using CastorApplication.Models.Config;
+using CastorApplication.Services.Auth.Providers.Twitch.DTO;
+using CastorApplication.Services.Config;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using CastorApplication.Models.Auth;
-using CastorApplication.Models.Auth.Options;
-using CastorApplication.Services.Auth.Providers.Twitch.DTO;
 using TwitchLib.Api;
 
 namespace CastorApplication.Services.Auth.Providers.Twitch
@@ -17,16 +19,16 @@ namespace CastorApplication.Services.Auth.Providers.Twitch
         public string Id => "twitch";
 
         private readonly HttpClient _http;
-        private readonly TwitchAuthOptions _options;
+        private readonly ProviderConfig _options;
 
         private const string _deviceCodeEndpoint = "https://id.twitch.tv/oauth2/device";
         private const string _tokenEndpoint = "https://id.twitch.tv/oauth2/token";
         private const string _revokeEndpoint = "https://id.twitch.tv/oauth2/revoke";
 
-        public TwitchAuthProvider(HttpClient httpClient, TwitchAuthOptions options)
+        public TwitchAuthProvider(HttpClient httpClient, IConfigService configService)
         {
             _http = httpClient;
-            _options = options;
+            _options = configService.GetProviderConfig(Id);
         }
 
         public async Task<DeviceCodeResult> BeginLoginAsync(CancellationToken ct = default)

@@ -1,5 +1,5 @@
-﻿using Newtonsoft.Json;
-using CastorApplication.Models.Config;
+﻿using CastorApplication.Models.Config;
+using Newtonsoft.Json;
 using System.IO;
 using System;
 
@@ -9,7 +9,7 @@ namespace CastorApplication.Services.Config
     {
         public AppConfig Config { get; }
 
-        public JsonConfigService(string path)
+        public JsonConfigService(string path = "config.json")
         {
             var json = File.ReadAllText(path);
             Config = JsonConvert.DeserializeObject<AppConfig>(json)

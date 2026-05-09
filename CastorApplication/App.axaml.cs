@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
@@ -9,6 +8,7 @@ using Castor.Native;
 using CastorApplication.Services;
 using CastorApplication.ViewModels;
 using CastorApplication.Views;
+using CastorApplication.Services.Auth.Providers;
 
 namespace CastorApplication
 {
