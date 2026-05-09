@@ -1,11 +1,16 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CastorApplication.Services.Settings;
+using CastorApplication.ViewModels.Settings;
 
 namespace CastorApplication.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    private readonly StudioViewModel _studioViewModel;
+    private readonly MulticamViewModel _multicamViewModel;
+    private readonly ScenesViewModel _scenesViewModel;
+    private readonly SettingsViewModel _settingsViewModel;
+
     [ObservableProperty]
     private ViewModelBase? _currentPage;
 
@@ -13,30 +18,33 @@ public partial class MainViewModel : ViewModelBase
     private bool _isStudioActive = true;
 
     [ObservableProperty]
-    private bool _isMulticamActive;
+    private bool _isMulticamActive = false;
 
     [ObservableProperty]
-    private bool _isScenesActive;
+    private bool _isScenesActive = false;
 
     [ObservableProperty]
-    private bool _isSettingsActive;
+    private bool _isSettingsActive = false;
 
-    // Singleton pour préserver l'état du docking entre navigations
-    private StudioViewModel? _studioPage;
-    private readonly SettingsViewModel _settingsPage;
-
-    public StudioViewModel StudioPage => _studioPage ??= new StudioViewModel();
-
-    public MainViewModel(SettingsViewModel settingsViewModel)
+    public MainViewModel(
+        StudioViewModel studioViewModel,
+        MulticamViewModel multicamViewModel,
+        ScenesViewModel scenesViewModel,
+        SettingsViewModel settingsViewModel)
     {
-        _settingsPage = settingsViewModel;
+        _studioViewModel = studioViewModel;
+        _multicamViewModel = multicamViewModel;
+        _scenesViewModel = scenesViewModel;
+        _settingsViewModel = settingsViewModel;
+
+        ResetTabs();
         ShowStudio();
     }
 
     [RelayCommand]
     private void ShowStudio()
     {
-        CurrentPage = StudioPage;
+        CurrentPage = _studioViewModel;
         ResetTabs();
         IsStudioActive = true;
     }
@@ -44,7 +52,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowMulticam()
     {
-        CurrentPage = new MulticamViewModel();
+        CurrentPage = _multicamViewModel;
         ResetTabs();
         IsMulticamActive = true;
     }
@@ -52,7 +60,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowScenes()
     {
-        CurrentPage = new ScenesViewModel();
+        CurrentPage = _scenesViewModel;
         ResetTabs();
         IsScenesActive = true;
     }
@@ -60,7 +68,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowSettings()
     {
-        CurrentPage = _settingsPage;
+        CurrentPage = _settingsViewModel;
         ResetTabs();
         IsSettingsActive = true;
     }

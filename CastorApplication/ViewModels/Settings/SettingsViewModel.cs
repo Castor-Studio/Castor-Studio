@@ -1,113 +1,103 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Linq;
+using CastorApplication.Models;
+using CastorApplication.Services.Auth;
+using CastorApplication.Services.Settings;
+using CastorApplication.ViewModels.Settings.Sections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using CastorApplication.Models;
-using CastorApplication.Services.Settings;
-using CastorApplication.Services.Auth;
-using CastorApplication.ViewModels.Settings;
+using ReactiveUI;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 
-namespace CastorApplication.ViewModels;
+namespace CastorApplication.ViewModels.Settings;
 
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly IAuthService _authService;
     private readonly SettingsService _settingsService;
-    
-    private readonly SettingsSectionViewModel[] _sectionViewModels;
-
-    public IReadOnlyList<ISettingsSection> Sections { get; }
-
-    public GeneralSettingsSectionViewModel General { get; }
-    public VideoSettingsSectionViewModel Video { get; }
-    public AudioSettingsSectionViewModel Audio { get; }
-    public StreamingSettingsSectionViewModel Streaming { get; }
-    public OutputSettingsSectionViewModel Output { get; }
-    public AccountsSettingsSectionViewModel Accounts { get; }
 
     [ObservableProperty]
-    private ISettingsSection? _currentSection;
+    private ViewModelBase? _currentSection;
 
-    public bool HasUnsavedChanges => Sections.Any(section => section.IsDirty);
+    public ObservableCollection<SettingsSectionItem> Sections { get; } = [];
 
-    public bool IsGeneralActive => ReferenceEquals(CurrentSection, General);
-    public bool IsVideoActive => ReferenceEquals(CurrentSection, Video);
-    public bool IsAudioActive => ReferenceEquals(CurrentSection, Audio);
-    public bool IsStreamingActive => ReferenceEquals(CurrentSection, Streaming);
-    public bool IsOutputActive => ReferenceEquals(CurrentSection, Output);
-    public bool IsAccountsActive => ReferenceEquals(CurrentSection, Accounts);
+    public IReadOnlyList<ISettingsSection> SectionViewModels => Sections
+        .Select(s => s.ViewModel)
+        .OfType<ISettingsSection>()
+        .ToList();
 
-    public SettingsViewModel(SettingsService settingsService, IAuthService authService)
+    public bool HasUnsavedChanges => Sections.Any(
+        section => section.ViewModel is ISettingsSection settingsSection && settingsSection.IsDirty);
+
+    public SettingsViewModel(IAuthService authService, SettingsService settingsService)
     {
-        _settingsService = settingsService;
         _authService = authService;
+        _settingsService = settingsService;
 
-        General = new GeneralSettingsSectionViewModel();
-        Video = new VideoSettingsSectionViewModel();
-        Audio = new AudioSettingsSectionViewModel();
-        Streaming = new StreamingSettingsSectionViewModel();
-        Output = new OutputSettingsSectionViewModel();
-        Accounts = new AccountsSettingsSectionViewModel(_authService);
+        var general = new GeneralSettingsViewModel();
 
-        _sectionViewModels = [General, Video, Audio, Streaming, Output, Accounts];
-        Sections = _sectionViewModels;
-
-        foreach (var section in _sectionViewModels)
+        Sections.Add(new()
         {
-            section.PropertyChanged += OnSectionPropertyChanged;
+            Title = "Général",
+            ViewModel = general,
+            SelectCommand = SelectSectionCommand
+        });
+
+        Sections.Add(new()
+        {
+            Title = "Vidéo",
+            ViewModel = new VideoSettingsViewModel(),
+            SelectCommand = SelectSectionCommand
+        });
+
+        Sections.Add(new()
+        {
+            Title = "Audio",
+            ViewModel = new AudioSettingsViewModel(),
+            SelectCommand = SelectSectionCommand
+        });
+
+        Sections.Add(new()
+        {
+            Title = "Streaming",
+            ViewModel = new StreamingSettingsViewModel(),
+            SelectCommand = SelectSectionCommand
+        });
+
+        Sections.Add(new()
+        {
+            Title = "Sortie",
+            ViewModel = new OutputSettingsViewModel(),
+            SelectCommand = SelectSectionCommand
+        });
+
+        Sections.Add(new()
+        {
+            Title = "Comptes",
+            ViewModel = new AccountsSettingsViewModel(_authService),
+            SelectCommand = SelectSectionCommand
+        });
+
+        foreach (var section in SectionViewModels)
+        {
+            section.ObservableForProperty(s => s.IsDirty).Subscribe(_ =>
+            {
+                OnPropertyChanged(nameof(HasUnsavedChanges));
+                SaveSettingsCommand.NotifyCanExecuteChanged();
+            });
         }
 
-        CurrentSection = General;
+        CurrentSection = Sections.FirstOrDefault()?.ViewModel;
         Load();
     }
 
-    partial void OnCurrentSectionChanged(ISettingsSection? value)
-    {
-        OnPropertyChanged(nameof(IsGeneralActive));
-        OnPropertyChanged(nameof(IsVideoActive));
-        OnPropertyChanged(nameof(IsAudioActive));
-        OnPropertyChanged(nameof(IsStreamingActive));
-        OnPropertyChanged(nameof(IsOutputActive));
-        OnPropertyChanged(nameof(IsAccountsActive));
-    }
-
     [RelayCommand]
-    private void ShowGeneral()
+    public async Task SelectSectionAsync(SettingsSectionItem item)
     {
-        CurrentSection = General;
-    }
-
-    [RelayCommand]
-    private void ShowVideo()
-    {
-        CurrentSection = Video;
-    }
-
-    [RelayCommand]
-    private void ShowAudio()
-    {
-        CurrentSection = Audio;
-    }
-
-    [RelayCommand]
-    private void ShowStreaming()
-    {
-        CurrentSection = Streaming;
-    }
-
-    [RelayCommand]
-    private void ShowOutput()
-    {
-        CurrentSection = Output;
-    }
-
-    [RelayCommand]
-    private void ShowAccounts()
-    {
-        CurrentSection = Accounts;
+        CurrentSection = item.ViewModel;
     }
 
     private bool CanSaveSettings()
@@ -122,17 +112,17 @@ public partial class SettingsViewModel : ViewModelBase
         {
             var settings = new ApplicationSettings();
 
-            foreach (var section in _sectionViewModels)
+            foreach (var section in SectionViewModels)
             {
                 section.Save(settings);
             }
 
             _settingsService.Save(settings);
 
-            foreach (var section in _sectionViewModels)
+            foreach (var section in SectionViewModels)
             {
                 section.MarkClean();
-            }
+            }   
 
             OnPropertyChanged(nameof(HasUnsavedChanges));
             SaveSettingsCommand.NotifyCanExecuteChanged();
@@ -147,21 +137,10 @@ public partial class SettingsViewModel : ViewModelBase
     {
         var settings = _settingsService.Load();
 
-        foreach (var section in _sectionViewModels)
+        foreach (var section in SectionViewModels)
         {
             section.Load(settings);
             section.MarkClean();
-        }
-
-        OnPropertyChanged(nameof(HasUnsavedChanges));
-        SaveSettingsCommand.NotifyCanExecuteChanged();
-    }
-
-    private void OnSectionPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName != nameof(ISettingsSection.IsDirty))
-        {
-            return;
         }
 
         OnPropertyChanged(nameof(HasUnsavedChanges));

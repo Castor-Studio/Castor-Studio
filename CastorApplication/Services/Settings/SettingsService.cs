@@ -9,7 +9,6 @@ namespace CastorApplication.Services.Settings;
 public sealed class SettingsService
 {
     private const string CurrentAppFolderName = "castor-studio";
-    private const string LegacyAppFolderName = "cator-studio";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -25,8 +24,6 @@ public sealed class SettingsService
 
     public ApplicationSettings Load()
     {
-        MigrateLegacySettingsIfNeeded();
-
         try
         {
             if (!File.Exists(_settingsFilePath))
@@ -63,24 +60,6 @@ public sealed class SettingsService
 
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         WriteFileAtomically(_settingsFilePath, json);
-    }
-
-    private void MigrateLegacySettingsIfNeeded()
-    {
-        var legacyPath = BuildDefaultSettingsPath(LegacyAppFolderName);
-
-        if (File.Exists(_settingsFilePath) || !File.Exists(legacyPath))
-        {
-            return;
-        }
-
-        var directory = Path.GetDirectoryName(_settingsFilePath);
-        if (!string.IsNullOrWhiteSpace(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        File.Copy(legacyPath, _settingsFilePath, overwrite: false);
     }
 
     private void BackupCorruptSettingsFile()

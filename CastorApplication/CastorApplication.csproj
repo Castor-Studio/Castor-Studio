@@ -61,11 +61,14 @@
 		<Compile Update="Views\MulticamView.axaml.cs">
 			<DependentUpon>MulticamView.axaml</DependentUpon>
 		</Compile>
-		<Compile Update="Views\SettingsView.axaml.cs">
+		<Compile Update="Views\Settings\SettingsView.axaml.cs">
 			<DependentUpon>SettingsView.axaml</DependentUpon>
 		</Compile>
 		<Compile Update="Views\ScenesView.axaml.cs">
 			<DependentUpon>ScenesView.axaml</DependentUpon>
+		</Compile>
+		<Compile Update="Views\Settings\Sections\GeneralSettingsView.axaml.cs">
+		  <DependentUpon>GeneralSettingsView.axaml</DependentUpon>
 		</Compile>
 		<Compile Update="Views\StudioView.axaml.cs">
 			<DependentUpon>StudioView.axaml</DependentUpon>

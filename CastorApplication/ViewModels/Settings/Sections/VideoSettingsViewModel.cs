@@ -1,9 +1,9 @@
 using CastorApplication.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace CastorApplication.ViewModels.Settings;
+namespace CastorApplication.ViewModels.Settings.Sections;
 
-public partial class VideoSettingsSectionViewModel : SettingsSectionViewModel
+public partial class VideoSettingsViewModel : SettingsSectionViewModel
 {
     [ObservableProperty]
     private int _selectedBaseResolutionIndex = 1;
@@ -16,7 +16,7 @@ public partial class VideoSettingsSectionViewModel : SettingsSectionViewModel
 
     [ObservableProperty]
     private double _videoBitrate = 6000;
-
+    
     public string VideoBitrateDisplay => $"{(int)VideoBitrate}";
 
     partial void OnVideoBitrateChanged(double value)

@@ -1,9 +1,9 @@
 using CastorApplication.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace CastorApplication.ViewModels.Settings;
+namespace CastorApplication.ViewModels.Settings.Sections;
 
-public partial class OutputSettingsSectionViewModel : SettingsSectionViewModel
+public partial class OutputSettingsViewModel : SettingsSectionViewModel
 {
     [ObservableProperty]
     private int _selectedOutputFormatIndex;

@@ -1,4 +1,5 @@
-﻿using CastorApplication.Models.Auth.Options;
+﻿using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Providers.Twitch;
@@ -6,8 +7,8 @@ using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Config;
 using CastorApplication.Services.Settings;
 using CastorApplication.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
-using System.Net.Http;
+using CastorApplication.ViewModels.Settings;
+using CastorApplication.ViewModels.Settings.Sections;
 
 namespace CastorApplication
 {
@@ -27,8 +28,24 @@ namespace CastorApplication
 
             collection.AddSingleton<SettingsService>();
 
-            collection.AddTransient<SettingsViewModel>();
+
+            // ViewModels
+
             collection.AddTransient<MainViewModel>();
+
+            //// Main Pages
+            collection.AddTransient<StudioViewModel>();
+            collection.AddTransient<MulticamViewModel>();
+            collection.AddTransient<ScenesViewModel>();
+            collection.AddTransient<SettingsViewModel>();
+
+            ////// Setting Sections
+            collection.AddTransient<GeneralSettingsViewModel>();
+            collection.AddTransient<VideoSettingsViewModel>();
+            collection.AddTransient<AudioSettingsViewModel>();
+            collection.AddTransient<StreamingSettingsViewModel>();
+            collection.AddTransient<OutputSettingsViewModel>();
+            collection.AddTransient<AccountsSettingsViewModel>();
         }
     }
 }
