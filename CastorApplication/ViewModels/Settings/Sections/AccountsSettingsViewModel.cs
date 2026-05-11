@@ -1,13 +1,13 @@
-using CastorApplication.Models.Settings;
-using CastorApplication.Models.Settings.Providers;
-using CastorApplication.Services.Auth;
-using CastorApplication.Services.Auth.Storage;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using OAuth_WPF.Services;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CastorApplication.Models.Settings;
+using CastorApplication.Models.Settings.Providers;
+using CastorApplication.Services;
+using CastorApplication.Services.Auth;
+using CastorApplication.Services.Auth.Storage;
 using TwitchLib.Api;
 
 namespace CastorApplication.ViewModels.Settings.Sections;

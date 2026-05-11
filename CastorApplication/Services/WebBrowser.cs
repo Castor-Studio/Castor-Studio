@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 
-namespace OAuth_WPF.Services
+namespace CastorApplication.Services
 {
     public static class WebBrowser
     {
