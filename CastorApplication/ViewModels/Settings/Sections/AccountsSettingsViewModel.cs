@@ -30,6 +30,23 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
     {
         _authService = authService;
         _providerStore = store;
+
+        LoadTwitchProvider();
+    }
+
+    private void LoadTwitchProvider()
+    {
+        var provider = _providerStore.Get("twitch");
+        if (provider != null)
+        {
+            TwitchStatus = $"Connected as {provider.UserName}";
+            TwitchButtonText = "Reconnect";
+        }
+        else
+        {
+            TwitchStatus = "Not connected";
+            TwitchButtonText = "Connect";
+        }
     }
 
     [RelayCommand]
