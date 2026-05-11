@@ -25,6 +25,8 @@ namespace CastorApplication.Services.Auth.Providers.Twitch
         private const string _tokenEndpoint = "https://id.twitch.tv/oauth2/token";
         private const string _revokeEndpoint = "https://id.twitch.tv/oauth2/revoke";
 
+        public string ClientId => _options.ClientId;
+
         public TwitchAuthProvider(HttpClient httpClient, IConfigService configService)
         {
             _http = httpClient;

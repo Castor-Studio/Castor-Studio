@@ -3,7 +3,8 @@
     "twitch": {
       "clientId": "scbp8wnfpqgm4rjxij8r4fklq93dsh",
       "scopes": [
-        "user:read:email"
+        "user:read:email",
+        "channel:read:stream_key"
       ]
     },
     "youtube": {

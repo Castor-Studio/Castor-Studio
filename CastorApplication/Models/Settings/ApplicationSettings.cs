@@ -1,4 +1,4 @@
-namespace CastorApplication.Models;
+namespace CastorApplication.Models.Settings;
 
 public sealed class ApplicationSettings
 {

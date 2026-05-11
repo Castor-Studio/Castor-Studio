@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
-using CastorApplication.Models;
+using CastorApplication.Models.Settings;
 
 namespace CastorApplication.Services.Settings;
 

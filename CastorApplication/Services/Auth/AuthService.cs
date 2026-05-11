@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CastorApplication.Models.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Storage;
+using TwitchLib.Api;
 
 namespace CastorApplication.Services.Auth
 {
@@ -118,6 +119,12 @@ namespace CastorApplication.Services.Auth
             }
 
             await _tokenStore.DeleteAsync(providerId, ct);
+        }
+
+        public string GetClientId(string providerId)
+        {
+            var provider = _providers.Get(providerId);
+            return provider.ClientId;
         }
     }
 }

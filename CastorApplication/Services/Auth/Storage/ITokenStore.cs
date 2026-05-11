@@ -9,17 +9,17 @@ namespace CastorApplication.Services.Auth.Storage
     {
         Task SaveAsync(
             AuthSession session,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
 
         Task<AuthSession?> GetAsync(
             string providerId,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
 
         Task DeleteAsync(
             string providerId,
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
 
         Task<IReadOnlyCollection<AuthSession>> GetAllAsync(
-            CancellationToken cancellationToken = default);
+            CancellationToken ct = default);
     }
 }

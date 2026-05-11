@@ -8,6 +8,8 @@ namespace CastorApplication.Services.Auth.Providers
     {
         string Id { get; }
 
+        string ClientId { get; }
+
         Task<DeviceCodeResult> BeginLoginAsync(
             CancellationToken ct = default);
 

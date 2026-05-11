@@ -30,5 +30,7 @@ namespace CastorApplication.Services.Auth
         Task LogoutAsync(
             string providerId,
             CancellationToken cancellationToken = default);
+
+        string GetClientId(string providerId);
     }
 }
