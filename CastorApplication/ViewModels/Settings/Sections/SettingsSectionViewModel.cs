@@ -1,4 +1,4 @@
-﻿using CastorApplication.Models;
+﻿using CastorApplication.Models.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;

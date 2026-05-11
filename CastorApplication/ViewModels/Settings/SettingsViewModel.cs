@@ -1,22 +1,23 @@
-using CastorApplication.Models;
-using CastorApplication.Services.Auth;
-using CastorApplication.Services.Settings;
-using CastorApplication.ViewModels.Settings.Sections;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading.Tasks;
+using System.Linq;
+using ReactiveUI;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CastorApplication.ViewModels.Settings.Sections;
+using CastorApplication.Services.Auth;
+using CastorApplication.Services.Settings;
+using CastorApplication.Services.Auth.Storage;
 
 namespace CastorApplication.ViewModels.Settings;
 
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly IAuthService _authService;
+    private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
 
     [ObservableProperty]
@@ -32,9 +33,11 @@ public partial class SettingsViewModel : ViewModelBase
     public bool HasUnsavedChanges => Sections.Any(
         section => section.ViewModel is ISettingsSection settingsSection && settingsSection.IsDirty);
 
-    public SettingsViewModel(IAuthService authService, SettingsService settingsService)
+    public SettingsViewModel(IAuthService authService, IProviderStore store, SettingsService settingsService)
     {
         _authService = authService;
+        _providerStore = store;
+
         _settingsService = settingsService;
 
         var general = new GeneralSettingsViewModel();
@@ -77,7 +80,7 @@ public partial class SettingsViewModel : ViewModelBase
         Sections.Add(new()
         {
             Title = "Comptes",
-            ViewModel = new AccountsSettingsViewModel(_authService),
+            ViewModel = new AccountsSettingsViewModel(_authService, _providerStore),
             SelectCommand = SelectSectionCommand
         });
 
@@ -110,7 +113,7 @@ public partial class SettingsViewModel : ViewModelBase
     {
         try
         {
-            var settings = new ApplicationSettings();
+            var settings = _settingsService.Load();
 
             foreach (var section in SectionViewModels)
             {

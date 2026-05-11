@@ -1,4 +1,4 @@
-using CastorApplication.Models;
+using CastorApplication.Models.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CastorApplication.ViewModels.Settings.Sections;

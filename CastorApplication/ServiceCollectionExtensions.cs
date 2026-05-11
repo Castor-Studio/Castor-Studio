@@ -18,16 +18,17 @@ namespace CastorApplication
         {
             collection.AddSingleton<HttpClient>();
 
+            collection.AddSingleton<ITokenStore, InMemoryTokenStore>();
+            collection.AddSingleton<IProviderStore, ProviderStore>();
+
             collection.AddSingleton<IConfigService, JsonConfigService>();
 
             collection.AddSingleton<IAuthProvider, TwitchAuthProvider>();
 
             collection.AddSingleton<IAuthService, AuthService>();
-            collection.AddSingleton<ITokenStore, InMemoryTokenStore>();
             collection.AddSingleton<ProviderRegistry>();
 
             collection.AddSingleton<SettingsService>();
-
 
             // ViewModels
 

@@ -1,4 +1,4 @@
-﻿using CastorApplication.Models;
+﻿using CastorApplication.Models.Settings;
 
 namespace CastorApplication.ViewModels.Settings.Sections;
 
