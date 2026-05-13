@@ -2,7 +2,7 @@
 
 namespace CastorApplication.Services.Auth.Providers.Twitch.DTO
 {
-    internal sealed class TwitchTokenResponse
+    public sealed class TwitchTokenResponse
     {
         [JsonPropertyName("access_token")]
         public required string AccessToken { get; init; }

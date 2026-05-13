@@ -9,6 +9,8 @@ using CastorApplication.Services.Settings;
 using CastorApplication.ViewModels;
 using CastorApplication.ViewModels.Settings;
 using CastorApplication.ViewModels.Settings.Sections;
+using CastorApplication.Services.Auth.Abstractions;
+using TwitchLib.Api;
 
 namespace CastorApplication
 {
@@ -17,12 +19,15 @@ namespace CastorApplication
         public static void AddCommonServices(this IServiceCollection collection)
         {
             collection.AddSingleton<HttpClient>();
+            collection.AddSingleton<TwitchAPI>();
 
             collection.AddSingleton<ITokenStore, InMemoryTokenStore>();
             collection.AddSingleton<IProviderStore, ProviderStore>();
 
             collection.AddSingleton<IConfigService, JsonConfigService>();
 
+            collection.AddSingleton<TwitchSessionFactory>();
+            collection.AddSingleton<IDeviceAuthFlow, TwitchDeviceAuthFlow>();
             collection.AddSingleton<IAuthProvider, TwitchAuthProvider>();
 
             collection.AddSingleton<IAuthService, AuthService>();

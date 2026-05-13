@@ -2,13 +2,15 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace CastorApplication.Services.Auth.Providers
+namespace CastorApplication.Services.Auth.Abstractions
 {
     public interface IAuthProvider
     {
         string Id { get; }
 
         string ClientId { get; }
+
+        AuthFlowType FlowType { get; }
 
         Task<DeviceCodeResult> BeginLoginAsync(
             CancellationToken ct = default);
@@ -22,10 +24,6 @@ namespace CastorApplication.Services.Auth.Providers
             CancellationToken ct = default);
 
         Task RevokeAsync(
-            AuthSession session,
-            CancellationToken ct = default);
-
-        Task<UserProfile> GetProfileAsync(
             AuthSession session,
             CancellationToken ct = default);
     }
