@@ -1,130 +1,60 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Generic;
+﻿using CastorApplication.Models.Auth;
+using CastorApplication.Services.Auth.Abstractions;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
-using CastorApplication.Models.Auth;
-using CastorApplication.Services.Auth.Providers;
-using CastorApplication.Services.Auth.Storage;
-using TwitchLib.Api;
 
 namespace CastorApplication.Services.Auth
 {
     public class AuthService : IAuthService
     {
-        private readonly ConcurrentDictionary<string, SemaphoreSlim>
-            _refreshLocks = new();
+        private readonly IAuthSessionService _sessionService;
 
-        private readonly ProviderRegistry _providers;
-        private readonly ITokenStore _tokenStore;
-
-        public AuthService(ProviderRegistry providers, ITokenStore tokenStore)
+        public AuthService(IAuthSessionService sessionService)
         {
-            _providers = providers;
-            _tokenStore = tokenStore;
+            _sessionService = sessionService;
         }
 
-        public async Task<DeviceCodeResult> BeginLoginAsync(
-            string providerId, CancellationToken ct = default)
-        {
-            var provider = _providers.Get(providerId);
-
-            return await provider.BeginLoginAsync(ct);
-        }
-
-        public async Task<AuthSession> CompleteLoginAsync(
-            string providerId,
-            DeviceCodeResult deviceCode,
-            CancellationToken ct = default)
-        {
-            var provider = _providers.Get(providerId);
-
-            var session = await provider.CompleteLoginAsync(deviceCode, ct);
-
-            await _tokenStore.SaveAsync(session, ct);
-
-            return session;
-        }
-
-        public async Task<AuthSession?> GetSessionAsync(
+        public async Task<AuthSession> LoginAsync(
             string providerId,
             CancellationToken ct = default)
         {
-            return await _tokenStore.GetAsync(providerId, ct);
-        }
+            var provider =
+                _sessionService
+                    .GetProvider(providerId);
 
-        public async Task<IReadOnlyCollection<AuthSession>> GetSessionsAsync(
-            CancellationToken ct = default)
-        {
-            return await _tokenStore.GetAllAsync(ct);
-        }
+            AuthSession session;
 
-        public async Task<string?> GetAccessTokenAsync(
-            string providerId,
-            CancellationToken ct = default)
-        {
-            var refreshLock =
-                _refreshLocks.GetOrAdd(
-                    providerId,
-                    _ => new SemaphoreSlim(1, 1));
-
-            try
+            switch (provider.Flow)
             {
-                await refreshLock.WaitAsync(ct);
-
-                var session = await _tokenStore.GetAsync(providerId, ct);
-
-                if (session is null)
-                    return null;
-
-                if (!session.IsExpired())
-                    return session.AccessToken;
-
-                var provider = _providers.Get(providerId);
-
-                if (string.IsNullOrWhiteSpace(session.RefreshToken))
+                case IDeviceAuthFlow deviceFlow:
                 {
-                    return null;
+                    var login = await deviceFlow.BeginAsync(ct);
+
+                    BrowserLauncher.Open(login.VerificationUri);
+
+                    session = await deviceFlow.PollAsync(login, ct);
+
+                    break;
                 }
 
-                var refreshed = await provider.RefreshAsync(session, ct);
+                case IPkceAuthFlow pkceFlow:
+                {
+                    var login = await pkceFlow.BeginAsync(ct);
 
-                await _tokenStore.SaveAsync(refreshed, ct);
+                    session = await pkceFlow.CompleteAsync(login, ct);
 
-                return refreshed.AccessToken;
-            }
-            finally
-            {
-                refreshLock.Release();
-            }
-        }
+                    break;
+                }
 
-        public async Task LogoutAsync(
-            string providerId,
-            CancellationToken ct = default)
-        {
-            var session = await _tokenStore.GetAsync(providerId, ct);
-
-            if (session is null)
-                return;
-
-            try
-            {
-                var provider = _providers.Get(providerId);
-
-                await provider.RevokeAsync(session, ct);
-            }
-            catch
-            {
-                // log only
+                default:
+                    throw new NotSupportedException(
+                        $"Unsupported auth flow for provider '{providerId}'.");
             }
 
-            await _tokenStore.DeleteAsync(providerId, ct);
-        }
+            await _sessionService.SaveSessionAsync(session, ct);
 
-        public string GetClientId(string providerId)
-        {
-            var provider = _providers.Get(providerId);
-            return provider.ClientId;
+            return session;
         }
     }
 }

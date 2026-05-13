@@ -10,14 +10,7 @@ namespace CastorApplication.Services.Auth.Abstractions
 
         string ClientId { get; }
 
-        AuthFlowType FlowType { get; }
-
-        Task<DeviceCodeResult> BeginLoginAsync(
-            CancellationToken ct = default);
-
-        Task<AuthSession> CompleteLoginAsync(
-            DeviceCodeResult deviceCode,
-            CancellationToken ct = default);
+        IAuthFlow Flow { get; }
 
         Task<AuthSession> RefreshAsync(
             AuthSession session,

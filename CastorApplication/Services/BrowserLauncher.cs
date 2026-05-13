@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace CastorApplication.Services
 {
-    public static class WebBrowser
+    public static class BrowserLauncher
     {
         public static void Open(string url)
         {

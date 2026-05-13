@@ -1,7 +1,7 @@
 ﻿using CastorApplication.Models.Auth;
 using CastorApplication.Models.Config;
 using CastorApplication.Services.Auth.Abstractions;
-using CastorApplication.Services.Auth.Providers.Twitch.DTO;
+using CastorApplication.Services.Auth.Providers.Youtube.DTO;
 using CastorApplication.Services.Config;
 using System;
 using System.Net.Http;
@@ -9,30 +9,30 @@ using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace CastorApplication.Services.Auth.Providers.Twitch
+namespace CastorApplication.Services.Auth.Providers.Youtube
 {
-    public class TwitchAuthProvider : IAuthProvider
+    public class YoutubeAuthProvider : IAuthProvider
     {
         private readonly HttpClient _http;
-        private readonly ProviderConfig _options;
-        private readonly TwitchSessionFactory _sessionFactory;
+        private readonly ProviderConfig _config;
+        private readonly YoutubeSessionFactory _sessionFactory;
 
-        public string Id => "twitch";
+        public string Id => "youtube";
 
-        public string ClientId => _options.ClientId;
+        public string ClientId => _config.ClientId;
 
         public IAuthFlow Flow { get; }
 
-        public TwitchAuthProvider(
+        public YoutubeAuthProvider(
             HttpClient httpClient,
-            IConfigService configService,
-            TwitchDeviceAuthFlow flow,
-            TwitchSessionFactory sessionFactory)
+            IConfigService config,
+            YoutubeAuthFlow flow,
+            YoutubeSessionFactory sessionFactory)
         {
             _http = httpClient;
 
-            _options =
-                configService.GetProviderConfig(Id);
+            _config =
+                config.GetProviderConfig(Id);
 
             Flow = flow;
 
@@ -50,19 +50,19 @@ namespace CastorApplication.Services.Auth.Providers.Twitch
                     "No refresh token available.");
             }
 
-            var body =
-                new TwitchRefreshRequest
+            var request =
+                new YoutubeRefreshRequest
                 {
-                    ClientId = _options.ClientId,
-                    GrantType = "refresh_token",
+                    ClientId = _config.ClientId,
                     RefreshToken =
-                        session.RefreshToken
+                        session.RefreshToken,
+                    GrantType = "refresh_token"
                 };
 
             using var response =
                 await _http.PostAsync(
-                    TwitchEndpoints.Token,
-                    body.ToFormContent(),
+                    YoutubeEndpoints.Token,
+                    request.ToFormContent(),
                     ct);
 
             response.EnsureSuccessStatusCode();
@@ -70,9 +70,10 @@ namespace CastorApplication.Services.Auth.Providers.Twitch
             var token =
                 await response.Content
                     .ReadFromJsonAsync<
-                        TwitchTokenResponse>(
+                        YoutubeTokenResponse>(
                         cancellationToken: ct)
-                ?? throw new InvalidOperationException();
+                ?? throw new InvalidOperationException(
+                    "Failed to parse token response.");
 
             return await _sessionFactory
                 .CreateAsync(token, ct);
@@ -82,17 +83,16 @@ namespace CastorApplication.Services.Auth.Providers.Twitch
             AuthSession session,
             CancellationToken ct = default)
         {
-            var body =
-                new TwitchRevokeRequest
+            var request =
+                new YoutubeRevokeRequest
                 {
-                    ClientId = _options.ClientId,
                     Token = session.AccessToken
                 };
 
             using var response =
                 await _http.PostAsync(
-                    TwitchEndpoints.Revoke,
-                    body.ToFormContent(),
+                    YoutubeEndpoints.Revoke,
+                    request.ToFormContent(),
                     ct);
 
             response.EnsureSuccessStatusCode();

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace CastorApplication.Services.Auth.Abstractions
 {
-    public interface IDeviceAuthFlow
+    public interface IDeviceAuthFlow : IAuthFlow
     {
         Task<DeviceCodeResult> BeginAsync(CancellationToken ct = default);
 

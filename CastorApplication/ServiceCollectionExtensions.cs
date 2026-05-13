@@ -1,15 +1,19 @@
-﻿using System.Net.Http;
-using Microsoft.Extensions.DependencyInjection;
-using CastorApplication.Services.Auth;
+﻿using CastorApplication.Services.Auth;
+using CastorApplication.Services.Auth.Abstractions;
+using CastorApplication.Services.Auth.Common.Localhost;
+using CastorApplication.Services.Auth.Common.PKCE;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Providers.Twitch;
+using CastorApplication.Services.Auth.Providers.Youtube;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Config;
 using CastorApplication.Services.Settings;
 using CastorApplication.ViewModels;
 using CastorApplication.ViewModels.Settings;
 using CastorApplication.ViewModels.Settings.Sections;
-using CastorApplication.Services.Auth.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
+using System.Net;
+using System.Net.Http;
 using TwitchLib.Api;
 
 namespace CastorApplication
@@ -19,6 +23,7 @@ namespace CastorApplication
         public static void AddCommonServices(this IServiceCollection collection)
         {
             collection.AddSingleton<HttpClient>();
+            collection.AddSingleton<HttpListener>();
             collection.AddSingleton<TwitchAPI>();
 
             collection.AddSingleton<ITokenStore, InMemoryTokenStore>();
@@ -26,12 +31,21 @@ namespace CastorApplication
 
             collection.AddSingleton<IConfigService, JsonConfigService>();
 
-            collection.AddSingleton<TwitchSessionFactory>();
-            collection.AddSingleton<IDeviceAuthFlow, TwitchDeviceAuthFlow>();
-            collection.AddSingleton<IAuthProvider, TwitchAuthProvider>();
+            // Auth
+            collection.AddTransient<PkceGenerator>();
+            collection.AddTransient<ILocalAuthServer, LocalAuthServer>();
 
-            collection.AddSingleton<IAuthService, AuthService>();
+            collection.AddTransient<TwitchSessionFactory>();
+            collection.AddTransient<TwitchDeviceAuthFlow>();
+            collection.AddTransient<IAuthProvider, TwitchAuthProvider>();
+
+            collection.AddTransient<YoutubeSessionFactory>();
+            collection.AddTransient<YoutubeAuthFlow>();
+            collection.AddTransient<IAuthProvider, YoutubeAuthProvider>();
+
             collection.AddSingleton<ProviderRegistry>();
+            collection.AddSingleton<IAuthSessionService, AuthSessionService>();
+            collection.AddSingleton<IAuthService, AuthService>();
 
             collection.AddSingleton<SettingsService>();
 
