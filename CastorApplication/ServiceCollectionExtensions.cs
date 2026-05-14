@@ -25,6 +25,7 @@ namespace CastorApplication
             collection.AddSingleton<HttpClient>();
             collection.AddSingleton<HttpListener>();
             collection.AddSingleton<TwitchAPI>();
+            collection.AddSingleton<YoutubeApiClient>();
 
             collection.AddSingleton<ITokenStore, InMemoryTokenStore>();
             collection.AddSingleton<IProviderStore, ProviderStore>();

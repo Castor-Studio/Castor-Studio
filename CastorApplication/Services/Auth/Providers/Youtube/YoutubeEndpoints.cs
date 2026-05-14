@@ -11,6 +11,9 @@ namespace CastorApplication.Services.Auth.Providers.Youtube
         public const string Authorization =
             "https://accounts.google.com/o/oauth2/v2/auth";
 
+        public const string RedirectUri =
+            "http://127.0.0.1:45678/auth/youtube/callback";
+
         public const string Token =
             "https://oauth2.googleapis.com/token";
 
@@ -18,6 +21,9 @@ namespace CastorApplication.Services.Auth.Providers.Youtube
             "https://oauth2.googleapis.com/revoke";
 
         public const string UserInfo =
-            "https://www.googleapis.com/oauth2/v2/userinfo";
+            "https://youtube.googleapis.com/youtube/v3/channels?part=snippet&mine=true";
+
+        public const string StreamKey =
+            "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet,cdn&mine=true";
     }
 }

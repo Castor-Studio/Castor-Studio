@@ -67,7 +67,7 @@
             </Border>
 
             <!-- YouTube -->
-            <!--<Border Background="{DynamicResource AppSurface}"
+            <Border Background="{DynamicResource AppSurface}"
                     BorderBrush="{DynamicResource AppBorder}"
                     BorderThickness="1"
                     CornerRadius="8"
@@ -109,11 +109,11 @@
                     <Button Grid.Column="2"
                             Content="{Binding YoutubeButtonText}"
                             Classes="platform-connect"
-                            Command="{Binding ToggleYoutubeCommand}"/>
+                            Command="{Binding ConnectYoutubeCommand}"/>
 
                 </Grid>
 
-            </Border>-->
+            </Border>
 
             <!-- Facebook -->
             <!--<Border Background="{DynamicResource AppSurface}"

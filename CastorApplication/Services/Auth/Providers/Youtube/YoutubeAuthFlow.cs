@@ -56,7 +56,7 @@ namespace CastorApplication.Services.Auth.Providers.Youtube
                 new Dictionary<string, string>
                 {
                     ["client_id"] = _options.ClientId,
-                    ["redirect_uri"] = "http://127.0.0.1:45678/",
+                    ["redirect_uri"] = YoutubeEndpoints.RedirectUri,
                     ["response_type"] = "code",
                     ["scope"] = scopes,
                     ["state"] = state,
@@ -99,10 +99,11 @@ namespace CastorApplication.Services.Auth.Providers.Youtube
                 new Dictionary<string, string>
                 {
                     ["client_id"] = _options.ClientId,
+                    ["client_secret"] = _options.ClientSecret!,
                     ["code"] = callback.Code,
                     ["code_verifier"] = login.CodeVerifier,
                     ["grant_type"] = "authorization_code",
-                    ["redirect_uri"] = "http://127.0.0.1:45678/"
+                    ["redirect_uri"] = YoutubeEndpoints.RedirectUri
                 };
 
             using var response =
@@ -121,7 +122,9 @@ namespace CastorApplication.Services.Auth.Providers.Youtube
                 ?? throw new InvalidOperationException(
                     "Failed to parse YouTube token response.");
 
-            return await _sessionFactory.CreateAsync(token, ct);
+            var session = await _sessionFactory.CreateAsync(token, ct);
+
+            return session;
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using CastorApplication.Models.Auth;
 using CastorApplication.Services.Auth.Providers.Youtube.DTO;
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -44,32 +45,31 @@ namespace CastorApplication.Services.Auth.Providers.Youtube
             CancellationToken ct = default)
         {
             using var request =
-                new HttpRequestMessage(
-                    HttpMethod.Get,
-                    YoutubeEndpoints.UserInfo);
+                new HttpRequestMessage(HttpMethod.Get, YoutubeEndpoints.UserInfo);
 
             request.Headers.Authorization =
-                new AuthenticationHeaderValue(
-                    "Bearer",
-                    session.AccessToken);
+                new AuthenticationHeaderValue("Bearer", session.AccessToken);
 
             using var response =
                 await _http.SendAsync(request, ct);
 
+            var content =
+                await response.Content.ReadAsStringAsync(ct);
+
             response.EnsureSuccessStatusCode();
 
-            var profile =
-                await response.Content
-                    .ReadFromJsonAsync<YoutubeProfileResponse>(
-                        cancellationToken: ct)
-                ?? throw new InvalidOperationException(
-                    "Failed to parse YouTube profile.");
+            var result = await response.Content
+                    .ReadFromJsonAsync<YoutubeChannelsResponse>(cancellationToken: ct)
+                ?? throw new InvalidOperationException("Invalid YouTube response");
+
+            var channel = result.Items.FirstOrDefault()
+                ?? throw new InvalidOperationException("No channel found");
 
             return new UserProfile
             {
-                Id = profile.Id,
-                DisplayName = profile.Name,
-                AvatarUrl = profile.Picture
+                Id = channel.Id,
+                DisplayName = channel.Snippet.Title,
+                AvatarUrl = channel.Snippet.Thumbnails.Default.Url
             };
         }
     }

@@ -11,14 +11,17 @@ using CastorApplication.ViewModels.Settings.Sections;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Auth.Storage;
+using CastorApplication.Services.Auth.Providers.Youtube;
 
 namespace CastorApplication.ViewModels.Settings;
 
 public partial class SettingsViewModel : ViewModelBase
 {
     private readonly IAuthService _authService;
+    private readonly IAuthSessionService _sessionService;
     private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
+    private readonly YoutubeApiClient _youtubeApi;
 
     [ObservableProperty]
     private ViewModelBase? _currentSection;
@@ -33,12 +36,18 @@ public partial class SettingsViewModel : ViewModelBase
     public bool HasUnsavedChanges => Sections.Any(
         section => section.ViewModel is ISettingsSection settingsSection && settingsSection.IsDirty);
 
-    public SettingsViewModel(IAuthService authService, IProviderStore store, SettingsService settingsService)
+    public SettingsViewModel(
+        IAuthService authService,
+        IAuthSessionService sessionService,
+        IProviderStore store,
+        SettingsService settingsService,
+        YoutubeApiClient youtubeApi)
     {
         _authService = authService;
+        _sessionService = sessionService;
         _providerStore = store;
-
         _settingsService = settingsService;
+        _youtubeApi = youtubeApi;
 
         var general = new GeneralSettingsViewModel();
 
@@ -80,7 +89,11 @@ public partial class SettingsViewModel : ViewModelBase
         Sections.Add(new()
         {
             Title = "Comptes",
-            ViewModel = new AccountsSettingsViewModel(_authService, _providerStore),
+            ViewModel = new AccountsSettingsViewModel(
+                _authService,
+                _sessionService,
+                _providerStore,
+                _youtubeApi),
             SelectCommand = SelectSectionCommand
         });
 
