@@ -16,19 +16,25 @@ namespace CastorApplication.Views
         private MediaPlayer? _mediaPlayer;
         private Media? _currentMedia;
         private StudioViewModel? _vm;
+        // Flag pour éviter tout appel natif VLC après libération des ressources
+        private volatile bool _isDisposed;
 
         public StudioView()
         {
             InitializeComponent();
 
+            bool vlcReady = false;
             try
             {
                 LibVLCSharp.Shared.Core.Initialize();
+                vlcReady = true;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC : {ex.Message}");
             }
+
+            if (!vlcReady) return;
 
             _libVLC      = new LibVLC("--network-caching=150");
             _mediaPlayer = new MediaPlayer(_libVLC);
@@ -81,15 +87,21 @@ namespace CastorApplication.Views
 
         private void PlayPreview()
         {
-            if (_libVLC == null || _mediaPlayer == null) return;
+            if (_isDisposed) return;
+
+            // Capture locale pour éviter le TOCTOU : un autre thread ne peut pas
+            // mettre _libVLC / _mediaPlayer à null entre le null-check et l'usage.
+            var libVlc      = _libVLC;
+            var mediaPlayer = _mediaPlayer;
+            if (libVlc == null || mediaPlayer == null) return;
 
             var scene = SceneService.Instance.ActiveScene;
             if (scene == null) return;
 
             var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
             var old = _currentMedia;
-            _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=150");
-            _mediaPlayer.Play(_currentMedia);
+            _currentMedia = new Media(libVlc, new Uri(url), ":network-caching=150");
+            mediaPlayer.Play(_currentMedia);
             old?.Dispose();
         }
 
@@ -113,6 +125,10 @@ namespace CastorApplication.Views
         {
             base.OnUnloaded(e);
 
+            // Bloque immédiatement tout nouvel appel à PlayPreview() venant des
+            // callbacks VLC (EncounteredError / EndReached) encore en vol.
+            _isDisposed = true;
+
             if (_vm != null)
             {
                 _vm.PropertyChanged -= OnVmPropertyChanged;
@@ -124,24 +140,25 @@ namespace CastorApplication.Views
                 // 1. On détache le lien avec le contrôle visuel (CRITIQUE)
                 var videoView = this.FindControl<VideoView>("VideoPlayer");
                 if (videoView != null)
-                {
                     videoView.MediaPlayer = null;
-                }
 
                 // 2. On arrête le flux
                 if (_mediaPlayer.IsPlaying)
-                {
                     _mediaPlayer.Stop();
-                }
 
-                // 3. On libère dans l'ordre
-                _currentMedia?.Dispose();
+                // 3. On libère dans l'ordre (les refs locales évitent un double-free
+                //    si un thread concurrent avait capturé les champs avant le flag)
+                var mediaPlayer = _mediaPlayer;
+                var libVlc      = _libVLC;
+                var media       = _currentMedia;
+
                 _currentMedia = null;
-                _mediaPlayer.Dispose();
-                _libVLC?.Dispose();
+                _mediaPlayer  = null;
+                _libVLC       = null;
 
-                _mediaPlayer = null;
-                _libVLC = null;
+                media?.Dispose();
+                mediaPlayer.Dispose();
+                libVlc?.Dispose();
             }
         }
     }

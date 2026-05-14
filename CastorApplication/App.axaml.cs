@@ -46,12 +46,12 @@ namespace CastorApplication
                 // Arrêt propre des threads natifs et de MediaMTX avant la fermeture de l'app
                 desktop.ShutdownRequested += (_, _) =>
                 {
-                    RecorderService.Instance.Stop();
+                    RecorderService.Instance.StopAll();
                     MediaMtxService.Instance.Stop();
                 };
                 AppDomain.CurrentDomain.ProcessExit += (_, _) =>
                 {
-                    RecorderService.Instance.Stop();
+                    RecorderService.Instance.StopAll();
                     MediaMtxService.Instance.Stop();
                 };
             }
