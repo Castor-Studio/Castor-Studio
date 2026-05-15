@@ -1,0 +1,9 @@
+system:
+  name: "Castor AI Hub"
+  version: "0.1.0"
+
+logging:
+  level: "INFO"
+
+device:
+  prefer: "auto"   # auto | cpu | cuda | mps

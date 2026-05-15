@@ -1,0 +1,7 @@
+sport_ai:
+  # Owned by Guillian. Placeholder config.
+  yolo:
+    model: "yolo26n.pt"
+    skip_frames: 2
+    confidence: 0.4
+    imgsz: 640

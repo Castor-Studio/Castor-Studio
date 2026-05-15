@@ -21,8 +21,22 @@ namespace CastorApplication
 
         public override void OnFrameworkInitializationCompleted()
         {
-            CastorNative.Initialize();
-            MediaMtxService.Instance.Start();
+            // The native libcastor + bundled mediamtx.exe are Windows-only.
+            // On macOS/Linux we run a reduced feature set (no recording/streaming
+            // via the native pipeline) — the Multicam page still works via the
+            // ai-hub subprocess, which is what the demo needs.
+            if (OperatingSystem.IsWindows())
+            {
+                try { CastorNative.Initialize(); }
+                catch (System.Exception ex) { System.Diagnostics.Debug.WriteLine($"[CastorNative] init failed: {ex.Message}"); }
+
+                try { MediaMtxService.Instance.Start(); }
+                catch (System.Exception ex) { System.Diagnostics.Debug.WriteLine($"[MediaMTX] start failed: {ex.Message}"); }
+            }
+
+            // Touch the multicam sources singleton so its AI-event subscription
+            // is wired before any view is shown.
+            _ = MulticamSourcesService.Instance;
 
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -34,13 +48,21 @@ namespace CastorApplication
                 // Arrêt propre des threads natifs et de MediaMTX avant la fermeture de l'app
                 desktop.ShutdownRequested += (_, _) =>
                 {
-                    RecorderService.Instance.Stop();
-                    MediaMtxService.Instance.Stop();
+                    PodcastAiService.Instance.Stop();
+                    if (OperatingSystem.IsWindows())
+                    {
+                        try { RecorderService.Instance.Stop(); } catch { /* ignore */ }
+                        try { MediaMtxService.Instance.Stop(); } catch { /* ignore */ }
+                    }
                 };
                 AppDomain.CurrentDomain.ProcessExit += (_, _) =>
                 {
-                    RecorderService.Instance.Stop();
-                    MediaMtxService.Instance.Stop();
+                    PodcastAiService.Instance.Stop();
+                    if (OperatingSystem.IsWindows())
+                    {
+                        try { RecorderService.Instance.Stop(); } catch { /* ignore */ }
+                        try { MediaMtxService.Instance.Stop(); } catch { /* ignore */ }
+                    }
                 };
             }
 

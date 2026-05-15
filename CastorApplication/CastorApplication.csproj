@@ -2,7 +2,10 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <PlatformTarget>x64</PlatformTarget>
+    <!-- Windows: keep x64 (matches the bundled native libcastor + VLC Windows libs).
+         macOS/Linux: AnyCPU so the assembly is loadable on arm64 hosts (M1/M2/M3). -->
+    <PlatformTarget Condition="'$(OS)' == 'Windows_NT'">x64</PlatformTarget>
+    <PlatformTarget Condition="'$(OS)' != 'Windows_NT'">AnyCPU</PlatformTarget>
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>

@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using LibVLCSharp.Shared;
 using LibVLCSharp.Avalonia;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using CastorApplication.Services;
 using CastorApplication.ViewModels;
@@ -23,31 +24,79 @@ namespace CastorApplication.Views
 
             try
             {
-                LibVLCSharp.Shared.Core.Initialize();
+                // Use the shared LibVLC instance so we don't have two parallel
+                // VLC engines fighting over the audio device on macOS.
+                _libVLC = VlcService.Instance.LibVLC;
+                if (_libVLC != null)
+                {
+                    _mediaPlayer = new MediaPlayer(_libVLC);
+                    _mediaPlayer.EncounteredError += async (_, _) =>
+                    {
+                        await Task.Delay(2000).ConfigureAwait(false);
+                        PlayPreview();
+                    };
+                    _mediaPlayer.EndReached += async (_, _) =>
+                    {
+                        await Task.Delay(1000).ConfigureAwait(false);
+                        PlayPreview();
+                    };
+                }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC : {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC Studio : {ex.Message}");
+                _libVLC = null;
+                _mediaPlayer = null;
             }
 
-            _libVLC      = new LibVLC("--network-caching=150");
-            _mediaPlayer = new MediaPlayer(_libVLC);
-
-            // Retry automatique si le flux n'est pas encore disponible ou se coupe
-            // ConfigureAwait(false) pour sortir du thread d'événement VLC avant de rappeler Play
-            _mediaPlayer.EncounteredError += async (_, _) =>
-            {
-                await Task.Delay(2000).ConfigureAwait(false);
-                PlayPreview();
-            };
-
-            _mediaPlayer.EndReached += async (_, _) =>
-            {
-                await Task.Delay(1000).ConfigureAwait(false);
-                PlayPreview();
-            };
+            // The Multicam page launches the AI; here we just mirror its
+            // "active source" choice into the Studio video preview.
+            PodcastAiService.Instance.ActiveSourceChanged += OnAiActiveSourceChanged;
+            PodcastAiService.Instance.RunningChanged     += OnAiRunningChanged;
 
             DataContextChanged += OnDataContextChanged;
+        }
+
+        private void OnAiActiveSourceChanged(int _)
+        {
+            // In fake (demo) mode the pre-rendered output is already playing —
+            // ignore per-source switches so we don't restart playback every tick.
+            if (PodcastAiService.Instance.IsFakeMode) return;
+            var uri = PodcastAiService.Instance.CurrentSourceUri;
+            System.Diagnostics.Debug.WriteLine($"[Studio] AI switch → {uri}");
+            if (string.IsNullOrEmpty(uri)) return;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => PlayUri(uri));
+        }
+
+        private void OnAiRunningChanged(bool running)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Studio] AI running={running}");
+            if (!running) return;
+            var ai  = PodcastAiService.Instance;
+            var uri = ai.IsFakeMode ? ai.FakeOutputUri : ai.CurrentSourceUri;
+            if (string.IsNullOrEmpty(uri)) return;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => PlayUri(uri!));
+        }
+
+        private void PlayUri(string uri)
+        {
+            if (_libVLC == null || _mediaPlayer == null) return;
+            try
+            {
+                Media media;
+                if (File.Exists(uri))
+                    media = new Media(_libVLC, new Uri(uri, UriKind.Absolute), ":input-repeat=65535");
+                else
+                    media = new Media(_libVLC, new Uri(uri), ":network-caching=150");
+                var old = _currentMedia;
+                _currentMedia = media;
+                _mediaPlayer.Play(media);
+                old?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[Studio] PlayUri failed: {ex.Message}");
+            }
         }
 
         private void OnDataContextChanged(object? sender, EventArgs e)
@@ -100,18 +149,33 @@ namespace CastorApplication.Views
                 if (videoView.MediaPlayer == null)
                     videoView.MediaPlayer = _mediaPlayer;
 
-                // S'assure que libcastor pousse vers MediaMTX avant de lire
-                if (DataContext is StudioViewModel vm)
-                    vm.EnsurePreviewRunning();
+                // If the AI is already running (Multicam tab clicked Auto first),
+                // mirror its current source. Otherwise fall back to the scene
+                // preview pipeline (Windows-only path with libcastor + MediaMTX).
+                var ai    = PodcastAiService.Instance;
+                var aiUri = ai.IsFakeMode ? ai.FakeOutputUri : ai.CurrentSourceUri;
+                if (!string.IsNullOrEmpty(aiUri))
+                {
+                    PlayUri(aiUri!);
+                    return;
+                }
 
-                if (!_mediaPlayer.IsPlaying)
-                    PlayPreview();
+                if (OperatingSystem.IsWindows())
+                {
+                    if (DataContext is StudioViewModel vm)
+                        vm.EnsurePreviewRunning();
+                    if (!_mediaPlayer.IsPlaying)
+                        PlayPreview();
+                }
             }
         }
 
         protected override void OnUnloaded(Avalonia.Interactivity.RoutedEventArgs e)
         {
             base.OnUnloaded(e);
+
+            PodcastAiService.Instance.ActiveSourceChanged -= OnAiActiveSourceChanged;
+            PodcastAiService.Instance.RunningChanged     -= OnAiRunningChanged;
 
             if (_vm != null)
             {
@@ -121,25 +185,23 @@ namespace CastorApplication.Views
 
             if (_mediaPlayer != null)
             {
-                // 1. On détache le lien avec le contrôle visuel (CRITIQUE)
+                // 1. Detach from the VideoView control.
                 var videoView = this.FindControl<VideoView>("VideoPlayer");
                 if (videoView != null)
                 {
                     videoView.MediaPlayer = null;
                 }
 
-                // 2. On arrête le flux
+                // 2. Stop the stream.
                 if (_mediaPlayer.IsPlaying)
-                {
                     _mediaPlayer.Stop();
-                }
 
-                // 3. On libère dans l'ordre
+                // 3. Free MediaPlayer + current media. Do NOT dispose the
+                //    shared LibVLC — it's owned by VlcService and used by
+                //    other views (the multicam previews).
                 _currentMedia?.Dispose();
                 _currentMedia = null;
                 _mediaPlayer.Dispose();
-                _libVLC?.Dispose();
-
                 _mediaPlayer = null;
                 _libVLC = null;
             }

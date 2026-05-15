@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.uv/
+*.pt
+!weights/*.pt
+!**/weights/.gitkeep
+# face_landmarker.task is auto-downloaded on first run from MediaPipe's CDN
+weights/*.task
+.DS_Store
+*.log
+recordings/

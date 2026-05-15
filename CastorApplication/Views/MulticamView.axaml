@@ -2,26 +2,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:CastorApplication.Models"
+             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
              x:Class="CastorApplication.Views.MulticamView"
              x:DataType="vm:MulticamViewModel">
 
     <UserControl.Styles>
-
-        <Style Selector="Button.cam-select">
-            <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="10,5"/>
-            <Setter Property="CornerRadius" Value="4"/>
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
-
-        <Style Selector="Button.cam-select:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AppBorder2}"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
-        </Style>
 
         <Style Selector="Button.ai-mode">
             <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
@@ -67,19 +52,32 @@
                     <TextBlock Text="MULTI-CAMÉRAS"
                                FontSize="14" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"
                                VerticalAlignment="Center"/>
-                    <Border Background="{DynamicResource AppBadgeBg}" CornerRadius="10" Padding="8,3">
-                        <TextBlock Text="{Binding Cameras.Count, StringFormat='{}{0} caméras'}"
+                    <Border Background="{DynamicResource AppBadgeBg}" CornerRadius="10" Padding="8,3"
+                            IsVisible="{Binding HasCameras}">
+                        <TextBlock Text="{Binding Cameras.Count, StringFormat='{}{0} sources'}"
                                    FontSize="11" Foreground="{DynamicResource AppFg4}"/>
                     </Border>
                 </StackPanel>
 
-                <Button Grid.Column="1"
-                        Content="+ AJOUTER UNE CAMÉRA"
-                        Command="{Binding AddCameraCommand}"
-                        Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
-                        BorderThickness="0" Padding="14,8" CornerRadius="6"
-                        FontSize="12" FontWeight="SemiBold"
-                        VerticalAlignment="Center" Cursor="Hand"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                            VerticalAlignment="Center">
+
+                    <Button Content="+ CHOISIR DES VIDÉOS"
+                            Command="{Binding LoadVideoFilesCommand}"
+                            Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
+                            BorderThickness="0" Padding="14,8" CornerRadius="6"
+                            FontSize="12" FontWeight="SemiBold"
+                            Cursor="Hand"/>
+
+                    <Button Content="EFFACER"
+                            Command="{Binding ClearCamerasCommand}"
+                            IsVisible="{Binding HasCameras}"
+                            Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg4}"
+                            BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
+                            Padding="12,8" CornerRadius="6"
+                            FontSize="11" FontWeight="SemiBold" Cursor="Hand"/>
+
+                </StackPanel>
 
             </Grid>
         </Border>
@@ -88,7 +86,7 @@
         <Border Grid.Row="1"
                 Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
                 Padding="16,10">
-            <Grid ColumnDefinitions="Auto, *, Auto">
+            <Grid ColumnDefinitions="Auto, *">
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"
                             VerticalAlignment="Center">
@@ -96,7 +94,6 @@
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
 
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <!-- Off (active when IsAiOff) -->
                         <Button IsVisible="{Binding IsAiOff}"
                                 Content="DÉSACTIVÉ"
                                 Background="{DynamicResource AppBadgeBg}" Foreground="{DynamicResource AppFg3}"
@@ -108,16 +105,6 @@
                                 Command="{Binding SetAiOffCommand}"
                                 Classes="ai-mode"/>
 
-                        <!-- Agent Mode -->
-                        <Button IsVisible="{Binding IsAiAgent}"
-                                Content="MODE AGENT"
-                                Classes="ai-active"/>
-                        <Button IsVisible="{Binding !IsAiAgent}"
-                                Content="MODE AGENT"
-                                Command="{Binding SetAiAgentCommand}"
-                                Classes="ai-mode"/>
-
-                        <!-- Auto Mode -->
                         <Button IsVisible="{Binding IsAiAuto}"
                                 Content="MODE AUTO"
                                 Classes="ai-active"/>
@@ -126,117 +113,168 @@
                                 Command="{Binding SetAiAutoCommand}"
                                 Classes="ai-mode"/>
                     </StackPanel>
-                </StackPanel>
 
-                <!-- AI Model Selector (visible when AI is enabled) -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
-                            VerticalAlignment="Center"
-                            IsVisible="{Binding IsAiEnabled}">
-                    <TextBlock Text="Modèle IA :" Foreground="{DynamicResource AppFg4}"
-                               FontSize="11" VerticalAlignment="Center"/>
-                    <ComboBox MinWidth="180"
-                              SelectedIndex="{Binding SelectedAiModelIndex}"
-                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="12">
-                        <ComboBoxItem Content="Sport - Suivi de ballon"/>
-                        <ComboBoxItem Content="Conférence - Suivi vocal"/>
-                        <ComboBoxItem Content="Général - Détection mouvement"/>
-                    </ComboBox>
+                    <Border IsVisible="{Binding AiStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Background="{DynamicResource AppSurface2}"
+                            CornerRadius="4" Padding="10,4" Margin="6,0,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Ellipse Width="6" Height="6" Fill="#5b8def"
+                                     IsVisible="{Binding IsAiRunning}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding AiStatus}"
+                                       Foreground="{DynamicResource AppFg3}" FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
             </Grid>
         </Border>
 
-        <!-- ═══ CAMERA GRID ═══ -->
-        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
-            <WrapPanel Margin="16" HorizontalAlignment="Left">
+        <!-- ═══ MAIN AREA : empty state OR (BIG output | source thumbnails) ═══ -->
+        <Grid Grid.Row="2">
 
-                <!-- Dynamic camera cards -->
-                <ItemsControl ItemsSource="{Binding Cameras}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="m:CameraItem">
-                            <Button Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,12,12"
-                                    Cursor="Hand"
-                                    Command="{Binding $parent[UserControl].((vm:MulticamViewModel)DataContext).SelectCameraCommand}"
-                                    CommandParameter="{Binding}">
-                                <Border Width="290" Height="195"
-                                        Background="{DynamicResource AppSurface}"
-                                        CornerRadius="8">
-                                    <Grid RowDefinitions="*, Auto">
+            <!-- Empty state -->
+            <Border IsVisible="{Binding HasNoCameras}" Padding="40">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="14"
+                            MaxWidth="500">
+                    <Border Background="{DynamicResource AppSurface2}" CornerRadius="40"
+                            Width="72" Height="72" HorizontalAlignment="Center">
+                        <TextBlock Text="🎬" FontSize="34"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Aucune source chargée"
+                               HorizontalAlignment="Center" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource AppFg2}"/>
+                    <TextBlock Text="Sélectionne au moins 2 vidéos. L'IA détectera qui parle et alternera entre les caméras automatiquement. La sortie live s'affichera à gauche, les sources brutes à droite."
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               FontSize="12" Foreground="{DynamicResource AppFg5}"/>
+                    <Button Content="+ Choisir des vidéos"
+                            Command="{Binding LoadVideoFilesCommand}"
+                            HorizontalAlignment="Center"
+                            Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
+                            BorderThickness="0" Padding="18,10" CornerRadius="6"
+                            FontSize="12" FontWeight="SemiBold" Cursor="Hand"/>
+                </StackPanel>
+            </Border>
 
-                                        <Border Grid.Row="0" Background="{DynamicResource AppSurface3}"
-                                                CornerRadius="6,6,0,0">
+            <!-- Live workspace -->
+            <Grid IsVisible="{Binding HasCameras}" ColumnDefinitions="3*, 1*" Margin="12">
+
+                <!-- ── BIG : AI output (Studio in disguise) ───────────────── -->
+                <Border Grid.Column="0" Background="Black" CornerRadius="8" ClipToBounds="True"
+                        Margin="0,0,8,0">
+                    <Panel>
+
+                        <Image Source="{Binding ActiveThumbnail}"
+                               Stretch="Uniform"
+                               IsVisible="{Binding ActiveThumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                        <vlc:VideoView MediaPlayer="{Binding ActiveMediaPlayer}"
+                                       IsVisible="{Binding ActiveMediaPlayer, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+
+                        <StackPanel IsVisible="{Binding ActiveThumbnail, Converter={x:Static ObjectConverters.IsNull}}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                            <TextBlock Text="SORTIE IA" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource AppFg5}"
+                                       HorizontalAlignment="Center" LetterSpacing="2"/>
+                            <TextBlock Text="Importe 2 vidéos puis MODE AUTO"
+                                       FontSize="12" Foreground="{DynamicResource AppFg6}"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- ON-AIR badge -->
+                        <Border IsVisible="{Binding IsAiRunning}"
+                                VerticalAlignment="Top" HorizontalAlignment="Left"
+                                Margin="14" Padding="9,4" CornerRadius="4"
+                                Background="#dc2626">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="7" Height="7" Fill="#eaeaf0" VerticalAlignment="Center"/>
+                                <TextBlock Text="ON AIR" FontSize="10" FontWeight="Bold" Foreground="#eaeaf0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Active-source label -->
+                        <Border IsVisible="{Binding IsAiRunning}"
+                                VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                                Margin="14" Padding="10,5" CornerRadius="4"
+                                Background="#AA0B0B12" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                            <TextBlock Text="{Binding AiStatus}"
+                                       Foreground="#eaeaf0" FontSize="11" FontWeight="SemiBold"/>
+                        </Border>
+
+                    </Panel>
+                </Border>
+
+                <!-- ── RIGHT : source previews stack ───────────────────────── -->
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Cameras}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical" Spacing="8"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:CameraItem">
+                                <Border CornerRadius="8" ClipToBounds="True">
+                                    <Panel>
+
+                                        <Border Background="Black" CornerRadius="8" Height="170">
                                             <Panel>
+                                                <Image Source="{Binding Thumbnail}"
+                                                       Stretch="UniformToFill"
+                                                       IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                                <vlc:VideoView MediaPlayer="{Binding MediaPlayer}"
+                                                               IsVisible="{Binding MediaPlayer, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                                 <TextBlock Text="{Binding Label}"
-                                                           Foreground="{DynamicResource AppSurface2}" HorizontalAlignment="Center"
-                                                           VerticalAlignment="Center" FontSize="28" FontWeight="Bold"/>
-
-                                                <!-- Live badge (only shown when live) -->
-                                                <Border IsVisible="{Binding IsLive}"
-                                                        VerticalAlignment="Top" HorizontalAlignment="Left"
-                                                        Margin="8" Padding="7,3" CornerRadius="4"
-                                                        Background="#5b8def">
-                                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                                        <Ellipse Width="6" Height="6" Fill="#eaeaf0" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="LIVE" FontSize="10" FontWeight="Bold" Foreground="#eaeaf0"/>
-                                                    </StackPanel>
-                                                </Border>
+                                                           IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNull}}"
+                                                           Foreground="{DynamicResource AppSurface2}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontSize="28" FontWeight="Bold"/>
                                             </Panel>
                                         </Border>
 
-                                        <Grid Grid.Row="1" ColumnDefinitions="*, Auto" Margin="10,7">
-                                            <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                                       Foreground="{DynamicResource AppFg3}" FontSize="12"
-                                                       VerticalAlignment="Center"/>
+                                        <!-- Cam label -->
+                                        <Border VerticalAlignment="Top" HorizontalAlignment="Right"
+                                                Margin="6" Padding="6,2" CornerRadius="4"
+                                                Background="#80000000">
+                                            <TextBlock Text="{Binding Label}" FontSize="10" FontWeight="Bold" Foreground="#eaeaf0"/>
+                                        </Border>
 
-                                            <!-- Active badge -->
-                                            <Border Grid.Column="1"
-                                                    IsVisible="{Binding IsActive}"
-                                                    Background="{DynamicResource AppAccentBg}" CornerRadius="4" Padding="8,4">
-                                                <TextBlock Text="ACTIVE" Foreground="#5b8def"
-                                                           FontSize="10" FontWeight="Bold"/>
-                                            </Border>
-                                            <!-- Select button -->
-                                            <Border Grid.Column="1"
-                                                    IsVisible="{Binding !IsActive}"
-                                                    Background="{DynamicResource AppBadgeBg}" CornerRadius="4" Padding="8,4">
-                                                <TextBlock Text="SÉLECTIONNER" Foreground="{DynamicResource AppFg3}"
-                                                           FontSize="10" FontWeight="SemiBold"/>
-                                            </Border>
-                                        </Grid>
+                                        <!-- LIVE badge -->
+                                        <Border IsVisible="{Binding IsLive}"
+                                                VerticalAlignment="Top" HorizontalAlignment="Left"
+                                                Margin="6" Padding="6,2" CornerRadius="4"
+                                                Background="#5b8def">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <Ellipse Width="5" Height="5" Fill="#eaeaf0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="LIVE" FontSize="9" FontWeight="Bold" Foreground="#eaeaf0"/>
+                                            </StackPanel>
+                                        </Border>
 
-                                    </Grid>
+                                        <!-- Filename strip -->
+                                        <Border VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
+                                                Padding="8,4" Background="#CC0B0B12">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{DynamicResource AppFg3}"
+                                                       FontSize="10" TextTrimming="CharacterEllipsis"/>
+                                        </Border>
+
+                                        <!-- Active glow border -->
+                                        <Border IsVisible="{Binding IsActive}"
+                                                BorderBrush="#5b8def" BorderThickness="2"
+                                                CornerRadius="8" IsHitTestVisible="False"/>
+
+                                    </Panel>
                                 </Border>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
 
-                <!-- Add Camera Card (static) -->
-                <Border Width="290" Height="195"
-                        Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppNavBadgeBg}" BorderThickness="1"
-                        CornerRadius="8" Margin="0,0,12,12" Cursor="Hand">
-                    <Button Background="Transparent" BorderThickness="0"
-                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                            Command="{Binding AddCameraCommand}">
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
-                            <Border Background="{DynamicResource AppSurface2}" CornerRadius="30" Width="40" Height="40"
-                                    HorizontalAlignment="Center">
-                                <TextBlock Text="+" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource AppFg6}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
-                            <TextBlock Text="Ajouter une caméra" Foreground="{DynamicResource AppFg5}" FontSize="12"
-                                       HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                </Border>
+            </Grid>
 
-            </WrapPanel>
-        </ScrollViewer>
+        </Grid>
 
     </Grid>
 

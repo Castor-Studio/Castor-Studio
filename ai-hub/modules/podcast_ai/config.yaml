@@ -1,0 +1,34 @@
+podcast_ai:
+  selector:
+    # Focus mode (someone speaking)
+    weight_audio: 0.6
+    weight_lips: 0.25
+    weight_person: 0.15
+    # Switch hysteresis
+    min_hold_time: 2.0
+    max_hold_time: 12.0
+    switch_margin: 0.10
+    # Silence handling → illustration mode
+    silence_grace_s: 2.5
+    illustration_camera_id: null   # Set to the id of your wide cam to nudge idle there.
+
+  vad:
+    # Silero VAD probability threshold per 32 ms frame.
+    threshold: 0.5
+    # Frame counter hysteresis (gabin-style).
+    speak_threshold: 5    # consecutive speaking frames to flip ON  (~160 ms)
+    silence_threshold: 20 # consecutive silence frames to flip OFF  (~640 ms)
+    min_db: -45.0         # Floor below which we ignore VAD positives.
+
+  yolo:
+    model: "yolo26n.pt"   # Falls back to yolo11n.pt, yolov8n.pt.
+    skip_frames: 3
+    confidence: 0.4
+    imgsz: 480
+
+  stream:
+    width: 640
+    height: 360
+    fps: 15
+    audio_sample_rate: 16000     # Must stay 16k for Silero VAD.
+    audio_chunk_samples: 512     # Must stay 512 for Silero VAD @ 16k.
