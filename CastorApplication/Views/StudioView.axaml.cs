@@ -23,37 +23,37 @@ namespace CastorApplication.Views
         {
             InitializeComponent();
 
-            bool vlcReady = false;
+            // DataContextChanged est toujours enregistré : même sans VLC on doit
+            // suivre les changements de scène pour d'éventuelles futures tentatives.
+            DataContextChanged += OnDataContextChanged;
+
             try
             {
                 LibVLCSharp.Shared.Core.Initialize();
-                vlcReady = true;
+
+                _libVLC      = new LibVLC("--network-caching=150");
+                _mediaPlayer = new MediaPlayer(_libVLC);
+
+                // Retry automatique si le flux n'est pas encore disponible ou se coupe
+                // ConfigureAwait(false) pour sortir du thread d'événement VLC avant de rappeler Play
+                _mediaPlayer.EncounteredError += async (_, _) =>
+                {
+                    await Task.Delay(2000).ConfigureAwait(false);
+                    PlayPreview();
+                };
+
+                _mediaPlayer.EndReached += async (_, _) =>
+                {
+                    await Task.Delay(1000).ConfigureAwait(false);
+                    PlayPreview();
+                };
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC : {ex.Message}");
+                // _libVLC et _mediaPlayer restent null — PlayPreview() et VideoView_OnAttached
+                // vérifient null avant tout appel natif.
             }
-
-            if (!vlcReady) return;
-
-            _libVLC      = new LibVLC("--network-caching=150");
-            _mediaPlayer = new MediaPlayer(_libVLC);
-
-            // Retry automatique si le flux n'est pas encore disponible ou se coupe
-            // ConfigureAwait(false) pour sortir du thread d'événement VLC avant de rappeler Play
-            _mediaPlayer.EncounteredError += async (_, _) =>
-            {
-                await Task.Delay(2000).ConfigureAwait(false);
-                PlayPreview();
-            };
-
-            _mediaPlayer.EndReached += async (_, _) =>
-            {
-                await Task.Delay(1000).ConfigureAwait(false);
-                PlayPreview();
-            };
-
-            DataContextChanged += OnDataContextChanged;
         }
 
         private void OnDataContextChanged(object? sender, EventArgs e)
@@ -87,21 +87,15 @@ namespace CastorApplication.Views
 
         private void PlayPreview()
         {
-            if (_isDisposed) return;
-
-            // Capture locale pour éviter le TOCTOU : un autre thread ne peut pas
-            // mettre _libVLC / _mediaPlayer à null entre le null-check et l'usage.
-            var libVlc      = _libVLC;
-            var mediaPlayer = _mediaPlayer;
-            if (libVlc == null || mediaPlayer == null) return;
+            if (_isDisposed || _libVLC == null || _mediaPlayer == null) return;
 
             var scene = SceneService.Instance.ActiveScene;
             if (scene == null) return;
 
             var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
             var old = _currentMedia;
-            _currentMedia = new Media(libVlc, new Uri(url), ":network-caching=150");
-            mediaPlayer.Play(_currentMedia);
+            _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=150");
+            _mediaPlayer.Play(_currentMedia);
             old?.Dispose();
         }
 
