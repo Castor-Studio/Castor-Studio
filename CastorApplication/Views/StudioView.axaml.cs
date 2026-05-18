@@ -140,19 +140,15 @@ namespace CastorApplication.Views
                 if (_mediaPlayer.IsPlaying)
                     _mediaPlayer.Stop();
 
-                // 3. On libère dans l'ordre (les refs locales évitent un double-free
-                //    si un thread concurrent avait capturé les champs avant le flag)
-                var mediaPlayer = _mediaPlayer;
-                var libVlc      = _libVLC;
-                var media       = _currentMedia;
-
+                // 3. On libère dans l'ordre
+                _currentMedia?.Dispose();
                 _currentMedia = null;
-                _mediaPlayer  = null;
-                _libVLC       = null;
 
-                media?.Dispose();
-                mediaPlayer.Dispose();
-                libVlc?.Dispose();
+                _mediaPlayer.Dispose();
+                _mediaPlayer = null;
+
+                _libVLC?.Dispose();
+                _libVLC = null;
             }
         }
     }
