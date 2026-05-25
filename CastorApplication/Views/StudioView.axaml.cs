@@ -69,6 +69,14 @@ namespace CastorApplication.Views
 
         private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            // Volume du player : appliqué immédiatement à VLC (0-100 → VLC accepte 0-200)
+            if (e.PropertyName == nameof(StudioViewModel.PlayerVolume))
+            {
+                if (_mediaPlayer != null && _vm != null)
+                    _mediaPlayer.Volume = (int)_vm.PlayerVolume;
+                return;
+            }
+
             if (e.PropertyName != nameof(StudioViewModel.ActiveScene)) return;
 
             // La scène active a changé : démarre son preview si nécessaire, puis bascule VLC sur son URL.
@@ -108,7 +116,11 @@ namespace CastorApplication.Views
 
                 // S'assure que libcastor pousse vers MediaMTX avant de lire
                 if (DataContext is StudioViewModel vm)
+                {
+                    // Applique le volume persisté dès l'attachement du player
+                    _mediaPlayer.Volume = (int)vm.PlayerVolume;
                     vm.EnsurePreviewRunning();
+                }
 
                 if (!_mediaPlayer.IsPlaying)
                     PlayPreview();

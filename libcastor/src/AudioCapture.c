@@ -554,9 +554,12 @@ CASTOR_CORE_API int audio_capture_init_source(AudioCaptureContext* ctx, AudioSou
             return audio_capture_init(ctx, NULL);
 
         case AUDIO_SOURCE_LOOPBACK_WINDOW:
-            /* Loopback par-process necessite ActivateAudioInterfaceAsync (C++ only).
-               Fallback sur loopback global en attendant. */
-            fprintf(stdout, "[AudioCapture] Loopback fenêtre → fallback global\n");
+            if (src->hwnd) {
+                int res = audio_capture_init_process_loopback(ctx, src->hwnd);
+                if (res == 0) return 0;
+                /* Fallback loopback global si le process loopback échoue (ex: Win < 19041) */
+                fprintf(stderr, "[AudioCapture] Process loopback échoué → fallback global\n");
+            }
             return audio_capture_init(ctx, NULL);
 
         case AUDIO_SOURCE_MICROPHONE:

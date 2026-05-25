@@ -70,6 +70,53 @@
 
         </StackPanel>
 
+        <!-- ── LECTURE ── -->
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="LECTURE"
+                       Classes="section-title"/>
+
+            <!-- Slider volume preview -->
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Volume de prévisualisation"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1"
+                            Spacing="6"
+                            MaxWidth="260">
+
+                    <Slider Minimum="0"
+                            Maximum="100"
+                            Value="{Binding PlayerVolume}"
+                            TickFrequency="5"
+                            IsSnapToTickEnabled="True"/>
+
+                    <TextBlock Text="{Binding PlayerVolumeLabel}"
+                               Foreground="{DynamicResource AppFg4}"
+                               FontSize="11"/>
+
+                </StackPanel>
+
+            </Grid>
+
+            <!-- Checkbox mute auto -->
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Couper le son en enregistrement / live"
+                           Classes="setting-label"
+                           TextWrapping="Wrap"/>
+
+                <CheckBox Grid.Column="1"
+                          IsChecked="{Binding MutePlayersOnRecord}"
+                          VerticalAlignment="Center"/>
+
+            </Grid>
+
+        </StackPanel>
+
     </StackPanel>
 
 </UserControl>
