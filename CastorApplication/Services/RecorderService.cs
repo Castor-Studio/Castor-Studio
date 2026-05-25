@@ -31,6 +31,13 @@ public sealed class RecorderService
     /// </summary>
     private readonly SemaphoreSlim _previewSemaphore = new(1, 1);
 
+    /// <summary>
+    /// Sérialise les appels à SwitchScene : si deux switches arrivent très vite,
+    /// le second attend que le premier appel natif soit terminé pour éviter un
+    /// appel concurrent à RecorderSwitchVideoSource sur le même pointeur.
+    /// </summary>
+    private readonly SemaphoreSlim _switchSemaphore = new(1, 1);
+
     public bool IsRecording => _recorderPtr != IntPtr.Zero;
     public bool IsStreaming => _streamPtr   != IntPtr.Zero;
 
@@ -334,24 +341,31 @@ public sealed class RecorderService
 
     /// <summary>
     /// Change la source vidéo à la volée sur les recorders actifs (enregistrement et stream).
-    /// Doit être appelé depuis un thread background pour ne pas bloquer le UI
-    /// et éviter les conflits WinRT lors de la réinitialisation de la capture.
-    /// Le preview est géré séparément via StartPreview().
+    /// Sérialisé via _switchSemaphore : si deux switches rapides arrivent, le second
+    /// attend la fin du premier pour éviter un appel concurrent sur le même pointeur natif.
     /// </summary>
     public int SwitchScene(SceneItem scene)
     {
-        var videoItem = scene.Sources.FirstOrDefault(s => s.Type == "Vidéo" && s.Tag is CaptureSourceInfo);
-        if (videoItem == null) return -1;
+        _switchSemaphore.Wait();
+        try
+        {
+            var videoItem = scene.Sources.FirstOrDefault(s => s.Type == "Vidéo" && s.Tag is CaptureSourceInfo);
+            if (videoItem == null) return -1;
 
-        var videoSrc = (CaptureSourceInfo)videoItem.Tag!;
-        int result = 0;
+            var videoSrc = (CaptureSourceInfo)videoItem.Tag!;
+            int result = 0;
 
-        if (IsRecording)
-            result = CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc);
+            if (IsRecording)
+                result = CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc);
 
-        if (IsStreaming && result == 0)
-            result = CastorNative.RecorderSwitchVideoSource(_streamPtr, streamIndex: 0, videoSrc);
+            if (IsStreaming && result == 0)
+                result = CastorNative.RecorderSwitchVideoSource(_streamPtr, streamIndex: 0, videoSrc);
 
-        return result;
+            return result;
+        }
+        finally
+        {
+            _switchSemaphore.Release();
+        }
     }
 }
