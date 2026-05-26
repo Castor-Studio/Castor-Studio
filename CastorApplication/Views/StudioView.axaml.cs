@@ -40,24 +40,36 @@ namespace CastorApplication.Views
             {
                 LibVLCSharp.Shared.Core.Initialize();
 
-                _libVLC      = new LibVLC("--network-caching=150");
+                _libVLC      = new LibVLC(
+                    "--network-caching=50",   // réduit de 150 → 50 ms
+                    "--live-caching=50",       // cache dédié aux flux RTMP live
+                    "--clock-jitter=0",        // désactive la compensation de jitter (ajoute du délai)
+                    "--clock-synchro=0"        // désactive la re-sync PTS (source de buffering supplémentaire)
+                );
                 _mediaPlayer = new MediaPlayer(_libVLC);
 
                 // Retry automatique si le flux n'est pas encore disponible ou se coupe.
-                // On passe le CTS courant pour ne pas rejouer si on a déjà switché de scène.
+                // On reappelle EnsurePreviewRunning() pour relancer le recorder si
+                // le démarrage initial a échoué (MediaMTX pas encore prêt, capture lente…).
                 _mediaPlayer.EncounteredError += async (_, _) =>
                 {
+                    if (_isDisposed) return;
                     var cts = _playCts;
                     try { await Task.Delay(2000, cts.Token).ConfigureAwait(false); }
-                    catch (OperationCanceledException) { return; }
+                    catch (Exception) { return; }   // OperationCanceledException ou ObjectDisposedException
+                    if (_isDisposed) return;
+                    _vm?.EnsurePreviewRunning();    // repart le recorder s'il avait échoué
                     PlayPreview();
                 };
 
                 _mediaPlayer.EndReached += async (_, _) =>
                 {
+                    if (_isDisposed) return;
                     var cts = _playCts;
                     try { await Task.Delay(1000, cts.Token).ConfigureAwait(false); }
-                    catch (OperationCanceledException) { return; }
+                    catch (Exception) { return; }
+                    if (_isDisposed) return;
+                    _vm?.EnsurePreviewRunning();
                     PlayPreview();
                 };
             }

@@ -30,7 +30,12 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     enc->ctx = avcodec_alloc_context3(codec);
     if (!enc->ctx) return -1;
 
-    const int gop = (cfg->gop_seconds > 0 ? cfg->gop_seconds : 2) * fps;
+    /* gop_seconds == 0 :
+     *   - zerolatency (preview) → fps/2 frames = 0,5 s à 30 fps : IDR fréquents,
+     *     permet à VLC de rejoindre le flux rapidement après une reconnexion.
+     *   - mode normal           → 2 s (défaut standard pour le broadcast). */
+    const int gop = cfg->gop_seconds > 0 ? cfg->gop_seconds * fps
+                  : (cfg->zerolatency   ? fps / 2 : 2 * fps);
 
     enc->ctx->width        = width;
     enc->ctx->height       = height;
@@ -55,10 +60,14 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     /* --- Mode CBR ou CRF --- */
     if (cfg->cbr && cfg->video_bitrate_kbps > 0) {
         const int bps = cfg->video_bitrate_kbps * 1000;
-        enc->ctx->bit_rate  = bps;
+        enc->ctx->bit_rate    = bps;
         enc->ctx->rc_min_rate = bps;
         enc->ctx->rc_max_rate = bps;
-        enc->ctx->rc_buffer_size = bps * 2;  /* buffer = 2 * bitrate */
+        /* En mode zerolatency (preview live) : VBV = 0.5 s → réduit le buffer
+         * encoder côté RTMP sans casser le flux (x264 tolère ce VBV serré
+         * avec tune=zerolatency car nal-hrd est désactivé).
+         * En mode normal (broadcast) : VBV = 2 s → headroom réseau standard. */
+        enc->ctx->rc_buffer_size = cfg->zerolatency ? bps / 2 : bps * 2;
     }
 
     if (avcodec_open2(enc->ctx, codec, NULL) < 0) {

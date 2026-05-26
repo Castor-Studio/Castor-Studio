@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Castor.Native;
 using CastorApplication.Models;
 using CastorApplication.Services;
+using CastorApplication.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -30,10 +31,47 @@ public partial class ScenesViewModel : ViewModelBase
     public ObservableCollection<AudioSourceOption>   AvailableLoopbacks { get; } = new();
     public ObservableCollection<AudioSourceOption>   AvailableMics      { get; } = new();
 
+    // ── Player preview (volume + mute auto) ─────────────────────────────────
+
+    [ObservableProperty]
+    private double _playerVolume = 80;
+
+    [ObservableProperty]
+    private bool _mutePlayersOnRecord = true;
+
+    private double _savedPlayerVolume = 80;
+    private bool _mutedForCapture;
+
+    private void ApplyAutoMute()
+    {
+        if (!MutePlayersOnRecord || _mutedForCapture) return;
+        _savedPlayerVolume = PlayerVolume;
+        PlayerVolume       = 0;
+        _mutedForCapture   = true;
+    }
+
+    private void RestoreAutoMute()
+    {
+        if (!_mutedForCapture) return;
+        if (RecorderService.Instance.IsRecording || RecorderService.Instance.IsStreaming) return;
+        PlayerVolume     = _savedPlayerVolume;
+        _mutedForCapture = false;
+    }
+
     // ── Constructeur ─────────────────────────────────────────────────────────
 
-    public ScenesViewModel()
+    public ScenesViewModel(SettingsService settingsService)
     {
+        var settings     = settingsService.Load();
+        _playerVolume        = settings.PlayerVolume;
+        _mutePlayersOnRecord = settings.MutePlayersOnRecord;
+        _savedPlayerVolume   = _playerVolume;
+
+        RecorderService.Instance.RecordingStarted  += ApplyAutoMute;
+        RecorderService.Instance.RecordingStopped  += RestoreAutoMute;
+        RecorderService.Instance.StreamingStarted  += ApplyAutoMute;
+        RecorderService.Instance.StreamingStopped  += RestoreAutoMute;
+
         // Synchronise la sélection UI avec la scène active du service
         SelectedScene = SceneService.Instance.ActiveScene;
 

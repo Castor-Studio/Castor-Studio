@@ -41,6 +41,12 @@ public sealed class RecorderService
     public bool IsRecording => _recorderPtr != IntPtr.Zero;
     public bool IsStreaming => _streamPtr   != IntPtr.Zero;
 
+    // ── Events d'état (abonnés par ScenesViewModel pour l'auto-mute) ──────────
+    public event Action? RecordingStarted;
+    public event Action? RecordingStopped;
+    public event Action? StreamingStarted;
+    public event Action? StreamingStopped;
+
     /// <summary>Retourne true si un flux de preview est actif pour cette scène.</summary>
     public bool IsPreviewActive(Guid sceneId)
     {
@@ -102,6 +108,7 @@ public sealed class RecorderService
             return result;
         }
 
+        RecordingStarted?.Invoke();
         return 0;
     }
 
@@ -115,6 +122,7 @@ public sealed class RecorderService
         CastorNative.RecorderStop(_recorderPtr);
         CastorNative.RecorderDestroy(_recorderPtr);
         _recorderPtr = IntPtr.Zero;
+        RecordingStopped?.Invoke();
     }
 
     /// <summary>
@@ -188,6 +196,7 @@ public sealed class RecorderService
             return result;
         }
 
+        StreamingStarted?.Invoke();
         return 0;
     }
 
@@ -198,6 +207,7 @@ public sealed class RecorderService
         CastorNative.RecorderStop(_streamPtr);
         CastorNative.RecorderDestroy(_streamPtr);
         _streamPtr = IntPtr.Zero;
+        StreamingStopped?.Invoke();
     }
 
     // ── Preview local (MediaMTX) — un flux indépendant par scène ─────────────
@@ -252,7 +262,10 @@ public sealed class RecorderService
                     Destination      = MediaMtxService.GetPreviewPushUrl(scene.Id),
                     VideoBitrateKbps = 3000,
                     AudioBitrateKbps = 128,
-                    GopSeconds       = 1,
+                    // GopSeconds = 0 : en mode zerolatency, VideoEncode.c utilise
+                    // fps/2 frames (0,5 s à 30 fps) → IDR plus fréquents, VLC
+                    // peut rejoindre le flux plus vite après une reconnexion.
+                    GopSeconds       = 0,
                 }
             };
 
