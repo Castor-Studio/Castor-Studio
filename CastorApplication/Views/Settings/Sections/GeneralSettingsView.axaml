@@ -1,0 +1,126 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
+             x:Class="CastorApplication.Views.Settings.Sections.GeneralSettingsView"
+             x:DataType="vm:GeneralSettingsViewModel">
+
+    <StackPanel Margin="28,20"
+                Spacing="28">
+
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="GÉNÉRAL"
+                       Classes="section-title"/>
+
+            <Grid ColumnDefinitions="180,*">
+                <TextBlock Grid.Column="0"
+                           Text="Langue"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedLanguageIndex}">
+
+                    <ComboBoxItem Content="Français"/>
+                    <ComboBoxItem Content="English"/>
+                    <ComboBoxItem Content="Español"/>
+
+                </ComboBox>
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+                <TextBlock Grid.Column="0"
+                           Text="Démarrage automatique"
+                           Classes="setting-label"/>
+
+                <CheckBox Grid.Column="1"
+                          IsChecked="{Binding AutoStart}"/>
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+                <TextBlock Grid.Column="0"
+                           Text="Thème"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedThemeIndex}">
+
+                    <ComboBoxItem Content="Sombre"/>
+                    <ComboBoxItem Content="Clair"/>
+
+                </ComboBox>
+            </Grid>
+
+            <Rectangle Height="1"
+                       Fill="{DynamicResource AppBorder}"
+                       Margin="0,4"/>
+
+            <Border Background="{DynamicResource AppSurface}"
+                    BorderBrush="{DynamicResource AppBorder}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="16,14">
+
+                <Grid ColumnDefinitions="*,Auto">
+
+                    <StackPanel Grid.Column="0"
+                                Spacing="4">
+
+                        <TextBlock Text="Castor Studio"
+                                   Foreground="{DynamicResource AppFg1}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"/>
+
+                        <TextBlock Text="Libérez le flot de vos événements"
+                                   Foreground="{DynamicResource AppFg4}"
+                                   FontSize="11"
+                                   FontStyle="Italic"/>
+
+                        <TextBlock Text="castor-studio.app"
+                                   Foreground="#5b8def"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="6">
+
+                        <Button Content="Documentation"
+                                Background="{DynamicResource AppAccentBg}"
+                                Foreground="#5b8def"
+                                BorderThickness="0"
+                                Padding="12,6"
+                                CornerRadius="5"
+                                FontSize="11"
+                                FontWeight="SemiBold"
+                                HorizontalContentAlignment="Center"
+                                MinWidth="120"/>
+
+                        <Button Content="Support"
+                                Background="{DynamicResource AppSurface2}"
+                                Foreground="{DynamicResource AppFg3}"
+                                BorderThickness="1"
+                                BorderBrush="{DynamicResource AppBorder2}"
+                                Padding="12,6"
+                                CornerRadius="5"
+                                FontSize="11"
+                                FontWeight="SemiBold"
+                                HorizontalContentAlignment="Center"
+                                MinWidth="120"/>
+
+                    </StackPanel>
+
+                </Grid>
+
+            </Border>
+
+        </StackPanel>
+
+    </StackPanel>
+
+</UserControl>

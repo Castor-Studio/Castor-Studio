@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:settings="using:CastorApplication.ViewModels.Settings"
+             x:Class="CastorApplication.Views.Settings.Components.SettingsNavItem"
+             x:DataType="settings:SettingsSectionItem">
+
+    <UserControl.Styles>
+
+        <Style Selector="Button.settings-nav">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.settings-nav:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        </Style>
+
+    </UserControl.Styles>
+
+    <Grid>
+
+        <!-- SELECTED -->
+        <Border IsVisible="{Binding IsSelected}"
+                Background="{DynamicResource AppAccentBg2}"
+                BorderBrush="#5b8def"
+                BorderThickness="3,0,0,0">
+
+            <TextBlock Text="{Binding Title}"
+                       Foreground="{DynamicResource AppFg1}"
+                       FontSize="13"
+                       FontWeight="SemiBold"
+                       Margin="15,10"/>
+        </Border>
+
+        <!-- NORMAL -->
+        <Button IsVisible="{Binding !IsSelected}"
+                Classes="settings-nav"
+                Content="{Binding Title}"
+                Command="{Binding SelectCommand}"
+                CommandParameter="{Binding}" />
+
+    </Grid>
+
+</UserControl>

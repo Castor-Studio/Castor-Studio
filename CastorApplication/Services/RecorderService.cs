@@ -98,15 +98,25 @@ public sealed class RecorderService
         return 0;
     }
 
-    /// <summary>Arrête l'enregistrement en cours.</summary>
-    public void Stop()
+    /// <summary>
+    /// Arrête uniquement l'enregistrement en cours.
+    /// Les previews et le stream restent actifs.
+    /// </summary>
+    public void StopRecording()
     {
-        if (_recorderPtr != IntPtr.Zero)
-        {
-            CastorNative.RecorderStop(_recorderPtr);
-            CastorNative.RecorderDestroy(_recorderPtr);
-            _recorderPtr = IntPtr.Zero;
-        }
+        if (_recorderPtr == IntPtr.Zero) return;
+        CastorNative.RecorderStop(_recorderPtr);
+        CastorNative.RecorderDestroy(_recorderPtr);
+        _recorderPtr = IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// Arrête tout (enregistrement, stream, previews).
+    /// Réservé au shutdown de l'application.
+    /// </summary>
+    public void StopAll()
+    {
+        StopRecording();
         StopStream();
         StopAllPreviews();
     }
@@ -127,10 +137,15 @@ public sealed class RecorderService
         if (videoItem == null) return -2;
 
         string? rtmpUrl = CastorNative.GetStreamingUrl(service, streamKeyOrUrl);
+        System.Diagnostics.Debug.WriteLine($"[Stream] service={service} key='{streamKeyOrUrl}' → url='{rtmpUrl}'");
         if (string.IsNullOrEmpty(rtmpUrl)) return -4;
 
         var videoSrc = (CaptureSourceInfo)videoItem.Tag!;
         var audioSrc = audioItem != null ? (AudioSourceInfo)audioItem.Tag! : default;
+
+        System.Diagnostics.Debug.WriteLine($"[Stream] RecorderCreate → scene='{scene.Name}'" +
+            $", src.Type={videoSrc.Type}, hwnd=0x{videoSrc.Hwnd:X}, hmonitor=0x{videoSrc.HMonitor:X}" +
+            $", audioItem={(audioItem != null ? audioSrc.Label : "none")}");
 
         var config = new RecorderConfig
         {
@@ -154,9 +169,11 @@ public sealed class RecorderService
         };
 
         _streamPtr = CastorNative.RecorderCreate(ref config);
+        System.Diagnostics.Debug.WriteLine($"[Stream] RecorderCreate retourné : ptr=0x{_streamPtr:X}");
         if (_streamPtr == IntPtr.Zero) return -3;
 
         int result = CastorNative.RecorderStart(_streamPtr);
+        System.Diagnostics.Debug.WriteLine($"[Stream] RecorderStart retourné : {result}");
         if (result != 0)
         {
             CastorNative.RecorderDestroy(_streamPtr);

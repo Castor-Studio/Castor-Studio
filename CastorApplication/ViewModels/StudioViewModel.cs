@@ -11,6 +11,7 @@ using Castor.Native;
 using CastorApplication.Factories;
 using CastorApplication.Models;
 using CastorApplication.Services;
+using CastorApplication.Services.Auth.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Dock.Model.Controls;
@@ -101,6 +102,53 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(StreamTimerBrush));
     }
 
+    // ── Provider helpers ──
+
+    private static string? GetProviderId(int platformIndex) => platformIndex switch
+    {
+        0 => "twitch",
+        1 => "youtube",
+        2 => "facebook",
+        _ => null   // RTMP Manuel
+    };
+
+    private static string GetPlatformName(int platformIndex) => platformIndex switch
+    {
+        0 => "Twitch",
+        1 => "YouTube Live",
+        2 => "Facebook Live",
+        _ => "RTMP"
+    };
+
+    [ObservableProperty]
+    private bool _isManualKeyRequired = true;
+
+    [ObservableProperty]
+    private string _connectedAccountLabel = "";
+
+    private void RefreshProviderState(int platformIndex)
+    {
+        var providerId = GetProviderId(platformIndex);
+        if (providerId == null)
+        {
+            IsManualKeyRequired = true;
+            ConnectedAccountLabel = "";
+            return;
+        }
+
+        var provider = _providerStore.Get(providerId);
+        IsManualKeyRequired = provider == null;
+        ConnectedAccountLabel = provider != null ? $"Connecté en tant que {provider.UserName}" : "";
+    }
+
+    partial void OnStreamPlatformIndexChanged(int value)
+    {
+        RefreshProviderState(value);
+
+        if (value == 3 && string.IsNullOrWhiteSpace(StreamRtmpKey))
+            StreamRtmpKey = AppSettings.CustomRtmpUrl;
+    }
+
     // ── Recording state (F2) ──
 
     [ObservableProperty]
@@ -125,8 +173,12 @@ public partial class StudioViewModel : ViewModelBase
 
     // ── Constructor ──
 
-    public StudioViewModel()
+    private readonly IProviderStore _providerStore;
+
+    public StudioViewModel(IProviderStore providerStore)
     {
+        _providerStore = providerStore;
+        RefreshProviderState(_streamPlatformIndex);
         var factory = new StudioDockFactory(this);
         Layout = factory.CreateLayout();
         factory.InitLayout(Layout);
@@ -191,19 +243,45 @@ public partial class StudioViewModel : ViewModelBase
 
         // Mapping index UI flyout → CastorServiceType
         // 0=Twitch, 1=YouTube Live, 2=Facebook Live, 3=RTMP Manuel
-        CastorServiceType service;
-        string keyOrUrl = StreamRtmpKey;
-        service = StreamPlatformIndex switch
+        CastorServiceType service = StreamPlatformIndex switch
         {
             0 => CastorServiceType.Twitch,
             1 => CastorServiceType.YouTube,
-            _ => CastorServiceType.Custom   // Facebook ou RTMP Manuel
+            _ => CastorServiceType.Custom
         };
 
-        if (string.IsNullOrWhiteSpace(keyOrUrl))
+        string keyOrUrl;
+        var providerId = GetProviderId(StreamPlatformIndex);
+        if (providerId != null)
         {
-            StreamError = "Clé de stream ou URL RTMP manquante.";
-            return;
+            var provider = _providerStore.Get(providerId);
+            if (provider != null)
+            {
+                if (string.IsNullOrWhiteSpace(provider.StreamKey))
+                {
+                    StreamError = $"Compte {GetPlatformName(StreamPlatformIndex)} déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
+                    return;
+                }
+                keyOrUrl = provider.StreamKey!;
+            }
+            else
+            {
+                keyOrUrl = StreamRtmpKey;
+                if (string.IsNullOrWhiteSpace(keyOrUrl))
+                {
+                    StreamError = "Clé de stream ou URL RTMP manquante.";
+                    return;
+                }
+            }
+        }
+        else
+        {
+            keyOrUrl = StreamRtmpKey;
+            if (string.IsNullOrWhiteSpace(keyOrUrl))
+            {
+                StreamError = "URL RTMP manquante.";
+                return;
+            }
         }
 
         // Lance le preview local si pas encore actif
@@ -272,7 +350,7 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private void StopRecording()
     {
-        RecorderService.Instance.Stop();
+        RecorderService.Instance.StopRecording();
         IsRecording = false;
     }
 

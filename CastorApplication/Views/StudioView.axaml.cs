@@ -16,38 +16,44 @@ namespace CastorApplication.Views
         private MediaPlayer? _mediaPlayer;
         private Media? _currentMedia;
         private StudioViewModel? _vm;
+        // Flag pour éviter tout appel natif VLC après libération des ressources
+        private volatile bool _isDisposed;
 
         public StudioView()
         {
             InitializeComponent();
 
+            // DataContextChanged est toujours enregistré : même sans VLC on doit
+            // suivre les changements de scène pour d'éventuelles futures tentatives.
+            DataContextChanged += OnDataContextChanged;
+
             try
             {
                 LibVLCSharp.Shared.Core.Initialize();
+
+                _libVLC      = new LibVLC("--network-caching=150");
+                _mediaPlayer = new MediaPlayer(_libVLC);
+
+                // Retry automatique si le flux n'est pas encore disponible ou se coupe
+                // ConfigureAwait(false) pour sortir du thread d'événement VLC avant de rappeler Play
+                _mediaPlayer.EncounteredError += async (_, _) =>
+                {
+                    await Task.Delay(2000).ConfigureAwait(false);
+                    PlayPreview();
+                };
+
+                _mediaPlayer.EndReached += async (_, _) =>
+                {
+                    await Task.Delay(1000).ConfigureAwait(false);
+                    PlayPreview();
+                };
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC : {ex.Message}");
+                // _libVLC et _mediaPlayer restent null — PlayPreview() et VideoView_OnAttached
+                // vérifient null avant tout appel natif.
             }
-
-            _libVLC      = new LibVLC("--network-caching=150");
-            _mediaPlayer = new MediaPlayer(_libVLC);
-
-            // Retry automatique si le flux n'est pas encore disponible ou se coupe
-            // ConfigureAwait(false) pour sortir du thread d'événement VLC avant de rappeler Play
-            _mediaPlayer.EncounteredError += async (_, _) =>
-            {
-                await Task.Delay(2000).ConfigureAwait(false);
-                PlayPreview();
-            };
-
-            _mediaPlayer.EndReached += async (_, _) =>
-            {
-                await Task.Delay(1000).ConfigureAwait(false);
-                PlayPreview();
-            };
-
-            DataContextChanged += OnDataContextChanged;
         }
 
         private void OnDataContextChanged(object? sender, EventArgs e)
@@ -81,7 +87,7 @@ namespace CastorApplication.Views
 
         private void PlayPreview()
         {
-            if (_libVLC == null || _mediaPlayer == null) return;
+            if (_isDisposed || _libVLC == null || _mediaPlayer == null) return;
 
             var scene = SceneService.Instance.ActiveScene;
             if (scene == null) return;
@@ -113,6 +119,10 @@ namespace CastorApplication.Views
         {
             base.OnUnloaded(e);
 
+            // Bloque immédiatement tout nouvel appel à PlayPreview() venant des
+            // callbacks VLC (EncounteredError / EndReached) encore en vol.
+            _isDisposed = true;
+
             if (_vm != null)
             {
                 _vm.PropertyChanged -= OnVmPropertyChanged;
@@ -124,23 +134,20 @@ namespace CastorApplication.Views
                 // 1. On détache le lien avec le contrôle visuel (CRITIQUE)
                 var videoView = this.FindControl<VideoView>("VideoPlayer");
                 if (videoView != null)
-                {
                     videoView.MediaPlayer = null;
-                }
 
                 // 2. On arrête le flux
                 if (_mediaPlayer.IsPlaying)
-                {
                     _mediaPlayer.Stop();
-                }
 
                 // 3. On libère dans l'ordre
                 _currentMedia?.Dispose();
                 _currentMedia = null;
-                _mediaPlayer.Dispose();
-                _libVLC?.Dispose();
 
+                _mediaPlayer.Dispose();
                 _mediaPlayer = null;
+
+                _libVLC?.Dispose();
                 _libVLC = null;
             }
         }

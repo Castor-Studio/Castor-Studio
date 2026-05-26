@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Markup.Xaml;
 
-namespace CastorApplication.Views;
+namespace CastorApplication.Views.Settings;
 
 public partial class SettingsView : UserControl
 {

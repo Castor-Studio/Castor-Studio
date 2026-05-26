@@ -1,9 +1,9 @@
-using CastorApplication.Models;
+using CastorApplication.Models.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace CastorApplication.ViewModels.Settings;
+namespace CastorApplication.ViewModels.Settings.Sections;
 
-public partial class StreamingSettingsSectionViewModel : SettingsSectionViewModel
+public partial class StreamingSettingsViewModel : SettingsSectionViewModel
 {
     [ObservableProperty]
     private int _selectedPlatformIndex;

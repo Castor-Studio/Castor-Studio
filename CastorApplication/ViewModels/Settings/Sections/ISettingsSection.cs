@@ -1,6 +1,6 @@
-using CastorApplication.Models;
+﻿using CastorApplication.Models.Settings;
 
-namespace CastorApplication.ViewModels;
+namespace CastorApplication.ViewModels.Settings.Sections;
 
 public interface ISettingsSection
 {

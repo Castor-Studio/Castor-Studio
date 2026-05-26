@@ -1,11 +1,11 @@
 using Avalonia;
 using Avalonia.Styling;
-using CastorApplication.Models;
+using CastorApplication.Models.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace CastorApplication.ViewModels.Settings;
+namespace CastorApplication.ViewModels.Settings.Sections;
 
-public partial class GeneralSettingsSectionViewModel : SettingsSectionViewModel
+public partial class GeneralSettingsViewModel : SettingsSectionViewModel
 {
     [ObservableProperty]
     private int _selectedLanguageIndex;
