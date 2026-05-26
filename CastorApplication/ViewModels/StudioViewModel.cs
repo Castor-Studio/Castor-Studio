@@ -208,10 +208,12 @@ public partial class StudioViewModel : ViewModelBase
     // ── Constructor ──
 
     private readonly IProviderStore _providerStore;
+    private readonly SettingsService _settingsService;
 
     public StudioViewModel(IProviderStore providerStore, SettingsService settingsService)
     {
-        _providerStore = providerStore;
+        _providerStore   = providerStore;
+        _settingsService = settingsService;
 
         // Charge les valeurs de lecture depuis les paramètres persistés
         var settings = settingsService.Load();
@@ -224,6 +226,23 @@ public partial class StudioViewModel : ViewModelBase
         Layout = factory.CreateLayout();
         factory.InitLayout(Layout);
     }
+
+    // ── Helpers settings → valeurs encoder ───────────────────────────────────
+
+    private static int FpsFromIndex(int index) => index switch
+    {
+        0 => 60,
+        2 => 25,
+        _ => 30,
+    };
+
+    private static (string extension, CastorVideoCodec vcodec, CastorAudioCodec acodec)
+        FormatFromIndex(int index) => index switch
+    {
+        1 => (".mkv",  CastorVideoCodec.H264, CastorAudioCodec.AAC),
+        2 => (".webm", CastorVideoCodec.VP9,  CastorAudioCodec.Opus),
+        _ => (".mp4",  CastorVideoCodec.H264, CastorAudioCodec.AAC),
+    };
 
     /// <summary>
     /// Démarre le preview si une scène vidéo est active et que le preview ne tourne pas déjà.
@@ -333,8 +352,13 @@ public partial class StudioViewModel : ViewModelBase
                 System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview (StartStreaming) retourné : {r}");
             });
 
+        var streamSettings = _settingsService.Load();
+        int streamFps     = FpsFromIndex(streamSettings.SelectedFpsIndex);
+        int streamBitrate = (int)streamSettings.VideoBitrate;
+
         // streaming_service_get_url peut faire un appel HTTPS (Twitch) → thread BG
-        int result = await Task.Run(() => RecorderService.Instance.StartStream(scene, service, keyOrUrl));
+        int result = await Task.Run(() =>
+            RecorderService.Instance.StartStream(scene, service, keyOrUrl, streamFps, streamBitrate));
 
         if (result == 0)
         {
@@ -373,10 +397,15 @@ public partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        var path = await PickOutputFileAsync();
+        var settings = _settingsService.Load();
+        var (ext, vcodec, acodec) = FormatFromIndex(settings.SelectedOutputFormatIndex);
+        int fps     = FpsFromIndex(settings.SelectedFpsIndex);
+        int bitrate = (int)settings.VideoBitrate;
+
+        var path = await PickOutputFileAsync(ext, vcodec, acodec);
         if (path == null) return; // annulé par l'utilisateur
 
-        int result = RecorderService.Instance.Start(scene, path);
+        int result = RecorderService.Instance.Start(scene, path, fps, bitrate, vcodec, acodec);
         if (result == 0)
         {
             IsRecording = true;
@@ -401,7 +430,8 @@ public partial class StudioViewModel : ViewModelBase
         RestoreAutoMute();
     }
 
-    private static async Task<string?> PickOutputFileAsync()
+    private static async Task<string?> PickOutputFileAsync(
+        string extension, CastorVideoCodec vcodec, CastorAudioCodec acodec)
     {
         if (Application.Current?.ApplicationLifetime
             is not IClassicDesktopStyleApplicationLifetime desktop)
@@ -410,18 +440,29 @@ public partial class StudioViewModel : ViewModelBase
         var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
         if (topLevel == null) return null;
 
+        string label = (vcodec, acodec) switch
+        {
+            (CastorVideoCodec.VP9,  CastorAudioCodec.Opus) => "WebM (VP9 + Opus)",
+            (CastorVideoCodec.H264, _) when extension == ".mkv" => "MKV (H.264 + AAC)",
+            _ => "MP4 (H.264 + AAC)",
+        };
+
         var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title             = "Enregistrer la vidéo sous...",
-            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}",
+            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}{extension}",
             FileTypeChoices   =
             [
-                new FilePickerFileType("MP4 (H.264 + AAC)") { Patterns = ["*.mp4"] },
-                new FilePickerFileType("MKV (H.264 + AAC)") { Patterns = ["*.mkv"] },
+                new FilePickerFileType(label) { Patterns = [$"*{extension}"] },
             ]
         });
 
-        return file?.Path.LocalPath;
+        // Garantir que le chemin retourné a la bonne extension
+        var path = file?.Path.LocalPath;
+        if (path != null && !path.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            path += extension;
+
+        return path;
     }
 
     // ── Source management ──

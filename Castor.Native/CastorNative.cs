@@ -297,6 +297,9 @@ namespace Castor.Native
     public enum CastorOutputType  { File = 0, Rtmp = 1 }
     public enum CastorServiceType { Custom = 0, Twitch = 1, YouTube = 2 }
 
+    public enum CastorVideoCodec { H264 = 0, VP9 = 1 }
+    public enum CastorAudioCodec { AAC  = 0, Opus = 1 }
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
     public struct OutputConfig
     {
@@ -308,6 +311,9 @@ namespace Castor.Native
         public int VideoBitrateKbps;
         public int AudioBitrateKbps;
         public int GopSeconds;
+
+        public CastorVideoCodec VideoCodec;
+        public CastorAudioCodec AudioCodec;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]

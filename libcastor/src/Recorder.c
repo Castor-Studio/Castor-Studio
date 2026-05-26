@@ -232,10 +232,25 @@ static int stream_init(StreamState* s) {
     if (s->config.output.type == CASTOR_OUTPUT_RTMP) {
         vcfg = video_encoder_config_rtmp(s->config.output.video_bitrate_kbps,
                                          s->config.output.gop_seconds);
-        acfg.audio_bitrate_kbps = s->config.output.audio_bitrate_kbps;
+        vcfg.video_codec        = CASTOR_VCODEC_H264; /* RTMP = H264 uniquement */
+        acfg.audio_bitrate_kbps = s->config.output.audio_bitrate_kbps > 0
+                                  ? s->config.output.audio_bitrate_kbps : 128;
+        acfg.audio_codec        = CASTOR_ACODEC_AAC;  /* RTMP = AAC uniquement  */
     } else {
-        vcfg = video_encoder_config_default();
-        acfg = audio_encoder_config_default();
+        /* Fichier : CBR si bitrate specifie, CRF sinon */
+        if (s->config.output.video_bitrate_kbps > 0) {
+            vcfg.cbr                = 1;
+            vcfg.video_bitrate_kbps = s->config.output.video_bitrate_kbps;
+            vcfg.gop_seconds        = s->config.output.gop_seconds > 0
+                                      ? s->config.output.gop_seconds : 2;
+            vcfg.zerolatency        = 0;
+        } else {
+            vcfg = video_encoder_config_default();
+        }
+        vcfg.video_codec        = s->config.output.video_codec;
+        acfg.audio_bitrate_kbps = s->config.output.audio_bitrate_kbps > 0
+                                  ? s->config.output.audio_bitrate_kbps : 128;
+        acfg.audio_codec        = s->config.output.audio_codec;
     }
 
     if (video_encoder_init_ex(&s->venc,

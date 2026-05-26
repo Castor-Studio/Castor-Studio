@@ -14,16 +14,27 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     VideoEncoderConfig defaults = video_encoder_config_default();
     if (!cfg) cfg = &defaults;
 
-    /* Preferer libx264 : supporte CBR, preset, tune=zerolatency.
-     * h264_mf (Media Foundation) ignore ces options et est deconseille pour RTMP. */
-    const AVCodec* codec = avcodec_find_encoder_by_name("libx264");
-    if (!codec) {
-        fprintf(stderr, "[VideoEncoder] libx264 introuvable, fallback vers codec H264 systeme\n");
-        codec = avcodec_find_encoder(AV_CODEC_ID_H264);
-    }
-    if (!codec) {
-        fprintf(stderr, "[VideoEncoder] aucun codec H264 disponible\n");
-        return -1;
+    const AVCodec* codec = NULL;
+    const int use_vp9 = (cfg->video_codec == CASTOR_VCODEC_VP9);
+
+    if (use_vp9) {
+        codec = avcodec_find_encoder_by_name("libvpx-vp9");
+        if (!codec) {
+            fprintf(stderr, "[VideoEncoder] libvpx-vp9 introuvable\n");
+            return -1;
+        }
+    } else {
+        /* Preferer libx264 : supporte CBR, preset, tune=zerolatency.
+         * h264_mf (Media Foundation) ignore ces options et est deconseille pour RTMP. */
+        codec = avcodec_find_encoder_by_name("libx264");
+        if (!codec) {
+            fprintf(stderr, "[VideoEncoder] libx264 introuvable, fallback vers codec H264 systeme\n");
+            codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+        }
+        if (!codec) {
+            fprintf(stderr, "[VideoEncoder] aucun codec H264 disponible\n");
+            return -1;
+        }
     }
     fprintf(stderr, "[VideoEncoder] codec : %s\n", codec->name);
 
@@ -49,25 +60,47 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     enc->first_pts     = 0;
     enc->first_pts_set = 0;
 
-    /* --- Preset --- */
-    av_opt_set(enc->ctx->priv_data, "preset",
-               cfg->zerolatency ? "ultrafast" : "veryfast", 0);
+    if (use_vp9) {
+        /* --- libvpx-vp9 --- */
+        if (cfg->cbr && cfg->video_bitrate_kbps > 0) {
+            const int bps = cfg->video_bitrate_kbps * 1000;
+            enc->ctx->bit_rate       = bps;
+            enc->ctx->rc_min_rate    = bps;
+            enc->ctx->rc_max_rate    = bps;
+            enc->ctx->rc_buffer_size = cfg->zerolatency ? bps / 2 : bps * 2;
+            av_opt_set(enc->ctx->priv_data, "deadline",
+                       cfg->zerolatency ? "realtime" : "good", 0);
+            av_opt_set(enc->ctx->priv_data, "cpu-used",
+                       cfg->zerolatency ? "8" : "4", 0);
+        } else {
+            /* CQ (constrained quality) — equivalent CRF pour VP9 */
+            enc->ctx->bit_rate = 0;
+            av_opt_set(enc->ctx->priv_data, "deadline", "good", 0);
+            av_opt_set(enc->ctx->priv_data, "cpu-used", "4", 0);
+            av_opt_set_int(enc->ctx->priv_data, "crf", 33, AV_OPT_SEARCH_CHILDREN);
+        }
+    } else {
+        /* --- libx264 --- */
 
-    /* --- Latence zero (streaming) --- */
-    if (cfg->zerolatency)
-        av_opt_set(enc->ctx->priv_data, "tune", "zerolatency", 0);
+        /* Preset */
+        av_opt_set(enc->ctx->priv_data, "preset",
+                   cfg->zerolatency ? "ultrafast" : "veryfast", 0);
 
-    /* --- Mode CBR ou CRF --- */
-    if (cfg->cbr && cfg->video_bitrate_kbps > 0) {
-        const int bps = cfg->video_bitrate_kbps * 1000;
-        enc->ctx->bit_rate    = bps;
-        enc->ctx->rc_min_rate = bps;
-        enc->ctx->rc_max_rate = bps;
-        /* En mode zerolatency (preview live) : VBV = 0.5 s → réduit le buffer
-         * encoder côté RTMP sans casser le flux (x264 tolère ce VBV serré
-         * avec tune=zerolatency car nal-hrd est désactivé).
-         * En mode normal (broadcast) : VBV = 2 s → headroom réseau standard. */
-        enc->ctx->rc_buffer_size = cfg->zerolatency ? bps / 2 : bps * 2;
+        /* Latence zero (streaming) */
+        if (cfg->zerolatency)
+            av_opt_set(enc->ctx->priv_data, "tune", "zerolatency", 0);
+
+        /* Mode CBR ou CRF */
+        if (cfg->cbr && cfg->video_bitrate_kbps > 0) {
+            const int bps = cfg->video_bitrate_kbps * 1000;
+            enc->ctx->bit_rate       = bps;
+            enc->ctx->rc_min_rate    = bps;
+            enc->ctx->rc_max_rate    = bps;
+            /* En mode zerolatency (preview live) : VBV = 0.5 s → réduit le buffer
+             * encoder côté RTMP sans casser le flux.
+             * En mode normal (broadcast) : VBV = 2 s → headroom réseau standard. */
+            enc->ctx->rc_buffer_size = cfg->zerolatency ? bps / 2 : bps * 2;
+        }
     }
 
     if (avcodec_open2(enc->ctx, codec, NULL) < 0) {

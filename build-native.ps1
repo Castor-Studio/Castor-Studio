@@ -1,7 +1,8 @@
 # build-native.ps1
 
 param(
-    [string]$Preset = "x64-debug"
+    [string]$Preset = "x64-debug",
+    [switch]$Reconfigure   # Supprime le build dir existant pour forcer une reconfiguration cmake
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,6 +44,11 @@ foreach ($line in $envVars) {
 # configuration
 $buildDir = "out/build/$Preset"
 $ninjaFile = Join-Path $buildDir "build.ninja"
+
+if ($Reconfigure -and (Test-Path $buildDir)) {
+    Write-Host "[build-native] -Reconfigure : suppression de $buildDir ..."
+    Remove-Item -Recurse -Force $buildDir
+}
 
 if (!(Test-Path $ninjaFile)) {
     Write-Host "[build-native] Configuration cmake --preset $Preset ..."

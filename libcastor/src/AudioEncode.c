@@ -14,21 +14,45 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     AudioEncoderConfig defaults = audio_encoder_config_default();
     if (!cfg) cfg = &defaults;
 
-    const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
-    if (!codec) {
-        fprintf(stderr, "[AudioEncoder] codec AAC introuvable\n");
-        return -1;
+    const AVCodec* codec = NULL;
+    if (cfg->audio_codec == CASTOR_ACODEC_OPUS) {
+        codec = avcodec_find_encoder_by_name("libopus");
+        if (!codec) {
+            fprintf(stderr, "[AudioEncoder] libopus introuvable\n");
+            return -1;
+        }
+    } else {
+        codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+        if (!codec) {
+            fprintf(stderr, "[AudioEncoder] codec AAC introuvable\n");
+            return -1;
+        }
     }
+    fprintf(stderr, "[AudioEncoder] codec : %s\n", codec->name);
 
     enc->ctx = avcodec_alloc_context3(codec);
     if (!enc->ctx) return -1;
 
     enc->ctx->sample_rate = sample_rate;
-    enc->ctx->sample_fmt  = AV_SAMPLE_FMT_FLTP;
     enc->ctx->bit_rate    = (cfg->audio_bitrate_kbps > 0
                              ? cfg->audio_bitrate_kbps
                              : 128) * 1000;
     av_channel_layout_default(&enc->ctx->ch_layout, 2);
+
+    /* Choisir le meilleur sample_fmt supporte par ce codec.
+     * On prefere FLTP (planar float) ; certains codecs (ex: libopus) peuvent
+     * preferer FLT (interleave) ou S16. */
+    enum AVSampleFormat preferred = AV_SAMPLE_FMT_FLTP;
+    if (codec->sample_fmts) {
+        int fltp_ok = 0;
+        for (const enum AVSampleFormat* f = codec->sample_fmts;
+             *f != AV_SAMPLE_FMT_NONE; f++) {
+            if (*f == preferred) { fltp_ok = 1; break; }
+        }
+        if (!fltp_ok)
+            preferred = codec->sample_fmts[0];
+    }
+    enc->ctx->sample_fmt = preferred;
 
     if (avcodec_open2(enc->ctx, codec, NULL) < 0) {
         fprintf(stderr, "[AudioEncoder] avcodec_open2 failed\n");
@@ -48,7 +72,7 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     enc->swr          = NULL;
 
     enc->fifo = av_audio_fifo_alloc(
-        AV_SAMPLE_FMT_FLTP, 2, enc->ctx->frame_size * 4);
+        enc->ctx->sample_fmt, 2, enc->ctx->frame_size * 4);
     if (!enc->fifo) {
         avcodec_free_context(&enc->ctx);
         av_frame_free(&enc->frame);
