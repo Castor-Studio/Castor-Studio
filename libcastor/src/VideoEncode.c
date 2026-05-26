@@ -68,6 +68,9 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
             enc->ctx->rc_min_rate    = bps;
             enc->ctx->rc_max_rate    = bps;
             enc->ctx->rc_buffer_size = cfg->zerolatency ? bps / 2 : bps * 2;
+            /* end-usage=cbr est obligatoire : sans lui, libvpx ignore bit_rate
+             * et rc_min/max_rate, ce qui peut faire echouer avcodec_open2. */
+            av_opt_set(enc->ctx->priv_data, "end-usage", "cbr", 0);
             av_opt_set(enc->ctx->priv_data, "deadline",
                        cfg->zerolatency ? "realtime" : "good", 0);
             av_opt_set(enc->ctx->priv_data, "cpu-used",
@@ -75,6 +78,8 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
         } else {
             /* CQ (constrained quality) — equivalent CRF pour VP9 */
             enc->ctx->bit_rate = 0;
+            /* end-usage=q active le mode qualite constante de VP9 */
+            av_opt_set(enc->ctx->priv_data, "end-usage", "q", 0);
             av_opt_set(enc->ctx->priv_data, "deadline", "good", 0);
             av_opt_set(enc->ctx->priv_data, "cpu-used", "4", 0);
             av_opt_set_int(enc->ctx->priv_data, "crf", 33, AV_OPT_SEARCH_CHILDREN);

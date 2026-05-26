@@ -26,7 +26,8 @@ CASTOR_CORE_API int muxer_add_video_stream(CastorMuxer* mux, AVCodecContext* vct
         return -1;
     }
 
-    mux->video_stream->time_base = vctx->time_base;
+    mux->video_stream->time_base     = vctx->time_base;
+    mux->video_stream->avg_frame_rate = vctx->framerate;
     return 0;
 }
 

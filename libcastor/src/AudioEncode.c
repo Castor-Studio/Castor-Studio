@@ -33,7 +33,10 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     enc->ctx = avcodec_alloc_context3(codec);
     if (!enc->ctx) return -1;
 
-    enc->ctx->sample_rate = sample_rate;
+    /* libopus n'accepte que 8000/12000/16000/24000/48000 Hz.
+     * Si la source WASAPI est a 44100 Hz, avcodec_open2 echouerait.
+     * On force 48000 Hz ; swr_convert resamplera a la volee si besoin. */
+    enc->ctx->sample_rate = (cfg->audio_codec == CASTOR_ACODEC_OPUS) ? 48000 : sample_rate;
     enc->ctx->bit_rate    = (cfg->audio_bitrate_kbps > 0
                              ? cfg->audio_bitrate_kbps
                              : 128) * 1000;
@@ -63,7 +66,7 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     enc->frame = av_frame_alloc();
     enc->frame->nb_samples  = enc->ctx->frame_size;
     enc->frame->format      = enc->ctx->sample_fmt;
-    enc->frame->sample_rate = sample_rate;
+    enc->frame->sample_rate = enc->ctx->sample_rate;
     av_channel_layout_copy(&enc->frame->ch_layout, &enc->ctx->ch_layout);
     av_frame_get_buffer(enc->frame, 0);
 
