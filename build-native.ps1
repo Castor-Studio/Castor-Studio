@@ -2,7 +2,8 @@
 
 param(
     [string]$Preset = "x64-debug",
-    [switch]$Reconfigure   # Supprime le build dir existant pour forcer une reconfiguration cmake
+    [switch]$Reconfigure,  # Supprime le build dir existant pour forcer une reconfiguration cmake
+    [switch]$CleanVcpkg    # Supprime aussi vcpkg_installed (force la reinstallation des paquets)
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,6 +49,19 @@ $ninjaFile = Join-Path $buildDir "build.ninja"
 if ($Reconfigure -and (Test-Path $buildDir)) {
     Write-Host "[build-native] -Reconfigure : suppression de $buildDir ..."
     Remove-Item -Recurse -Force $buildDir
+}
+
+# -CleanVcpkg : supprime vcpkg_installed pour forcer la reinstallation des paquets
+# (necessaire quand vcpkg.json change : ajout/suppression de features).
+$vcpkgInstalled = "libcastor/vcpkg_installed"
+if ($CleanVcpkg -and (Test-Path $vcpkgInstalled)) {
+    Write-Host "[build-native] -CleanVcpkg : suppression de $vcpkgInstalled ..."
+    Remove-Item -Recurse -Force $vcpkgInstalled
+    # Force aussi la reconfiguration cmake (sinon le build.ninja pointe sur des paths invalides)
+    if (Test-Path $buildDir) {
+        Write-Host "[build-native] -CleanVcpkg : suppression de $buildDir (coherence) ..."
+        Remove-Item -Recurse -Force $buildDir
+    }
 }
 
 if (!(Test-Path $ninjaFile)) {

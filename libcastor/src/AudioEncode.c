@@ -14,18 +14,22 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     AudioEncoderConfig defaults = audio_encoder_config_default();
     if (!cfg) cfg = &defaults;
 
+    /* Codes de retour :
+     *  -25 : codec introuvable (libopus / AAC absent de l'avcodec.dll)
+     *  -26 : avcodec_open2 a echoue
+     *  -27 : av_audio_fifo_alloc a echoue */
     const AVCodec* codec = NULL;
     if (cfg->audio_codec == CASTOR_ACODEC_OPUS) {
         codec = avcodec_find_encoder_by_name("libopus");
         if (!codec) {
-            fprintf(stderr, "[AudioEncoder] libopus introuvable\n");
-            return -1;
+            fprintf(stderr, "[AudioEncoder] libopus introuvable — recompilez FFmpeg avec --enable-libopus\n");
+            return -25;
         }
     } else {
         codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
         if (!codec) {
             fprintf(stderr, "[AudioEncoder] codec AAC introuvable\n");
-            return -1;
+            return -25;
         }
     }
     fprintf(stderr, "[AudioEncoder] codec : %s\n", codec->name);
@@ -60,7 +64,7 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     if (avcodec_open2(enc->ctx, codec, NULL) < 0) {
         fprintf(stderr, "[AudioEncoder] avcodec_open2 failed\n");
         avcodec_free_context(&enc->ctx);
-        return -1;
+        return -26;
     }
 
     enc->frame = av_frame_alloc();
@@ -80,7 +84,7 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
         avcodec_free_context(&enc->ctx);
         av_frame_free(&enc->frame);
         av_packet_free(&enc->pkt);
-        return -1;
+        return -27;
     }
 
     return 0;

@@ -202,10 +202,22 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
  *  Init / cleanup d'un stream
  * ================================================================== */
 
+/* Codes de retour de stream_init (et recorder_start) :
+ *  -10 : video_capture_init_source a echoue
+ *  -11 : dimensions video nulles apres capture init
+ *  -12 : audio_capture_init_source a echoue
+ *  -20 : codec video introuvable (libvpx-vp9 / libx264 absent)
+ *  -21 : avcodec_open2 video echoue
+ *  -22 : sws_getContext echoue
+ *  -25 : codec audio introuvable (libopus / AAC absent)
+ *  -26 : avcodec_open2 audio echoue
+ *  -27 : av_audio_fifo_alloc echoue
+ *  -30 : creation de l'output echouee (chemin invalide, RTMP inaccessible)
+ *  -31 : output_add_*_stream ou output_write_header echoue */
 static int stream_init(StreamState* s) {
     if (video_capture_init_source(&s->vctx, &s->config.video_src) < 0) {
         fprintf(stderr, "[Stream %d] Init capture video echouee\n", s->index);
-        return -1;
+        return -10;
     }
 
     /* Sanity check : un codec comme x264 crashe si on l'ouvre avec des dimensions nulles */
@@ -213,7 +225,7 @@ static int stream_init(StreamState* s) {
         fprintf(stderr, "[Stream %d] Dimensions invalides apres init capture: %dx%d\n",
                 s->index, s->vctx.width, s->vctx.height);
         video_capture_cleanup(&s->vctx);
-        return -1;
+        return -11;
     }
     fprintf(stderr, "[Stream %d] Capture video OK — %dx%d (type=%d)\n",
             s->index, s->vctx.width, s->vctx.height, s->config.video_src.type);
@@ -221,7 +233,7 @@ static int stream_init(StreamState* s) {
     if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0) {
         fprintf(stderr, "[Stream %d] Init capture audio echouee\n", s->index);
         video_capture_cleanup(&s->vctx);
-        return -1;
+        return -12;
     }
     if (s->actx.channels > 2) s->actx.channels = 2;
 
@@ -253,21 +265,23 @@ static int stream_init(StreamState* s) {
         acfg.audio_codec        = s->config.output.audio_codec;
     }
 
-    if (video_encoder_init_ex(&s->venc,
-                              s->vctx.width, s->vctx.height,
-                              s->recorder->config.fps, &vcfg) < 0) {
-        fprintf(stderr, "[Stream %d] Init encodeur video echoue\n", s->index);
+    int enc_ret = video_encoder_init_ex(&s->venc,
+                                        s->vctx.width, s->vctx.height,
+                                        s->recorder->config.fps, &vcfg);
+    if (enc_ret < 0) {
+        fprintf(stderr, "[Stream %d] Init encodeur video echoue (code %d)\n", s->index, enc_ret);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return enc_ret; /* -20 / -21 / -22 */
     }
 
-    if (audio_encoder_init_ex(&s->aenc, s->actx.sample_rate, &acfg) < 0) {
-        fprintf(stderr, "[Stream %d] Init encodeur audio echoue\n", s->index);
+    int aenc_ret = audio_encoder_init_ex(&s->aenc, s->actx.sample_rate, &acfg);
+    if (aenc_ret < 0) {
+        fprintf(stderr, "[Stream %d] Init encodeur audio echoue (code %d)\n", s->index, aenc_ret);
         video_encoder_cleanup(&s->venc, NULL);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return aenc_ret; /* -25 / -26 / -27 */
     }
 
     /* Creer l'output (fichier ou RTMP) */
@@ -278,7 +292,7 @@ static int stream_init(StreamState* s) {
         audio_encoder_cleanup(&s->aenc, NULL);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return -30;
     }
 
     if (output_add_video_stream(s->output, s->venc.ctx) < 0 ||
@@ -291,7 +305,7 @@ static int stream_init(StreamState* s) {
         audio_encoder_cleanup(&s->aenc, NULL);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return -31;
     }
 
     InitializeCriticalSection(&s->frame_lock);

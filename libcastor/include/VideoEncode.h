@@ -68,7 +68,12 @@ typedef struct {
     AVFrame*           frame;
     AVPacket*          pkt;
     int                frame_index;
-    struct SwsContext* sws_ctx;     /* BGRA -> YUV420P */
+    int                fps;             /* fps cible — sauvegarde AVANT avcodec_open2.
+                                         * Certains encodeurs (libvpx-vp9) modifient
+                                         * ctx->time_base apres open ; on utilise ce
+                                         * champ pour calculer frame->pts correctement
+                                         * via av_rescale_q, quel que soit le codec. */
+    struct SwsContext* sws_ctx;         /* BGRA -> YUV420P */
     int64_t            first_pts;
     int                first_pts_set;
 } VideoEncoder;

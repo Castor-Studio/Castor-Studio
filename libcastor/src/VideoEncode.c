@@ -17,11 +17,15 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     const AVCodec* codec = NULL;
     const int use_vp9 = (cfg->video_codec == CASTOR_VCODEC_VP9);
 
+    /* Codes de retour :
+     *  -20 : codec introuvable (libvpx-vp9 / libx264 absent de l'avcodec.dll)
+     *  -21 : avcodec_open2 a echoue (configuration invalide)
+     *  -22 : sws_getContext a echoue */
     if (use_vp9) {
         codec = avcodec_find_encoder_by_name("libvpx-vp9");
         if (!codec) {
-            fprintf(stderr, "[VideoEncoder] libvpx-vp9 introuvable\n");
-            return -1;
+            fprintf(stderr, "[VideoEncoder] libvpx-vp9 introuvable — recompilez FFmpeg avec --enable-libvpx\n");
+            return -20;
         }
     } else {
         /* Preferer libx264 : supporte CBR, preset, tune=zerolatency.
@@ -33,7 +37,7 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
         }
         if (!codec) {
             fprintf(stderr, "[VideoEncoder] aucun codec H264 disponible\n");
-            return -1;
+            return -20;
         }
     }
     fprintf(stderr, "[VideoEncoder] codec : %s\n", codec->name);
@@ -55,13 +59,28 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     enc->ctx->pix_fmt      = AV_PIX_FMT_YUV420P;
     enc->ctx->gop_size     = gop;
     enc->ctx->max_b_frames = 0;
-    enc->ctx->flags       |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    /* AV_CODEC_FLAG_GLOBAL_HEADER :
+     *   H.264 en a besoin (SPS/PPS dans l'avcC/hvcC de MP4/MKV et dans le
+     *   RTMP AVCDecoderConfigurationRecord).
+     *   VP9 n'en a pas besoin : le bitstream est auto-suffisant, et mettre ce
+     *   flag peut produire un CodecPrivate incompatible avec certains players. */
+    if (!use_vp9)
+        enc->ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     enc->first_pts     = 0;
     enc->first_pts_set = 0;
 
     if (use_vp9) {
-        /* --- libvpx-vp9 --- */
+        /* --- libvpx-vp9 ---
+         *
+         * lag-in-frames=0 : desactive le lookahead interne de VP9.
+         * Sans ca, meme en mode CBR, deadline=good active un lookahead de
+         * plusieurs frames : les paquets video ne sortent qu'au flush final,
+         * et av_interleaved_write_frame ne peut plus entrelacer audio+video
+         * correctement → image figee a la lecture.
+         * 0 = pas de lookahead, sortie paquet-par-paquet comme libx264. */
+        av_opt_set_int(enc->ctx->priv_data, "lag-in-frames", 0, 0);
+
         if (cfg->cbr && cfg->video_bitrate_kbps > 0) {
             const int bps = cfg->video_bitrate_kbps * 1000;
             enc->ctx->bit_rate       = bps;
@@ -69,19 +88,26 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
             enc->ctx->rc_max_rate    = bps;
             enc->ctx->rc_buffer_size = cfg->zerolatency ? bps / 2 : bps * 2;
             /* end-usage=cbr est obligatoire : sans lui, libvpx ignore bit_rate
-             * et rc_min/max_rate, ce qui peut faire echouer avcodec_open2. */
+             * et rc_min/max_rate, ce qui peut faire echouer avcodec_open2.
+             *
+             * deadline=realtime (pas "good") : en mode "good", libvpx peut
+             * prendre >16 ms par frame a 1080p, ce qui depasse le frame_interval
+             * a 60fps. Le buffer de av_interleaved_write_frame sature alors en
+             * ~0,5 s et les paquets VP9 ne sont plus ecrits → image figee.
+             * "realtime" garantit un paquet sorti pour chaque frame envoyee,
+             * quel que soit le debit CPU disponible.
+             * cpu-used : 8=preview ultra-rapide, 6=enregistrement fichier. */
             av_opt_set(enc->ctx->priv_data, "end-usage", "cbr", 0);
-            av_opt_set(enc->ctx->priv_data, "deadline",
-                       cfg->zerolatency ? "realtime" : "good", 0);
+            av_opt_set(enc->ctx->priv_data, "deadline", "realtime", 0);
             av_opt_set(enc->ctx->priv_data, "cpu-used",
-                       cfg->zerolatency ? "8" : "4", 0);
+                       cfg->zerolatency ? "8" : "6", 0);
         } else {
-            /* CQ (constrained quality) — equivalent CRF pour VP9 */
+            /* CQ (constrained quality) — equivalent CRF pour VP9.
+             * Meme contrainte temps-reel : deadline=realtime + cpu-used=6. */
             enc->ctx->bit_rate = 0;
-            /* end-usage=q active le mode qualite constante de VP9 */
             av_opt_set(enc->ctx->priv_data, "end-usage", "q", 0);
-            av_opt_set(enc->ctx->priv_data, "deadline", "good", 0);
-            av_opt_set(enc->ctx->priv_data, "cpu-used", "4", 0);
+            av_opt_set(enc->ctx->priv_data, "deadline", "realtime", 0);
+            av_opt_set(enc->ctx->priv_data, "cpu-used", "6", 0);
             av_opt_set_int(enc->ctx->priv_data, "crf", 33, AV_OPT_SEARCH_CHILDREN);
         }
     } else {
@@ -111,8 +137,25 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     if (avcodec_open2(enc->ctx, codec, NULL) < 0) {
         fprintf(stderr, "[VideoEncoder] avcodec_open2 failed\n");
         avcodec_free_context(&enc->ctx);
-        return -1;
+        return -21;
     }
+
+    /* Certains encodeurs (libvpx-vp9) modifient ctx->time_base apres open.
+     * On sauvegarde le fps cible pour calculer correctement les pts via
+     * av_rescale_q dans video_encoder_encode_frame. */
+    enc->fps = fps;
+    fprintf(stderr, "[VideoEncoder] time_base apres open : %d/%d (fps cible : %d)\n",
+            enc->ctx->time_base.num, enc->ctx->time_base.den, fps);
+
+    /* Force time_base et framerate apres open : libvpx-vp9 peut les modifier.
+     * Avec lag-in-frames=0, VP9 repasse les pts 1:1 (input→output),
+     * donc forcer ces valeurs est sans risque et garantit la coherence
+     * avec muxer_add_video_stream et av_packet_rescale_ts. */
+    enc->ctx->time_base = (AVRational){ 1, fps };
+    enc->ctx->framerate = (AVRational){ fps, 1 };
+    fprintf(stderr, "[VideoEncoder] time_base FORCE: %d/%d  framerate FORCE: %d/%d\n",
+            enc->ctx->time_base.num, enc->ctx->time_base.den,
+            enc->ctx->framerate.num, enc->ctx->framerate.den);
 
     enc->frame = av_frame_alloc();
     enc->frame->format = AV_PIX_FMT_YUV420P;
@@ -129,7 +172,7 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
         fprintf(stderr, "[VideoEncoder] sws_getContext failed\n");
         avcodec_free_context(&enc->ctx);
         av_frame_free(&enc->frame);
-        return -1;
+        return -22;
     }
 
     enc->pkt         = av_packet_alloc();
@@ -190,7 +233,24 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
         enc->first_pts_set = 1;
     }
 
-    enc->frame->pts = enc->frame_index++;
+    /* av_rescale_q convertit le numero de frame (en unite {1, fps}) vers
+     * l'unite reelle de ctx->time_base, qui peut avoir ete modifiee par le
+     * codec (libvpx-vp9 peut changer time_base apres avcodec_open2).
+     * Sans cette conversion, frame->pts serait interprete dans la mauvaise
+     * unite et la video jouerait en accelere ou au ralenti. */
+    enc->frame->pts = av_rescale_q(enc->frame_index,
+                                   (AVRational){ 1, enc->fps },
+                                   enc->ctx->time_base);
+
+    if (enc->frame_index < 5)
+        fprintf(stderr, "[VideoEnc DBG] frame=%d  ctx_tb=%d/%d  fps=%d  frame_pts=%lld"
+                        "  stream_vtb=%d/%d\n",
+                enc->frame_index,
+                enc->ctx->time_base.num, enc->ctx->time_base.den,
+                enc->fps, (long long)enc->frame->pts,
+                out->video_stream_time_base.num, out->video_stream_time_base.den);
+
+    enc->frame_index++;
 
     int ret = avcodec_send_frame(enc->ctx, enc->frame);
     if (ret < 0) {
@@ -202,8 +262,23 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
 
     while (avcodec_receive_packet(enc->ctx, enc->pkt) == 0) {
         enc->pkt->stream_index = out->video_stream_index;
+
+        if (enc->frame_index <= 5) {
+            fprintf(stderr, "[VideoEnc DBG] pkt PRE-rescale : pts=%lld dts=%lld"
+                            "  src_tb=%d/%d  dst_tb=%d/%d\n",
+                    (long long)enc->pkt->pts, (long long)enc->pkt->dts,
+                    enc->ctx->time_base.num, enc->ctx->time_base.den,
+                    out->video_stream_time_base.num, out->video_stream_time_base.den);
+        }
+
         av_packet_rescale_ts(enc->pkt, enc->ctx->time_base,
                              out->video_stream_time_base);
+
+        if (enc->frame_index <= 5) {
+            fprintf(stderr, "[VideoEnc DBG] pkt POST-rescale: pts=%lld dts=%lld\n",
+                    (long long)enc->pkt->pts, (long long)enc->pkt->dts);
+        }
+
         output_write_packet(out, enc->pkt);
         av_packet_unref(enc->pkt);
     }

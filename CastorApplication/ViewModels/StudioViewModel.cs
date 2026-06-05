@@ -368,10 +368,21 @@ public partial class StudioViewModel : ViewModelBase
         else
             StreamError = result switch
             {
-                -2 => "Aucune source vidéo dans la scène.",
-                -3 => "Impossible de créer le recorder natif.",
-                -4 => "Impossible de construire l'URL RTMP (clé invalide ?).",
-                _  => $"Erreur streaming (code {result})."
+                -2  => "Aucune source vidéo dans la scène sélectionnée.",
+                -3  => "Impossible de créer le recorder natif.",
+                -4  => "Impossible de construire l'URL RTMP (clé invalide ?).",
+                -10 => "Impossible d'ouvrir la capture vidéo.",
+                -11 => "Dimensions vidéo invalides (0×0).",
+                -12 => "Impossible d'ouvrir la capture audio.",
+                -20 => "Codec vidéo introuvable (H.264 absent de l'avcodec.dll).",
+                -21 => "Impossible d'initialiser l'encodeur vidéo.",
+                -22 => "Impossible d'initialiser le convertisseur de pixels.",
+                -25 => "Codec audio introuvable (AAC absent de l'avcodec.dll).",
+                -26 => "Impossible d'initialiser l'encodeur audio.",
+                -27 => "Erreur d'allocation du buffer audio.",
+                -30 => "Impossible d'ouvrir la connexion RTMP.",
+                -31 => "Erreur d'initialisation du muxer RTMP.",
+                _   => $"Erreur streaming (code {result})."
             };
     }
 
@@ -415,9 +426,20 @@ public partial class StudioViewModel : ViewModelBase
         {
             RecordError = result switch
             {
-                -2 => "Aucune source vidéo dans la scène.",
-                -3 => "Impossible de créer le recorder natif.",
-                _  => $"Erreur recorder (code {result})."
+                -2  => "Aucune source vidéo dans la scène.",
+                -3  => "Impossible de créer le recorder natif.",
+                -10 => "Impossible d'ouvrir la capture vidéo.",
+                -11 => "Dimensions vidéo invalides (0×0).",
+                -12 => "Impossible d'ouvrir la capture audio.",
+                -20 => "Codec vidéo introuvable — recompilez avec support VP9/H.264.",
+                -21 => "Impossible d'initialiser l'encodeur vidéo.",
+                -22 => "Impossible d'initialiser le convertisseur de pixels.",
+                -25 => "Codec audio introuvable — recompilez avec support Opus/AAC.",
+                -26 => "Impossible d'initialiser l'encodeur audio.",
+                -27 => "Erreur d'allocation du buffer audio.",
+                -30 => "Impossible de créer le fichier de sortie (chemin invalide ou disque plein ?).",
+                -31 => "Erreur d'initialisation du muxer (codec incompatible avec le conteneur ?).",
+                _   => $"Erreur inconnue (code {result})."
             };
         }
     }
