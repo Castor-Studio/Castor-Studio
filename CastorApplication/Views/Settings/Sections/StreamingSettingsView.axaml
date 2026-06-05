@@ -70,6 +70,33 @@
             <Grid ColumnDefinitions="180,*">
 
                 <TextBlock Grid.Column="0"
+                           Text="Débit stream (kbps)"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            MaxWidth="320">
+
+                    <Slider Minimum="500"
+                            Maximum="10000"
+                            Width="220"
+                            VerticalAlignment="Center"
+                            Value="{Binding StreamingBitrate}"/>
+
+                    <TextBlock Width="50"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{DynamicResource AppFg4}"
+                               Text="{Binding StreamingBitrateDisplay}"/>
+
+                </StackPanel>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
                            Text="Serveur"
                            Classes="setting-label"/>
 
