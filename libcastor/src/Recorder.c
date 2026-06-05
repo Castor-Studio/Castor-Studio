@@ -281,8 +281,29 @@ static int stream_init(StreamState* s) {
         acfg.audio_codec        = s->config.output.audio_codec;
     }
 
+    /* Dimensions de sortie : output_width/height si specifie, sinon capture native. */
+    const int out_w = (s->config.output.output_width  > 0)
+                      ? s->config.output.output_width  : s->vctx.width;
+    const int out_h = (s->config.output.output_height > 0)
+                      ? s->config.output.output_height : s->vctx.height;
+
+    /* Dimensions source pour sws (redimensionnement capture → sortie). */
+    vcfg.src_width  = s->vctx.width;
+    vcfg.src_height = s->vctx.height;
+
+    /* CRF selon le quality_index : 0=haute 1=bonne 2=basse.
+     * Valeurs per-codec : H264 {18,23,28} / VP9 {25,33,40}. */
+    if (!vcfg.cbr) {
+        static const int h264_crf[3] = {18, 23, 28};
+        static const int vp9_crf [3] = {25, 33, 40};
+        int qi = s->config.output.quality_index;
+        if (qi < 0 || qi > 2) qi = 1;
+        vcfg.crf = (vcfg.video_codec == CASTOR_VCODEC_VP9)
+                   ? vp9_crf[qi] : h264_crf[qi];
+    }
+
     int enc_ret = video_encoder_init_ex(&s->venc,
-                                        s->vctx.width, s->vctx.height,
+                                        out_w, out_h,
                                         s->recorder->config.fps, &vcfg);
     if (enc_ret < 0) {
         fprintf(stderr, "[Stream %d] Init encodeur video echoue (code %d)\n", s->index, enc_ret);

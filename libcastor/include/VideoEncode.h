@@ -36,6 +36,9 @@ typedef struct {
     int              gop_seconds;        /* intervalle keyframe (s) — 0 = defaut (2s)   */
     int              zerolatency;        /* 1 = tune zerolatency    — recommande RTMP   */
     CastorVideoCodec video_codec;        /* codec selectionne                           */
+    int              src_width;          /* largeur capture source  — 0 = meme que out  */
+    int              src_height;         /* hauteur capture source  — 0 = meme que out  */
+    int              crf;                /* valeur CRF explicite    — 0 = defaut codec   */
 } VideoEncoderConfig;
 
 static inline VideoEncoderConfig video_encoder_config_default(void)

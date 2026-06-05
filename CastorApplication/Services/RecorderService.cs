@@ -65,7 +65,9 @@ public sealed class RecorderService
     public int Start(SceneItem scene, string outputPath, int fps = 30,
                      int videoBitrateKbps = 0,
                      CastorVideoCodec videoCodec = CastorVideoCodec.H264,
-                     CastorAudioCodec audioCodec = CastorAudioCodec.AAC)
+                     CastorAudioCodec audioCodec = CastorAudioCodec.AAC,
+                     int outputWidth = 0, int outputHeight = 0,
+                     int qualityIndex = 1)
     {
         if (IsRecording) return -1;
 
@@ -98,6 +100,9 @@ public sealed class RecorderService
                 VideoBitrateKbps = videoBitrateKbps,
                 VideoCodec       = videoCodec,
                 AudioCodec       = audioCodec,
+                OutputWidth      = outputWidth,
+                OutputHeight     = outputHeight,
+                QualityIndex     = qualityIndex,
             }
         };
 

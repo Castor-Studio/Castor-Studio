@@ -34,12 +34,15 @@ typedef enum {
 
 typedef struct {
     CastorOutputType type;
-    char             destination[512];    /* chemin fichier ou rtmp:// URL */
-    int              video_bitrate_kbps;  /* 0 = defaut (4000 en RTMP)    */
-    int              audio_bitrate_kbps;  /* 0 = defaut (128 en RTMP)     */
-    int              gop_seconds;         /* 0 = defaut (2s)              */
-    CastorVideoCodec video_codec;         /* codec video (H264 par defaut)*/
-    CastorAudioCodec audio_codec;         /* codec audio (AAC par defaut) */
+    char             destination[512];    /* chemin fichier ou rtmp:// URL  */
+    int              video_bitrate_kbps;  /* 0 = defaut (4000 en RTMP)      */
+    int              audio_bitrate_kbps;  /* 0 = defaut (128 en RTMP)       */
+    int              gop_seconds;         /* 0 = defaut (2s)                */
+    CastorVideoCodec video_codec;         /* codec video (H264 par defaut)  */
+    CastorAudioCodec audio_codec;         /* codec audio (AAC par defaut)   */
+    int              output_width;        /* 0 = meme que la capture        */
+    int              output_height;       /* 0 = meme que la capture        */
+    int              quality_index;       /* 0=haute 1=bonne 2=basse        */
 } OutputConfig;
 
 /* ================================================================== *

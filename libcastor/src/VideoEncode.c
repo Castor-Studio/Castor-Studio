@@ -103,7 +103,7 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
                        cfg->zerolatency ? "8" : "6", 0);
         } else {
             /* CQ (constrained quality) — equivalent CRF pour VP9.
-             * Meme contrainte temps-reel : deadline=realtime + cpu-used=6. */
+             * Meme contrainte temps-reel : deadline=realtime + cpu-used=8. */
             enc->ctx->bit_rate = 0;
             av_opt_set(enc->ctx->priv_data, "end-usage", "q", 0);
             av_opt_set(enc->ctx->priv_data, "deadline", "realtime", 0);
@@ -111,7 +111,9 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
              * VP9 en mode fichier peut etre lent a haute resolution ; 8 permet
              * d'approcher le fps cible sans ralentir le thread d'encodage. */
             av_opt_set(enc->ctx->priv_data, "cpu-used", "8", 0);
-            av_opt_set_int(enc->ctx->priv_data, "crf", 33, AV_OPT_SEARCH_CHILDREN);
+            av_opt_set_int(enc->ctx->priv_data, "crf",
+                           cfg->crf > 0 ? cfg->crf : 33,
+                           AV_OPT_SEARCH_CHILDREN);
         }
     } else {
         /* --- libx264 --- */
@@ -134,6 +136,9 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
              * encoder côté RTMP sans casser le flux.
              * En mode normal (broadcast) : VBV = 2 s → headroom réseau standard. */
             enc->ctx->rc_buffer_size = cfg->zerolatency ? bps / 2 : bps * 2;
+        } else if (cfg->crf > 0) {
+            /* CRF explicite fourni par l'utilisateur (qualite configurable). */
+            av_opt_set_int(enc->ctx->priv_data, "crf", cfg->crf, AV_OPT_SEARCH_CHILDREN);
         }
     }
 
@@ -166,9 +171,15 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     enc->frame->height = height;
     av_frame_get_buffer(enc->frame, 32);
 
+    /* src_width/src_height : dimensions de la frame capturee (entree sws).
+     * width/height          : dimensions de sortie (encodeur + frame allouee).
+     * Si src non specifie, on suppose capture = sortie (pas de redimensionnement). */
+    const int sws_src_w = (cfg->src_width  > 0) ? cfg->src_width  : width;
+    const int sws_src_h = (cfg->src_height > 0) ? cfg->src_height : height;
+
     enc->sws_ctx = sws_getContext(
-        width, height, AV_PIX_FMT_BGRA,
-        width, height, AV_PIX_FMT_YUV420P,
+        sws_src_w, sws_src_h, AV_PIX_FMT_BGRA,
+        width,     height,    AV_PIX_FMT_YUV420P,
         SWS_BILINEAR, NULL, NULL, NULL
     );
     if (!enc->sws_ctx) {

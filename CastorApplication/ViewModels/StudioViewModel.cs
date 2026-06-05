@@ -236,6 +236,13 @@ public partial class StudioViewModel : ViewModelBase
         _ => 30,
     };
 
+    private static (int width, int height) OutputResolutionFromIndex(int index) => index switch
+    {
+        1 => (1280,  720),  // HD
+        2 => ( 854,  480),  // SD
+        _ => (1920, 1080),  // Full HD (défaut)
+    };
+
     private static (string extension, CastorVideoCodec vcodec, CastorAudioCodec acodec)
         FormatFromIndex(int index) => index switch
     {
@@ -354,7 +361,7 @@ public partial class StudioViewModel : ViewModelBase
 
         var streamSettings = _settingsService.Load();
         int streamFps     = FpsFromIndex(streamSettings.SelectedFpsIndex);
-        int streamBitrate = (int)streamSettings.VideoBitrate;
+        int streamBitrate = (int)streamSettings.StreamingBitrate;
 
         // streaming_service_get_url peut faire un appel HTTPS (Twitch) → thread BG
         int result = await Task.Run(() =>
@@ -409,14 +416,17 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         var settings = _settingsService.Load();
-        var (ext, vcodec, acodec) = FormatFromIndex(settings.SelectedOutputFormatIndex);
-        int fps     = FpsFromIndex(settings.SelectedFpsIndex);
-        int bitrate = (int)settings.VideoBitrate;
+        var (ext, vcodec, acodec)   = FormatFromIndex(settings.SelectedOutputFormatIndex);
+        int fps                     = FpsFromIndex(settings.SelectedFpsIndex);
+        int bitrate                 = (int)settings.VideoBitrate;
+        var (outW, outH)            = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
+        int quality                 = settings.RecordingQualityIndex;
 
         var path = await PickOutputFileAsync(ext, vcodec, acodec);
         if (path == null) return; // annulé par l'utilisateur
 
-        int result = RecorderService.Instance.Start(scene, path, fps, bitrate, vcodec, acodec);
+        int result = RecorderService.Instance.Start(scene, path, fps, bitrate, vcodec, acodec,
+                                                    outW, outH, quality);
         if (result == 0)
         {
             IsRecording = true;

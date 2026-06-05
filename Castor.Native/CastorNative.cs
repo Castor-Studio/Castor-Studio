@@ -314,6 +314,9 @@ namespace Castor.Native
 
         public CastorVideoCodec VideoCodec;
         public CastorAudioCodec AudioCodec;
+        public int OutputWidth;   // 0 = même que la capture
+        public int OutputHeight;  // 0 = même que la capture
+        public int QualityIndex;  // 0=haute 1=bonne 2=basse
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
