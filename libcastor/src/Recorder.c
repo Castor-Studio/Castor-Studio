@@ -125,6 +125,12 @@ static unsigned __stdcall thread_stream_video_encode(void* arg) {
         LeaveCriticalSection(&s->frame_lock);
 
         if (vframe) {
+            /* Estampille l'horloge murale en microsecondes.
+             * video_encoder_encode_frame utilisera cette valeur pour calculer
+             * enc->frame->pts via av_rescale_q, garantissant une vitesse de
+             * lecture 1:1 meme si l'encodeur (libvpx-vp9) est plus lent que
+             * le fps cible (ex : 11fps effectif pour une cible de 60fps). */
+            vframe->pts = (int64_t)(elapsed * 1000000.0);
             video_encoder_encode_frame(&s->venc, vframe, s->output);
             av_frame_free(&vframe);
             frames_encoded++;
@@ -215,6 +221,16 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
  *  -30 : creation de l'output echouee (chemin invalide, RTMP inaccessible)
  *  -31 : output_add_*_stream ou output_write_header echoue */
 static int stream_init(StreamState* s) {
+    /* Redirect stderr vers un fichier pour rendre les logs natifs visibles.
+     * Fichier cree dans le repertoire de travail de l'application. */
+    {
+        static int log_opened = 0;
+        if (!log_opened) {
+            if (freopen("castor_debug.log", "w", stderr))
+                log_opened = 1;
+        }
+    }
+
     if (video_capture_init_source(&s->vctx, &s->config.video_src) < 0) {
         fprintf(stderr, "[Stream %d] Init capture video echouee\n", s->index);
         return -10;

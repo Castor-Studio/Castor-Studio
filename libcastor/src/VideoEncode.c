@@ -107,7 +107,10 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
             enc->ctx->bit_rate = 0;
             av_opt_set(enc->ctx->priv_data, "end-usage", "q", 0);
             av_opt_set(enc->ctx->priv_data, "deadline", "realtime", 0);
-            av_opt_set(enc->ctx->priv_data, "cpu-used", "6", 0);
+            /* cpu-used=8 : encodage le plus rapide (qualite legèrement reduite).
+             * VP9 en mode fichier peut etre lent a haute resolution ; 8 permet
+             * d'approcher le fps cible sans ralentir le thread d'encodage. */
+            av_opt_set(enc->ctx->priv_data, "cpu-used", "8", 0);
             av_opt_set_int(enc->ctx->priv_data, "crf", 33, AV_OPT_SEARCH_CHILDREN);
         }
     } else {
@@ -233,22 +236,20 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
         enc->first_pts_set = 1;
     }
 
-    /* av_rescale_q convertit le numero de frame (en unite {1, fps}) vers
-     * l'unite reelle de ctx->time_base, qui peut avoir ete modifiee par le
-     * codec (libvpx-vp9 peut changer time_base apres avcodec_open2).
-     * Sans cette conversion, frame->pts serait interprete dans la mauvaise
-     * unite et la video jouerait en accelere ou au ralenti. */
-    enc->frame->pts = av_rescale_q(enc->frame_index,
-                                   (AVRational){ 1, enc->fps },
-                                   enc->ctx->time_base);
-
-    if (enc->frame_index < 5)
-        fprintf(stderr, "[VideoEnc DBG] frame=%d  ctx_tb=%d/%d  fps=%d  frame_pts=%lld"
-                        "  stream_vtb=%d/%d\n",
-                enc->frame_index,
-                enc->ctx->time_base.num, enc->ctx->time_base.den,
-                enc->fps, (long long)enc->frame->pts,
-                out->video_stream_time_base.num, out->video_stream_time_base.den);
+    /* src->pts est l'horloge murale en microsecondes depuis le debut de
+     * l'enregistrement, definie par thread_stream_video_encode.
+     * Cela garantit une vitesse de lecture 1:1 meme si l'encodeur est plus
+     * lent que le fps cible (ex : VP9 a 11fps effectif sur une cible de 60fps).
+     * Fallback sur frame_index si src->pts n'est pas disponible. */
+    if (src->pts != AV_NOPTS_VALUE && src->pts >= 0) {
+        enc->frame->pts = av_rescale_q(src->pts,
+                                       (AVRational){ 1, 1000000 },
+                                       enc->ctx->time_base);
+    } else {
+        enc->frame->pts = av_rescale_q(enc->frame_index,
+                                       (AVRational){ 1, enc->fps },
+                                       enc->ctx->time_base);
+    }
 
     enc->frame_index++;
 
