@@ -38,11 +38,21 @@ static int file_add_audio_stream(CastorOutput* self, AVCodecContext* actx)
 static int file_write_header(CastorOutput* self)
 {
     CastorFileOutput* fo = (CastorFileOutput*)self;
+
+    fprintf(stderr, "[FileOutput] stream tb AVANT write_header : video=%d/%d audio=%d/%d\n",
+            fo->mux.video_stream->time_base.num, fo->mux.video_stream->time_base.den,
+            fo->mux.audio_stream->time_base.num, fo->mux.audio_stream->time_base.den);
+
     if (muxer_write_header(&fo->mux) < 0) return -1;
 
     /* Relire les time_base apres write_header (le muxer peut les modifier). */
     self->video_stream_time_base = fo->mux.video_stream->time_base;
     self->audio_stream_time_base = fo->mux.audio_stream->time_base;
+
+    fprintf(stderr, "[FileOutput] stream tb APRES write_header : video=%d/%d audio=%d/%d\n",
+            self->video_stream_time_base.num, self->video_stream_time_base.den,
+            self->audio_stream_time_base.num, self->audio_stream_time_base.den);
+
     return 0;
 }
 

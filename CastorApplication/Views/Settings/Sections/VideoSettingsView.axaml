@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
              x:Class="CastorApplication.Views.Settings.Sections.VideoSettingsView"
@@ -72,7 +72,26 @@
             <Grid ColumnDefinitions="180,*">
 
                 <TextBlock Grid.Column="0"
-                           Text="D�bit vid�o (kbps)"
+                           Text="Qualité (CRF)"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedQualityIndex}">
+
+                    <ComboBoxItem Content="Haute"/>
+                    <ComboBoxItem Content="Bonne"/>
+                    <ComboBoxItem Content="Basse"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Débit enregistrement (kbps)"
                            Classes="setting-label"/>
 
                 <StackPanel Grid.Column="1"

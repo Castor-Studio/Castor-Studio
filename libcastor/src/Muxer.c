@@ -26,7 +26,14 @@ CASTOR_CORE_API int muxer_add_video_stream(CastorMuxer* mux, AVCodecContext* vct
         return -1;
     }
 
-    mux->video_stream->time_base = vctx->time_base;
+    /* vctx->time_base peut avoir ete modifie par certains encodeurs
+     * (libvpx-vp9) apres avcodec_open2. On derive la stream time_base depuis
+     * vctx->framerate = {fps, 1} qui, lui, n'est pas touche par libvpx.
+     * av_inv_q({fps, 1}) = {1, fps} — unite "un tick par frame". */
+    mux->video_stream->time_base = (vctx->framerate.num > 0 && vctx->framerate.den > 0)
+        ? av_inv_q(vctx->framerate)
+        : vctx->time_base;
+    mux->video_stream->avg_frame_rate = vctx->framerate;
     return 0;
 }
 
