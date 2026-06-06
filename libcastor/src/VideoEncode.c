@@ -274,23 +274,8 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
 
     while (avcodec_receive_packet(enc->ctx, enc->pkt) == 0) {
         enc->pkt->stream_index = out->video_stream_index;
-
-        if (enc->frame_index <= 5) {
-            fprintf(stderr, "[VideoEnc DBG] pkt PRE-rescale : pts=%lld dts=%lld"
-                            "  src_tb=%d/%d  dst_tb=%d/%d\n",
-                    (long long)enc->pkt->pts, (long long)enc->pkt->dts,
-                    enc->ctx->time_base.num, enc->ctx->time_base.den,
-                    out->video_stream_time_base.num, out->video_stream_time_base.den);
-        }
-
         av_packet_rescale_ts(enc->pkt, enc->ctx->time_base,
                              out->video_stream_time_base);
-
-        if (enc->frame_index <= 5) {
-            fprintf(stderr, "[VideoEnc DBG] pkt POST-rescale: pts=%lld dts=%lld\n",
-                    (long long)enc->pkt->pts, (long long)enc->pkt->dts);
-        }
-
         output_write_packet(out, enc->pkt);
         av_packet_unref(enc->pkt);
     }

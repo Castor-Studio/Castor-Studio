@@ -523,7 +523,7 @@ CASTOR_CORE_API int video_capture_init_source(VideoCaptureContext* ctx, CaptureS
  * ================================================================== */
 
 static AVFrame* next_frame_wgc(VideoCaptureContextInternal* internal) {
-    if (WaitForSingleObject(internal->frame_event, 33)) {
+    if (WaitForSingleObject(internal->frame_event, 33) != WAIT_OBJECT_0) {
         fprintf(stderr, "[WGC] Timeout\n");
         return nullptr;
     }
