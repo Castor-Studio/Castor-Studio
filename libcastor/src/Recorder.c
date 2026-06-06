@@ -267,11 +267,11 @@ static int stream_init(StreamState* s) {
     } else {
         /* Fichier : CBR si bitrate specifie, CRF sinon */
         if (s->config.output.video_bitrate_kbps > 0) {
+            vcfg                    = video_encoder_config_default(); /* zero-init */
             vcfg.cbr                = 1;
             vcfg.video_bitrate_kbps = s->config.output.video_bitrate_kbps;
             vcfg.gop_seconds        = s->config.output.gop_seconds > 0
                                       ? s->config.output.gop_seconds : 2;
-            vcfg.zerolatency        = 0;
         } else {
             vcfg = video_encoder_config_default();
         }

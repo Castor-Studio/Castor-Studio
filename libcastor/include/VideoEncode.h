@@ -43,18 +43,15 @@ typedef struct {
 
 static inline VideoEncoderConfig video_encoder_config_default(void)
 {
-    VideoEncoderConfig c;
-    c.cbr                = 0;
-    c.video_bitrate_kbps = 0;
-    c.gop_seconds        = 2;
-    c.zerolatency        = 0;
-    c.video_codec        = CASTOR_VCODEC_H264;
+    VideoEncoderConfig c = {0};  /* zero-init : tout champ futur sera safe */
+    c.gop_seconds = 2;
+    c.video_codec = CASTOR_VCODEC_H264;
     return c;
 }
 
 static inline VideoEncoderConfig video_encoder_config_rtmp(int bitrate_kbps, int gop_seconds)
 {
-    VideoEncoderConfig c;
+    VideoEncoderConfig c = {0};  /* zero-init : tout champ futur sera safe */
     c.cbr                = 1;
     c.video_bitrate_kbps = bitrate_kbps > 0 ? bitrate_kbps : 4000;
     c.gop_seconds        = gop_seconds  > 0 ? gop_seconds  : 2;
@@ -77,8 +74,6 @@ typedef struct {
                                          * champ pour calculer frame->pts correctement
                                          * via av_rescale_q, quel que soit le codec. */
     struct SwsContext* sws_ctx;         /* BGRA -> YUV420P */
-    int64_t            first_pts;
-    int                first_pts_set;
 } VideoEncoder;
 
 /*

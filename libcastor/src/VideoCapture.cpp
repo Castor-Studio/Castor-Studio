@@ -646,8 +646,8 @@ static AVFrame* next_frame_camera(VideoCaptureContextInternal* internal) {
     const int bytes_per_row = internal->width * 4;
     for (int y = 0; y < internal->height; y++) {
         memcpy(frame->data[0] + y * frame->linesize[0],
-           data + y * bytes_per_row,
-           bytes_per_row);
+               data + y * bytes_per_row,
+               bytes_per_row);
     }
 
     buffer->Unlock();

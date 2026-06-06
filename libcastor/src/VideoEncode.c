@@ -67,9 +67,6 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
     if (!use_vp9)
         enc->ctx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
-    enc->first_pts     = 0;
-    enc->first_pts_set = 0;
-
     if (use_vp9) {
         /* --- libvpx-vp9 ---
          *
@@ -241,11 +238,6 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
         0, src->height,
         enc->frame->data, enc->frame->linesize
     );
-
-    if (!enc->first_pts_set) {
-        enc->first_pts     = src->pts;
-        enc->first_pts_set = 1;
-    }
 
     /* src->pts est l'horloge murale en microsecondes depuis le debut de
      * l'enregistrement, definie par thread_stream_video_encode.
