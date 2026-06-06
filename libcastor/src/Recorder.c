@@ -131,8 +131,16 @@ static unsigned __stdcall thread_stream_video_encode(void* arg) {
              * lecture 1:1 meme si l'encodeur (libvpx-vp9) est plus lent que
              * le fps cible (ex : 11fps effectif pour une cible de 60fps). */
             vframe->pts = (int64_t)(elapsed * 1000000.0);
-            video_encoder_encode_frame(&s->venc, vframe, s->output);
+            int enc_ret = video_encoder_encode_frame(&s->venc, vframe, s->output);
             av_frame_free(&vframe);
+            if (enc_ret < 0) {
+                /* Erreur fatale (connexion perdue, disque plein, ...) : inutile
+                 * de continuer a encoder. Le recorder sera arrete par l'utilisateur
+                 * ou a la fermeture de l'application. */
+                fprintf(stderr, "[Stream %d] Erreur fatale encode/write (%d) — thread video stoppe\n",
+                        s->index, enc_ret);
+                break;
+            }
             frames_encoded++;
             if (frames_encoded == 1)
                 s->first_frame_ready = 1;

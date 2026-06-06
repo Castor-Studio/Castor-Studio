@@ -268,8 +268,9 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
         enc->pkt->stream_index = out->video_stream_index;
         av_packet_rescale_ts(enc->pkt, enc->ctx->time_base,
                              out->video_stream_time_base);
-        output_write_packet(out, enc->pkt);
+        int wret = output_write_packet(out, enc->pkt);
         av_packet_unref(enc->pkt);
+        if (wret < 0) return wret; /* connexion perdue — remonte l'erreur au thread */
     }
     return 0;
 }

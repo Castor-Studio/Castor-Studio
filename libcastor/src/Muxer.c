@@ -71,13 +71,20 @@ CASTOR_CORE_API int muxer_write_header(CastorMuxer* mux) {
 }
 
 CASTOR_CORE_API int muxer_write_packet(CastorMuxer* mux, AVPacket* pkt) {
+    /* Si une erreur fatale s'est deja produite, on ne retente pas.
+     * Cela evite le spam de logs (ex: connexion RTMP perdue = des centaines
+     * de WSAECONNABORTED en boucle jusqu'a l'arret manuel). */
+    if (mux->fatal_error) return mux->fatal_error;
+
     EnterCriticalSection(&mux->lock);
     int ret = av_interleaved_write_frame(mux->fmt_ctx, pkt);
     LeaveCriticalSection(&mux->lock);
+
     if (ret < 0) {
         char errbuf[64];
         av_strerror(ret, errbuf, sizeof(errbuf));
-        fprintf(stderr, "[Muxer] av_interleaved_write_frame: %s\n", errbuf);
+        fprintf(stderr, "[Muxer] av_interleaved_write_frame: %s — connexion perdue, arret de l'ecriture\n", errbuf);
+        mux->fatal_error = ret;
     }
     return ret;
 }
