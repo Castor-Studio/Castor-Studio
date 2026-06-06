@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using LibVLCSharp.Shared;
 using LibVLCSharp.Avalonia;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using CastorApplication.Services;
 using CastorApplication.ViewModels;
@@ -16,43 +17,65 @@ namespace CastorApplication.Views
         private MediaPlayer? _mediaPlayer;
         private Media? _currentMedia;
         private StudioViewModel? _vm;
+
         // Flag pour éviter tout appel natif VLC après libération des ressources
         private volatile bool _isDisposed;
+
+        // ── Thread-safety de PlayPreview ─────────────────────────────────────────
+        // Sérialise les swaps de Media pour éviter double-dispose et appels Play
+        // concurrents depuis les callbacks VLC, les Task.Run de switching et l'UI thread.
+        private readonly object _playLock = new();
+
+        // Permet d'annuler un PlayPreview différé quand un deuxième switch arrive
+        // avant que le délai d'attente soit écoulé.
+        private CancellationTokenSource _playCts = new();
 
         public StudioView()
         {
             InitializeComponent();
 
-            // DataContextChanged est toujours enregistré : même sans VLC on doit
-            // suivre les changements de scène pour d'éventuelles futures tentatives.
             DataContextChanged += OnDataContextChanged;
 
             try
             {
                 LibVLCSharp.Shared.Core.Initialize();
 
-                _libVLC      = new LibVLC("--network-caching=150");
+                _libVLC      = new LibVLC(
+                    "--network-caching=50",   // réduit de 150 → 50 ms
+                    "--live-caching=50",       // cache dédié aux flux RTMP live
+                    "--clock-jitter=0",        // désactive la compensation de jitter (ajoute du délai)
+                    "--clock-synchro=0"        // désactive la re-sync PTS (source de buffering supplémentaire)
+                );
                 _mediaPlayer = new MediaPlayer(_libVLC);
 
-                // Retry automatique si le flux n'est pas encore disponible ou se coupe
-                // ConfigureAwait(false) pour sortir du thread d'événement VLC avant de rappeler Play
+                // Retry automatique si le flux n'est pas encore disponible ou se coupe.
+                // On reappelle EnsurePreviewRunning() pour relancer le recorder si
+                // le démarrage initial a échoué (MediaMTX pas encore prêt, capture lente…).
                 _mediaPlayer.EncounteredError += async (_, _) =>
                 {
-                    await Task.Delay(2000).ConfigureAwait(false);
+                    if (_isDisposed) return;
+                    var cts = _playCts;
+                    try { await Task.Delay(2000, cts.Token).ConfigureAwait(false); }
+                    catch (Exception) { return; }   // OperationCanceledException ou ObjectDisposedException
+                    if (_isDisposed) return;
+                    _vm?.EnsurePreviewRunning();    // repart le recorder s'il avait échoué
                     PlayPreview();
                 };
 
                 _mediaPlayer.EndReached += async (_, _) =>
                 {
-                    await Task.Delay(1000).ConfigureAwait(false);
+                    if (_isDisposed) return;
+                    var cts = _playCts;
+                    try { await Task.Delay(1000, cts.Token).ConfigureAwait(false); }
+                    catch (Exception) { return; }
+                    if (_isDisposed) return;
+                    _vm?.EnsurePreviewRunning();
                     PlayPreview();
                 };
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Erreur d'initialisation VLC : {ex.Message}");
-                // _libVLC et _mediaPlayer restent null — PlayPreview() et VideoView_OnAttached
-                // vérifient null avant tout appel natif.
             }
         }
 
@@ -69,22 +92,39 @@ namespace CastorApplication.Views
 
         private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
+            // Volume du player : appliqué immédiatement à VLC (0–100)
+            if (e.PropertyName == nameof(StudioViewModel.PlayerVolume))
+            {
+                if (_mediaPlayer != null && _vm != null)
+                    _mediaPlayer.Volume = (int)_vm.PlayerVolume;
+                return;
+            }
+
             if (e.PropertyName != nameof(StudioViewModel.ActiveScene)) return;
 
-            // La scène active a changé : démarre son preview si nécessaire, puis bascule VLC sur son URL.
-            _ = Task.Run(async () =>
+            // Scène active changée :
+            //   1. Annule tout PlayPreview différé en cours (switch précédent pas encore joué).
+            //   2. Lance le preview de la nouvelle scène si nécessaire.
+            //   3. Bascule VLC immédiatement → si le flux n'est pas prêt, le retry prend le relais.
+            var newCts = new CancellationTokenSource();
+            var oldCts = Interlocked.Exchange(ref _playCts, newCts);
+            oldCts.Cancel();
+            oldCts.Dispose();
+
+            _ = Task.Run(() =>
             {
-                var scene = SceneService.Instance.ActiveScene;
-                bool alreadyRunning = scene != null && RecorderService.Instance.IsPreviewActive(scene.Id);
                 _vm?.EnsurePreviewRunning();
-                // Délai uniquement si le recorder vient d'être créé (laisse le stream s'établir).
-                // Si le preview tournait déjà, on bascule VLC immédiatement.
-                if (!alreadyRunning)
-                    await Task.Delay(1200).ConfigureAwait(false);
-                PlayPreview();
+                // On joue immédiatement : le retry EncounteredError gère le cas où
+                // le flux MediaMTX n'est pas encore prêt, sans créer de fenêtre de désync.
+                if (!newCts.IsCancellationRequested)
+                    PlayPreview();
             });
         }
 
+        /// <summary>
+        /// Swaps atomiquement le Media VLC vers l'URL de la scène active.
+        /// Thread-safe : peut être appelé depuis n'importe quel thread.
+        /// </summary>
         private void PlayPreview()
         {
             if (_isDisposed || _libVLC == null || _mediaPlayer == null) return;
@@ -93,9 +133,16 @@ namespace CastorApplication.Views
             if (scene == null) return;
 
             var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
-            var old = _currentMedia;
-            _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=150");
-            _mediaPlayer.Play(_currentMedia);
+
+            Media? old;
+            lock (_playLock)
+            {
+                if (_isDisposed) return;   // re-check sous le verrou
+                old           = _currentMedia;
+                _currentMedia = new Media(_libVLC, new Uri(url), ":network-caching=150");
+                _mediaPlayer.Play(_currentMedia);
+            }
+            // Dispose hors du verrou pour ne pas bloquer d'autres appels entrants
             old?.Dispose();
         }
 
@@ -106,9 +153,11 @@ namespace CastorApplication.Views
                 if (videoView.MediaPlayer == null)
                     videoView.MediaPlayer = _mediaPlayer;
 
-                // S'assure que libcastor pousse vers MediaMTX avant de lire
                 if (DataContext is StudioViewModel vm)
+                {
+                    _mediaPlayer.Volume = (int)vm.PlayerVolume;
                     vm.EnsurePreviewRunning();
+                }
 
                 if (!_mediaPlayer.IsPlaying)
                     PlayPreview();
@@ -119,9 +168,12 @@ namespace CastorApplication.Views
         {
             base.OnUnloaded(e);
 
-            // Bloque immédiatement tout nouvel appel à PlayPreview() venant des
-            // callbacks VLC (EncounteredError / EndReached) encore en vol.
+            // 1. Bloque tout nouveau PlayPreview venant des callbacks VLC en vol.
             _isDisposed = true;
+
+            // 2. Annule les retries/delays en attente.
+            _playCts.Cancel();
+            _playCts.Dispose();
 
             if (_vm != null)
             {
@@ -131,18 +183,20 @@ namespace CastorApplication.Views
 
             if (_mediaPlayer != null)
             {
-                // 1. On détache le lien avec le contrôle visuel (CRITIQUE)
                 var videoView = this.FindControl<VideoView>("VideoPlayer");
                 if (videoView != null)
                     videoView.MediaPlayer = null;
 
-                // 2. On arrête le flux
                 if (_mediaPlayer.IsPlaying)
                     _mediaPlayer.Stop();
 
-                // 3. On libère dans l'ordre
-                _currentMedia?.Dispose();
-                _currentMedia = null;
+                // Acquiert le verrou pour s'assurer qu'aucun PlayPreview n'est en cours
+                // avant de libérer les ressources.
+                lock (_playLock)
+                {
+                    _currentMedia?.Dispose();
+                    _currentMedia = null;
+                }
 
                 _mediaPlayer.Dispose();
                 _mediaPlayer = null;

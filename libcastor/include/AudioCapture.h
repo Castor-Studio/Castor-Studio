@@ -52,6 +52,11 @@ typedef struct {
 extern "C" {
 #endif
 
+/* Capture audio uniquement du process associe au hwnd donne,
+ * via le Windows Process Loopback API (Windows 10 2004+, build 19041).
+ * Retourne 0 si succes, -1 si erreur. */
+CASTOR_CORE_API int audio_capture_init_process_loopback(AudioCaptureContext* ctx, void* hwnd);
+
 /* Liste les devices audio WASAPI bruts (legacy, microphones + loopback).
  * out       : tableau de AudioDeviceInfo à remplir
  * max_count : taille du tableau

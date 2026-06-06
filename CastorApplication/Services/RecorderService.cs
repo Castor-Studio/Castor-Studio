@@ -31,8 +31,21 @@ public sealed class RecorderService
     /// </summary>
     private readonly SemaphoreSlim _previewSemaphore = new(1, 1);
 
+    /// <summary>
+    /// Sérialise les appels à SwitchScene : si deux switches arrivent très vite,
+    /// le second attend que le premier appel natif soit terminé pour éviter un
+    /// appel concurrent à RecorderSwitchVideoSource sur le même pointeur.
+    /// </summary>
+    private readonly SemaphoreSlim _switchSemaphore = new(1, 1);
+
     public bool IsRecording => _recorderPtr != IntPtr.Zero;
     public bool IsStreaming => _streamPtr   != IntPtr.Zero;
+
+    // ── Events d'état (abonnés par ScenesViewModel pour l'auto-mute) ──────────
+    public event Action? RecordingStarted;
+    public event Action? RecordingStopped;
+    public event Action? StreamingStarted;
+    public event Action? StreamingStopped;
 
     /// <summary>Retourne true si un flux de preview est actif pour cette scène.</summary>
     public bool IsPreviewActive(Guid sceneId)
@@ -95,6 +108,7 @@ public sealed class RecorderService
             return result;
         }
 
+        RecordingStarted?.Invoke();
         return 0;
     }
 
@@ -108,6 +122,7 @@ public sealed class RecorderService
         CastorNative.RecorderStop(_recorderPtr);
         CastorNative.RecorderDestroy(_recorderPtr);
         _recorderPtr = IntPtr.Zero;
+        RecordingStopped?.Invoke();
     }
 
     /// <summary>
@@ -181,6 +196,7 @@ public sealed class RecorderService
             return result;
         }
 
+        StreamingStarted?.Invoke();
         return 0;
     }
 
@@ -191,6 +207,7 @@ public sealed class RecorderService
         CastorNative.RecorderStop(_streamPtr);
         CastorNative.RecorderDestroy(_streamPtr);
         _streamPtr = IntPtr.Zero;
+        StreamingStopped?.Invoke();
     }
 
     // ── Preview local (MediaMTX) — un flux indépendant par scène ─────────────
@@ -245,7 +262,10 @@ public sealed class RecorderService
                     Destination      = MediaMtxService.GetPreviewPushUrl(scene.Id),
                     VideoBitrateKbps = 3000,
                     AudioBitrateKbps = 128,
-                    GopSeconds       = 1,
+                    // GopSeconds = 0 : en mode zerolatency, VideoEncode.c utilise
+                    // fps/2 frames (0,5 s à 30 fps) → IDR plus fréquents, VLC
+                    // peut rejoindre le flux plus vite après une reconnexion.
+                    GopSeconds       = 0,
                 }
             };
 
@@ -334,24 +354,31 @@ public sealed class RecorderService
 
     /// <summary>
     /// Change la source vidéo à la volée sur les recorders actifs (enregistrement et stream).
-    /// Doit être appelé depuis un thread background pour ne pas bloquer le UI
-    /// et éviter les conflits WinRT lors de la réinitialisation de la capture.
-    /// Le preview est géré séparément via StartPreview().
+    /// Sérialisé via _switchSemaphore : si deux switches rapides arrivent, le second
+    /// attend la fin du premier pour éviter un appel concurrent sur le même pointeur natif.
     /// </summary>
     public int SwitchScene(SceneItem scene)
     {
-        var videoItem = scene.Sources.FirstOrDefault(s => s.Type == "Vidéo" && s.Tag is CaptureSourceInfo);
-        if (videoItem == null) return -1;
+        _switchSemaphore.Wait();
+        try
+        {
+            var videoItem = scene.Sources.FirstOrDefault(s => s.Type == "Vidéo" && s.Tag is CaptureSourceInfo);
+            if (videoItem == null) return -1;
 
-        var videoSrc = (CaptureSourceInfo)videoItem.Tag!;
-        int result = 0;
+            var videoSrc = (CaptureSourceInfo)videoItem.Tag!;
+            int result = 0;
 
-        if (IsRecording)
-            result = CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc);
+            if (IsRecording)
+                result = CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc);
 
-        if (IsStreaming && result == 0)
-            result = CastorNative.RecorderSwitchVideoSource(_streamPtr, streamIndex: 0, videoSrc);
+            if (IsStreaming && result == 0)
+                result = CastorNative.RecorderSwitchVideoSource(_streamPtr, streamIndex: 0, videoSrc);
 
-        return result;
+            return result;
+        }
+        finally
+        {
+            _switchSemaphore.Release();
+        }
     }
 }
