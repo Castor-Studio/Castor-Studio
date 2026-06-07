@@ -1,12 +1,18 @@
-using Avalonia;
-using Avalonia.Styling;
 using CastorApplication.Models.Settings;
+using CastorApplication.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CastorApplication.ViewModels.Settings.Sections;
 
 public partial class GeneralSettingsViewModel : SettingsSectionViewModel
 {
+    private readonly IThemeService _themeService;
+
+    public GeneralSettingsViewModel(IThemeService themeService)
+    {
+        _themeService = themeService;
+    }
+
     [ObservableProperty]
     private int _selectedLanguageIndex;
 
@@ -18,13 +24,7 @@ public partial class GeneralSettingsViewModel : SettingsSectionViewModel
 
     partial void OnSelectedThemeIndexChanged(int value)
     {
-        if (Application.Current is null)
-        {
-            return;
-        }
-
-        Application.Current.RequestedThemeVariant =
-            value == 1 ? ThemeVariant.Light : ThemeVariant.Dark;
+        _themeService.ApplyTheme(value);
     }
 
     protected override void LoadCore(ApplicationSettings settings)
@@ -33,7 +33,7 @@ public partial class GeneralSettingsViewModel : SettingsSectionViewModel
         AutoStart = settings.AutoStart;
 
         SelectedThemeIndex = settings.SelectedThemeIndex is < 0 or > 1
-            ? Application.Current?.RequestedThemeVariant == ThemeVariant.Light ? 1 : 0
+            ? _themeService.IsLightTheme ? 1 : 0
             : settings.SelectedThemeIndex;
     }
 

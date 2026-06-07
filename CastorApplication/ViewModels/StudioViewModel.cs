@@ -2,14 +2,10 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
-using Castor.Native;
+using Castor.Engine.Models;
+using Castor.Engine.Services;
 using CastorApplication.Factories;
-using CastorApplication.Models;
 using CastorApplication.Services;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
@@ -23,28 +19,19 @@ public partial class StudioViewModel : ViewModelBase
 {
     // ── Scene selection ──
 
-    public ObservableCollection<SceneItem> Scenes => SceneService.Instance.Scenes;
+    private readonly IStudioController _studioController;
+    private readonly IFilePickerService _filePickerService;
+
+    public ObservableCollection<SceneItem> Scenes => _studioController.Scenes;
 
     public SceneItem? ActiveScene
     {
-        get => SceneService.Instance.ActiveScene;
+        get => _studioController.ActiveScene;
         set
         {
             if (value == null) return;
-            SceneService.Instance.SetActiveScene(value);
+            _studioController.SelectScene(value);
             OnPropertyChanged();
-
-            // Switch de source vidéo à la volée (en background pour ne pas bloquer le UI)
-            if (IsRecording || IsStreaming)
-                _ = System.Threading.Tasks.Task.Run(() => RecorderService.Instance.SwitchScene(value));
-
-            // Démarre le preview de la nouvelle scène si pas encore actif
-            if (value.Sources.Any(s => s.Type == "Vidéo") && !RecorderService.Instance.IsPreviewActive(value.Id))
-                _ = System.Threading.Tasks.Task.Run(() =>
-                {
-                    int r = RecorderService.Instance.StartPreview(value);
-                    System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview (scene switch) retourné : {r}");
-                });
         }
     }
 
@@ -209,9 +196,15 @@ public partial class StudioViewModel : ViewModelBase
 
     private readonly IProviderStore _providerStore;
 
-    public StudioViewModel(IProviderStore providerStore, SettingsService settingsService)
+    public StudioViewModel(
+        IProviderStore providerStore,
+        SettingsService settingsService,
+        IStudioController studioController,
+        IFilePickerService filePickerService)
     {
         _providerStore = providerStore;
+        _studioController = studioController;
+        _filePickerService = filePickerService;
 
         // Charge les valeurs de lecture depuis les paramètres persistés
         var settings = settingsService.Load();
@@ -231,15 +224,15 @@ public partial class StudioViewModel : ViewModelBase
     /// </summary>
     public void EnsurePreviewRunning()
     {
-        var scene = SceneService.Instance.ActiveScene;
+        var scene = _studioController.ActiveScene;
         if (scene == null)
         {
             System.Diagnostics.Debug.WriteLine("[Preview] EnsurePreviewRunning : aucune scène active.");
             return;
         }
 
-        var hasVideo = scene.Sources.Any(s => s.Type == "Vidéo");
-        System.Diagnostics.Debug.WriteLine($"[Preview] EnsurePreviewRunning : scène='{scene.Name}', sources={scene.Sources.Count}, hasVideo={hasVideo}, isPreviewActive={RecorderService.Instance.IsPreviewActive(scene.Id)}");
+        var hasVideo = _studioController.HasVideoSource(scene);
+        System.Diagnostics.Debug.WriteLine($"[Preview] EnsurePreviewRunning : scène='{scene.Name}', sources={scene.Sources.Count}, hasVideo={hasVideo}, isPreviewActive={_studioController.IsPreviewActive(scene.Id)}");
 
         if (!hasVideo)
         {
@@ -247,7 +240,7 @@ public partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        if (RecorderService.Instance.IsPreviewActive(scene.Id))
+        if (_studioController.IsPreviewActive(scene.Id))
         {
             System.Diagnostics.Debug.WriteLine($"[Preview] '{scene.Name}' déjà actif (Studio) — ignoré.");
             return;
@@ -255,10 +248,12 @@ public partial class StudioViewModel : ViewModelBase
 
         _ = System.Threading.Tasks.Task.Run(() =>
         {
-            int result = RecorderService.Instance.StartPreview(scene);
+            int result = _studioController.EnsurePreview(scene);
             System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview retourné : {result}");
         });
     }
+
+    public string? CurrentPreviewPullUrl => ActiveScene == null ? null : _studioController.GetPreviewPullUrl(ActiveScene.Id);
 
     // ── Streaming error ──
 
@@ -274,21 +269,21 @@ public partial class StudioViewModel : ViewModelBase
 
         var scene = StreamSceneIndex >= 0 && StreamSceneIndex < Scenes.Count
             ? Scenes[StreamSceneIndex]
-            : SceneService.Instance.ActiveScene;
+            : _studioController.ActiveScene;
 
-        if (scene == null || scene.Sources.All(s => s.Type != "Vidéo"))
+        if (scene == null || !_studioController.HasVideoSource(scene))
         {
             StreamError = "Aucune source vidéo dans la scène sélectionnée.";
             return;
         }
 
-        // Mapping index UI flyout → CastorServiceType
+        // Mapping index UI flyout -> StreamingPlatform
         // 0=Twitch, 1=YouTube Live, 2=Facebook Live, 3=RTMP Manuel
-        CastorServiceType service = StreamPlatformIndex switch
+        StreamingPlatform service = StreamPlatformIndex switch
         {
-            0 => CastorServiceType.Twitch,
-            1 => CastorServiceType.YouTube,
-            _ => CastorServiceType.Custom
+            0 => StreamingPlatform.Twitch,
+            1 => StreamingPlatform.YouTube,
+            _ => StreamingPlatform.Custom
         };
 
         string keyOrUrl;
@@ -326,15 +321,15 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         // Lance le preview local si pas encore actif
-        if (!RecorderService.Instance.IsPreviewActive(scene.Id))
+        if (!_studioController.IsPreviewActive(scene.Id))
             _ = Task.Run(() =>
             {
-                int r = RecorderService.Instance.StartPreview(scene);
+                int r = _studioController.EnsurePreview(scene);
                 System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview (StartStreaming) retourné : {r}");
             });
 
         // streaming_service_get_url peut faire un appel HTTPS (Twitch) → thread BG
-        int result = await Task.Run(() => RecorderService.Instance.StartStream(scene, service, keyOrUrl));
+        int result = await Task.Run(() => _studioController.StartStream(scene, service, keyOrUrl));
 
         if (result == 0)
         {
@@ -354,7 +349,7 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private void StopStreaming()
     {
-        RecorderService.Instance.StopStream();
+        _studioController.StopStream();
         IsStreaming = false;
         RestoreAutoMute();
     }
@@ -366,17 +361,17 @@ public partial class StudioViewModel : ViewModelBase
     {
         RecordError = "";
 
-        var scene = SceneService.Instance.ActiveScene;
-        if (scene == null || scene.Sources.All(s => s.Type != "Vidéo"))
+        var scene = _studioController.ActiveScene;
+        if (scene == null || !_studioController.HasVideoSource(scene))
         {
             RecordError = "Aucune source vidéo dans la scène active.";
             return;
         }
 
-        var path = await PickOutputFileAsync();
+        var path = await _filePickerService.PickRecordingOutputFileAsync();
         if (path == null) return; // annulé par l'utilisateur
 
-        int result = RecorderService.Instance.Start(scene, path);
+        int result = _studioController.StartRecording(scene, path);
         if (result == 0)
         {
             IsRecording = true;
@@ -396,32 +391,9 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private void StopRecording()
     {
-        RecorderService.Instance.StopRecording();
+        _studioController.StopRecording();
         IsRecording = false;
         RestoreAutoMute();
-    }
-
-    private static async Task<string?> PickOutputFileAsync()
-    {
-        if (Application.Current?.ApplicationLifetime
-            is not IClassicDesktopStyleApplicationLifetime desktop)
-            return null;
-
-        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
-        if (topLevel == null) return null;
-
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title             = "Enregistrer la vidéo sous...",
-            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}",
-            FileTypeChoices   =
-            [
-                new FilePickerFileType("MP4 (H.264 + AAC)") { Patterns = ["*.mp4"] },
-                new FilePickerFileType("MKV (H.264 + AAC)") { Patterns = ["*.mkv"] },
-            ]
-        });
-
-        return file?.Path.LocalPath;
     }
 
     // ── Source management ──
@@ -429,7 +401,7 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private void AddSource()
     {
-        Sources.Add(new SourceItem("Nouvelle source", "Vidéo", "#5b8def"));
+        Sources.Add(new SourceItem("Nouvelle source", SourceKind.Video, "#5b8def"));
     }
 
     [RelayCommand]

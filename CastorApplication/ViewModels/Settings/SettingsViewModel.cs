@@ -33,54 +33,60 @@ public partial class SettingsViewModel : ViewModelBase
     public bool HasUnsavedChanges => Sections.Any(
         section => section.ViewModel is ISettingsSection settingsSection && settingsSection.IsDirty);
 
-    public SettingsViewModel(IAuthService authService, IProviderStore store, SettingsService settingsService)
+    public SettingsViewModel(
+        IAuthService authService,
+        IProviderStore store,
+        SettingsService settingsService,
+        GeneralSettingsViewModel generalSettingsViewModel,
+        VideoSettingsViewModel videoSettingsViewModel,
+        AudioSettingsViewModel audioSettingsViewModel,
+        StreamingSettingsViewModel streamingSettingsViewModel,
+        OutputSettingsViewModel outputSettingsViewModel,
+        AccountsSettingsViewModel accountsSettingsViewModel)
     {
         _authService = authService;
         _providerStore = store;
-
         _settingsService = settingsService;
-
-        var general = new GeneralSettingsViewModel();
 
         Sections.Add(new()
         {
-            Title = "Général",
-            ViewModel = general,
+            Title = "GÃ©nÃ©ral",
+            ViewModel = generalSettingsViewModel,
             SelectCommand = SelectSectionCommand
         });
 
         Sections.Add(new()
         {
-            Title = "Vidéo",
-            ViewModel = new VideoSettingsViewModel(),
+            Title = "VidÃ©o",
+            ViewModel = videoSettingsViewModel,
             SelectCommand = SelectSectionCommand
         });
 
         Sections.Add(new()
         {
             Title = "Audio",
-            ViewModel = new AudioSettingsViewModel(),
+            ViewModel = audioSettingsViewModel,
             SelectCommand = SelectSectionCommand
         });
 
         Sections.Add(new()
         {
             Title = "Streaming",
-            ViewModel = new StreamingSettingsViewModel(),
+            ViewModel = streamingSettingsViewModel,
             SelectCommand = SelectSectionCommand
         });
 
         Sections.Add(new()
         {
             Title = "Sortie",
-            ViewModel = new OutputSettingsViewModel(),
+            ViewModel = outputSettingsViewModel,
             SelectCommand = SelectSectionCommand
         });
 
         Sections.Add(new()
         {
             Title = "Comptes",
-            ViewModel = new AccountsSettingsViewModel(_authService, _providerStore),
+            ViewModel = accountsSettingsViewModel,
             SelectCommand = SelectSectionCommand
         });
 
@@ -100,6 +106,7 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     public async Task SelectSectionAsync(SettingsSectionItem item)
     {
+        await Task.CompletedTask;
         CurrentSection = item.ViewModel;
     }
 
@@ -125,7 +132,7 @@ public partial class SettingsViewModel : ViewModelBase
             foreach (var section in SectionViewModels)
             {
                 section.MarkClean();
-            }   
+            }
 
             OnPropertyChanged(nameof(HasUnsavedChanges));
             SaveSettingsCommand.NotifyCanExecuteChanged();

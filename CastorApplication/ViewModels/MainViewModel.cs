@@ -4,6 +4,14 @@ using CastorApplication.ViewModels.Settings;
 
 namespace CastorApplication.ViewModels;
 
+public enum MainPageKind
+{
+    Studio,
+    Multicam,
+    Scenes,
+    Settings
+}
+
 public partial class MainViewModel : ViewModelBase
 {
     private readonly StudioViewModel _studioViewModel;
@@ -15,16 +23,12 @@ public partial class MainViewModel : ViewModelBase
     private ViewModelBase? _currentPage;
 
     [ObservableProperty]
-    private bool _isStudioActive = true;
+    private MainPageKind _currentPageKind;
 
-    [ObservableProperty]
-    private bool _isMulticamActive = false;
-
-    [ObservableProperty]
-    private bool _isScenesActive = false;
-
-    [ObservableProperty]
-    private bool _isSettingsActive = false;
+    public bool IsStudioActive => CurrentPageKind == MainPageKind.Studio;
+    public bool IsMulticamActive => CurrentPageKind == MainPageKind.Multicam;
+    public bool IsScenesActive => CurrentPageKind == MainPageKind.Scenes;
+    public bool IsSettingsActive => CurrentPageKind == MainPageKind.Settings;
 
     public MainViewModel(
         StudioViewModel studioViewModel,
@@ -37,7 +41,6 @@ public partial class MainViewModel : ViewModelBase
         _scenesViewModel = scenesViewModel;
         _settingsViewModel = settingsViewModel;
 
-        ResetTabs();
         ShowStudio();
     }
 
@@ -45,39 +48,35 @@ public partial class MainViewModel : ViewModelBase
     private void ShowStudio()
     {
         CurrentPage = _studioViewModel;
-        ResetTabs();
-        IsStudioActive = true;
+        CurrentPageKind = MainPageKind.Studio;
     }
 
     [RelayCommand]
     private void ShowMulticam()
     {
         CurrentPage = _multicamViewModel;
-        ResetTabs();
-        IsMulticamActive = true;
+        CurrentPageKind = MainPageKind.Multicam;
     }
 
     [RelayCommand]
     private void ShowScenes()
     {
         CurrentPage = _scenesViewModel;
-        ResetTabs();
-        IsScenesActive = true;
+        CurrentPageKind = MainPageKind.Scenes;
     }
 
     [RelayCommand]
     private void ShowSettings()
     {
         CurrentPage = _settingsViewModel;
-        ResetTabs();
-        IsSettingsActive = true;
+        CurrentPageKind = MainPageKind.Settings;
     }
 
-    private void ResetTabs()
+    partial void OnCurrentPageKindChanged(MainPageKind value)
     {
-        IsStudioActive = false;
-        IsMulticamActive = false;
-        IsScenesActive = false;
-        IsSettingsActive = false;
+        OnPropertyChanged(nameof(IsStudioActive));
+        OnPropertyChanged(nameof(IsMulticamActive));
+        OnPropertyChanged(nameof(IsScenesActive));
+        OnPropertyChanged(nameof(IsSettingsActive));
     }
 }
