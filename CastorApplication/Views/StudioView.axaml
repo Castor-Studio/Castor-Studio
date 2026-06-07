@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels"
-             xmlns:m="using:CastorApplication.Models"
+             xmlns:m="using:Castor.Engine.Models"
              xmlns:dock="using:Dock.Avalonia.Controls"
 			 xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
              x:Class="CastorApplication.Views.StudioView"

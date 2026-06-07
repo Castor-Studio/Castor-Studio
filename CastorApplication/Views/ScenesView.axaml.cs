@@ -6,8 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using LibVLCSharp.Avalonia;
 using LibVLCSharp.Shared;
-using CastorApplication.Models;
-using CastorApplication.Services;
+using Castor.Engine.Models;
 using CastorApplication.ViewModels;
 
 namespace CastorApplication.Views;
@@ -114,7 +113,7 @@ public partial class ScenesView : UserControl
 
     private void EnsureScenePreview(SceneItem scene)
     {
-        if (RecorderService.Instance.IsPreviewActive(scene.Id))
+        if (_vm?.IsPreviewActive(scene.Id) == true)
         {
             PlayScenePreview(scene);
             return;
@@ -122,7 +121,7 @@ public partial class ScenesView : UserControl
 
         _ = Task.Run(async () =>
         {
-            int r = RecorderService.Instance.StartPreview(scene);
+            int r = _vm?.StartPreview(scene) ?? -1;
             Debug.WriteLine($"[ScenesPreview] StartPreview '{scene.Name}' : {r}");
             if (r == 0)
             {
@@ -136,7 +135,7 @@ public partial class ScenesView : UserControl
     {
         if (_isDisposed || scene == null || _libVLC == null || _mediaPlayer == null) return;
 
-        var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
+        var url = _vm.GetPreviewPullUrl(scene.Id);
 
         Media? old;
         lock (_playLock)

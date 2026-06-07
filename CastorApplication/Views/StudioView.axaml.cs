@@ -6,7 +6,6 @@ using LibVLCSharp.Avalonia;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using CastorApplication.Services;
 using CastorApplication.ViewModels;
 
 namespace CastorApplication.Views
@@ -129,10 +128,8 @@ namespace CastorApplication.Views
         {
             if (_isDisposed || _libVLC == null || _mediaPlayer == null) return;
 
-            var scene = SceneService.Instance.ActiveScene;
-            if (scene == null) return;
-
-            var url = MediaMtxService.GetPreviewPullUrl(scene.Id);
+            var url = _vm?.CurrentPreviewPullUrl;
+            if (string.IsNullOrWhiteSpace(url)) return;
 
             Media? old;
             lock (_playLock)
