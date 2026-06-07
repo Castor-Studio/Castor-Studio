@@ -3,7 +3,7 @@
              x:Class="CastorApplication.App"
              xmlns:local="using:CastorApplication"
              xmlns:vm="using:CastorApplication.ViewModels"
-             xmlns:m="using:CastorApplication.Models"
+             xmlns:m="using:Castor.Engine.Models"
              RequestedThemeVariant="Dark">
 
     <Application.DataTemplates>
@@ -52,7 +52,7 @@
                         <DataTemplate x:DataType="m:SourceItem">
                             <Grid ColumnDefinitions="Auto, *, Auto">
                                 <Ellipse Grid.Column="0" Width="7" Height="7"
-                                         Fill="{Binding ColorBrush}"
+                                         Fill="{Binding Color}"
                                          VerticalAlignment="Center" Margin="0,0,7,0"/>
                                 <TextBlock Grid.Column="1" Text="{Binding Name}"
                                            Foreground="{DynamicResource AppFg2}" FontSize="12"

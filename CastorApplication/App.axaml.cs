@@ -3,12 +3,10 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Castor.Engine.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Castor.Native;
-using CastorApplication.Services;
 using CastorApplication.ViewModels;
 using CastorApplication.Views;
-using CastorApplication.Services.Auth.Providers;
 
 namespace CastorApplication
 {
@@ -32,8 +30,8 @@ namespace CastorApplication
             // Creates a ServiceProvider containing services from the provided IServiceCollection
             var services = collection.BuildServiceProvider();
 
-            CastorNative.Initialize();
-            MediaMtxService.Instance.Start();
+            var lifecycle = services.GetRequiredService<IApplicationLifecycleService>();
+            lifecycle.Start();
 
             var vm = services.GetRequiredService<MainViewModel>();
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -46,13 +44,11 @@ namespace CastorApplication
                 // Arrêt propre des threads natifs et de MediaMTX avant la fermeture de l'app
                 desktop.ShutdownRequested += (_, _) =>
                 {
-                    RecorderService.Instance.StopAll();
-                    MediaMtxService.Instance.Stop();
+                    lifecycle.Stop();
                 };
                 AppDomain.CurrentDomain.ProcessExit += (_, _) =>
                 {
-                    RecorderService.Instance.StopAll();
-                    MediaMtxService.Instance.Stop();
+                    lifecycle.Stop();
                 };
             }
 

@@ -49,7 +49,7 @@
 
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\Castor.Native\Castor.Native.csproj" />
+		<ProjectReference Include="..\Castor.Engine\Castor.Engine.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Content Include="config.json">
