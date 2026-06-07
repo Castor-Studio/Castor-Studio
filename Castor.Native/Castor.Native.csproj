@@ -10,12 +10,14 @@
 	<PropertyGroup>
 		<CastorBuildPreset Condition="'$(Configuration)' == 'Debug'">x64-debug</CastorBuildPreset>
 		<CastorBuildPreset Condition="'$(Configuration)' == 'Release'">x64-release</CastorBuildPreset>
+		<CastorSolutionDir Condition="'$(SolutionDir)' != '' and '$(SolutionDir)' != '*Undefined*'">$(SolutionDir)</CastorSolutionDir>
+		<CastorSolutionDir Condition="'$(CastorSolutionDir)' == ''">$(MSBuildThisFileDirectory)..\</CastorSolutionDir>
 	</PropertyGroup>
 
 	<Target Name="BuildNative" AfterTargets="Build">
 		<Exec
-		  Command="powershell -ExecutionPolicy Bypass -File &quot;$(SolutionDir)build-native.ps1&quot; -Preset $(CastorBuildPreset)"
-		  WorkingDirectory="$(SolutionDir)" />
+		  Command="powershell -ExecutionPolicy Bypass -File &quot;$(CastorSolutionDir)build-native.ps1&quot; -Preset $(CastorBuildPreset)"
+		  WorkingDirectory="$(CastorSolutionDir)" />
 	</Target>
 	
 </Project>
