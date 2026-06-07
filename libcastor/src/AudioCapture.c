@@ -638,6 +638,7 @@ typedef struct {
     AudioCaptureContext actx;
     pthread_t           thread;
     volatile int        running;
+    int                 thread_started;
 } AudioCaptureSrcData;
 
 static void* ac_capture_thread(void* arg) {
@@ -666,14 +667,25 @@ static void ac_activate(void* data) {
         return;
     }
     d->running = 1;
-    pthread_create(&d->thread, NULL, ac_capture_thread, d);
+    if (pthread_create(&d->thread, NULL, ac_capture_thread, d) != 0) {
+        d->running = 0;
+        audio_capture_cleanup(&d->actx);
+        fprintf(stderr, "[audio_capture source] Echec lancement thread '%s'\n", d->src_info.label);
+        return;
+    }
+    d->thread_started = 1;
 }
 
 static void ac_deactivate(void* data) {
     AudioCaptureSrcData* d = (AudioCaptureSrcData*)data;
+    if (!d) return;
     d->running = 0;
-    pthread_join(d->thread, NULL);
-    audio_capture_cleanup(&d->actx);
+    if (d->thread_started) {
+        pthread_join(d->thread, NULL);
+        d->thread_started = 0;
+    }
+    if (d->actx.internal)
+        audio_capture_cleanup(&d->actx);
 }
 
 static void ac_destroy(void* data) {

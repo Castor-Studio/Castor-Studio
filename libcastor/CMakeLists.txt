@@ -6,7 +6,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-file(GLOB_RECURSE SRC "src/*.c" "src/*.cpp" "src/**/*.c" "src/**/*.cpp" "src/output/*.c")
+file(GLOB_RECURSE SRC CONFIGURE_DEPENDS
+    "src/*.c"
+    "src/*.cpp"
+    "src/**/*.c"
+    "src/**/*.cpp")
 
 add_library(castor_core SHARED ${SRC})
 

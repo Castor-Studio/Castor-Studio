@@ -37,6 +37,7 @@ typedef struct {
 
     AVFrame*            last_video_frame;
     CRITICAL_SECTION    frame_lock;
+    CRITICAL_SECTION    output_lock;
 
     HANDLE              th_video_capture;
     HANDLE              th_video_encode;
@@ -125,7 +126,9 @@ static unsigned __stdcall thread_stream_video_encode(void* arg) {
         LeaveCriticalSection(&s->frame_lock);
 
         if (vframe) {
+            EnterCriticalSection(&s->output_lock);
             video_encoder_encode_frame(&s->venc, vframe, s->output);
+            LeaveCriticalSection(&s->output_lock);
             av_frame_free(&vframe);
             frames_encoded++;
             if (frames_encoded == 1)
@@ -183,14 +186,18 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
             if (av_frame_get_buffer(silence, 0) == 0) {
                 for (int ch = 0; ch < silence->ch_layout.nb_channels; ch++)
                     memset(silence->data[ch], 0, silence->nb_samples * sizeof(float));
+                EnterCriticalSection(&s->output_lock);
                 audio_encoder_encode_frame(&s->aenc, silence, s->output);
+                LeaveCriticalSection(&s->output_lock);
                 submitted += gap;
             }
             av_frame_free(&silence);
         }
 
         if (aframe) {
+            EnterCriticalSection(&s->output_lock);
             audio_encoder_encode_frame(&s->aenc, aframe, s->output);
+            LeaveCriticalSection(&s->output_lock);
             submitted += wasapi_samples;
             av_frame_free(&aframe);
         }
@@ -280,6 +287,7 @@ static int stream_init(StreamState* s) {
     }
 
     InitializeCriticalSection(&s->frame_lock);
+    InitializeCriticalSection(&s->output_lock);
     s->initialized = 1;
     return 0;
 }
@@ -307,6 +315,7 @@ static void stream_cleanup(StreamState* s) {
     if (!s->initialized) return;
 
     DeleteCriticalSection(&s->frame_lock);
+    DeleteCriticalSection(&s->output_lock);
     if (s->last_video_frame) {
         av_frame_free(&s->last_video_frame);
         s->last_video_frame = NULL;
@@ -385,6 +394,8 @@ CASTOR_CORE_API CastorRecorder* recorder_create(const RecorderConfig* config) {
 }
 
 CASTOR_CORE_API int recorder_start(CastorRecorder* rec) {
+    if (!rec) return -1;
+
     for (int i = 0; i < rec->num_streams; i++) {
         if (stream_init(&rec->streams[i]) < 0) {
             fprintf(stderr, "[Recorder] Echec init stream %d — arret\n", i);
@@ -413,6 +424,8 @@ CASTOR_CORE_API int recorder_start(CastorRecorder* rec) {
 }
 
 CASTOR_CORE_API void recorder_stop(CastorRecorder* rec) {
+    if (!rec) return;
+
     rec->running = 0;
     for (int i = 0; i < rec->num_streams; i++) {
         stream_stop_threads(&rec->streams[i]);
