@@ -4,6 +4,8 @@ namespace Castor.Engine.Models;
 
 public partial class SourceItem : ObservableObject
 {
+    public Guid Id { get; } = Guid.NewGuid();
+
     [ObservableProperty]
     private string _name = "";
 
