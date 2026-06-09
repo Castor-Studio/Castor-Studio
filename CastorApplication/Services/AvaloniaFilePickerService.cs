@@ -83,6 +83,11 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
                 {
                     Patterns = ["*.mp3", "*.wav", "*.aac", "*.ogg", "*.flac", "*.m4a"]
                 },
+                // Les fichiers vidéo contiennent souvent une piste audio exploitable
+                new FilePickerFileType("Fichiers vidéo (piste audio)")
+                {
+                    Patterns = ["*.mp4", "*.mkv", "*.mov", "*.avi", "*.webm"]
+                },
                 new FilePickerFileType("Tous les fichiers") { Patterns = ["*.*"] }
             ]
         });

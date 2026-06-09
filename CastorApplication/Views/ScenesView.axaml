@@ -311,15 +311,35 @@
                                                    IsVisible="{Binding NetworkSourceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                    Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
 
-                                        <!-- Fichiers vidéo -->
-                                        <TextBlock Text="FICHIER VIDÉO" Foreground="{DynamicResource AppFg4}"
+                                        <!-- Fichiers -->
+                                        <TextBlock Text="FICHIERS" Foreground="{DynamicResource AppFg4}"
                                                    FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+
+                                        <!-- Vidéo seulement -->
                                         <Button Classes="source-type-btn"
                                                 Command="{Binding #ScenesRoot.DataContext.AddFileVideoSourceCommand}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
-                                                <TextBlock Text="Choisir un fichier vidéo…"
-                                                           FontSize="12" VerticalAlignment="Center"/>
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="Vidéo seulement"
+                                                               FontSize="12"/>
+                                                    <TextBlock Text="mp4, mkv, mov, avi, webm"
+                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- Vidéo + audio -->
+                                        <Button Classes="source-type-btn"
+                                                Command="{Binding #ScenesRoot.DataContext.AddFileMediaSourceCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="Vidéo + audio"
+                                                               FontSize="12"/>
+                                                    <TextBlock Text="Ajoute les deux pistes du fichier"
+                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Button>
 
@@ -351,14 +371,16 @@
                                                    FontSize="10" Margin="4,0"/>
 
                                         <!-- Fichiers audio -->
-                                        <TextBlock Text="FICHIER AUDIO" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
                                         <Button Classes="source-type-btn"
                                                 Command="{Binding #ScenesRoot.DataContext.AddFileAudioSourceCommand}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                 <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
-                                                <TextBlock Text="Choisir un fichier audio…"
-                                                           FontSize="12" VerticalAlignment="Center"/>
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="Audio seulement"
+                                                               FontSize="12"/>
+                                                    <TextBlock Text="mp3, wav, aac, ogg, flac, m4a, vidéo…"
+                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>

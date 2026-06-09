@@ -242,8 +242,7 @@ public partial class ScenesViewModel : ViewModelBase
         var path = await _filePickerService.PickVideoFileAsync();
         if (path == null) return;
 
-        var option = new FileVideoSourceOption(path);
-        _studioController.AddFileVideoSource(SelectedScene, option);
+        _studioController.AddFileVideoSource(SelectedScene, new FileVideoSourceOption(path));
     }
 
     [RelayCommand]
@@ -254,8 +253,23 @@ public partial class ScenesViewModel : ViewModelBase
         var path = await _filePickerService.PickAudioFileAsync();
         if (path == null) return;
 
-        var option = new FileAudioSourceOption(path);
-        _studioController.AddFileAudioSource(SelectedScene, option);
+        _studioController.AddFileAudioSource(SelectedScene, new FileAudioSourceOption(path));
+    }
+
+    /// <summary>
+    /// Ajoute un fichier vidéo comme source vidéo ET comme source audio simultanément
+    /// (deux SourceItem distincts depuis le même fichier).
+    /// </summary>
+    [RelayCommand]
+    private async Task AddFileMediaSource()
+    {
+        if (SelectedScene == null) return;
+
+        var path = await _filePickerService.PickVideoFileAsync();
+        if (path == null) return;
+
+        _studioController.AddFileVideoSource(SelectedScene, new FileVideoSourceOption(path));
+        _studioController.AddFileAudioSource(SelectedScene, new FileAudioSourceOption(path));
     }
 
     [RelayCommand]
