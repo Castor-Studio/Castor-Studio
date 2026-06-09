@@ -104,6 +104,26 @@ public sealed class SceneService : ISceneService
         return item;
     }
 
+    public SourceItem AddFileVideoSource(SceneItem scene, FileVideoSourceOption option)
+    {
+        var item = new SourceItem(option.Label, SourceKind.Video, "#a78bfa")
+        {
+            NativeDescriptor = option.Info
+        };
+        scene.Sources.Add(item);
+        return item;
+    }
+
+    public SourceItem AddFileAudioSource(SceneItem scene, FileAudioSourceOption option)
+    {
+        var item = new SourceItem(option.Label, SourceKind.Audio, "#fb923c")
+        {
+            NativeDescriptor = option.Info
+        };
+        scene.Sources.Add(item);
+        return item;
+    }
+
     public void RemoveSource(SceneItem scene, SourceItem source)
     {
         DestroySource(source);

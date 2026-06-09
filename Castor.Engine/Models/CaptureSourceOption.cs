@@ -1,3 +1,4 @@
+using System.IO;
 using Castor.Native;
 
 namespace Castor.Engine.Models;
@@ -51,5 +52,41 @@ public sealed class AudioSourceOption
         };
         DeviceId = info.DeviceId;
         Index = info.Index;
+    }
+}
+
+/// <summary>Piste vidéo d'un fichier multimédia local.</summary>
+public sealed class FileVideoSourceOption
+{
+    internal FileSourceInfo Info { get; }
+
+    public string FilePath { get; }
+    public string Label { get; }
+    public bool Loop { get; }
+
+    public FileVideoSourceOption(string filePath, bool loop = false)
+    {
+        FilePath = filePath;
+        Label = Path.GetFileName(filePath);
+        Loop = loop;
+        Info = new FileSourceInfo { FilePath = filePath, Loop = loop };
+    }
+}
+
+/// <summary>Piste audio d'un fichier multimédia local.</summary>
+public sealed class FileAudioSourceOption
+{
+    internal FileSourceInfo Info { get; }
+
+    public string FilePath { get; }
+    public string Label { get; }
+    public bool Loop { get; }
+
+    public FileAudioSourceOption(string filePath, bool loop = false)
+    {
+        FilePath = filePath;
+        Label = Path.GetFileName(filePath);
+        Loop = loop;
+        Info = new FileSourceInfo { FilePath = filePath, Loop = loop };
     }
 }

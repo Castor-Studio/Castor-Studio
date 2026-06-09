@@ -11,7 +11,8 @@ public enum VideoCaptureKind
     Window,
     Monitor,
     Camera,
-    Network
+    Network,
+    File,
 }
 
 public enum AudioCaptureKind
@@ -19,7 +20,8 @@ public enum AudioCaptureKind
     LoopbackGlobal,
     LoopbackWindow,
     Microphone,
-    CameraMic
+    CameraMic,
+    File,
 }
 
 public enum StreamingPlatform
