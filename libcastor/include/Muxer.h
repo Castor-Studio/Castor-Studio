@@ -17,6 +17,7 @@ typedef struct CastorMuxer {
     AVStream*        video_stream;
     AVStream*        audio_stream;
     CRITICAL_SECTION lock;
+    int              fatal_error; /* premier code d'erreur write — stoppe l'ecriture */
 } CastorMuxer;
 
 /* Cree le contexte de format MP4 et la section critique.

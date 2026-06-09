@@ -26,7 +26,14 @@ CASTOR_CORE_API int muxer_add_video_stream(CastorMuxer* mux, AVCodecContext* vct
         return -1;
     }
 
-    mux->video_stream->time_base = vctx->time_base;
+    /* vctx->time_base peut avoir ete modifie par certains encodeurs
+     * (libvpx-vp9) apres avcodec_open2. On derive la stream time_base depuis
+     * vctx->framerate = {fps, 1} qui, lui, n'est pas touche par libvpx.
+     * av_inv_q({fps, 1}) = {1, fps} — unite "un tick par frame". */
+    mux->video_stream->time_base = (vctx->framerate.num > 0 && vctx->framerate.den > 0)
+        ? av_inv_q(vctx->framerate)
+        : vctx->time_base;
+    mux->video_stream->avg_frame_rate = vctx->framerate;
     return 0;
 }
 
@@ -64,13 +71,20 @@ CASTOR_CORE_API int muxer_write_header(CastorMuxer* mux) {
 }
 
 CASTOR_CORE_API int muxer_write_packet(CastorMuxer* mux, AVPacket* pkt) {
+    /* Si une erreur fatale s'est deja produite, on ne retente pas.
+     * Cela evite le spam de logs (ex: connexion RTMP perdue = des centaines
+     * de WSAECONNABORTED en boucle jusqu'a l'arret manuel). */
+    if (mux->fatal_error) return mux->fatal_error;
+
     EnterCriticalSection(&mux->lock);
     int ret = av_interleaved_write_frame(mux->fmt_ctx, pkt);
     LeaveCriticalSection(&mux->lock);
+
     if (ret < 0) {
         char errbuf[64];
         av_strerror(ret, errbuf, sizeof(errbuf));
-        fprintf(stderr, "[Muxer] av_interleaved_write_frame: %s\n", errbuf);
+        fprintf(stderr, "[Muxer] av_interleaved_write_frame: %s — connexion perdue, arret de l'ecriture\n", errbuf);
+        mux->fatal_error = ret;
     }
     return ret;
 }

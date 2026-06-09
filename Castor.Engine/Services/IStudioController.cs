@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Castor.Engine.Models;
+using Castor.Native;
 
 namespace Castor.Engine.Services;
 
@@ -26,8 +27,15 @@ public interface IStudioController
     bool IsPreviewActive(Guid sceneId);
     int EnsurePreview(SceneItem scene);
     string GetPreviewPullUrl(Guid sceneId);
-    int StartRecording(SceneItem scene, string outputPath);
+    int StartRecording(SceneItem scene, string outputPath,
+                       int fps = 30,
+                       int videoBitrateKbps = 0,
+                       CastorVideoCodec videoCodec = CastorVideoCodec.H264,
+                       CastorAudioCodec audioCodec = CastorAudioCodec.AAC,
+                       int outputWidth = 0, int outputHeight = 0,
+                       int qualityIndex = 1);
     void StopRecording();
-    int StartStream(SceneItem scene, StreamingPlatform platform, string streamKeyOrUrl);
+    int StartStream(SceneItem scene, StreamingPlatform platform, string streamKeyOrUrl,
+                    int fps = 30, int videoBitrateKbps = 4000);
     void StopStream();
 }

@@ -126,10 +126,24 @@ static unsigned __stdcall thread_stream_video_encode(void* arg) {
         LeaveCriticalSection(&s->frame_lock);
 
         if (vframe) {
+            /* Estampille l'horloge murale en microsecondes.
+             * video_encoder_encode_frame utilisera cette valeur pour calculer
+             * enc->frame->pts via av_rescale_q, garantissant une vitesse de
+             * lecture 1:1 meme si l'encodeur (libvpx-vp9) est plus lent que
+             * le fps cible (ex : 11fps effectif pour une cible de 60fps). */
+            vframe->pts = (int64_t)(elapsed * 1000000.0);
             EnterCriticalSection(&s->output_lock);
-            video_encoder_encode_frame(&s->venc, vframe, s->output);
+            int enc_ret = video_encoder_encode_frame(&s->venc, vframe, s->output);
             LeaveCriticalSection(&s->output_lock);
             av_frame_free(&vframe);
+            if (enc_ret < 0) {
+                /* Erreur fatale (connexion perdue, disque plein, ...) : inutile
+                 * de continuer a encoder. Le recorder sera arrete par l'utilisateur
+                 * ou a la fermeture de l'application. */
+                fprintf(stderr, "[Stream %d] Erreur fatale encode/write (%d) — thread video stoppe\n",
+                        s->index, enc_ret);
+                break;
+            }
             frames_encoded++;
             if (frames_encoded == 1)
                 s->first_frame_ready = 1;
@@ -209,10 +223,32 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
  *  Init / cleanup d'un stream
  * ================================================================== */
 
+/* Codes de retour de stream_init (et recorder_start) :
+ *  -10 : video_capture_init_source a echoue
+ *  -11 : dimensions video nulles apres capture init
+ *  -12 : audio_capture_init_source a echoue
+ *  -20 : codec video introuvable (libvpx-vp9 / libx264 absent)
+ *  -21 : avcodec_open2 video echoue
+ *  -22 : sws_getContext echoue
+ *  -25 : codec audio introuvable (libopus / AAC absent)
+ *  -26 : avcodec_open2 audio echoue
+ *  -27 : av_audio_fifo_alloc echoue
+ *  -30 : creation de l'output echouee (chemin invalide, RTMP inaccessible)
+ *  -31 : output_add_*_stream ou output_write_header echoue */
 static int stream_init(StreamState* s) {
+    /* Redirect stderr vers un fichier pour rendre les logs natifs visibles.
+     * Fichier cree dans le repertoire de travail de l'application. */
+    {
+        static int log_opened = 0;
+        if (!log_opened) {
+            if (freopen("castor_debug.log", "w", stderr))
+                log_opened = 1;
+        }
+    }
+
     if (video_capture_init_source(&s->vctx, &s->config.video_src) < 0) {
         fprintf(stderr, "[Stream %d] Init capture video echouee\n", s->index);
-        return -1;
+        return -10;
     }
 
     /* Sanity check : un codec comme x264 crashe si on l'ouvre avec des dimensions nulles */
@@ -220,7 +256,7 @@ static int stream_init(StreamState* s) {
         fprintf(stderr, "[Stream %d] Dimensions invalides apres init capture: %dx%d\n",
                 s->index, s->vctx.width, s->vctx.height);
         video_capture_cleanup(&s->vctx);
-        return -1;
+        return -11;
     }
     fprintf(stderr, "[Stream %d] Capture video OK — %dx%d (type=%d)\n",
             s->index, s->vctx.width, s->vctx.height, s->config.video_src.type);
@@ -228,7 +264,7 @@ static int stream_init(StreamState* s) {
     if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0) {
         fprintf(stderr, "[Stream %d] Init capture audio echouee\n", s->index);
         video_capture_cleanup(&s->vctx);
-        return -1;
+        return -12;
     }
     if (s->actx.channels > 2) s->actx.channels = 2;
 
@@ -239,27 +275,65 @@ static int stream_init(StreamState* s) {
     if (s->config.output.type == CASTOR_OUTPUT_RTMP) {
         vcfg = video_encoder_config_rtmp(s->config.output.video_bitrate_kbps,
                                          s->config.output.gop_seconds);
-        acfg.audio_bitrate_kbps = s->config.output.audio_bitrate_kbps;
+        vcfg.video_codec        = CASTOR_VCODEC_H264; /* RTMP = H264 uniquement */
+        acfg.audio_bitrate_kbps = s->config.output.audio_bitrate_kbps > 0
+                                  ? s->config.output.audio_bitrate_kbps : 128;
+        acfg.audio_codec        = CASTOR_ACODEC_AAC;  /* RTMP = AAC uniquement  */
     } else {
-        vcfg = video_encoder_config_default();
-        acfg = audio_encoder_config_default();
+        /* Fichier : CBR si bitrate specifie, CRF sinon */
+        if (s->config.output.video_bitrate_kbps > 0) {
+            vcfg                    = video_encoder_config_default(); /* zero-init */
+            vcfg.cbr                = 1;
+            vcfg.video_bitrate_kbps = s->config.output.video_bitrate_kbps;
+            vcfg.gop_seconds        = s->config.output.gop_seconds > 0
+                                      ? s->config.output.gop_seconds : 2;
+        } else {
+            vcfg = video_encoder_config_default();
+        }
+        vcfg.video_codec        = s->config.output.video_codec;
+        acfg.audio_bitrate_kbps = s->config.output.audio_bitrate_kbps > 0
+                                  ? s->config.output.audio_bitrate_kbps : 128;
+        acfg.audio_codec        = s->config.output.audio_codec;
     }
 
-    if (video_encoder_init_ex(&s->venc,
-                              s->vctx.width, s->vctx.height,
-                              s->recorder->config.fps, &vcfg) < 0) {
-        fprintf(stderr, "[Stream %d] Init encodeur video echoue\n", s->index);
+    /* Dimensions de sortie : output_width/height si specifie, sinon capture native. */
+    const int out_w = (s->config.output.output_width  > 0)
+                      ? s->config.output.output_width  : s->vctx.width;
+    const int out_h = (s->config.output.output_height > 0)
+                      ? s->config.output.output_height : s->vctx.height;
+
+    /* Dimensions source pour sws (redimensionnement capture → sortie). */
+    vcfg.src_width  = s->vctx.width;
+    vcfg.src_height = s->vctx.height;
+
+    /* CRF selon le quality_index : 0=haute 1=bonne 2=basse.
+     * Valeurs per-codec : H264 {18,23,28} / VP9 {25,33,40}. */
+    if (!vcfg.cbr) {
+        static const int h264_crf[3] = {18, 23, 28};
+        static const int vp9_crf [3] = {25, 33, 40};
+        int qi = s->config.output.quality_index;
+        if (qi < 0 || qi > 2) qi = 1;
+        vcfg.crf = (vcfg.video_codec == CASTOR_VCODEC_VP9)
+                   ? vp9_crf[qi] : h264_crf[qi];
+    }
+
+    int enc_ret = video_encoder_init_ex(&s->venc,
+                                        out_w, out_h,
+                                        s->recorder->config.fps, &vcfg);
+    if (enc_ret < 0) {
+        fprintf(stderr, "[Stream %d] Init encodeur video echoue (code %d)\n", s->index, enc_ret);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return enc_ret; /* -20 / -21 / -22 */
     }
 
-    if (audio_encoder_init_ex(&s->aenc, s->actx.sample_rate, &acfg) < 0) {
-        fprintf(stderr, "[Stream %d] Init encodeur audio echoue\n", s->index);
+    int aenc_ret = audio_encoder_init_ex(&s->aenc, s->actx.sample_rate, &acfg);
+    if (aenc_ret < 0) {
+        fprintf(stderr, "[Stream %d] Init encodeur audio echoue (code %d)\n", s->index, aenc_ret);
         video_encoder_cleanup(&s->venc, NULL);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return aenc_ret; /* -25 / -26 / -27 */
     }
 
     /* Creer l'output (fichier ou RTMP) */
@@ -270,7 +344,7 @@ static int stream_init(StreamState* s) {
         audio_encoder_cleanup(&s->aenc, NULL);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return -30;
     }
 
     if (output_add_video_stream(s->output, s->venc.ctx) < 0 ||
@@ -283,7 +357,7 @@ static int stream_init(StreamState* s) {
         audio_encoder_cleanup(&s->aenc, NULL);
         video_capture_cleanup(&s->vctx);
         audio_capture_cleanup(&s->actx);
-        return -1;
+        return -31;
     }
 
     InitializeCriticalSection(&s->frame_lock);

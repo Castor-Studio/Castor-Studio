@@ -10,6 +10,9 @@ public sealed class ApplicationSettings
     public int SelectedOutputResolutionIndex { get; set; }
     public int SelectedFpsIndex { get; set; }
     public double VideoBitrate { get; set; } = 6000;
+    public double StreamingBitrate { get; set; } = 4000;
+
+    public int RecordingQualityIndex { get; set; } = 1; // 0=haute 1=bonne 2=basse
 
     public int SelectedSampleRateIndex { get; set; }
     public int SelectedChannelsIndex { get; set; }

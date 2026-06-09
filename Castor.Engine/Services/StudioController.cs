@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Castor.Engine.Models;
+using Castor.Native;
 
 namespace Castor.Engine.Services;
 
@@ -88,9 +89,16 @@ public sealed class StudioController(
 
     public string GetPreviewPullUrl(Guid sceneId) => mediaMtxService.GetPreviewPullUrl(sceneId);
 
-    public int StartRecording(SceneItem scene, string outputPath)
+    public int StartRecording(SceneItem scene, string outputPath,
+                              int fps = 30,
+                              int videoBitrateKbps = 0,
+                              CastorVideoCodec videoCodec = CastorVideoCodec.H264,
+                              CastorAudioCodec audioCodec = CastorAudioCodec.AAC,
+                              int outputWidth = 0, int outputHeight = 0,
+                              int qualityIndex = 1)
     {
-        return recorderService.Start(scene, outputPath);
+        return recorderService.Start(scene, outputPath, fps, videoBitrateKbps,
+                                     videoCodec, audioCodec, outputWidth, outputHeight, qualityIndex);
     }
 
     public void StopRecording()
@@ -98,9 +106,10 @@ public sealed class StudioController(
         recorderService.StopRecording();
     }
 
-    public int StartStream(SceneItem scene, StreamingPlatform platform, string streamKeyOrUrl)
+    public int StartStream(SceneItem scene, StreamingPlatform platform, string streamKeyOrUrl,
+                           int fps = 30, int videoBitrateKbps = 4000)
     {
-        return recorderService.StartStream(scene, platform, streamKeyOrUrl);
+        return recorderService.StartStream(scene, platform, streamKeyOrUrl, fps, videoBitrateKbps);
     }
 
     public void StopStream()

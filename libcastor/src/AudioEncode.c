@@ -14,32 +14,63 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     AudioEncoderConfig defaults = audio_encoder_config_default();
     if (!cfg) cfg = &defaults;
 
-    const AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
-    if (!codec) {
-        fprintf(stderr, "[AudioEncoder] codec AAC introuvable\n");
-        return -1;
+    /* Codes de retour :
+     *  -25 : codec introuvable (libopus / AAC absent de l'avcodec.dll)
+     *  -26 : avcodec_open2 a echoue
+     *  -27 : av_audio_fifo_alloc a echoue */
+    const AVCodec* codec = NULL;
+    if (cfg->audio_codec == CASTOR_ACODEC_OPUS) {
+        codec = avcodec_find_encoder_by_name("libopus");
+        if (!codec) {
+            fprintf(stderr, "[AudioEncoder] libopus introuvable — recompilez FFmpeg avec --enable-libopus\n");
+            return -25;
+        }
+    } else {
+        codec = avcodec_find_encoder(AV_CODEC_ID_AAC);
+        if (!codec) {
+            fprintf(stderr, "[AudioEncoder] codec AAC introuvable\n");
+            return -25;
+        }
     }
+    fprintf(stderr, "[AudioEncoder] codec : %s\n", codec->name);
 
     enc->ctx = avcodec_alloc_context3(codec);
     if (!enc->ctx) return -1;
 
-    enc->ctx->sample_rate = sample_rate;
-    enc->ctx->sample_fmt  = AV_SAMPLE_FMT_FLTP;
+    /* libopus n'accepte que 8000/12000/16000/24000/48000 Hz.
+     * Si la source WASAPI est a 44100 Hz, avcodec_open2 echouerait.
+     * On force 48000 Hz ; swr_convert resamplera a la volee si besoin. */
+    enc->ctx->sample_rate = (cfg->audio_codec == CASTOR_ACODEC_OPUS) ? 48000 : sample_rate;
     enc->ctx->bit_rate    = (cfg->audio_bitrate_kbps > 0
                              ? cfg->audio_bitrate_kbps
                              : 128) * 1000;
     av_channel_layout_default(&enc->ctx->ch_layout, 2);
 
+    /* Choisir le meilleur sample_fmt supporte par ce codec.
+     * On prefere FLTP (planar float) ; certains codecs (ex: libopus) peuvent
+     * preferer FLT (interleave) ou S16. */
+    enum AVSampleFormat preferred = AV_SAMPLE_FMT_FLTP;
+    if (codec->sample_fmts) {
+        int fltp_ok = 0;
+        for (const enum AVSampleFormat* f = codec->sample_fmts;
+             *f != AV_SAMPLE_FMT_NONE; f++) {
+            if (*f == preferred) { fltp_ok = 1; break; }
+        }
+        if (!fltp_ok)
+            preferred = codec->sample_fmts[0];
+    }
+    enc->ctx->sample_fmt = preferred;
+
     if (avcodec_open2(enc->ctx, codec, NULL) < 0) {
         fprintf(stderr, "[AudioEncoder] avcodec_open2 failed\n");
         avcodec_free_context(&enc->ctx);
-        return -1;
+        return -26;
     }
 
     enc->frame = av_frame_alloc();
     enc->frame->nb_samples  = enc->ctx->frame_size;
     enc->frame->format      = enc->ctx->sample_fmt;
-    enc->frame->sample_rate = sample_rate;
+    enc->frame->sample_rate = enc->ctx->sample_rate;
     av_channel_layout_copy(&enc->frame->ch_layout, &enc->ctx->ch_layout);
     av_frame_get_buffer(enc->frame, 0);
 
@@ -48,12 +79,12 @@ CASTOR_CORE_API int audio_encoder_init_ex(AudioEncoder* enc, int sample_rate,
     enc->swr          = NULL;
 
     enc->fifo = av_audio_fifo_alloc(
-        AV_SAMPLE_FMT_FLTP, 2, enc->ctx->frame_size * 4);
+        enc->ctx->sample_fmt, 2, enc->ctx->frame_size * 4);
     if (!enc->fifo) {
         avcodec_free_context(&enc->ctx);
         av_frame_free(&enc->frame);
         av_packet_free(&enc->pkt);
-        return -1;
+        return -27;
     }
 
     return 0;

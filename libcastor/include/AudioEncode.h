@@ -13,18 +13,28 @@ extern "C" {
 #endif
 
 /* ================================================================== *
+ *  CastorAudioCodec — codec audio selectionnable
+ * ================================================================== */
+typedef enum {
+    CASTOR_ACODEC_AAC  = 0,  /* AAC — MP4 / MKV / RTMP */
+    CASTOR_ACODEC_OPUS = 1,  /* libopus — WebM          */
+} CastorAudioCodec;
+
+/* ================================================================== *
  *  AudioEncoderConfig — parametres d'encodage audio.
  *
  *  audio_bitrate_kbps : 0 = defaut (128 kb/s)
  * ================================================================== */
 typedef struct {
-    int audio_bitrate_kbps;
+    int              audio_bitrate_kbps;
+    CastorAudioCodec audio_codec;
 } AudioEncoderConfig;
 
 static inline AudioEncoderConfig audio_encoder_config_default(void)
 {
     AudioEncoderConfig c;
     c.audio_bitrate_kbps = 128;
+    c.audio_codec        = CASTOR_ACODEC_AAC;
     return c;
 }
 

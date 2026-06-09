@@ -9,9 +9,12 @@ namespace CastorApplication.Services;
 
 public sealed class AvaloniaFilePickerService : IFilePickerService
 {
-    public async Task<string?> PickRecordingOutputFileAsync()
+    public async Task<string?> PickRecordingOutputFileAsync(
+        string extension   = ".mp4",
+        string formatLabel = "MP4 (H.264 + AAC)")
     {
-        if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop)
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
             return null;
 
         var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
@@ -19,15 +22,19 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
 
         var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Enregistrer la vidéo sous...",
-            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}",
-            FileTypeChoices =
+            Title             = "Enregistrer la vidéo sous...",
+            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}{extension}",
+            FileTypeChoices   =
             [
-                new FilePickerFileType("MP4 (H.264 + AAC)") { Patterns = ["*.mp4"] },
-                new FilePickerFileType("MKV (H.264 + AAC)") { Patterns = ["*.mkv"] },
+                new FilePickerFileType(formatLabel) { Patterns = [$"*{extension}"] },
             ]
         });
 
-        return file?.Path.LocalPath;
+        // Garantir que le chemin retourné a la bonne extension
+        var path = file?.Path.LocalPath;
+        if (path != null && !path.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+            path += extension;
+
+        return path;
     }
 }

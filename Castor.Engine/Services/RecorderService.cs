@@ -28,7 +28,13 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             return _previewPtrs.TryGetValue(sceneId, out var pointer) && pointer != IntPtr.Zero;
     }
 
-    public int Start(SceneItem scene, string outputPath, int fps = 30)
+    public int Start(SceneItem scene, string outputPath,
+                     int fps = 30,
+                     int videoBitrateKbps = 0,
+                     CastorVideoCodec videoCodec = CastorVideoCodec.H264,
+                     CastorAudioCodec audioCodec = CastorAudioCodec.AAC,
+                     int outputWidth = 0, int outputHeight = 0,
+                     int qualityIndex = 1)
     {
         if (IsRecording) return -1;
 
@@ -53,8 +59,14 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             AudioSrc = GetAudioSourceInfo(audioItem) ?? default,
             Output = new OutputConfig
             {
-                Type = CastorOutputType.File,
-                Destination = outputPath,
+                Type             = CastorOutputType.File,
+                Destination      = outputPath,
+                VideoBitrateKbps = videoBitrateKbps,
+                VideoCodec       = videoCodec,
+                AudioCodec       = audioCodec,
+                OutputWidth      = outputWidth,
+                OutputHeight     = outputHeight,
+                QualityIndex     = qualityIndex,
             }
         };
 
@@ -89,7 +101,8 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
         StopAllPreviews();
     }
 
-    public int StartStream(SceneItem scene, StreamingPlatform platform, string streamKeyOrUrl, int fps = 30)
+    public int StartStream(SceneItem scene, StreamingPlatform platform, string streamKeyOrUrl,
+                           int fps = 30, int videoBitrateKbps = 4000)
     {
         if (IsStreaming) return -1;
 
@@ -122,11 +135,11 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             AudioSrc = audioSrc,
             Output = new OutputConfig
             {
-                Type = CastorOutputType.Rtmp,
-                Destination = rtmpUrl,
-                VideoBitrateKbps = 4000,
+                Type             = CastorOutputType.Rtmp,
+                Destination      = rtmpUrl,
+                VideoBitrateKbps = videoBitrateKbps,
                 AudioBitrateKbps = 128,
-                GopSeconds = 2
+                GopSeconds       = 2
             }
         };
 
