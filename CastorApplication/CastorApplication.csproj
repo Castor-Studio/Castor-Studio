@@ -37,6 +37,12 @@
 		</PackageReference>
 
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="Google.Protobuf" Version="3.29.3" />
+		<PackageReference Include="Grpc.Net.Client" Version="2.67.0" />
+		<PackageReference Include="Grpc.Tools" Version="2.67.0">
+			<PrivateAssets>All</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
 		<PackageReference Include="TwitchLib" Version="3.5.3" />
 		<PackageReference Include="Dock.Avalonia" Version="11.3.2" />
@@ -50,6 +56,9 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Castor.Engine\Castor.Engine.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<Protobuf Include="Protos\ia_analysis.proto" GrpcServices="Client" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Content Include="config.json">
