@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
+             x:Class="CastorApplication.Views.Settings.Sections.OutputSettingsView"
+             x:DataType="vm:OutputSettingsViewModel">
+
+    <StackPanel Margin="28,20"
+                Spacing="28">
+
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="SORTIE"
+                       Classes="section-title"/>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Format d'enregistrement"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedOutputFormatIndex}">
+
+                    <ComboBoxItem Content="MP4 (H.264 + AAC)"/>
+                    <ComboBoxItem Content="MKV (H.264 + AAC)"/>
+                    <ComboBoxItem Content="WebM (VP9 + Opus)"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Dossier de sortie"
+                           Classes="setting-label"/>
+
+                <TextBox Grid.Column="1"
+                         MaxWidth="320"
+                         HorizontalAlignment="Left"
+                         Background="{DynamicResource AppSurface2}"
+                         BorderBrush="{DynamicResource AppBorder2}"
+                         Foreground="{DynamicResource AppFg2}"
+                         Watermark="C:\Users\...\Videos"
+                         Text="{Binding OutputPath}"/>
+
+            </Grid>
+
+        </StackPanel>
+
+    </StackPanel>
+
+</UserControl>

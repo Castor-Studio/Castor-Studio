@@ -1,0 +1,122 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
+             x:Class="CastorApplication.Views.Settings.Sections.AudioSettingsView"
+             x:DataType="vm:AudioSettingsViewModel">
+
+    <StackPanel Margin="28,20"
+                Spacing="28">
+
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="AUDIO"
+                       Classes="section-title"/>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Fréquence d'échantillonnage"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedSampleRateIndex}">
+
+                    <ComboBoxItem Content="48 kHz"/>
+                    <ComboBoxItem Content="44.1 kHz"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Canaux"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedChannelsIndex}">
+
+                    <ComboBoxItem Content="Stéréo"/>
+                    <ComboBoxItem Content="Mono"/>
+                    <ComboBoxItem Content="5.1 Surround"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Débit audio (kbps)"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedAudioBitrateIndex}">
+
+                    <ComboBoxItem Content="320 kbps"/>
+                    <ComboBoxItem Content="192 kbps"/>
+                    <ComboBoxItem Content="128 kbps"/>
+
+                </ComboBox>
+
+            </Grid>
+
+        </StackPanel>
+
+        <!-- ── LECTURE ── -->
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="LECTURE"
+                       Classes="section-title"/>
+
+            <!-- Slider volume preview -->
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Volume de prévisualisation"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1"
+                            Spacing="6"
+                            MaxWidth="260">
+
+                    <Slider Minimum="0"
+                            Maximum="100"
+                            Value="{Binding PlayerVolume}"
+                            TickFrequency="5"
+                            IsSnapToTickEnabled="True"/>
+
+                    <TextBlock Text="{Binding PlayerVolumeLabel}"
+                               Foreground="{DynamicResource AppFg4}"
+                               FontSize="11"/>
+
+                </StackPanel>
+
+            </Grid>
+
+            <!-- Checkbox mute auto -->
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Couper le son en enregistrement / live"
+                           Classes="setting-label"
+                           TextWrapping="Wrap"/>
+
+                <CheckBox Grid.Column="1"
+                          IsChecked="{Binding MutePlayersOnRecord}"
+                          VerticalAlignment="Center"/>
+
+            </Grid>
+
+        </StackPanel>
+
+    </StackPanel>
+
+</UserControl>

@@ -1,14 +1,383 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="CastorApplication.Views.ScenesView">
-    
-    <Grid>
-        <TextBlock Text="Welcome to Scenes !" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"/>
+             xmlns:vm="using:CastorApplication.ViewModels"
+             xmlns:m="using:Castor.Engine.Models"
+             xmlns:engineModels="using:Castor.Engine.Models"
+             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+             x:Class="CastorApplication.Views.ScenesView"
+             x:Name="ScenesRoot"
+             x:DataType="vm:ScenesViewModel">
+
+    <UserControl.Styles>
+
+        <Style Selector="Button.source-type-btn">
+            <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.source-type-btn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppNavBadgeBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        </Style>
+
+        <Style Selector="Button.scene-btn">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.scene-btn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+        </Style>
+
+    </UserControl.Styles>
+
+    <Grid ColumnDefinitions="240, 1, *" Background="{DynamicResource AppBg}">
+
+        <!-- ═══ SCENES LIST ═══ -->
+        <Border Grid.Column="0" Background="{DynamicResource AppSurface}">
+            <Grid RowDefinitions="56, 1, *">
+
+                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="14,0">
+                    <TextBlock Grid.Column="0" Text="SCÈNES"
+                               FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
+                               VerticalAlignment="Center"/>
+
+                    <!-- Create Scene Flyout -->
+                    <Button Grid.Column="1"
+                            Content="+"
+                            Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
+                            BorderThickness="0" Padding="10,4" CornerRadius="5"
+                            FontSize="16" FontWeight="Bold"
+                            VerticalAlignment="Center" Cursor="Hand">
+                        <Button.Flyout>
+                            <Flyout Placement="Right">
+                                <StackPanel Width="260" Spacing="12" Margin="4">
+                                    <TextBlock Text="NOUVELLE SCÈNE"
+                                               FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="Nom de la scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+                                        <TextBox Text="{Binding NewSceneName}"
+                                                 Watermark="Ex: Match Live"
+                                                 Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
+                                    </StackPanel>
+                                    <Button Content="CRÉER LA SCÈNE"
+                                            Command="{Binding CreateSceneCommand}"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Height="36" Background="#5b8def" Foreground="#eaeaf0"
+                                            BorderThickness="0" CornerRadius="6"
+                                            FontSize="12" FontWeight="Bold" Cursor="Hand"/>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </Grid>
+
+                <Rectangle Grid.Row="1" Fill="{DynamicResource AppBorder}"/>
+
+                <!-- Dynamic scene list -->
+                <ScrollViewer Grid.Row="2">
+                    <ItemsControl ItemsSource="{Binding Scenes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:SceneItem">
+                                <Button Classes="scene-btn"
+                                        Command="{Binding #ScenesRoot.DataContext.SelectSceneCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Panel>
+                                        <!-- Active scene display -->
+                                        <Border IsVisible="{Binding IsActive}"
+                                                Background="{DynamicResource AppAccentBg2}"
+                                                BorderBrush="#5b8def"
+                                                BorderThickness="3,0,0,0">
+                                            <Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="▶" Foreground="#5b8def" FontSize="10"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource AppFg1}"
+                                                               FontSize="13" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="1"
+                                                        IsVisible="{Binding IsLive}"
+                                                        Background="#5b8def" CornerRadius="3" Padding="6,2">
+                                                    <TextBlock Text="EN DIRECT" Foreground="#eaeaf0"
+                                                               FontSize="9" FontWeight="Bold"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Inactive scene display -->
+                                        <Border IsVisible="{Binding !IsActive}"
+                                                Padding="14,10">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{DynamicResource AppFg3}" FontSize="13"/>
+                                        </Border>
+                                    </Panel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+            </Grid>
+        </Border>
+
+        <Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}"/>
+
+        <!-- ═══ RIGHT PANEL ═══ -->
+        <Grid Grid.Column="2" RowDefinitions="*, 8, 200" Margin="8">
+
+            <!-- Scene preview -->
+            <Border Grid.Row="0"
+                    Background="Black" CornerRadius="8"
+                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
+                    ClipToBounds="True">
+                <Panel>
+                    <!-- Flux RTMP de la scène sélectionnée -->
+                    <vlc:VideoView x:Name="ScenePreviewPlayer"
+                                   HorizontalAlignment="Stretch"
+                                   VerticalAlignment="Stretch"
+                                   AttachedToVisualTree="SceneVideoView_OnAttached"/>
+
+                    <!-- Placeholder quand aucune scène n'est sélectionnée -->
+                    <TextBlock Text="APERÇU DE LA SCÈNE"
+                               IsVisible="{Binding SelectedScene, Converter={x:Static ObjectConverters.IsNull}}"
+                               Foreground="{DynamicResource AppSurface2}" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" FontSize="18" FontWeight="Bold"/>
+
+                    <!-- Nom de la scène en overlay -->
+                    <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                            Margin="12" Padding="10,6" CornerRadius="5"
+                            IsVisible="{Binding SelectedScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Background="#AA0B0B12" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+                        <TextBlock Text="{Binding SelectedScene.Name}"
+                                   Foreground="{DynamicResource AppFg3}" FontSize="12" FontWeight="SemiBold"/>
+                    </Border>
+                </Panel>
+            </Border>
+
+            <Rectangle Grid.Row="1" Fill="Transparent"/>
+
+            <!-- Sources of selected scene -->
+            <Border Grid.Row="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="14">
+                <Grid RowDefinitions="Auto, 10, *">
+
+                    <Grid Grid.Row="0" ColumnDefinitions="*, Auto">
+                        <TextBlock Grid.Column="0" Text="SOURCES DE LA SCÈNE"
+                                   FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
+                                   VerticalAlignment="Center"/>
+
+                        <!-- Add Source Flyout -->
+                        <Button Grid.Column="1"
+                                Content="+"
+                                Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
+                                BorderThickness="0" Padding="10,4" CornerRadius="5"
+                                FontSize="16" FontWeight="Bold" Cursor="Hand">
+                            <Button.Flyout>
+                                <Flyout Placement="Top">
+                                    <StackPanel Width="240" Spacing="8" Margin="4">
+                                        <TextBlock Text="AJOUTER UNE SOURCE"
+                                                   FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                        <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+
+                                        <!-- Moniteurs -->
+                                        <TextBlock Text="MONITEURS" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,4,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableMonitors}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificVideoSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableMonitors.Count}"
+                                                   Text="Aucun moniteur détecté" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+
+                                        <!-- Caméras -->
+                                        <TextBlock Text="CAMÉRAS" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableCameras}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificVideoSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableCameras.Count}"
+                                                   Text="Aucune caméra détectée" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+
+                                        <!-- Fenêtres -->
+                                        <TextBlock Text="FENÊTRES" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ScrollViewer MaxHeight="120">
+                                            <ItemsControl ItemsSource="{Binding AvailableWindows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="m:CaptureSourceOption">
+                                                        <Button Classes="source-type-btn"
+                                                                Content="{Binding Label}"
+                                                                Command="{Binding #ScenesRoot.DataContext.AddSpecificVideoSourceCommand}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                        <TextBlock IsVisible="{Binding !AvailableWindows.Count}"
+                                                   Text="Aucune fenêtre détectée" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+
+                                        <!-- Flux réseau -->
+                                        <TextBlock Text="FLUX RÉSEAU (RTMP/RTSP/HTTP)"
+                                                   Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+
+                                        <!-- Saisie manuelle URL -->
+                                        <Grid ColumnDefinitions="*, 6, Auto">
+                                            <TextBox Grid.Column="0"
+                                                     Text="{Binding NetworkSourceUrl}"
+                                                     Watermark="rtmp:// ou rtsp://..."
+                                                     FontSize="11" Padding="6,4"
+                                                     Background="{DynamicResource AppSurface2}"
+                                                     Foreground="{DynamicResource AppFg1}"
+                                                     BorderBrush="{DynamicResource AppBorder2}"
+                                                     CornerRadius="4"/>
+                                            <Button Grid.Column="2"
+                                                    Content="+"
+                                                    Command="{Binding AddNetworkSourceCommand}"
+                                                    Background="{DynamicResource AppAccentBg}"
+                                                    Foreground="#5b8def"
+                                                    BorderThickness="0"
+                                                    Padding="10,4" CornerRadius="4"
+                                                    FontSize="14" FontWeight="Bold"/>
+                                        </Grid>
+
+                                        <!-- Scan WS-Discovery -->
+                                        <Button Command="{Binding ScanNetworkCamerasCommand}"
+                                                IsEnabled="{Binding !IsScanning}"
+                                                Classes="source-type-btn"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center">
+                                            <Panel>
+                                                <TextBlock Text="⏳ Scan en cours…"
+                                                           IsVisible="{Binding IsScanning}"
+                                                           HorizontalAlignment="Center"/>
+                                                <TextBlock Text="🔍 Scanner le réseau"
+                                                           IsVisible="{Binding !IsScanning}"
+                                                           HorizontalAlignment="Center"/>
+                                            </Panel>
+                                        </Button>
+
+                                        <!-- Résultats du scan -->
+                                        <ItemsControl ItemsSource="{Binding DiscoveredCameras}"
+                                                      IsVisible="{Binding DiscoveredCameras.Count}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="engineModels:DiscoveredCamera">
+                                                    <Button Classes="source-type-btn"
+                                                            HorizontalAlignment="Stretch"
+                                                            Command="{Binding #ScenesRoot.DataContext.AddDiscoveredCameraCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Label}" FontSize="11"/>
+                                                            <TextBlock Text="{Binding SuggestedUrl}"
+                                                                       FontSize="9"
+                                                                       Foreground="{DynamicResource AppFg4}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <TextBlock Text="{Binding NetworkSourceError}"
+                                                   IsVisible="{Binding NetworkSourceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
+
+                                        <!-- Audio -->
+                                        <TextBlock Text="SOURCES AUDIO" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+                                        <ItemsControl ItemsSource="{Binding AvailableLoopbacks}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:AudioSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificAudioSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding AvailableMics}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:AudioSourceOption">
+                                                    <Button Classes="source-type-btn"
+                                                            Content="{Binding Label}"
+                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificAudioSourceCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock IsVisible="{Binding !AvailableLoopbacks.Count}"
+                                                   Text="Aucun périphérique audio détecté" Foreground="{DynamicResource AppFg5}"
+                                                   FontSize="10" Margin="4,0"/>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </Grid>
+
+                    <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
+
+                    <!-- Dynamic source list -->
+                    <ScrollViewer Grid.Row="2">
+                        <ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="m:SourceItem">
+                                    <Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2">
+                                        <Grid ColumnDefinitions="12, *, Auto, Auto">
+                                            <Ellipse Grid.Column="0" Width="7" Height="7"
+                                                     Fill="{Binding Color}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                                       Foreground="{DynamicResource AppFg2}" FontSize="12"
+                                                       Margin="8,0" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Type}"
+                                                       Foreground="{DynamicResource AppFg4}" FontSize="10"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <Button Grid.Column="3"
+                                                    Content="✕"
+                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
+                                                    BorderThickness="0" FontSize="11" Padding="4,2"
+                                                    Cursor="Hand"
+                                                    Command="{Binding #ScenesRoot.DataContext.RemoveSourceCommand}"
+                                                    CommandParameter="{Binding}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+        </Grid>
+
     </Grid>
-    
+
 </UserControl>

@@ -1,0 +1,72 @@
+
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:CastorApplication.ViewModels.Settings"
+             xmlns:components="using:CastorApplication.Views.Settings.Components"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="CastorApplication.Views.Settings.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <Grid ColumnDefinitions="220,1,*" Background="{DynamicResource AppBg}">
+
+        <!-- SIDEBAR -->
+        <Border Grid.Column="0" Background="{DynamicResource AppSurface}">
+            <Grid RowDefinitions="56,1,*">
+                <!-- TITLE -->
+                <TextBlock Grid.Row="0"
+                    Text="PARAMÈTRES"
+                    Margin="18,0"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    FontWeight="Bold"
+                    Foreground="{DynamicResource AppFg4}" />
+
+                <!-- SEPARATOR -->
+                <Rectangle Grid.Row="1" Fill="{DynamicResource AppBorder}" />
+                
+                <!-- NAVIGATION -->
+                <ItemsControl Grid.Row="2"
+                    ItemsSource="{Binding Sections}"
+                    Margin="0,8">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <components:SettingsNavItem />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </Grid>
+        </Border>
+
+        <!-- VERTICAL SEPARATOR -->
+        <Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}" />
+        
+        <!-- CONTENT -->
+        <Grid Grid.Column="2" RowDefinitions="*,Auto">
+
+            <!-- ACTIVE SECTION -->
+            <ScrollViewer Grid.Row="0">
+                <ContentControl Content="{Binding CurrentSection}" />
+            </ScrollViewer>
+
+            <!-- FOOTER -->
+            <Border Grid.Row="1"
+                Background="{DynamicResource AppSurface}"
+                BorderBrush="{DynamicResource AppBorder}"
+                BorderThickness="0,1,0,0" Padding="24,12">
+
+                <Button Content="Enregistrer"
+                    Classes="platform-connect"
+                    Command="{Binding SaveSettingsCommand}"
+                    HorizontalAlignment="Right"
+                    MinWidth="130"/>
+
+            </Border>
+
+        </Grid>
+
+    </Grid>
+
+</UserControl>

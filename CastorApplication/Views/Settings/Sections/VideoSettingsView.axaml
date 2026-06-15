@@ -1,0 +1,122 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
+             x:Class="CastorApplication.Views.Settings.Sections.VideoSettingsView"
+             x:DataType="vm:VideoSettingsViewModel">
+
+    <StackPanel Margin="28,20"
+                Spacing="28">
+
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="VIDÉO"
+                       Classes="section-title"/>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Résolution de base"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedBaseResolutionIndex}">
+
+                    <ComboBoxItem Content="3840x2160 (4K)"/>
+                    <ComboBoxItem Content="1920x1080 (Full HD)"/>
+                    <ComboBoxItem Content="1280x720 (HD)"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Résolution de sortie"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedOutputResolutionIndex}">
+
+                    <ComboBoxItem Content="1920x1080 (Full HD)"/>
+                    <ComboBoxItem Content="1280x720 (HD)"/>
+                    <ComboBoxItem Content="854x480 (SD)"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Images par seconde"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedFpsIndex}">
+
+                    <ComboBoxItem Content="60 fps"/>
+                    <ComboBoxItem Content="30 fps"/>
+                    <ComboBoxItem Content="25 fps"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Qualité (CRF)"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedQualityIndex}">
+
+                    <ComboBoxItem Content="Haute"/>
+                    <ComboBoxItem Content="Bonne"/>
+                    <ComboBoxItem Content="Basse"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Débit enregistrement (kbps)"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            MaxWidth="320">
+
+                    <Slider Minimum="1000"
+                            Maximum="20000"
+                            Width="220"
+                            VerticalAlignment="Center"
+                            Value="{Binding VideoBitrate}"/>
+
+                    <TextBlock Width="50"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{DynamicResource AppFg4}"
+                               Text="{Binding VideoBitrateDisplay}"/>
+
+                </StackPanel>
+
+            </Grid>
+
+        </StackPanel>
+
+    </StackPanel>
+
+</UserControl>
