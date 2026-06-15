@@ -1,0 +1,81 @@
+name: 📌 User Story
+description: Describe a user need and its business value
+title: "feat(scope): [short description]"
+labels:
+  - type:enhancement
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the need from the user's perspective.
+
+  - type: textarea
+    id: need
+    attributes:
+      label: User Need
+      description: What does the user need?
+      placeholder: As an operator, I want...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Functional Area
+      options:
+        - AI Assistant
+        - Auto Mode
+        - Audio
+        - Video
+        - Streaming
+        - Recording
+        - Scene Management
+        - User Interface
+        - Analytics
+        - Infrastructure
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: List the conditions that must be met.
+      placeholder: |
+        - User can activate Auto Mode
+        - AI recommends scenes
+        - User can override decisions
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: dor
+    attributes:
+      label: Definition of Ready
+      options:
+        - label: User need is clearly described
+        - label: Business value is identified
+        - label: Acceptance criteria are defined
+        - label: Dependencies are identified
+
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Development completed
+        - label: Code reviewed
+        - label: Tests passed
+        - label: Documentation updated
+        - label: Product Owner validation completed
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Related Links
+      description: Documentation, mockups, specifications, etc.
+      placeholder: |
+        - Documentation:
+        - Related Issue:
