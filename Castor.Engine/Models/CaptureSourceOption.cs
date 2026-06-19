@@ -64,7 +64,7 @@ public sealed class FileVideoSourceOption
     public string Label { get; }
     public bool Loop { get; }
 
-    public FileVideoSourceOption(string filePath, bool loop = false)
+    public FileVideoSourceOption(string filePath, bool loop = true)
     {
         FilePath = filePath;
         Label = Path.GetFileName(filePath);
@@ -82,7 +82,7 @@ public sealed class FileAudioSourceOption
     public string Label { get; }
     public bool Loop { get; }
 
-    public FileAudioSourceOption(string filePath, bool loop = false)
+    public FileAudioSourceOption(string filePath, bool loop = true)
     {
         FilePath = filePath;
         Label = Path.GetFileName(filePath);

@@ -13,6 +13,11 @@
 #include "source/source.h"
 #include "source/source_registry.h"
 
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswresample/swresample.h>
+#include <libavutil/opt.h>
+
 #pragma comment(lib, "mf.lib")
 #pragma comment(lib, "mfplat.lib")
 #pragma comment(lib, "mfreadwrite.lib")
@@ -43,8 +48,11 @@ static const IID local_IID_IAudioCaptureClient = {
 
 /* ------------------------------------------------------------------ *
  *  Contexte interne (opaque côte .h)
+ *  IMPORTANT : is_file doit rester le premier membre de TOUTES les
+ *  structs internes pour permettre le dispatch générique.
  * ------------------------------------------------------------------ */
 typedef struct {
+    int                   is_file;    /* 0 = WASAPI — initialisé à 0 par calloc */
     IMMDeviceEnumerator*  enumerator;
     IMMDevice*            device;
     IAudioClient*         client;
@@ -53,6 +61,20 @@ typedef struct {
     int                   sample_rate;
     int                   channels;
 } AudioCaptureInternal;
+
+typedef struct {
+    int                is_file;    /* 1 = fichier FFmpeg */
+    AVFormatContext*   fmt_ctx;
+    AVCodecContext*    codec_ctx;
+    SwrContext*        swr_ctx;
+    int                stream_idx;
+    int                sample_rate;
+    int                channels;
+    int                loop;
+} AudioFileCaptureInternal;
+
+/* Forward declaration — implémentation après audio_capture_cleanup */
+static AVFrame* next_frame_file_audio(AudioFileCaptureInternal* internal);
 
 /* ------------------------------------------------------------------ *
  *  Helpers format WAVEFORMATEX → AVFrame FLTP
@@ -269,6 +291,8 @@ fail:
  * ------------------------------------------------------------------ */
 CASTOR_CORE_API AVFrame* audio_capture_next_frame(AudioCaptureContext* ctx) {
     if (!ctx || !ctx->internal) return NULL;
+    if (*(int*)ctx->internal == 1)
+        return next_frame_file_audio((AudioFileCaptureInternal*)ctx->internal);
     AudioCaptureInternal* internal = (AudioCaptureInternal*)ctx->internal;
 
     for (int i = 0; i < 20; i++) {
@@ -318,6 +342,15 @@ CASTOR_CORE_API AVFrame* audio_capture_next_frame(AudioCaptureContext* ctx) {
  * ------------------------------------------------------------------ */
 CASTOR_CORE_API void audio_capture_cleanup(AudioCaptureContext* ctx) {
     if (!ctx || !ctx->internal) return;
+    if (*(int*)ctx->internal == 1) {
+        AudioFileCaptureInternal* internal = (AudioFileCaptureInternal*)ctx->internal;
+        if (internal->swr_ctx)    swr_free(&internal->swr_ctx);
+        if (internal->codec_ctx)  avcodec_free_context(&internal->codec_ctx);
+        if (internal->fmt_ctx)    avformat_close_input(&internal->fmt_ctx);
+        free(internal);
+        ctx->internal = NULL;
+        return;
+    }
     AudioCaptureInternal* internal = (AudioCaptureInternal*)ctx->internal;
 
     if (internal->client)    internal->client->lpVtbl->Stop(internal->client);
@@ -546,6 +579,140 @@ fail:
 }
 
 /* ------------------------------------------------------------------ *
+ *  audio_capture_init_file — ouvre un fichier via FFmpeg
+ * ------------------------------------------------------------------ */
+static int audio_capture_init_file(AudioCaptureContext* ctx, const char* path, int loop) {
+    AudioFileCaptureInternal* internal =
+        (AudioFileCaptureInternal*)calloc(1, sizeof(AudioFileCaptureInternal));
+    if (!internal) return -1;
+    internal->is_file = 1;
+    internal->loop    = loop;
+
+    int ret = avformat_open_input(&internal->fmt_ctx, path, NULL, NULL);
+    if (ret < 0) {
+        char err[128]; av_strerror(ret, err, sizeof(err));
+        fprintf(stderr, "[FileAudio] Impossible d'ouvrir '%s': %s\n", path, err);
+        free(internal);
+        return -1;
+    }
+
+    if (avformat_find_stream_info(internal->fmt_ctx, NULL) < 0) {
+        fprintf(stderr, "[FileAudio] find_stream_info echoue pour '%s'\n", path);
+        avformat_close_input(&internal->fmt_ctx);
+        free(internal);
+        return -1;
+    }
+
+    internal->stream_idx = av_find_best_stream(
+        internal->fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
+    if (internal->stream_idx < 0) {
+        fprintf(stderr, "[FileAudio] Aucun flux audio dans '%s'\n", path);
+        avformat_close_input(&internal->fmt_ctx);
+        free(internal);
+        return -1;
+    }
+
+    AVStream*      stream = internal->fmt_ctx->streams[internal->stream_idx];
+    const AVCodec* codec  = avcodec_find_decoder(stream->codecpar->codec_id);
+    if (!codec) {
+        fprintf(stderr, "[FileAudio] Codec audio introuvable\n");
+        avformat_close_input(&internal->fmt_ctx);
+        free(internal);
+        return -1;
+    }
+
+    internal->codec_ctx = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(internal->codec_ctx, stream->codecpar);
+    if (avcodec_open2(internal->codec_ctx, codec, NULL) < 0) {
+        fprintf(stderr, "[FileAudio] avcodec_open2 echoue\n");
+        avcodec_free_context(&internal->codec_ctx);
+        avformat_close_input(&internal->fmt_ctx);
+        free(internal);
+        return -1;
+    }
+
+    internal->sample_rate = 48000;
+    internal->channels    = 2;
+
+    ctx->internal    = internal;
+    ctx->sample_rate = internal->sample_rate;
+    ctx->channels    = internal->channels;
+
+    fprintf(stdout, "[FileAudio] Fichier ouvert : %s (loop=%d)\n", path, loop);
+    return 0;
+}
+
+static AVFrame* next_frame_file_audio(AudioFileCaptureInternal* internal) {
+    AVPacket* pkt = av_packet_alloc();
+    if (!pkt) return NULL;
+
+    for (;;) {
+        int ret = av_read_frame(internal->fmt_ctx, pkt);
+        if (ret < 0) {
+            if (ret == AVERROR_EOF && internal->loop) {
+                av_seek_frame(internal->fmt_ctx, -1, 0, AVSEEK_FLAG_BACKWARD);
+                avcodec_flush_buffers(internal->codec_ctx);
+                continue;
+            }
+            break;
+        }
+        if (pkt->stream_index != internal->stream_idx) {
+            av_packet_unref(pkt);
+            continue;
+        }
+
+        ret = avcodec_send_packet(internal->codec_ctx, pkt);
+        av_packet_unref(pkt);
+        if (ret < 0) break;
+
+        AVFrame* decoded = av_frame_alloc();
+        ret = avcodec_receive_frame(internal->codec_ctx, decoded);
+        if (ret == AVERROR(EAGAIN)) { av_frame_free(&decoded); continue; }
+        if (ret < 0)                { av_frame_free(&decoded); break;    }
+
+        /* Initialise le resampler à la première frame (format source connu) */
+        if (!internal->swr_ctx) {
+            AVChannelLayout stereo;
+            av_channel_layout_default(&stereo, 2);
+            swr_alloc_set_opts2(&internal->swr_ctx,
+                &stereo,          AV_SAMPLE_FMT_FLTP, 48000,
+                &decoded->ch_layout, (enum AVSampleFormat)decoded->format, decoded->sample_rate,
+                0, NULL);
+            swr_init(internal->swr_ctx);
+        }
+
+        int out_samples = (int)av_rescale_rnd(
+            swr_get_delay(internal->swr_ctx, decoded->sample_rate) + decoded->nb_samples,
+            48000, decoded->sample_rate, AV_ROUND_UP);
+
+        AVFrame* out = av_frame_alloc();
+        out->format      = AV_SAMPLE_FMT_FLTP;
+        out->sample_rate = 48000;
+        out->nb_samples  = out_samples;
+        av_channel_layout_default(&out->ch_layout, 2);
+
+        if (av_frame_get_buffer(out, 0) < 0) {
+            av_frame_free(&out);
+            av_frame_free(&decoded);
+            break;
+        }
+
+        int converted = swr_convert(internal->swr_ctx,
+            out->data, out_samples,
+            (const uint8_t**)decoded->data, decoded->nb_samples);
+        out->nb_samples = converted;
+        out->pts        = decoded->pts;
+
+        av_frame_free(&decoded);
+        av_packet_free(&pkt);
+        return out;
+    }
+
+    av_packet_free(&pkt);
+    return NULL;
+}
+
+/* ------------------------------------------------------------------ *
  *  audio_capture_init_source — dispatch selon AudioSourceType
  * ------------------------------------------------------------------ */
 CASTOR_CORE_API int audio_capture_init_source(AudioCaptureContext* ctx, AudioSourceInfo* src) {
@@ -565,6 +732,9 @@ CASTOR_CORE_API int audio_capture_init_source(AudioCaptureContext* ctx, AudioSou
         case AUDIO_SOURCE_MICROPHONE:
         case AUDIO_SOURCE_CAMERA_MIC:
             return audio_capture_init_device_id(ctx, src->device_id);
+
+        case AUDIO_SOURCE_FILE:
+            return audio_capture_init_file(ctx, src->device_id, src->index);
 
         default:
             return -1;

@@ -146,7 +146,7 @@
                                         <ComboBox HorizontalAlignment="Stretch"
                                                   ItemsSource="{Binding Scenes}"
                                                   DisplayMemberBinding="{Binding Name}"
-                                                  SelectedIndex="{Binding StreamSceneIndex}"
+                                                  SelectedItem="{Binding ActiveScene}"
                                                   Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                                     </StackPanel>
                                     <StackPanel Spacing="4">

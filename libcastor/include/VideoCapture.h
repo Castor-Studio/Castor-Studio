@@ -43,6 +43,7 @@ typedef enum {
     CAPTURE_SOURCE_MONITOR = 1,
     CAPTURE_SOURCE_CAMERA  = 2,
     CAPTURE_SOURCE_NETWORK = 3,  /* flux RTMP / RTSP / HTTP — URL dans symbolic_link */
+    CAPTURE_SOURCE_FILE    = 4,  /* fichier local — chemin dans symbolic_link, index=1 si loop */
 } CaptureSourceType;
 
 typedef struct {
@@ -102,6 +103,13 @@ CASTOR_CORE_API int video_capture_init_camera  (VideoCaptureContext* ctx, const 
  * url : URL complète (ex: rtmp://192.168.1.1/live, rtsp://cam/stream)
  * Retourne 0 si succès, -1 en cas d'erreur (URL invalide, timeout…). */
 CASTOR_CORE_API int video_capture_init_network (VideoCaptureContext* ctx, const char* url);
+
+/* Initialise la lecture d'un fichier vidéo local via FFmpeg avformat.
+ * ctx  : contexte à initialiser
+ * path : chemin absolu du fichier (UTF-8)
+ * loop : si vrai, recommence depuis le début à la fin du fichier
+ * Retourne 0 si succès, -1 en cas d'erreur. */
+CASTOR_CORE_API int video_capture_init_file    (VideoCaptureContext* ctx, const char* path, bool loop);
 
 /* Dispatch vers init_window, init_monitor ou init_camera selon src->type.
  * ctx : contexte à initialiser

@@ -24,6 +24,7 @@ typedef enum {
     AUDIO_SOURCE_LOOPBACK_WINDOW = 1,  /* loopback fenêtre (best-effort) */
     AUDIO_SOURCE_MICROPHONE      = 2,  /* micro USB/jack/bluetooth       */
     AUDIO_SOURCE_CAMERA_MIC      = 3,  /* micro integre camera           */
+    AUDIO_SOURCE_FILE            = 4,  /* fichier local — chemin dans device_id, index=1 si loop */
 } AudioSourceType;
 
 typedef struct {
