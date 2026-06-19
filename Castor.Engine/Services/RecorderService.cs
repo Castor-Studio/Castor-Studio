@@ -329,14 +329,14 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
         if (source.NativeDescriptor is CaptureSourceInfo info)
             return info;
 
-        // Fichier vidéo : chemin dans SymbolicLink, loop encodé dans Index (0 = pas de loop, 1 = loop)
+        // Fichier vidéo : chemin dans SymbolicLink, loop lu depuis SourceItem.Loop
         if (source.NativeDescriptor is FileSourceInfo fileInfo)
             return new CaptureSourceInfo
             {
                 Label        = source.Name,
                 Type         = CaptureSourceType.File,
                 SymbolicLink = fileInfo.FilePath,
-                Index        = fileInfo.Loop ? 1 : 0,
+                Index        = source.Loop ? 1 : 0,
             };
 
         return null;
@@ -349,14 +349,14 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
         if (source.NativeDescriptor is AudioSourceInfo info)
             return info;
 
-        // Fichier audio : chemin dans DeviceId, loop encodé dans Index (0 = pas de loop, 1 = loop)
+        // Fichier audio : chemin dans DeviceId, loop lu depuis SourceItem.Loop
         if (source.NativeDescriptor is FileSourceInfo fileInfo)
             return new AudioSourceInfo
             {
                 Label    = source.Name,
                 Type     = AudioSourceType.File,
                 DeviceId = fileInfo.FilePath,
-                Index    = fileInfo.Loop ? 1 : 0,
+                Index    = source.Loop ? 1 : 0,
             };
 
         return null;
