@@ -37,4 +37,61 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
 
         return path;
     }
+
+    public async Task<string?> PickVideoFileAsync()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+        if (topLevel == null) return null;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Choisir un fichier vidéo",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Fichiers vidéo")
+                {
+                    Patterns = ["*.mp4", "*.mkv", "*.mov", "*.avi", "*.webm"]
+                },
+                new FilePickerFileType("Tous les fichiers") { Patterns = ["*.*"] }
+            ]
+        });
+
+        return files.Count > 0 ? files[0].Path.LocalPath : null;
+    }
+
+    public async Task<string?> PickAudioFileAsync()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+        if (topLevel == null) return null;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Choisir un fichier audio",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Fichiers audio")
+                {
+                    Patterns = ["*.mp3", "*.wav", "*.aac", "*.ogg", "*.flac", "*.m4a"]
+                },
+                // Les fichiers vidéo contiennent souvent une piste audio exploitable
+                new FilePickerFileType("Fichiers vidéo (piste audio)")
+                {
+                    Patterns = ["*.mp4", "*.mkv", "*.mov", "*.avi", "*.webm"]
+                },
+                new FilePickerFileType("Tous les fichiers") { Patterns = ["*.*"] }
+            ]
+        });
+
+        return files.Count > 0 ? files[0].Path.LocalPath : null;
+    }
 }

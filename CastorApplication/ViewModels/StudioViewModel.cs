@@ -294,13 +294,11 @@ public partial class StudioViewModel : ViewModelBase
     {
         StreamError = "";
 
-        var scene = StreamSceneIndex >= 0 && StreamSceneIndex < Scenes.Count
-            ? Scenes[StreamSceneIndex]
-            : _studioController.ActiveScene;
+        var scene = _studioController.ActiveScene;
 
         if (scene == null || !_studioController.HasVideoSource(scene))
         {
-            StreamError = "Aucune source vidéo dans la scène sélectionnée.";
+            StreamError = "Aucune source vidéo dans la scène active.";
             return;
         }
 
@@ -371,7 +369,7 @@ public partial class StudioViewModel : ViewModelBase
         else
             StreamError = result switch
             {
-                -2  => "Aucune source vidéo dans la scène sélectionnée.",
+                -2  => "Aucune source vidéo dans la scène active.",
                 -3  => "Impossible de créer le recorder natif.",
                 -4  => "Impossible de construire l'URL RTMP (clé invalide ?).",
                 -10 => "Impossible d'ouvrir la capture vidéo.",
