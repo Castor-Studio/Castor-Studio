@@ -1,0 +1,105 @@
+name: 🔧 Technical Story
+description: Engineering task, technical improvement, architecture, infrastructure, or refactoring work
+title: "feat(scope): [short description]"
+labels:
+  - type:technical
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the technical work to be completed.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What technical objective should be achieved?
+      placeholder: Create a temporary frontend layout using Grid and Border components.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why is this work needed?
+      placeholder: This task prepares the frontend structure for future UI implementation.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Functional Area
+      options:
+        - AI Assistant
+        - Auto Mode
+        - Audio
+        - Video
+        - Streaming
+        - Recording
+        - Scene Management
+        - User Interface
+        - Analytics
+        - Infrastructure
+        - DevOps
+        - Backend
+        - Frontend
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_requirements
+    attributes:
+      label: Technical Requirements
+      description: List the technical requirements that must be implemented.
+      placeholder: |
+        - Create a temporary layout structure
+        - Use Grid and Border components
+        - Add placeholder sections
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Conditions required for the task to be considered complete.
+      placeholder: |
+        - Layout structure is implemented
+        - Placeholder sections are visible
+        - No business logic is introduced
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of Done
+      options:
+        - label: Implementation completed
+        - label: Code reviewed
+        - label: Tests completed (if applicable)
+        - label: Documentation updated (if applicable)
+        - label: Merged into target branch
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Related tasks, blockers, or prerequisites.
+      placeholder: |
+        - Depends on #123
+        - Blocks #456
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Related Links
+      description: Documentation, design documents, specifications, etc.
+      placeholder: |
+        - Documentation:
+        - Architecture Diagram:
+        - Related Issue:
