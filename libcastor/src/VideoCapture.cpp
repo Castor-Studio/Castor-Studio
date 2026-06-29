@@ -86,6 +86,12 @@ struct VideoCaptureContextInternal {
     int              net_stream_idx = -1;
     bool             file_loop      = false;
 
+    /* Rate-limiting fichier : maintient le flux à la vitesse réelle du fichier */
+    int64_t file_start_us           = 0;   /* horloge murale au 1er frame */
+    int64_t file_first_pts_us       = -1;  /* PTS brut du tout premier frame (µs) */
+    int64_t file_last_raw_pts_us    = 0;   /* PTS brut du dernier frame vu (µs) */
+    int64_t file_pts_loop_offset_us = 0;   /* offset cumulé entre les boucles */
+
     int width  = 0;
     int height = 0;
 };
@@ -780,8 +786,21 @@ static AVFrame* next_frame_file(VideoCaptureContextInternal* internal) {
         int ret = av_read_frame(internal->net_fmt_ctx, pkt);
         if (ret < 0) {
             if (ret == AVERROR_EOF && internal->file_loop) {
+                /* Calcule la durée de cette passe pour maintenir la continuité PTS */
+                AVStream* st = internal->net_fmt_ctx->streams[internal->net_stream_idx];
+                int64_t frame_dur_us = 33333; /* ~30 fps par défaut */
+                if (st->avg_frame_rate.num > 0 && st->avg_frame_rate.den > 0)
+                    frame_dur_us = av_rescale_q(1, av_inv_q(st->avg_frame_rate), AV_TIME_BASE_Q);
+                /* L'offset s'incrémente de la durée totale de ce passage */
+                int64_t first = (internal->file_first_pts_us >= 0) ? internal->file_first_pts_us : 0;
+                internal->file_pts_loop_offset_us +=
+                    internal->file_last_raw_pts_us - first + frame_dur_us;
                 av_seek_frame(internal->net_fmt_ctx, -1, 0, AVSEEK_FLAG_BACKWARD);
                 avcodec_flush_buffers(internal->net_codec_ctx);
+                if (internal->net_sws_ctx) {
+                    sws_freeContext(internal->net_sws_ctx);
+                    internal->net_sws_ctx = nullptr;
+                }
                 continue;
             }
             break;
@@ -821,7 +840,29 @@ static AVFrame* next_frame_file(VideoCaptureContextInternal* internal) {
         sws_scale(internal->net_sws_ctx,
                   decoded->data, decoded->linesize, 0, decoded->height,
                   out->data, out->linesize);
-        out->pts = av_gettime_relative();
+
+        /* Rate-limiting : aligne la sortie sur le temps réel du fichier */
+        if (decoded->pts != AV_NOPTS_VALUE) {
+            AVStream* st = internal->net_fmt_ctx->streams[internal->net_stream_idx];
+            int64_t raw_us = av_rescale_q(decoded->pts, st->time_base, AV_TIME_BASE_Q);
+
+            if (internal->file_start_us == 0) {
+                internal->file_start_us     = av_gettime_relative();
+                internal->file_first_pts_us = raw_us;
+            }
+            internal->file_last_raw_pts_us = raw_us;
+
+            int64_t first       = internal->file_first_pts_us;
+            int64_t adjusted_us = raw_us + internal->file_pts_loop_offset_us - first;
+            int64_t expected    = internal->file_start_us + adjusted_us;
+            int64_t now         = av_gettime_relative();
+            if (expected > now + 1000)
+                av_usleep((unsigned)(expected - now));
+
+            out->pts = expected;
+        } else {
+            out->pts = av_gettime_relative();
+        }
 
         av_frame_free(&decoded);
         av_packet_free(&pkt);

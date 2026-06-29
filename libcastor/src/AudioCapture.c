@@ -63,7 +63,7 @@ typedef struct {
 } AudioCaptureInternal;
 
 typedef struct {
-    int                is_file;    /* 1 = fichier FFmpeg */
+    int                is_file;        /* 1 = fichier FFmpeg */
     AVFormatContext*   fmt_ctx;
     AVCodecContext*    codec_ctx;
     SwrContext*        swr_ctx;
@@ -71,6 +71,8 @@ typedef struct {
     int                sample_rate;
     int                channels;
     int                loop;
+    int64_t            next_pts;       /* compteur de samples monotone — ne se réinitialise JAMAIS */
+    int64_t            start_us;       /* horloge murale au démarrage (µs) pour le rate-limiting */
 } AudioFileCaptureInternal;
 
 /* Forward declaration — implémentation après audio_capture_cleanup */
@@ -643,6 +645,16 @@ static int audio_capture_init_file(AudioCaptureContext* ctx, const char* path, i
 }
 
 static AVFrame* next_frame_file_audio(AudioFileCaptureInternal* internal) {
+    /* Initialise l'horloge de référence au premier appel.
+     * On recule d'une durée de frame (~21333 µs) pour que le 1er frame
+     * soit émis sans délai. Sans ça, le muxer RTMP reçoit les premiers
+     * paquets vidéo 21 ms avant l'audio, doit les bufferiser, et Twitch
+     * voit une désynchronisation + saccades au démarrage. */
+    if (internal->start_us == 0) {
+        int64_t one_frame_us = av_rescale(1024, AV_TIME_BASE, 48000); /* ~21333 µs */
+        internal->start_us   = av_gettime_relative() - one_frame_us;
+    }
+
     AVPacket* pkt = av_packet_alloc();
     if (!pkt) return NULL;
 
@@ -650,6 +662,10 @@ static AVFrame* next_frame_file_audio(AudioFileCaptureInternal* internal) {
         int ret = av_read_frame(internal->fmt_ctx, pkt);
         if (ret < 0) {
             if (ret == AVERROR_EOF && internal->loop) {
+                /* Sur boucle : vider le SWR pour éviter les samples résiduels,
+                 * mais next_pts ne se réinitialise JAMAIS — garantit la monotonie. */
+                if (internal->swr_ctx)
+                    swr_convert(internal->swr_ctx, NULL, 0, NULL, 0);
                 av_seek_frame(internal->fmt_ctx, -1, 0, AVSEEK_FLAG_BACKWARD);
                 avcodec_flush_buffers(internal->codec_ctx);
                 continue;
@@ -701,9 +717,22 @@ static AVFrame* next_frame_file_audio(AudioFileCaptureInternal* internal) {
             out->data, out_samples,
             (const uint8_t**)decoded->data, decoded->nb_samples);
         out->nb_samples = converted;
-        out->pts        = decoded->pts;
+
+        /* PTS en samples (monotone même après boucle) — jamais décroissant */
+        out->pts = internal->next_pts;
+        internal->next_pts += converted;
 
         av_frame_free(&decoded);
+
+        /* Rate-limiting : on ne sort pas les frames plus vite que le temps réel.
+         * Sans ça, le thread audio viderait le fichier en quelques ms et
+         * inonderait l'encodeur, créant un décalage massif avec la vidéo. */
+        int64_t expected_us = internal->start_us +
+            av_rescale(internal->next_pts, AV_TIME_BASE, 48000);
+        int64_t now = av_gettime_relative();
+        if (expected_us > now + 1000)
+            av_usleep((unsigned)(expected_us - now));
+
         av_packet_free(&pkt);
         return out;
     }
