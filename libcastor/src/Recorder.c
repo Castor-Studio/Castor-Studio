@@ -417,6 +417,10 @@ static void stream_start_threads(StreamState* s) {
 
 static void stream_stop_threads(StreamState* s) {
     s->capture_running = 0;
+    /* Fermer les queues FileCapture pour débloquer les threads en attente
+     * sur file_capture_next_*_frame avant le WaitForSingleObject. */
+    if (s->file_capture)
+        file_capture_signal_stop(s->file_capture);
     HANDLE threads[3] = { s->th_video_capture, s->th_video_encode, s->th_audio };
     for (int t = 0; t < 3; t++)
         if (threads[t]) WaitForSingleObject(threads[t], 5000);

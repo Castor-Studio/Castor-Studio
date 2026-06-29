@@ -1,3 +1,9 @@
+/* windows.h doit précéder les headers FFmpeg sur MSVC/Windows */
+#ifdef _WIN32
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#endif
+
 #include "FileCapture.h"
 
 #include <libavformat/avformat.h>
@@ -6,25 +12,24 @@
 #include <libswresample/swresample.h>
 #include <libavutil/time.h>
 #include <libavutil/mathematics.h>
-#include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
-#include <libavutil/imgutils.h>
 
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-/* ------------------------------------------------------------------ *
- *  Queue de frames (producteur / consommateur)
+/* ================================================================== *
+ *  Queue de frames thread-safe
  *
- *  queue_push : non-bloquant ; si la queue est pleine, la plus ancienne
- *               frame est droppée.  Évite tout deadlock dans le thread
- *               demux (qui ne peut pas se bloquer sur push sans bloquer
- *               l'autre flux).
- *  queue_pop  : bloquant ; attend qu'un frame soit disponible ou que la
- *               queue soit fermée.
- * ------------------------------------------------------------------ */
+ *  queue_push : non-bloquant — si la queue est pleine la plus ancienne
+ *               frame est droppée, ce qui évite tout deadlock dans le
+ *               thread demux (qui produit vidéo et audio depuis la même
+ *               boucle et ne peut pas se bloquer sur un seul flux).
+ *  queue_pop  : bloquant — attend jusqu'à ce qu'une frame soit dispo
+ *               ou que la queue soit fermée.
+ * ================================================================== */
+
 #define VIDEO_QUEUE_MAX 4
 #define AUDIO_QUEUE_MAX 16
 
@@ -44,15 +49,13 @@ typedef struct {
 } FrameQueue;
 
 static void queue_init(FrameQueue* q, int max_size) {
-    q->head = q->tail = NULL;
-    q->count = q->closed = 0;
+    memset(q, 0, sizeof(*q));
     q->max_size = max_size;
     pthread_mutex_init(&q->mutex, NULL);
     pthread_cond_init(&q->not_empty, NULL);
 }
 
-static void queue_destroy(FrameQueue* q) {
-    pthread_mutex_lock(&q->mutex);
+static void queue_drain_locked(FrameQueue* q) {
     FrameNode* n = q->head;
     while (n) {
         FrameNode* next = n->next;
@@ -62,6 +65,11 @@ static void queue_destroy(FrameQueue* q) {
     }
     q->head = q->tail = NULL;
     q->count = 0;
+}
+
+static void queue_destroy(FrameQueue* q) {
+    pthread_mutex_lock(&q->mutex);
+    queue_drain_locked(q);
     pthread_mutex_unlock(&q->mutex);
     pthread_mutex_destroy(&q->mutex);
     pthread_cond_destroy(&q->not_empty);
@@ -74,7 +82,6 @@ static void queue_push(FrameQueue* q, AVFrame* frame) {
         av_frame_free(&frame);
         return;
     }
-    /* Si plein, dropper la plus ancienne pour ne jamais bloquer le thread demux */
     if (q->count >= q->max_size) {
         FrameNode* old = q->head;
         q->head = old->next;
@@ -88,7 +95,7 @@ static void queue_push(FrameQueue* q, AVFrame* frame) {
     node->next  = NULL;
     if (q->tail) q->tail->next = node;
     else         q->head       = node;
-    q->tail  = node;
+    q->tail = node;
     q->count++;
     pthread_cond_signal(&q->not_empty);
     pthread_mutex_unlock(&q->mutex);
@@ -98,7 +105,7 @@ static AVFrame* queue_pop(FrameQueue* q) {
     pthread_mutex_lock(&q->mutex);
     while (q->count == 0 && !q->closed)
         pthread_cond_wait(&q->not_empty, &q->mutex);
-    if (q->count == 0) {   /* fermée et vide */
+    if (q->count == 0) {
         pthread_mutex_unlock(&q->mutex);
         return NULL;
     }
@@ -119,46 +126,41 @@ static void queue_close(FrameQueue* q) {
     pthread_mutex_unlock(&q->mutex);
 }
 
-/* ------------------------------------------------------------------ *
- *  Contexte interne
- * ------------------------------------------------------------------ */
+/* ================================================================== *
+ *  Contexte interne — opaque depuis l'extérieur
+ * ================================================================== */
 struct FileCaptureContext {
-    /* Démuxeur unique */
     AVFormatContext* fmt_ctx;
 
-    /* Flux vidéo */
     int             video_stream_idx;
     AVCodecContext* video_codec_ctx;
     SwsContext*     video_sws_ctx;
     FrameQueue      video_queue;
 
-    /* Flux audio */
     int             audio_stream_idx;
     AVCodecContext* audio_codec_ctx;
     SwrContext*     audio_swr_ctx;
     FrameQueue      audio_queue;
-    int64_t         next_audio_pts;  /* compteur monotone en samples — jamais réinitialisé */
+    int64_t         next_audio_pts;  /* monotone, ne se réinitialise jamais */
 
-    /* Dimensions et format de sortie */
-    int width, height;
-    int sample_rate, channels;
+    int    width, height;
+    int    sample_rate, channels;
 
-    /* Timing / rate-limiting */
     int     loop;
-    int64_t start_wall_us;       /* horloge murale au premier paquet PTS=0 */
-    int64_t first_pts_us;        /* PTS du tout premier paquet (µs) */
+    int64_t start_wall_us;
+    int64_t first_pts_us;
     int     first_pts_captured;
-    int64_t last_pts_us;         /* dernier PTS vu (pour calculer la durée d'une passe) */
-    int64_t pts_offset_us;       /* offset cumulé entre les boucles */
+    int64_t last_pts_us;
+    int64_t pts_offset_us;
 
-    /* Thread demux */
     pthread_t    thread;
     volatile int running;
 };
 
-/* ------------------------------------------------------------------ *
- *  Décodage d'un paquet vidéo → BGRA → queue
- * ------------------------------------------------------------------ */
+/* ================================================================== *
+ *  Décodage paquet → queue
+ * ================================================================== */
+
 static void process_video_packet(struct FileCaptureContext* ctx, AVPacket* pkt) {
     if (avcodec_send_packet(ctx->video_codec_ctx, pkt) < 0) return;
 
@@ -182,7 +184,7 @@ static void process_video_packet(struct FileCaptureContext* ctx, AVPacket* pkt) 
         out->width  = decoded->width;
         out->height = decoded->height;
 
-        if (av_frame_get_buffer(out, 0) >= 0) {
+        if (av_frame_get_buffer(out, 0) == 0) {
             sws_scale(ctx->video_sws_ctx,
                       decoded->data, decoded->linesize, 0, decoded->height,
                       out->data, out->linesize);
@@ -191,15 +193,11 @@ static void process_video_packet(struct FileCaptureContext* ctx, AVPacket* pkt) 
         } else {
             av_frame_free(&out);
         }
-
         av_frame_unref(decoded);
     }
     av_frame_free(&decoded);
 }
 
-/* ------------------------------------------------------------------ *
- *  Décodage d'un paquet audio → FLTP 48kHz stéréo → queue
- * ------------------------------------------------------------------ */
 static void process_audio_packet(struct FileCaptureContext* ctx, AVPacket* pkt) {
     if (avcodec_send_packet(ctx->audio_codec_ctx, pkt) < 0) return;
 
@@ -234,7 +232,7 @@ static void process_audio_packet(struct FileCaptureContext* ctx, AVPacket* pkt) 
             out->data, out_samples,
             (const uint8_t**)decoded->data, decoded->nb_samples);
         out->nb_samples = converted;
-        out->pts = ctx->next_audio_pts;
+        out->pts        = ctx->next_audio_pts;
         ctx->next_audio_pts += converted;
 
         queue_push(&ctx->audio_queue, out);
@@ -243,12 +241,13 @@ static void process_audio_packet(struct FileCaptureContext* ctx, AVPacket* pkt) 
     av_frame_free(&decoded);
 }
 
-/* ------------------------------------------------------------------ *
+/* ================================================================== *
  *  Thread demux
  *
- *  Lit les paquets dans l'ordre du fichier, rate-limite sur le PTS
- *  natif, décode et distribue dans les queues vidéo/audio.
- * ------------------------------------------------------------------ */
+ *  Cadence la sortie sur le PTS natif du fichier (rate-limiting).
+ *  Un seul AVFormatContext pour audio et vidéo : pas de dérive
+ *  d'horloge entre les deux flux.
+ * ================================================================== */
 static void* demux_thread(void* arg) {
     struct FileCaptureContext* ctx = (struct FileCaptureContext*)arg;
     AVPacket* pkt = av_packet_alloc();
@@ -257,8 +256,7 @@ static void* demux_thread(void* arg) {
         int ret = av_read_frame(ctx->fmt_ctx, pkt);
         if (ret < 0) {
             if (ret == AVERROR_EOF && ctx->loop) {
-                /* Calcule la durée de cette passe pour maintenir la continuité PTS */
-                int64_t frame_dur_us = 33333;  /* ~30 fps par défaut */
+                int64_t frame_dur_us = 33333;
                 if (ctx->video_stream_idx >= 0) {
                     AVStream* vst = ctx->fmt_ctx->streams[ctx->video_stream_idx];
                     if (vst->avg_frame_rate.num > 0 && vst->avg_frame_rate.den > 0)
@@ -277,10 +275,10 @@ static void* demux_thread(void* arg) {
                 }
                 continue;
             }
-            break;  /* EOF sans boucle, ou erreur */
+            break;
         }
 
-        /* --- Rate-limiting basé sur le PTS du paquet --- */
+        /* Rate-limiting : cadencer sur le PTS du paquet */
         int64_t pkt_pts = (pkt->pts != AV_NOPTS_VALUE) ? pkt->pts
                         : (pkt->dts != AV_NOPTS_VALUE) ? pkt->dts
                         : AV_NOPTS_VALUE;
@@ -296,8 +294,8 @@ static void* demux_thread(void* arg) {
             }
             ctx->last_pts_us = pts_us;
 
-            int64_t adjusted = pts_us - ctx->first_pts_us + ctx->pts_offset_us;
-            int64_t expected = ctx->start_wall_us + adjusted;
+            int64_t expected = ctx->start_wall_us
+                + (pts_us - ctx->first_pts_us + ctx->pts_offset_us);
 
             /* Attente en chunks de 10 ms pour rester interruptible */
             while (ctx->running) {
@@ -309,7 +307,6 @@ static void* demux_thread(void* arg) {
             if (!ctx->running) { av_packet_unref(pkt); break; }
         }
 
-        /* --- Dispatch vers le décodeur approprié --- */
         if (pkt->stream_index == ctx->video_stream_idx && ctx->video_codec_ctx)
             process_video_packet(ctx, pkt);
         else if (pkt->stream_index == ctx->audio_stream_idx && ctx->audio_codec_ctx)
@@ -319,33 +316,31 @@ static void* demux_thread(void* arg) {
     }
 
     av_packet_free(&pkt);
-    /* Réveiller les consommateurs bloqués sur queue_pop */
     queue_close(&ctx->video_queue);
     queue_close(&ctx->audio_queue);
     return NULL;
 }
 
-/* ------------------------------------------------------------------ *
+/* ================================================================== *
  *  API publique
- * ------------------------------------------------------------------ */
+ * ================================================================== */
 
 CASTOR_CORE_API FileCaptureContext* file_capture_create(const char* path, int loop) {
     struct FileCaptureContext* ctx =
         (struct FileCaptureContext*)calloc(1, sizeof(struct FileCaptureContext));
     if (!ctx) return NULL;
 
-    ctx->loop              = loop;
-    ctx->video_stream_idx  = -1;
-    ctx->audio_stream_idx  = -1;
-    ctx->sample_rate       = 48000;
-    ctx->channels          = 2;
+    ctx->loop             = loop;
+    ctx->video_stream_idx = -1;
+    ctx->audio_stream_idx = -1;
+    ctx->sample_rate      = 48000;
+    ctx->channels         = 2;
 
     if (avformat_open_input(&ctx->fmt_ctx, path, NULL, NULL) < 0) {
         fprintf(stderr, "[FileCapture] Impossible d'ouvrir '%s'\n", path);
         free(ctx);
         return NULL;
     }
-
     if (avformat_find_stream_info(ctx->fmt_ctx, NULL) < 0) {
         fprintf(stderr, "[FileCapture] find_stream_info echoue pour '%s'\n", path);
         avformat_close_input(&ctx->fmt_ctx);
@@ -365,7 +360,6 @@ CASTOR_CORE_API FileCaptureContext* file_capture_create(const char* path, int lo
         return NULL;
     }
 
-    /* Ouvrir le codec vidéo */
     if (ctx->video_stream_idx >= 0) {
         AVStream*      vst   = ctx->fmt_ctx->streams[ctx->video_stream_idx];
         const AVCodec* codec = avcodec_find_decoder(vst->codecpar->codec_id);
@@ -375,7 +369,6 @@ CASTOR_CORE_API FileCaptureContext* file_capture_create(const char* path, int lo
             if (avcodec_open2(ctx->video_codec_ctx, codec, NULL) < 0) {
                 avcodec_free_context(&ctx->video_codec_ctx);
                 ctx->video_stream_idx = -1;
-                fprintf(stderr, "[FileCapture] avcodec_open2 video echoue\n");
             } else {
                 ctx->width  = ctx->video_codec_ctx->width;
                 ctx->height = ctx->video_codec_ctx->height;
@@ -385,7 +378,6 @@ CASTOR_CORE_API FileCaptureContext* file_capture_create(const char* path, int lo
         }
     }
 
-    /* Ouvrir le codec audio */
     if (ctx->audio_stream_idx >= 0) {
         AVStream*      ast   = ctx->fmt_ctx->streams[ctx->audio_stream_idx];
         const AVCodec* codec = avcodec_find_decoder(ast->codecpar->codec_id);
@@ -395,7 +387,6 @@ CASTOR_CORE_API FileCaptureContext* file_capture_create(const char* path, int lo
             if (avcodec_open2(ctx->audio_codec_ctx, codec, NULL) < 0) {
                 avcodec_free_context(&ctx->audio_codec_ctx);
                 ctx->audio_stream_idx = -1;
-                fprintf(stderr, "[FileCapture] avcodec_open2 audio echoue\n");
             }
         } else {
             ctx->audio_stream_idx = -1;
@@ -418,27 +409,30 @@ CASTOR_CORE_API FileCaptureContext* file_capture_create(const char* path, int lo
         return NULL;
     }
 
-    fprintf(stderr, "[FileCapture] '%s' ouvert — video=%dx%d audio=48kHz/2ch loop=%d\n",
+    fprintf(stderr, "[FileCapture] '%s' — %dx%d audio=48kHz/2ch loop=%d\n",
             path, ctx->width, ctx->height, loop);
     return ctx;
+}
+
+CASTOR_CORE_API void file_capture_signal_stop(FileCaptureContext* ctx) {
+    if (!ctx) return;
+    ctx->running = 0;
+    queue_close(&ctx->video_queue);
+    queue_close(&ctx->audio_queue);
 }
 
 CASTOR_CORE_API void file_capture_destroy(FileCaptureContext** pctx) {
     if (!pctx || !*pctx) return;
     struct FileCaptureContext* ctx = *pctx;
 
-    ctx->running = 0;
-    /* Fermer les queues pour interrompre tout queue_pop ou queue_push en attente */
-    queue_close(&ctx->video_queue);
-    queue_close(&ctx->audio_queue);
-
+    file_capture_signal_stop(ctx);
     pthread_join(ctx->thread, NULL);
 
     queue_destroy(&ctx->video_queue);
     queue_destroy(&ctx->audio_queue);
 
-    if (ctx->video_sws_ctx)  sws_freeContext(ctx->video_sws_ctx);
-    if (ctx->audio_swr_ctx)  swr_free(&ctx->audio_swr_ctx);
+    if (ctx->video_sws_ctx)   sws_freeContext(ctx->video_sws_ctx);
+    if (ctx->audio_swr_ctx)   swr_free(&ctx->audio_swr_ctx);
     if (ctx->video_codec_ctx) avcodec_free_context(&ctx->video_codec_ctx);
     if (ctx->audio_codec_ctx) avcodec_free_context(&ctx->audio_codec_ctx);
     if (ctx->fmt_ctx)         avformat_close_input(&ctx->fmt_ctx);
@@ -448,18 +442,16 @@ CASTOR_CORE_API void file_capture_destroy(FileCaptureContext** pctx) {
 }
 
 CASTOR_CORE_API AVFrame* file_capture_next_video_frame(FileCaptureContext* ctx) {
-    if (!ctx) return NULL;
-    return queue_pop(&ctx->video_queue);
+    return ctx ? queue_pop(&ctx->video_queue) : NULL;
 }
 
 CASTOR_CORE_API AVFrame* file_capture_next_audio_frame(FileCaptureContext* ctx) {
-    if (!ctx) return NULL;
-    return queue_pop(&ctx->audio_queue);
+    return ctx ? queue_pop(&ctx->audio_queue) : NULL;
 }
 
-CASTOR_CORE_API int file_capture_width(FileCaptureContext* ctx)  { return ctx ? ctx->width  : 0; }
-CASTOR_CORE_API int file_capture_height(FileCaptureContext* ctx) { return ctx ? ctx->height : 0; }
+CASTOR_CORE_API int file_capture_width(FileCaptureContext* ctx)       { return ctx ? ctx->width       : 0;     }
+CASTOR_CORE_API int file_capture_height(FileCaptureContext* ctx)      { return ctx ? ctx->height      : 0;     }
 CASTOR_CORE_API int file_capture_sample_rate(FileCaptureContext* ctx) { return ctx ? ctx->sample_rate : 48000; }
 CASTOR_CORE_API int file_capture_channels(FileCaptureContext* ctx)    { return ctx ? ctx->channels    : 2;     }
-CASTOR_CORE_API int file_capture_has_video(FileCaptureContext* ctx) { return ctx && ctx->video_stream_idx >= 0; }
-CASTOR_CORE_API int file_capture_has_audio(FileCaptureContext* ctx) { return ctx && ctx->audio_stream_idx >= 0; }
+CASTOR_CORE_API int file_capture_has_video(FileCaptureContext* ctx)   { return ctx && ctx->video_stream_idx >= 0; }
+CASTOR_CORE_API int file_capture_has_audio(FileCaptureContext* ctx)   { return ctx && ctx->audio_stream_idx >= 0; }
