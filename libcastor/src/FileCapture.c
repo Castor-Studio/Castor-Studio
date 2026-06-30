@@ -134,7 +134,7 @@ struct FileCaptureContext {
 
     int             video_stream_idx;
     AVCodecContext* video_codec_ctx;
-    SwsContext*     video_sws_ctx;
+    struct SwsContext* video_sws_ctx;
     FrameQueue      video_queue;
 
     int             audio_stream_idx;
