@@ -11,6 +11,7 @@ namespace Castor.Native
         Monitor = 1,
         Camera  = 2,
         Network = 3,   // Flux RTMP / RTSP / HTTP — URL dans SymbolicLink
+        File    = 4,   // Fichier vidéo local — chemin dans FileSourceInfo
     }
 
     public enum AudioSourceType
@@ -19,6 +20,7 @@ namespace Castor.Native
         LoopbackWindow = 1,
         Microphone     = 2,
         CameraMic      = 3,
+        File           = 4,   // Fichier audio local — chemin dans FileSourceInfo
     }
 
     // ── Structs (layout identique au C natif, x64) ────────────────────────────
@@ -60,6 +62,24 @@ namespace Castor.Native
         public string DeviceId;
 
         public int Index;
+    }
+
+    /// <summary>
+    /// Décrit une source fichier (vidéo ou audio).
+    /// Layout à valider avec castor_core quand le support natif sera ajouté.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct FileSourceInfo
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 512)]
+        public string FilePath;
+
+        /// <summary>Reboucle la lecture en fin de fichier.</summary>
+        [MarshalAs(UnmanagedType.I1)]
+        public bool Loop;
+
+        // 3 octets de padding pour aligner à 4 octets (à confirmer avec le layout C++)
+        private byte _pad0, _pad1, _pad2;
     }
 
     // ── P/Invoke ──────────────────────────────────────────────────────────────
@@ -197,6 +217,42 @@ namespace Castor.Native
             {
                 Marshal.StructureToPtr(info, buf, false);
                 return source_create("audio_capture", buf);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buf);
+            }
+        }
+
+        /// <summary>
+        /// Crée un source_t* de type fichier vidéo à partir d'un FileSourceInfo.
+        /// TODO: l'ID "file_video_source" est un placeholder — à aligner avec castor_core quand le support natif sera implémenté.
+        /// </summary>
+        public static IntPtr NativeCreateFileVideoSource(FileSourceInfo info)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(Marshal.SizeOf<FileSourceInfo>());
+            try
+            {
+                Marshal.StructureToPtr(info, buf, false);
+                return source_create("file_video_source", buf);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buf);
+            }
+        }
+
+        /// <summary>
+        /// Crée un source_t* de type fichier audio à partir d'un FileSourceInfo.
+        /// TODO: l'ID "file_audio_source" est un placeholder — à aligner avec castor_core quand le support natif sera implémenté.
+        /// </summary>
+        public static IntPtr NativeCreateFileAudioSource(FileSourceInfo info)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(Marshal.SizeOf<FileSourceInfo>());
+            try
+            {
+                Marshal.StructureToPtr(info, buf, false);
+                return source_create("file_audio_source", buf);
             }
             finally
             {

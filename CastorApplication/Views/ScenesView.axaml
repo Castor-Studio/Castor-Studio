@@ -311,6 +311,38 @@
                                                    IsVisible="{Binding NetworkSourceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                    Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
 
+                                        <!-- Fichiers -->
+                                        <TextBlock Text="FICHIERS" Foreground="{DynamicResource AppFg4}"
+                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
+
+                                        <!-- Vidéo seulement -->
+                                        <Button Classes="source-type-btn"
+                                                Command="{Binding #ScenesRoot.DataContext.AddFileVideoSourceCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="Vidéo seulement"
+                                                               FontSize="12"/>
+                                                    <TextBlock Text="mp4, mkv, mov, avi, webm"
+                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- Vidéo + audio -->
+                                        <Button Classes="source-type-btn"
+                                                Command="{Binding #ScenesRoot.DataContext.AddFileMediaSourceCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="Vidéo + audio"
+                                                               FontSize="12"/>
+                                                    <TextBlock Text="Ajoute les deux pistes du fichier"
+                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
+
                                         <!-- Audio -->
                                         <TextBlock Text="SOURCES AUDIO" Foreground="{DynamicResource AppFg4}"
                                                    FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
@@ -337,6 +369,20 @@
                                         <TextBlock IsVisible="{Binding !AvailableLoopbacks.Count}"
                                                    Text="Aucun périphérique audio détecté" Foreground="{DynamicResource AppFg5}"
                                                    FontSize="10" Margin="4,0"/>
+
+                                        <!-- Fichiers audio -->
+                                        <Button Classes="source-type-btn"
+                                                Command="{Binding #ScenesRoot.DataContext.AddFileAudioSourceCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="Audio seulement"
+                                                               FontSize="12"/>
+                                                    <TextBlock Text="mp3, wav, aac, ogg, flac, m4a, vidéo…"
+                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
                                     </StackPanel>
                                 </Flyout>
                             </Button.Flyout>
@@ -351,7 +397,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="m:SourceItem">
                                     <Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2">
-                                        <Grid ColumnDefinitions="12, *, Auto, Auto">
+                                        <Grid ColumnDefinitions="12, *, Auto, Auto, Auto">
                                             <Ellipse Grid.Column="0" Width="7" Height="7"
                                                      Fill="{Binding Color}" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="1" Text="{Binding Name}"
@@ -359,8 +405,27 @@
                                                        Margin="8,0" VerticalAlignment="Center"/>
                                             <TextBlock Grid.Column="2" Text="{Binding Type}"
                                                        Foreground="{DynamicResource AppFg4}" FontSize="10"
-                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                            <Button Grid.Column="3"
+                                                       VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                            <!-- Bouton boucle — visible uniquement pour les sources fichier -->
+                                            <ToggleButton Grid.Column="3"
+                                                          IsVisible="{Binding IsFileSource}"
+                                                          IsChecked="{Binding Loop}"
+                                                          ToolTip.Tip="Boucle automatique"
+                                                          Background="Transparent"
+                                                          BorderThickness="0"
+                                                          Padding="4,2" Cursor="Hand"
+                                                          FontSize="12">
+                                                <ToggleButton.Styles>
+                                                    <Style Selector="ToggleButton:checked /template/ ContentPresenter">
+                                                        <Setter Property="Foreground" Value="#a78bfa"/>
+                                                    </Style>
+                                                    <Style Selector="ToggleButton:unchecked /template/ ContentPresenter">
+                                                        <Setter Property="Foreground" Value="{DynamicResource AppFg5}"/>
+                                                    </Style>
+                                                </ToggleButton.Styles>
+                                                <TextBlock Text="⟳" FontSize="14"/>
+                                            </ToggleButton>
+                                            <Button Grid.Column="4"
                                                     Content="✕"
                                                     Background="Transparent" Foreground="{DynamicResource AppFg5}"
                                                     BorderThickness="0" FontSize="11" Padding="4,2"

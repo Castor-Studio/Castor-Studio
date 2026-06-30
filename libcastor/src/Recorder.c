@@ -1,4 +1,5 @@
 #include "Recorder.h"
+#include "FileCapture.h"
 #include "VideoEncode.h"
 #include "AudioEncode.h"
 #include "output/output.h"
@@ -23,6 +24,7 @@ typedef struct {
 
     VideoCaptureContext vctx;
     AudioCaptureContext actx;
+    FileCaptureContext* file_capture;  /* non-NULL quand vidéo et audio partagent un seul fichier */
     VideoEncoder        venc;
     AudioEncoder        aenc;
 
@@ -88,7 +90,9 @@ static CastorOutput* output_create_from_config(const OutputConfig* cfg)
 static unsigned __stdcall thread_stream_video_capture(void* arg) {
     StreamState* s = (StreamState*)arg;
     while (s->recorder->running && s->capture_running) {
-        AVFrame* f = video_capture_next_frame(&s->vctx);
+        AVFrame* f = s->file_capture
+            ? file_capture_next_video_frame(s->file_capture)
+            : video_capture_next_frame(&s->vctx);
         if (f) {
             EnterCriticalSection(&s->frame_lock);
             if (s->last_video_frame) av_frame_free(&s->last_video_frame);
@@ -167,9 +171,17 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
     const int sample_rate = s->actx.sample_rate > 0 ? s->actx.sample_rate : 48000;
     const int channels    = s->actx.channels;
 
-    while (s->recorder->running && !s->first_frame_ready) {
-        AVFrame* drain = audio_capture_next_frame(&s->actx);
-        if (drain) av_frame_free(&drain);
+    /* Pour les sources live (WASAPI / loopback), on draine l'audio buffere
+     * en attente du premier frame video, pour eviter d'encoder de l'audio
+     * "perime" capturé avant que l'encodeur soit pret.
+     * Pour les sources fichier (seules ou partagées via FileCapture), ce drain
+     * consommerait du contenu depuis le debut du fichier sans avancer la video,
+     * créant un décalage A/V permanent. On saute donc le drain. */
+    if (!s->file_capture && s->config.audio_src.type != AUDIO_SOURCE_FILE) {
+        while (s->recorder->running && !s->first_frame_ready) {
+            AVFrame* drain = audio_capture_next_frame(&s->actx);
+            if (drain) av_frame_free(&drain);
+        }
     }
     if (!s->recorder->running) return 0;
 
@@ -180,7 +192,9 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
     int64_t submitted = 0;
 
     while (s->recorder->running) {
-        AVFrame* aframe = audio_capture_next_frame(&s->actx);
+        AVFrame* aframe = s->file_capture
+            ? file_capture_next_audio_frame(s->file_capture)
+            : audio_capture_next_frame(&s->actx);
 
         LARGE_INTEGER t_now;
         QueryPerformanceCounter(&t_now);
@@ -246,25 +260,53 @@ static int stream_init(StreamState* s) {
         }
     }
 
-    if (video_capture_init_source(&s->vctx, &s->config.video_src) < 0) {
-        fprintf(stderr, "[Stream %d] Init capture video echouee\n", s->index);
-        return -10;
-    }
+    /* Détection : même fichier pour vidéo et audio → FileCapture partagé */
+    int both_file = (s->config.video_src.type == CAPTURE_SOURCE_FILE &&
+                     s->config.audio_src.type  == AUDIO_SOURCE_FILE   &&
+                     strcmp(s->config.video_src.symbolic_link,
+                            s->config.audio_src.device_id) == 0);
 
-    /* Sanity check : un codec comme x264 crashe si on l'ouvre avec des dimensions nulles */
-    if (s->vctx.width <= 0 || s->vctx.height <= 0) {
-        fprintf(stderr, "[Stream %d] Dimensions invalides apres init capture: %dx%d\n",
-                s->index, s->vctx.width, s->vctx.height);
-        video_capture_cleanup(&s->vctx);
-        return -11;
-    }
-    fprintf(stderr, "[Stream %d] Capture video OK — %dx%d (type=%d)\n",
-            s->index, s->vctx.width, s->vctx.height, s->config.video_src.type);
+    if (both_file) {
+        s->file_capture = file_capture_create(
+            s->config.video_src.symbolic_link,
+            s->config.video_src.index != 0);
+        if (!s->file_capture) {
+            fprintf(stderr, "[Stream %d] FileCapture: creation echouee\n", s->index);
+            return -10;
+        }
+        if (!file_capture_has_video(s->file_capture) ||
+            !file_capture_has_audio(s->file_capture)) {
+            fprintf(stderr, "[Stream %d] FileCapture: flux A/V incomplets dans '%s'\n",
+                    s->index, s->config.video_src.symbolic_link);
+            file_capture_destroy(&s->file_capture);
+            return -10;
+        }
+        s->vctx.width       = file_capture_width(s->file_capture);
+        s->vctx.height      = file_capture_height(s->file_capture);
+        s->actx.sample_rate = file_capture_sample_rate(s->file_capture);
+        s->actx.channels    = file_capture_channels(s->file_capture);
+        fprintf(stderr, "[Stream %d] FileCapture OK — %dx%d audio %dHz/%dch\n",
+                s->index, s->vctx.width, s->vctx.height,
+                s->actx.sample_rate, s->actx.channels);
+    } else {
+        if (video_capture_init_source(&s->vctx, &s->config.video_src) < 0) {
+            fprintf(stderr, "[Stream %d] Init capture video echouee\n", s->index);
+            return -10;
+        }
+        if (s->vctx.width <= 0 || s->vctx.height <= 0) {
+            fprintf(stderr, "[Stream %d] Dimensions invalides apres init capture: %dx%d\n",
+                    s->index, s->vctx.width, s->vctx.height);
+            video_capture_cleanup(&s->vctx);
+            return -11;
+        }
+        fprintf(stderr, "[Stream %d] Capture video OK — %dx%d (type=%d)\n",
+                s->index, s->vctx.width, s->vctx.height, s->config.video_src.type);
 
-    if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0) {
-        fprintf(stderr, "[Stream %d] Init capture audio echouee\n", s->index);
-        video_capture_cleanup(&s->vctx);
-        return -12;
+        if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0) {
+            fprintf(stderr, "[Stream %d] Init capture audio echouee\n", s->index);
+            video_capture_cleanup(&s->vctx);
+            return -12;
+        }
     }
     if (s->actx.channels > 2) s->actx.channels = 2;
 
@@ -375,6 +417,10 @@ static void stream_start_threads(StreamState* s) {
 
 static void stream_stop_threads(StreamState* s) {
     s->capture_running = 0;
+    /* Fermer les queues FileCapture pour débloquer les threads en attente
+     * sur file_capture_next_*_frame avant le WaitForSingleObject. */
+    if (s->file_capture)
+        file_capture_signal_stop(s->file_capture);
     HANDLE threads[3] = { s->th_video_capture, s->th_video_encode, s->th_audio };
     for (int t = 0; t < 3; t++)
         if (threads[t]) WaitForSingleObject(threads[t], 5000);
@@ -399,8 +445,13 @@ static void stream_cleanup(StreamState* s) {
     audio_encoder_cleanup(&s->aenc, s->output);
     output_close(s->output);
     output_destroy(&s->output);
-    video_capture_cleanup(&s->vctx);
-    audio_capture_cleanup(&s->actx);
+
+    if (s->file_capture) {
+        file_capture_destroy(&s->file_capture);
+    } else {
+        video_capture_cleanup(&s->vctx);
+        audio_capture_cleanup(&s->actx);
+    }
 
     s->initialized = 0;
 }
@@ -411,6 +462,14 @@ static int stream_apply_source_switch(StreamState* s, const CaptureSourceInfo* n
         WaitForSingleObject(s->th_video_capture, 5000);
         CloseHandle(s->th_video_capture);
         s->th_video_capture = NULL;
+    }
+
+    /* Si on était en mode FileCapture, le détruire et ré-init l'audio séparément */
+    if (s->file_capture) {
+        file_capture_destroy(&s->file_capture);
+        memset(&s->actx, 0, sizeof(s->actx));
+        if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0)
+            fprintf(stderr, "[Stream %d] Switch: re-init audio echouee\n", s->index);
     }
 
     video_capture_cleanup(&s->vctx);
