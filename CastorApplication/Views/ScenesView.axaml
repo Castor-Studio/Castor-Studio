@@ -3,7 +3,7 @@
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:Castor.Engine.Models"
              xmlns:engineModels="using:Castor.Engine.Models"
-             xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+             xmlns:controls="using:CastorApplication.Controls"
              x:Class="CastorApplication.Views.ScenesView"
              x:Name="ScenesRoot"
              x:DataType="vm:ScenesViewModel">
@@ -145,11 +145,9 @@
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
                     ClipToBounds="True">
                 <Panel>
-                    <!-- Flux RTMP de la scène sélectionnée -->
-                    <vlc:VideoView x:Name="ScenePreviewPlayer"
-                                   HorizontalAlignment="Stretch"
-                                   VerticalAlignment="Stretch"
-                                   AttachedToVisualTree="SceneVideoView_OnAttached"/>
+                    <controls:DirectXPreviewView Scene="{Binding SelectedScene}"
+                                                  HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Stretch"/>
 
                     <!-- Placeholder quand aucune scène n'est sélectionnée -->
                     <TextBlock Text="APERÇU DE LA SCÈNE"

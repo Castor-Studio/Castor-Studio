@@ -23,7 +23,8 @@ target_include_directories(castor_core PRIVATE "include/source")
 
 if (WIN32)
     target_compile_definitions(castor_core PRIVATE CASTOR_CORE_BUILD_DLL)
-    target_link_libraries(castor_core PRIVATE winmm dwmapi mmdevapi windowsapp d3d11 winhttp)
+    target_compile_definitions(castor_core PRIVATE _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+    target_link_libraries(castor_core PRIVATE winmm dwmapi mmdevapi windowsapp d3d11 dxgi d3dcompiler winhttp)
 endif()
 
 find_package(FFMPEG REQUIRED)

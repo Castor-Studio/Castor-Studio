@@ -30,7 +30,7 @@ public partial class SourceItem : ObservableObject
 
     internal IntPtr NativePtr { get; set; } = IntPtr.Zero;
 
-    internal object? NativeDescriptor { get; set; }
+    public object? NativeDescriptor { get; internal set; }
 
     public SourceItem()
     {
