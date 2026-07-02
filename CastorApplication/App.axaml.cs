@@ -4,9 +4,11 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using Castor.Engine.Services;
+using CastorApplication.Services.Ai;
 using Microsoft.Extensions.DependencyInjection;
 using CastorApplication.ViewModels;
 using CastorApplication.Views;
+using System.Threading;
 
 namespace CastorApplication
 {
@@ -31,6 +33,7 @@ namespace CastorApplication
             var services = collection.BuildServiceProvider();
 
             var lifecycle = services.GetRequiredService<IApplicationLifecycleService>();
+            var aiClient = services.GetRequiredService<IAiAnalysisClient>();
             lifecycle.Start();
 
             var vm = services.GetRequiredService<MainViewModel>();
@@ -44,10 +47,12 @@ namespace CastorApplication
                 // Arrêt propre des threads natifs et de MediaMTX avant la fermeture de l'app
                 desktop.ShutdownRequested += (_, _) =>
                 {
+                    aiClient.StopSessionAsync("application_shutdown", CancellationToken.None).GetAwaiter().GetResult();
                     lifecycle.Stop();
                 };
                 AppDomain.CurrentDomain.ProcessExit += (_, _) =>
                 {
+                    aiClient.StopSessionAsync("process_exit", CancellationToken.None).GetAwaiter().GetResult();
                     lifecycle.Stop();
                 };
             }

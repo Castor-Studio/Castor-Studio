@@ -457,12 +457,23 @@ static void stream_cleanup(StreamState* s) {
 }
 
 static int stream_apply_source_switch(StreamState* s, const CaptureSourceInfo* new_src) {
+    if (!s || !s->initialized || !new_src)
+        return -1;
+
     s->capture_running = 0;
     if (s->th_video_capture) {
         WaitForSingleObject(s->th_video_capture, 5000);
         CloseHandle(s->th_video_capture);
         s->th_video_capture = NULL;
     }
+
+    EnterCriticalSection(&s->frame_lock);
+    if (s->last_video_frame) {
+        av_frame_free(&s->last_video_frame);
+        s->last_video_frame = NULL;
+    }
+    s->first_frame_ready = 0;
+    LeaveCriticalSection(&s->frame_lock);
 
     /* Si on était en mode FileCapture, le détruire et ré-init l'audio séparément */
     if (s->file_capture) {
@@ -481,18 +492,21 @@ static int stream_apply_source_switch(StreamState* s, const CaptureSourceInfo* n
         return -1;
     }
 
-    if (s->vctx.width != s->venc.ctx->width || s->vctx.height != s->venc.ctx->height) {
-        sws_freeContext(s->venc.sws_ctx);
-        s->venc.sws_ctx = sws_getContext(
-            s->vctx.width,      s->vctx.height,      AV_PIX_FMT_BGRA,
-            s->venc.ctx->width, s->venc.ctx->height,  AV_PIX_FMT_YUV420P,
-            SWS_BILINEAR, NULL, NULL, NULL
-        );
-        if (!s->venc.sws_ctx) {
-            fprintf(stderr, "[Stream %d] Switch: recreation sws_ctx echouee\n", s->index);
-            return -1;
-        }
+    EnterCriticalSection(&s->output_lock);
+    struct SwsContext* new_sws_ctx = sws_getContext(
+        s->vctx.width,      s->vctx.height,      AV_PIX_FMT_BGRA,
+        s->venc.ctx->width, s->venc.ctx->height,  AV_PIX_FMT_YUV420P,
+        SWS_BILINEAR, NULL, NULL, NULL
+    );
+    if (!new_sws_ctx) {
+        LeaveCriticalSection(&s->output_lock);
+        fprintf(stderr, "[Stream %d] Switch: recreation sws_ctx echouee\n", s->index);
+        video_capture_cleanup(&s->vctx);
+        return -1;
     }
+    sws_freeContext(s->venc.sws_ctx);
+    s->venc.sws_ctx = new_sws_ctx;
+    LeaveCriticalSection(&s->output_lock);
 
     s->capture_running  = 1;
     s->th_video_capture = (HANDLE)_beginthreadex(NULL, 0, thread_stream_video_capture, s, 0, NULL);

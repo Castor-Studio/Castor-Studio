@@ -40,7 +40,13 @@ public sealed class StudioController(
 
     public SceneItem CreateScene(string name) => sceneService.CreateScene(name);
 
-    public void DeleteScene(SceneItem scene) => sceneService.DeleteScene(scene);
+    public void DeleteScene(SceneItem scene)
+    {
+        if (recorderService.IsPreviewActive(scene.Id))
+            recorderService.StopPreview(scene);
+
+        sceneService.DeleteScene(scene);
+    }
 
     public void SelectScene(SceneItem scene)
     {
@@ -55,32 +61,53 @@ public sealed class StudioController(
 
     public SourceItem AddVideoSource(SceneItem scene, CaptureSourceOption source)
     {
-        return sceneService.AddVideoSource(scene, source);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Video,
+            () => sceneService.AddVideoSource(scene, source));
     }
 
     public SourceItem AddNetworkVideoSource(SceneItem scene, string label, string url)
     {
-        return sceneService.AddVideoSource(scene, label, url);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Video,
+            () => sceneService.AddVideoSource(scene, label, url));
     }
 
     public SourceItem AddAudioSource(SceneItem scene, AudioSourceOption source)
     {
-        return sceneService.AddAudioSource(scene, source);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Audio,
+            () => sceneService.AddAudioSource(scene, source));
     }
 
     public SourceItem AddFileVideoSource(SceneItem scene, FileVideoSourceOption option)
     {
-        return sceneService.AddFileVideoSource(scene, option);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Video,
+            () => sceneService.AddFileVideoSource(scene, option));
     }
 
     public SourceItem AddFileAudioSource(SceneItem scene, FileAudioSourceOption option)
     {
-        return sceneService.AddFileAudioSource(scene, option);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Audio,
+            () => sceneService.AddFileAudioSource(scene, option));
     }
 
     public void RemoveSource(SceneItem scene, SourceItem source)
     {
+        var previewWasActive = recorderService.IsPreviewActive(scene.Id);
+        if (previewWasActive)
+            recorderService.StopPreview(scene);
+
         sceneService.RemoveSource(scene, source);
+
+        RestartPreviewIfNeeded(scene, previewWasActive);
     }
 
     public bool HasVideoSource(SceneItem scene)
@@ -125,5 +152,33 @@ public sealed class StudioController(
     public void StopStream()
     {
         recorderService.StopStream();
+    }
+
+    private SourceItem ReplaceSourcesAndRestartPreview(
+        SceneItem scene,
+        SourceKind kind,
+        Func<SourceItem> addSource)
+    {
+        var previewWasActive = recorderService.IsPreviewActive(scene.Id);
+        if (previewWasActive)
+            recorderService.StopPreview(scene);
+
+        foreach (var existing in scene.Sources.Where(source => source.Kind == kind).ToArray())
+            sceneService.RemoveSource(scene, existing);
+
+        var item = addSource();
+
+        RestartPreviewIfNeeded(scene, previewWasActive);
+
+        if ((recorderService.IsRecording || recorderService.IsStreaming) && scene == sceneService.ActiveScene)
+            _ = Task.Run(() => recorderService.SwitchScene(scene));
+
+        return item;
+    }
+
+    private void RestartPreviewIfNeeded(SceneItem scene, bool previewWasActive)
+    {
+        if (!previewWasActive || !HasVideoSource(scene)) return;
+        _ = Task.Run(() => recorderService.StartPreview(scene));
     }
 }

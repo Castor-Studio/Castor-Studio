@@ -3,7 +3,7 @@
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:Castor.Engine.Models"
              xmlns:dock="using:Dock.Avalonia.Controls"
-			 xmlns:vlc="clr-namespace:LibVLCSharp.Avalonia;assembly=LibVLCSharp.Avalonia"
+             xmlns:controls="using:CastorApplication.Controls"
              x:Class="CastorApplication.Views.StudioView"
              x:DataType="vm:StudioViewModel">
 
@@ -46,10 +46,9 @@
         <!-- ═══ ZONE PRINCIPALE : DockControl (Preview + Outils déplaçables) ═══ -->
 		<Panel Grid.Row="0" Background="Black">
 
-			<vlc:VideoView x:Name="VideoPlayer"
-						   HorizontalAlignment="Stretch"
-						   VerticalAlignment="Stretch"
-						   AttachedToVisualTree="VideoView_OnAttached" />
+            <controls:DirectXPreviewView Scene="{Binding ActiveScene}"
+                                          HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch" />
 
 			<Border VerticalAlignment="Top" HorizontalAlignment="Right"
 					Margin="10" Padding="8,4" CornerRadius="4"

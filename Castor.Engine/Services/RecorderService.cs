@@ -9,13 +9,29 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
     private IntPtr _recorderPtr = IntPtr.Zero;
     private IntPtr _streamPtr = IntPtr.Zero;
 
+    private readonly object _nativeRecorderLock = new();
     private readonly Dictionary<Guid, IntPtr> _previewPtrs = new();
     private readonly object _previewLock = new();
     private readonly SemaphoreSlim _previewSemaphore = new(1, 1);
     private readonly SemaphoreSlim _switchSemaphore = new(1, 1);
 
-    public bool IsRecording => _recorderPtr != IntPtr.Zero;
-    public bool IsStreaming => _streamPtr != IntPtr.Zero;
+    public bool IsRecording
+    {
+        get
+        {
+            lock (_nativeRecorderLock)
+                return _recorderPtr != IntPtr.Zero;
+        }
+    }
+
+    public bool IsStreaming
+    {
+        get
+        {
+            lock (_nativeRecorderLock)
+                return _streamPtr != IntPtr.Zero;
+        }
+    }
 
     public event Action? RecordingStarted;
     public event Action? RecordingStopped;
@@ -36,7 +52,10 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
                      int outputWidth = 0, int outputHeight = 0,
                      int qualityIndex = 1)
     {
-        if (IsRecording) return -1;
+        lock (_nativeRecorderLock)
+        {
+            if (_recorderPtr != IntPtr.Zero) return -1;
+        }
 
         var videoItem = GetVideoSource(scene);
         var audioItem = GetAudioSource(scene);
@@ -70,15 +89,20 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             }
         };
 
-        _recorderPtr = CastorNative.RecorderCreate(ref config);
-        if (_recorderPtr == IntPtr.Zero) return -3;
-
-        int result = CastorNative.RecorderStart(_recorderPtr);
-        if (result != 0)
+        lock (_nativeRecorderLock)
         {
-            CastorNative.RecorderDestroy(_recorderPtr);
-            _recorderPtr = IntPtr.Zero;
-            return result;
+            if (_recorderPtr != IntPtr.Zero) return -1;
+
+            _recorderPtr = CastorNative.RecorderCreate(ref config);
+            if (_recorderPtr == IntPtr.Zero) return -3;
+
+            int result = CastorNative.RecorderStart(_recorderPtr);
+            if (result != 0)
+            {
+                CastorNative.RecorderDestroy(_recorderPtr);
+                _recorderPtr = IntPtr.Zero;
+                return result;
+            }
         }
 
         RecordingStarted?.Invoke();
@@ -87,10 +111,14 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
 
     public void StopRecording()
     {
-        if (_recorderPtr == IntPtr.Zero) return;
-        CastorNative.RecorderStop(_recorderPtr);
-        CastorNative.RecorderDestroy(_recorderPtr);
-        _recorderPtr = IntPtr.Zero;
+        lock (_nativeRecorderLock)
+        {
+            if (_recorderPtr == IntPtr.Zero) return;
+            CastorNative.RecorderStop(_recorderPtr);
+            CastorNative.RecorderDestroy(_recorderPtr);
+            _recorderPtr = IntPtr.Zero;
+        }
+
         RecordingStopped?.Invoke();
     }
 
@@ -104,7 +132,10 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
     public int StartStream(SceneItem scene, StreamingPlatform platform, string streamKeyOrUrl,
                            int fps = 30, int videoBitrateKbps = 4000)
     {
-        if (IsStreaming) return -1;
+        lock (_nativeRecorderLock)
+        {
+            if (_streamPtr != IntPtr.Zero) return -1;
+        }
 
         var videoItem = GetVideoSource(scene);
         var audioItem = GetAudioSource(scene);
@@ -143,15 +174,20 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             }
         };
 
-        _streamPtr = CastorNative.RecorderCreate(ref config);
-        if (_streamPtr == IntPtr.Zero) return -3;
-
-        int result = CastorNative.RecorderStart(_streamPtr);
-        if (result != 0)
+        lock (_nativeRecorderLock)
         {
-            CastorNative.RecorderDestroy(_streamPtr);
-            _streamPtr = IntPtr.Zero;
-            return result;
+            if (_streamPtr != IntPtr.Zero) return -1;
+
+            _streamPtr = CastorNative.RecorderCreate(ref config);
+            if (_streamPtr == IntPtr.Zero) return -3;
+
+            int result = CastorNative.RecorderStart(_streamPtr);
+            if (result != 0)
+            {
+                CastorNative.RecorderDestroy(_streamPtr);
+                _streamPtr = IntPtr.Zero;
+                return result;
+            }
         }
 
         StreamingStarted?.Invoke();
@@ -160,10 +196,14 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
 
     public void StopStream()
     {
-        if (_streamPtr == IntPtr.Zero) return;
-        CastorNative.RecorderStop(_streamPtr);
-        CastorNative.RecorderDestroy(_streamPtr);
-        _streamPtr = IntPtr.Zero;
+        lock (_nativeRecorderLock)
+        {
+            if (_streamPtr == IntPtr.Zero) return;
+            CastorNative.RecorderStop(_streamPtr);
+            CastorNative.RecorderDestroy(_streamPtr);
+            _streamPtr = IntPtr.Zero;
+        }
+
         StreamingStopped?.Invoke();
     }
 
@@ -212,14 +252,18 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
 
             Debug.WriteLine($"[Preview] RecorderCreate -> scène='{scene.Name}', url={mediaMtxService.GetPreviewPushUrl(scene.Id)}");
 
-            var pointer = CastorNative.RecorderCreate(ref config);
-            if (pointer == IntPtr.Zero) return -3;
-
-            int result = CastorNative.RecorderStart(pointer);
-            if (result != 0)
+            IntPtr pointer;
+            lock (_nativeRecorderLock)
             {
-                CastorNative.RecorderDestroy(pointer);
-                return result;
+                pointer = CastorNative.RecorderCreate(ref config);
+                if (pointer == IntPtr.Zero) return -3;
+
+                int result = CastorNative.RecorderStart(pointer);
+                if (result != 0)
+                {
+                    CastorNative.RecorderDestroy(pointer);
+                    return result;
+                }
             }
 
             lock (_previewLock)
@@ -262,8 +306,11 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             foreach (var (_, pointer) in copy)
             {
                 if (pointer == IntPtr.Zero) continue;
-                CastorNative.RecorderStop(pointer);
-                CastorNative.RecorderDestroy(pointer);
+                lock (_nativeRecorderLock)
+                {
+                    CastorNative.RecorderStop(pointer);
+                    CastorNative.RecorderDestroy(pointer);
+                }
             }
         }
         finally
@@ -285,11 +332,14 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
 
             int result = 0;
 
-            if (IsRecording)
-                result = CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc.Value);
+            lock (_nativeRecorderLock)
+            {
+                if (_recorderPtr != IntPtr.Zero)
+                    result = CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc.Value);
 
-            if (IsStreaming && result == 0)
-                result = CastorNative.RecorderSwitchVideoSource(_streamPtr, streamIndex: 0, videoSrc.Value);
+                if (_streamPtr != IntPtr.Zero && result == 0)
+                    result = CastorNative.RecorderSwitchVideoSource(_streamPtr, streamIndex: 0, videoSrc.Value);
+            }
 
             return result;
         }
@@ -308,8 +358,11 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             _previewPtrs.Remove(sceneId);
         }
 
-        CastorNative.RecorderStop(pointer);
-        CastorNative.RecorderDestroy(pointer);
+        lock (_nativeRecorderLock)
+        {
+            CastorNative.RecorderStop(pointer);
+            CastorNative.RecorderDestroy(pointer);
+        }
     }
 
     private static SourceItem? GetVideoSource(SceneItem scene)
