@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
+using CastorApplication.Services;
 using CastorApplication.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,6 +15,7 @@ public partial class ScenesViewModel : ViewModelBase
     private readonly IStudioController _studioController;
     private readonly INativeCaptureService _nativeCaptureService;
     private readonly INetworkCameraDiscoveryService _networkCameraDiscoveryService;
+    private readonly IFilePickerService _filePickerService;
 
     public ObservableCollection<SceneItem> Scenes => _studioController.Scenes;
 
@@ -53,11 +55,13 @@ public partial class ScenesViewModel : ViewModelBase
         SettingsService settingsService,
         IStudioController studioController,
         INativeCaptureService nativeCaptureService,
-        INetworkCameraDiscoveryService networkCameraDiscoveryService)
+        INetworkCameraDiscoveryService networkCameraDiscoveryService,
+        IFilePickerService filePickerService)
     {
         _studioController = studioController;
         _nativeCaptureService = nativeCaptureService;
         _networkCameraDiscoveryService = networkCameraDiscoveryService;
+        _filePickerService = filePickerService;
 
         var settings = settingsService.Load();
         _playerVolume = settings.PlayerVolume;
@@ -228,6 +232,44 @@ public partial class ScenesViewModel : ViewModelBase
     {
         if (SelectedScene == null) return;
         _studioController.AddAudioSource(SelectedScene, option);
+    }
+
+    [RelayCommand]
+    private async Task AddFileVideoSource()
+    {
+        if (SelectedScene == null) return;
+
+        var path = await _filePickerService.PickVideoFileAsync();
+        if (path == null) return;
+
+        _studioController.AddFileVideoSource(SelectedScene, new FileVideoSourceOption(path));
+    }
+
+    [RelayCommand]
+    private async Task AddFileAudioSource()
+    {
+        if (SelectedScene == null) return;
+
+        var path = await _filePickerService.PickAudioFileAsync();
+        if (path == null) return;
+
+        _studioController.AddFileAudioSource(SelectedScene, new FileAudioSourceOption(path));
+    }
+
+    /// <summary>
+    /// Ajoute un fichier vidéo comme source vidéo ET comme source audio simultanément
+    /// (deux SourceItem distincts depuis le même fichier).
+    /// </summary>
+    [RelayCommand]
+    private async Task AddFileMediaSource()
+    {
+        if (SelectedScene == null) return;
+
+        var path = await _filePickerService.PickVideoFileAsync();
+        if (path == null) return;
+
+        _studioController.AddFileVideoSource(SelectedScene, new FileVideoSourceOption(path));
+        _studioController.AddFileAudioSource(SelectedScene, new FileAudioSourceOption(path));
     }
 
     [RelayCommand]

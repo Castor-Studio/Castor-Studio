@@ -1,9 +1,12 @@
+using Castor.Native;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Castor.Engine.Models;
 
 public partial class SourceItem : ObservableObject
 {
+    public Guid Id { get; } = Guid.NewGuid();
+
     [ObservableProperty]
     private string _name = "";
 
@@ -16,7 +19,14 @@ public partial class SourceItem : ObservableObject
     [ObservableProperty]
     private bool _isActive = true;
 
+    /// <summary>Boucle automatique — pertinent uniquement pour les sources fichier.</summary>
+    [ObservableProperty]
+    private bool _loop = true;
+
     public string Type => Kind == SourceKind.Video ? "Vidéo" : "Audio";
+
+    /// <summary>Vrai si la source provient d'un fichier local.</summary>
+    public bool IsFileSource => NativeDescriptor is FileSourceInfo;
 
     internal IntPtr NativePtr { get; set; } = IntPtr.Zero;
 

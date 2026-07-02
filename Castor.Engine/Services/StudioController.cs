@@ -68,6 +68,16 @@ public sealed class StudioController(
         return sceneService.AddAudioSource(scene, source);
     }
 
+    public SourceItem AddFileVideoSource(SceneItem scene, FileVideoSourceOption option)
+    {
+        return sceneService.AddFileVideoSource(scene, option);
+    }
+
+    public SourceItem AddFileAudioSource(SceneItem scene, FileAudioSourceOption option)
+    {
+        return sceneService.AddFileAudioSource(scene, option);
+    }
+
     public void RemoveSource(SceneItem scene, SourceItem source)
     {
         sceneService.RemoveSource(scene, source);
