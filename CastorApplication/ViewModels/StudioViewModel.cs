@@ -6,13 +6,11 @@ using Avalonia.Media;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
 using Castor.Native;
-using CastorApplication.Factories;
 using CastorApplication.Services;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Dock.Model.Controls;
 
 namespace CastorApplication.ViewModels;
 
@@ -189,10 +187,6 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(RecordStatusText));
     }
 
-    // ── Dock layout ──
-
-    public IRootDock Layout { get; }
-
     // ── Constructor ──
 
     private readonly IProviderStore _providerStore;
@@ -216,9 +210,6 @@ public partial class StudioViewModel : ViewModelBase
         _savedPlayerVolume   = _playerVolume;
 
         RefreshProviderState(_streamPlatformIndex);
-        var factory = new StudioDockFactory(this);
-        Layout = factory.CreateLayout();
-        factory.InitLayout(Layout);
     }
 
     // ── Helpers settings → valeurs encoder ───────────────────────────────────
