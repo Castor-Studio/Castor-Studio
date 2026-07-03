@@ -15,6 +15,7 @@ public interface IStudioController
     event Action? RecordingStopped;
     event Action? StreamingStarted;
     event Action? StreamingStopped;
+    event Action? ActiveSceneChanged;
 
     SceneItem CreateScene(string name);
     void DeleteScene(SceneItem scene);

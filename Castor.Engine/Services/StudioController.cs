@@ -38,25 +38,44 @@ public sealed class StudioController(
         remove => recorderService.StreamingStopped -= value;
     }
 
-    public SceneItem CreateScene(string name) => sceneService.CreateScene(name);
+    public event Action? ActiveSceneChanged;
+
+    public SceneItem CreateScene(string name)
+    {
+        var previousScene = sceneService.ActiveScene;
+        var scene = sceneService.CreateScene(name);
+        NotifyActiveSceneChangedIfNeeded(previousScene);
+        return scene;
+    }
 
     public void DeleteScene(SceneItem scene)
     {
+        var previousScene = sceneService.ActiveScene;
+
         if (recorderService.IsPreviewActive(scene.Id))
             recorderService.StopPreview(scene);
 
         sceneService.DeleteScene(scene);
+        NotifyActiveSceneChangedIfNeeded(previousScene);
     }
 
     public void SelectScene(SceneItem scene)
     {
+        var previousScene = sceneService.ActiveScene;
         sceneService.SetActiveScene(scene);
+        NotifyActiveSceneChangedIfNeeded(previousScene);
 
         if (recorderService.IsRecording || recorderService.IsStreaming)
             _ = Task.Run(() => recorderService.SwitchScene(scene));
 
         if (HasVideoSource(scene) && !recorderService.IsPreviewActive(scene.Id))
             _ = Task.Run(() => recorderService.StartPreview(scene));
+    }
+
+    private void NotifyActiveSceneChangedIfNeeded(SceneItem? previousScene)
+    {
+        if (previousScene == sceneService.ActiveScene) return;
+        ActiveSceneChanged?.Invoke();
     }
 
     public SourceItem AddVideoSource(SceneItem scene, CaptureSourceOption source)
