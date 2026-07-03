@@ -45,10 +45,6 @@
 		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
 		<PackageReference Include="TwitchLib" Version="3.5.3" />
-		<PackageReference Include="Dock.Avalonia" Version="11.3.2" />
-		<PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="11.3.2" />
-		<PackageReference Include="Dock.Model.Mvvm" Version="11.3.2" />
-		<PackageReference Include="Dock.Serializer.Newtonsoft" Version="11.3.2" />
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Castor.Engine\Castor.Engine.csproj" />

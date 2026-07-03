@@ -1,6 +1,7 @@
 #include "VideoCapture.h"
 #include "source/source.h"
 #include "source/source_registry.h"
+#include "utils/sync_clock.h"
 
 extern "C" {
     #include <libavutil/frame.h>
@@ -567,6 +568,29 @@ CASTOR_CORE_API int video_capture_init_file(VideoCaptureContext* ctx, const char
 
     internal->width  = internal->net_codec_ctx->width;
     internal->height = internal->net_codec_ctx->height;
+
+    /* Synchronisation inter-scenes : au lieu de repartir du debut du fichier,
+     * on se replace a la position qu'il devrait avoir atteinte depuis l'epoch
+     * partage, pour rester en phase avec les autres scenes fichier (voir
+     * castor_file_sync_epoch_us). Sans ca, chaque changement de scene rouvre
+     * le fichier et il "redemarre" a l'image 0. */
+    {
+        int64_t duration_us = internal->net_fmt_ctx->duration;
+        if (duration_us <= 0 && stream->duration > 0 && stream->time_base.den > 0)
+            duration_us = av_rescale_q(stream->duration, stream->time_base, AV_TIME_BASE_Q);
+
+        if (duration_us > 0) {
+            int64_t elapsed_us = av_gettime_relative() - castor_file_sync_epoch_us();
+            if (elapsed_us < 0) elapsed_us = 0;
+
+            int64_t seek_target_us = loop ? (elapsed_us % duration_us)
+                                           : (elapsed_us < duration_us ? elapsed_us : duration_us);
+
+            if (seek_target_us > 0)
+                av_seek_frame(internal->net_fmt_ctx, -1, seek_target_us, AVSEEK_FLAG_BACKWARD);
+        }
+    }
+
     ctx->internal    = internal;
     ctx->width       = internal->width;
     ctx->height      = internal->height;
