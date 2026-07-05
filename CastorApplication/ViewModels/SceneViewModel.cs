@@ -148,7 +148,10 @@ public partial class ScenesViewModel : ViewModelBase
 
         var scene = _studioController.CreateScene(NewSceneName.Trim());
         NewSceneName = "";
-        SelectScene(scene);
+
+        // On affiche la nouvelle scène dans le panneau d'édition sans basculer le live dessus
+        // (SelectScene activerait aussi la scène côté recorder/preview).
+        SelectedScene = scene;
     }
 
     [ObservableProperty]
