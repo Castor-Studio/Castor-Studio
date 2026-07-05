@@ -139,11 +139,18 @@
 
                     <Button Classes="scene-toolbar-item">
                         <Grid ColumnDefinitions="20, *, Auto">
-                            <StackPanel Grid.Column="0" Spacing="1.5" VerticalAlignment="Center">
-                                <Polygon Points="0,4 4,0 8,4" Fill="{DynamicResource AppFg4}"/>
-                                <Polygon Points="0,0 4,4 8,0" Fill="{DynamicResource AppFg4}"/>
-                            </StackPanel>
-                            <TextBlock Grid.Column="1" Text="Trier"/>
+                            <Viewbox Grid.Column="0" Width="16" Height="16"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M3 9l4 -4l4 4m-4 -4v14"
+                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+                                    <Path Data="M21 15l-4 4l-4 -4m4 4v-14"
+                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Grid.Column="1" Text="Trier" Margin="6,0,0,0" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="2" Text="›" Foreground="{DynamicResource AppFg5}"/>
                         </Grid>
                         <Button.Flyout>
@@ -166,10 +173,15 @@
 
                     <Button Classes="scene-toolbar-item">
                         <Grid ColumnDefinitions="20, *, Auto">
-                            <Path Grid.Column="0" Width="14" Height="12" Stretch="Uniform"
-                                  Fill="{DynamicResource AppFg4}" VerticalAlignment="Center"
-                                  Data="M0,3 L5,3 L7,5 L14,5 L14,12 L0,12 Z"/>
-                            <TextBlock Grid.Column="1" Text="Fichier"/>
+                            <Viewbox Grid.Column="0" Width="16" Height="16"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2"
+                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Grid.Column="1" Text="Fichier" Margin="6,0,0,0" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="2" Text="›" Foreground="{DynamicResource AppFg5}"/>
                         </Grid>
                         <Button.Flyout>
@@ -187,10 +199,18 @@
                     <ToggleButton Classes="scene-toolbar-item"
                                   IsChecked="{Binding IsSelectionModeActive}">
                         <Grid ColumnDefinitions="20, *, Auto">
-                            <Rectangle Grid.Column="0" Width="12" Height="12" RadiusX="2" RadiusY="2"
-                                       Stroke="{DynamicResource AppFg4}" StrokeThickness="1.5"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="Sélectionner"/>
+                            <Viewbox Grid.Column="0" Width="16" Height="16"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M9 11l3 3l8 -8"
+                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+                                    <Path Data="M20 12v6a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h9"
+                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Grid.Column="1" Text="Sélectionner" Margin="6,0,0,0" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="2" Text="✓" Foreground="#5b8def"
                                        IsVisible="{Binding IsSelectionModeActive}"/>
                         </Grid>
@@ -214,8 +234,9 @@
 
                     <Button Classes="scene-toolbar-item">
                         <Grid ColumnDefinitions="20, *, Auto">
-                            <Ellipse Grid.Column="0" Width="12" Height="12" Fill="#5b8def" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="Couleur de la sélection"/>
+                            <Ellipse Grid.Column="0" Width="12" Height="12" Fill="#5b8def"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Couleur de la sélection" Margin="6,0,0,0" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="2" Text="›" Foreground="{DynamicResource AppFg5}"/>
                         </Grid>
                         <Button.Flyout>
@@ -249,16 +270,18 @@
                             Command="{Binding StartSelectedFileScenesTogetherCommand}"
                             ToolTip.Tip="Démarre en même temps les scènes sélectionnées qui contiennent une source fichier">
                         <Grid ColumnDefinitions="20, *">
-                            <TextBlock Grid.Column="0" Text="▶" FontSize="10" Foreground="{DynamicResource AppFg4}" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="Démarrer ensemble"/>
+                            <TextBlock Grid.Column="0" Text="▶" FontSize="10" Foreground="{DynamicResource AppFg4}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Démarrer ensemble" Margin="6,0,0,0" VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
 
                     <Button Classes="scene-toolbar-item danger"
                             Command="{Binding DeleteSelectedScenesCommand}">
                         <Grid ColumnDefinitions="20, *">
-                            <TextBlock Grid.Column="0" Text="✕" FontSize="11" Foreground="#f87171" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="Supprimer la sélection"/>
+                            <TextBlock Grid.Column="0" Text="✕" FontSize="11" Foreground="#f87171"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Supprimer la sélection" Margin="6,0,0,0" VerticalAlignment="Center"/>
                         </Grid>
                     </Button>
 
