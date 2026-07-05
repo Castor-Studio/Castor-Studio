@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -229,6 +230,31 @@ public partial class ScenesViewModel : ViewModelBase
         if (SceneBeingRenamed == null || string.IsNullOrWhiteSpace(RenameSceneName)) return;
         _studioController.RenameScene(SceneBeingRenamed, RenameSceneName.Trim());
         SceneBeingRenamed = null;
+    }
+
+    public static IReadOnlyList<string> SceneColorPalette { get; } =
+    [
+        "#5b8def", "#34d399", "#f87171", "#fbbf24", "#a78bfa", "#fb923c", "#8888a0"
+    ];
+
+    [ObservableProperty]
+    private SceneItem? _sceneBeingColored;
+
+    [RelayCommand]
+    private void BeginAssignColor(SceneItem scene) => SceneBeingColored = scene;
+
+    [RelayCommand]
+    private void AssignSceneColor(string color)
+    {
+        if (SceneBeingColored == null) return;
+        SceneBeingColored.Color = color;
+    }
+
+    [RelayCommand]
+    private void AssignColorToSelection(string color)
+    {
+        foreach (var scene in Scenes.Where(s => s.IsMultiSelected))
+            scene.Color = color;
     }
 
     [RelayCommand]

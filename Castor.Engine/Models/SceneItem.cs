@@ -16,6 +16,9 @@ public partial class SceneItem : ObservableObject
     [ObservableProperty]
     private bool _isLive;
 
+    [ObservableProperty]
+    private string _color = "#5b8def";
+
     /// <summary>Coché par l'utilisateur pour une action groupée (suppression, etc.) — état UI uniquement.</summary>
     [ObservableProperty]
     private bool _isMultiSelected;
