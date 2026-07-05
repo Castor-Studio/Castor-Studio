@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
@@ -24,6 +25,16 @@ public partial class ScenesViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _newSceneName = "";
+
+    [ObservableProperty]
+    private bool _isSelectionModeActive;
+
+    partial void OnIsSelectionModeActiveChanged(bool value)
+    {
+        if (value) return;
+        foreach (var scene in Scenes)
+            scene.IsMultiSelected = false;
+    }
 
     public ObservableCollection<CaptureSourceOption> AvailableMonitors { get; } = new();
     public ObservableCollection<CaptureSourceOption> AvailableCameras { get; } = new();
@@ -171,6 +182,32 @@ public partial class ScenesViewModel : ViewModelBase
         _studioController.DeleteScene(scene);
         if (wasSelected)
             SelectedScene = _studioController.ActiveScene;
+    }
+
+    [RelayCommand]
+    private void DeleteSelectedScenes()
+    {
+        var selected = Scenes.Where(s => s.IsMultiSelected).ToList();
+        if (selected.Count == 0)
+        {
+            DeleteSceneError = "Sélectionnez au moins une scène à supprimer.";
+            return;
+        }
+
+        if (selected.Count >= Scenes.Count && (_studioController.IsRecording || _studioController.IsStreaming))
+        {
+            DeleteSceneError = "Impossible de supprimer toutes les scènes pendant un enregistrement ou un live.";
+            return;
+        }
+
+        DeleteSceneError = "";
+        foreach (var scene in selected)
+        {
+            var wasSelected = SelectedScene == scene;
+            _studioController.DeleteScene(scene);
+            if (wasSelected)
+                SelectedScene = _studioController.ActiveScene;
+        }
     }
 
     [ObservableProperty]
