@@ -35,8 +35,6 @@ public sealed class SceneService : ISceneService
 
     public void DeleteScene(SceneItem scene)
     {
-        if (Scenes.Count <= 1) return;
-
         foreach (var source in scene.Sources)
         {
             DestroySource(source);
@@ -46,6 +44,12 @@ public sealed class SceneService : ISceneService
 
         if (ActiveScene == scene)
             ActiveScene = Scenes.Count > 0 ? Scenes[0] : null;
+    }
+
+    public void RenameScene(SceneItem scene, string newName)
+    {
+        if (string.IsNullOrWhiteSpace(newName)) return;
+        scene.Name = newName.Trim();
     }
 
     public void SetActiveScene(SceneItem scene)

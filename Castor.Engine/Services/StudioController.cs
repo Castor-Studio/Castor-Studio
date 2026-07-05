@@ -48,6 +48,8 @@ public sealed class StudioController(
         sceneService.DeleteScene(scene);
     }
 
+    public void RenameScene(SceneItem scene, string newName) => sceneService.RenameScene(scene, newName);
+
     public void SelectScene(SceneItem scene)
     {
         sceneService.SetActiveScene(scene);

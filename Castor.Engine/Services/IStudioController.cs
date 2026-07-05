@@ -18,6 +18,7 @@ public interface IStudioController
 
     SceneItem CreateScene(string name);
     void DeleteScene(SceneItem scene);
+    void RenameScene(SceneItem scene, string newName);
     void SelectScene(SceneItem scene);
     SourceItem AddVideoSource(SceneItem scene, CaptureSourceOption source);
     SourceItem AddNetworkVideoSource(SceneItem scene, string label, string url);

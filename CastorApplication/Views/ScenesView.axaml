@@ -41,6 +41,26 @@
             <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
         </Style>
 
+        <Style Selector="Button.scene-menu-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Button.scene-menu-item:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        </Style>
+
+        <Style Selector="Button.scene-menu-item.danger">
+            <Setter Property="Foreground" Value="#f87171"/>
+        </Style>
+
     </UserControl.Styles>
 
     <Grid ColumnDefinitions="240, 1, *" Background="{DynamicResource AppBg}">
@@ -92,40 +112,107 @@
                     <ItemsControl ItemsSource="{Binding Scenes}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="m:SceneItem">
-                                <Button Classes="scene-btn"
-                                        Command="{Binding #ScenesRoot.DataContext.SelectSceneCommand}"
-                                        CommandParameter="{Binding}">
-                                    <Panel>
-                                        <!-- Active scene display -->
-                                        <Border IsVisible="{Binding IsActive}"
-                                                Background="{DynamicResource AppAccentBg2}"
-                                                BorderBrush="#5b8def"
-                                                BorderThickness="3,0,0,0">
-                                            <Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
-                                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                                    <TextBlock Text="▶" Foreground="#5b8def" FontSize="10"
-                                                               VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Name}" Foreground="{DynamicResource AppFg1}"
-                                                               FontSize="13" FontWeight="SemiBold"
-                                                               VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                                <Border Grid.Column="1"
-                                                        IsVisible="{Binding IsLive}"
-                                                        Background="#5b8def" CornerRadius="3" Padding="6,2">
-                                                    <TextBlock Text="EN DIRECT" Foreground="#eaeaf0"
-                                                               FontSize="9" FontWeight="Bold"/>
-                                                </Border>
-                                            </Grid>
-                                        </Border>
+                                <Grid ColumnDefinitions="*, Auto">
 
-                                        <!-- Inactive scene display -->
-                                        <Border IsVisible="{Binding !IsActive}"
-                                                Padding="14,10">
-                                            <TextBlock Text="{Binding Name}"
-                                                       Foreground="{DynamicResource AppFg3}" FontSize="13"/>
-                                        </Border>
-                                    </Panel>
-                                </Button>
+                                    <Button Grid.Column="0" Classes="scene-btn"
+                                            Command="{Binding #ScenesRoot.DataContext.SelectSceneCommand}"
+                                            CommandParameter="{Binding}">
+                                        <Panel>
+                                            <!-- Active scene display -->
+                                            <Border IsVisible="{Binding IsActive}"
+                                                    Background="{DynamicResource AppAccentBg2}"
+                                                    BorderBrush="#5b8def"
+                                                    BorderThickness="3,0,0,0">
+                                                <Grid ColumnDefinitions="*, Auto" Margin="14,10,10,10">
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                                        <TextBlock Text="▶" Foreground="#5b8def" FontSize="10"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource AppFg1}"
+                                                                   FontSize="13" FontWeight="SemiBold"
+                                                                   VerticalAlignment="Center"/>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="1"
+                                                            IsVisible="{Binding IsLive}"
+                                                            Background="#5b8def" CornerRadius="3" Padding="6,2">
+                                                        <TextBlock Text="EN DIRECT" Foreground="#eaeaf0"
+                                                                   FontSize="9" FontWeight="Bold"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+
+                                            <!-- Inactive scene display -->
+                                            <Border IsVisible="{Binding !IsActive}"
+                                                    Padding="14,10">
+                                                <TextBlock Text="{Binding Name}"
+                                                           Foreground="{DynamicResource AppFg3}" FontSize="13"/>
+                                            </Border>
+                                        </Panel>
+                                    </Button>
+
+                                    <!-- Actions -->
+                                    <Button Grid.Column="1"
+                                            Content="⋮"
+                                            Background="Transparent" Foreground="{DynamicResource AppFg5}"
+                                            BorderThickness="0" FontSize="16" FontWeight="Bold" Padding="8,4"
+                                            Cursor="Hand"
+                                            ToolTip.Tip="Actions">
+                                        <Button.Flyout>
+                                            <Flyout Placement="BottomEdgeAlignedRight">
+                                                <StackPanel Width="150" Spacing="2" Margin="4">
+
+                                                    <Button Classes="scene-menu-item" Content="Renommer"
+                                                            Command="{Binding #ScenesRoot.DataContext.BeginRenameSceneCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <Button.Flyout>
+                                                            <Flyout Placement="Right">
+                                                                <StackPanel Width="220" Spacing="10" Margin="4">
+                                                                    <TextBlock Text="RENOMMER LA SCÈNE"
+                                                                               FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                                                    <TextBox Text="{Binding #ScenesRoot.DataContext.RenameSceneName}"
+                                                                             Background="{DynamicResource AppSurface2}"
+                                                                             BorderBrush="{DynamicResource AppBorder2}"
+                                                                             Foreground="{DynamicResource AppFg2}"/>
+                                                                    <Button Content="RENOMMER"
+                                                                            Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"
+                                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                                            Height="32" Background="#5b8def" Foreground="#eaeaf0"
+                                                                            BorderThickness="0" CornerRadius="6"
+                                                                            FontSize="12" FontWeight="Bold" Cursor="Hand"/>
+                                                                </StackPanel>
+                                                            </Flyout>
+                                                        </Button.Flyout>
+                                                    </Button>
+
+                                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}" Margin="4,2"/>
+
+                                                    <Button Classes="scene-menu-item danger" Content="Supprimer">
+                                                        <Button.Flyout>
+                                                            <Flyout Placement="Right">
+                                                                <StackPanel Width="200" Spacing="10" Margin="4">
+                                                                    <TextBlock Text="Supprimer cette scène ?"
+                                                                               TextWrapping="Wrap"
+                                                                               FontSize="12" Foreground="{DynamicResource AppFg1}"/>
+                                                                    <TextBlock Text="{Binding #ScenesRoot.DataContext.DeleteSceneError}"
+                                                                               IsVisible="{Binding #ScenesRoot.DataContext.DeleteSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                                               Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
+                                                                    <Button Content="SUPPRIMER"
+                                                                            Command="{Binding #ScenesRoot.DataContext.DeleteSceneCommand}"
+                                                                            CommandParameter="{Binding}"
+                                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                                            Height="32" Background="#f87171" Foreground="#eaeaf0"
+                                                                            BorderThickness="0" CornerRadius="6"
+                                                                            FontSize="12" FontWeight="Bold" Cursor="Hand"/>
+                                                                </StackPanel>
+                                                            </Flyout>
+                                                        </Button.Flyout>
+                                                    </Button>
+
+                                                </StackPanel>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
+
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>

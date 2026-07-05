@@ -151,8 +151,45 @@ public partial class ScenesViewModel : ViewModelBase
         SelectScene(scene);
     }
 
+    [ObservableProperty]
+    private string _deleteSceneError = "";
+
     [RelayCommand]
-    private void DeleteScene(SceneItem scene) => _studioController.DeleteScene(scene);
+    private void DeleteScene(SceneItem scene)
+    {
+        if (Scenes.Count <= 1 && (_studioController.IsRecording || _studioController.IsStreaming))
+        {
+            DeleteSceneError = "Impossible de supprimer la seule scène pendant un enregistrement ou un live.";
+            return;
+        }
+
+        DeleteSceneError = "";
+        var wasSelected = SelectedScene == scene;
+        _studioController.DeleteScene(scene);
+        if (wasSelected)
+            SelectedScene = _studioController.ActiveScene;
+    }
+
+    [ObservableProperty]
+    private SceneItem? _sceneBeingRenamed;
+
+    [ObservableProperty]
+    private string _renameSceneName = "";
+
+    [RelayCommand]
+    private void BeginRenameScene(SceneItem scene)
+    {
+        SceneBeingRenamed = scene;
+        RenameSceneName = scene.Name;
+    }
+
+    [RelayCommand]
+    private void ConfirmRenameScene()
+    {
+        if (SceneBeingRenamed == null || string.IsNullOrWhiteSpace(RenameSceneName)) return;
+        _studioController.RenameScene(SceneBeingRenamed, RenameSceneName.Trim());
+        SceneBeingRenamed = null;
+    }
 
     [RelayCommand]
     private void AddSpecificVideoSource(CaptureSourceOption option)
