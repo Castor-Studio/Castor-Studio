@@ -93,12 +93,6 @@ public partial class ScenesViewModel : ViewModelBase
         LoadAvailableSources();
     }
 
-    public bool IsPreviewActive(Guid sceneId) => _studioController.IsPreviewActive(sceneId);
-
-    public int StartPreview(SceneItem scene) => _studioController.EnsurePreview(scene);
-
-    public string GetPreviewPullUrl(Guid sceneId) => _studioController.GetPreviewPullUrl(sceneId);
-
     private void ApplyAutoMute()
     {
         if (!MutePlayersOnRecord || _mutedForCapture) return;
@@ -172,10 +166,16 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty]
     private string _deleteSceneError = "";
 
+    /// <summary>Vrai si supprimer <paramref name="countToDelete"/> scène(s) viderait la liste pendant un enregistrement/live.</summary>
+    private bool WouldLeaveNoScenesWhileLive(int countToDelete) =>
+        countToDelete >= Scenes.Count && (_studioController.IsRecording || _studioController.IsStreaming);
+
+    private List<SceneItem> GetSelectedScenes() => Scenes.Where(s => s.IsMultiSelected).ToList();
+
     [RelayCommand]
     private void DeleteScene(SceneItem scene)
     {
-        if (Scenes.Count <= 1 && (_studioController.IsRecording || _studioController.IsStreaming))
+        if (WouldLeaveNoScenesWhileLive(1))
         {
             DeleteSceneError = "Impossible de supprimer la seule scène pendant un enregistrement ou un live.";
             return;
@@ -191,14 +191,14 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void DeleteSelectedScenes()
     {
-        var selected = Scenes.Where(s => s.IsMultiSelected).ToList();
+        var selected = GetSelectedScenes();
         if (selected.Count == 0)
         {
             DeleteSceneError = "Sélectionnez au moins une scène à supprimer.";
             return;
         }
 
-        if (selected.Count >= Scenes.Count && (_studioController.IsRecording || _studioController.IsStreaming))
+        if (WouldLeaveNoScenesWhileLive(selected.Count))
         {
             DeleteSceneError = "Impossible de supprimer toutes les scènes pendant un enregistrement ou un live.";
             return;
@@ -217,7 +217,7 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void StartSelectedFileScenesTogether()
     {
-        var selected = Scenes.Where(s => s.IsMultiSelected).ToList();
+        var selected = GetSelectedScenes();
         var fileScenes = selected.Where(s => s.Sources.Any(source => source.IsFileSource)).ToList();
 
         if (fileScenes.Count == 0)
@@ -226,8 +226,13 @@ public partial class ScenesViewModel : ViewModelBase
             return;
         }
 
-        foreach (var scene in fileScenes)
-            _studioController.RestartPreview(scene);
+        // Sur un thread d'arrière-plan : RestartPreview arrête chaque scène de façon synchrone,
+        // ce qui bloquerait l'UI si on l'appelait en série pour plusieurs scènes ici.
+        _ = Task.Run(() =>
+        {
+            foreach (var scene in fileScenes)
+                _studioController.RestartPreview(scene);
+        });
 
         SceneIoStatus = fileScenes.Count == selected.Count
             ? $"{fileScenes.Count} scène(s) démarrée(s) ensemble."
@@ -303,7 +308,7 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private async Task ExportScenes()
     {
-        var selected = Scenes.Where(s => s.IsMultiSelected).ToList();
+        var selected = GetSelectedScenes();
         var scenesToExport = selected.Count > 0 ? selected : Scenes.ToList();
 
         if (scenesToExport.Count == 0)
@@ -322,7 +327,7 @@ public partial class ScenesViewModel : ViewModelBase
                 Scenes = scenesToExport.Select(SceneExportMapper.ToExport).ToList()
             };
             var json = JsonSerializer.Serialize(export, SceneExportJsonOptions);
-            await File.WriteAllTextAsync(path, json);
+            SettingsService.WriteFileAtomically(path, json);
 
             SceneIoStatus = selected.Count > 0
                 ? $"{scenesToExport.Count} scène(s) sélectionnée(s) exportée(s)."
@@ -413,7 +418,7 @@ public partial class ScenesViewModel : ViewModelBase
     [RelayCommand]
     private void AssignColorToSelection(string color)
     {
-        foreach (var scene in Scenes.Where(s => s.IsMultiSelected))
+        foreach (var scene in GetSelectedScenes())
             scene.Color = color;
     }
 
