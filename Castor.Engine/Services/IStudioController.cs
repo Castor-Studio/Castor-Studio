@@ -29,6 +29,7 @@ public interface IStudioController
     bool HasVideoSource(SceneItem scene);
     bool IsPreviewActive(Guid sceneId);
     int EnsurePreview(SceneItem scene);
+    void RestartPreview(SceneItem scene);
     string GetPreviewPullUrl(Guid sceneId);
     int StartRecording(SceneItem scene, string outputPath,
                        int fps = 30,

@@ -214,6 +214,26 @@ public partial class ScenesViewModel : ViewModelBase
         }
     }
 
+    [RelayCommand]
+    private void StartSelectedFileScenesTogether()
+    {
+        var selected = Scenes.Where(s => s.IsMultiSelected).ToList();
+        var fileScenes = selected.Where(s => s.Sources.Any(source => source.IsFileSource)).ToList();
+
+        if (fileScenes.Count == 0)
+        {
+            SceneIoStatus = "Sélectionnez au moins une scène contenant une source fichier.";
+            return;
+        }
+
+        foreach (var scene in fileScenes)
+            _studioController.RestartPreview(scene);
+
+        SceneIoStatus = fileScenes.Count == selected.Count
+            ? $"{fileScenes.Count} scène(s) démarrée(s) ensemble."
+            : $"{fileScenes.Count} scène(s) démarrée(s) ensemble ({selected.Count - fileScenes.Count} ignorée(s), sans source fichier).";
+    }
+
     [ObservableProperty]
     private SceneItem? _sceneBeingRenamed;
 
