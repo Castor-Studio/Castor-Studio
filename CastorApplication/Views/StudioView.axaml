@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels"
              xmlns:m="using:Castor.Engine.Models"
-             xmlns:dock="using:Dock.Avalonia.Controls"
              xmlns:controls="using:CastorApplication.Controls"
              x:Class="CastorApplication.Views.StudioView"
              x:DataType="vm:StudioViewModel">
@@ -43,7 +42,7 @@
 
     <Grid RowDefinitions="*, 38, 72">
 
-        <!-- ═══ ZONE PRINCIPALE : DockControl (Preview + Outils déplaçables) ═══ -->
+        <!-- ═══ ZONE PRINCIPALE ═══ -->
 		<Panel Grid.Row="0" Background="Black">
 
             <controls:DirectXPreviewView Scene="{Binding ActiveScene}"

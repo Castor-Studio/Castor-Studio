@@ -9,7 +9,7 @@
     <Application.DataTemplates>
         <local:ViewLocator/>
 
-        <!-- ── PREVIEW VIDÉO (Dock : contexte = StudioViewModel) ── -->
+        <!-- ── PREVIEW VIDÉO ── -->
         <DataTemplate x:DataType="vm:StudioViewModel">
             <Panel Background="{DynamicResource AppSurface3}">
                 <TextBlock Text="APERÇU VIDÉO"
@@ -33,7 +33,7 @@
             </Panel>
         </DataTemplate>
 
-        <!-- ── SOURCES (Dock : contexte = SourcesPanelContext) ── -->
+        <!-- ── SOURCES ── -->
         <DataTemplate x:DataType="vm:SourcesPanelContext">
             <Grid RowDefinitions="*, Auto" Margin="8,6">
                 <ListBox Grid.Row="0"
@@ -76,7 +76,7 @@
             </Grid>
         </DataTemplate>
 
-        <!-- ── MIXER AUDIO (Dock : contexte = AudioPanelContext) ── -->
+        <!-- ── MIXER AUDIO ── -->
         <DataTemplate x:DataType="vm:AudioPanelContext">
             <StackPanel VerticalAlignment="Center" Spacing="10" Margin="10,8">
                 <Grid ColumnDefinitions="56, *, 38">
@@ -184,9 +184,7 @@
     </Application.Resources>
 
     <Application.Styles>
-        <FluentTheme />
-        <StyleInclude Source="avares://Dock.Avalonia.Themes.Fluent/DockFluentTheme.axaml" />
-            
+		<FluentTheme /> 
         <StyleInclude Source="avares://CastorApplication/Styles/SettingsStyles.axaml"/>
     </Application.Styles>
 </Application>
