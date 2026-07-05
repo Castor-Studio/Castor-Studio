@@ -251,6 +251,28 @@ public partial class ScenesViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void SortScenes(string sortKey)
+    {
+        IEnumerable<SceneItem> ordered = sortKey switch
+        {
+            "name_asc" => Scenes.OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase),
+            "name_desc" => Scenes.OrderByDescending(s => s.Name, StringComparer.CurrentCultureIgnoreCase),
+            "date_asc" => Scenes.OrderBy(s => s.CreatedAt),
+            "date_desc" => Scenes.OrderByDescending(s => s.CreatedAt),
+            "color" => Scenes.OrderBy(s => s.Color, StringComparer.OrdinalIgnoreCase),
+            _ => Scenes
+        };
+
+        var orderedScenes = ordered.ToList();
+        for (var targetIndex = 0; targetIndex < orderedScenes.Count; targetIndex++)
+        {
+            var currentIndex = Scenes.IndexOf(orderedScenes[targetIndex]);
+            if (currentIndex != targetIndex)
+                Scenes.Move(currentIndex, targetIndex);
+        }
+    }
+
+    [RelayCommand]
     private void AssignColorToSelection(string color)
     {
         foreach (var scene in Scenes.Where(s => s.IsMultiSelected))

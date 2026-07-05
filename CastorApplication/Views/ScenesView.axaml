@@ -86,20 +86,15 @@
 
         <!-- ═══ SCENES LIST ═══ -->
         <Border Grid.Column="0" Background="{DynamicResource AppSurface}">
-            <Grid RowDefinitions="56, Auto, 1, *">
+            <Grid RowDefinitions="56, Auto, Auto, 1, *">
 
-                <Grid Grid.Row="0" ColumnDefinitions="*, Auto, Auto" Margin="14,0">
+                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="14,0">
                     <TextBlock Grid.Column="0" Text="SCÈNES"
                                FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
                                VerticalAlignment="Center"/>
 
-                    <ToggleButton Grid.Column="1" Classes="select-mode-toggle"
-                                  Content="Sélectionner"
-                                  IsChecked="{Binding IsSelectionModeActive}"
-                                  VerticalAlignment="Center" Margin="0,0,8,0"/>
-
                     <!-- Create Scene Flyout -->
-                    <Button Grid.Column="2"
+                    <Button Grid.Column="1"
                             Content="+"
                             Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                             BorderThickness="0" Padding="10,4" CornerRadius="5"
@@ -129,8 +124,39 @@
                     </Button>
                 </Grid>
 
+                <!-- Toolbar: sort + selection mode -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                            Spacing="8" Margin="14,0,14,8">
+
+                    <Button Content="Trier ▾"
+                            Background="Transparent" Foreground="{DynamicResource AppFg4}"
+                            BorderThickness="1" BorderBrush="{DynamicResource AppBorder2}" CornerRadius="5"
+                            Padding="8,4" FontSize="10" Cursor="Hand">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedRight">
+                                <StackPanel Width="180" Spacing="2" Margin="4">
+                                    <Button Classes="scene-menu-item" Content="Nom (A → Z)"
+                                            Command="{Binding SortScenesCommand}" CommandParameter="name_asc"/>
+                                    <Button Classes="scene-menu-item" Content="Nom (Z → A)"
+                                            Command="{Binding SortScenesCommand}" CommandParameter="name_desc"/>
+                                    <Button Classes="scene-menu-item" Content="Plus récentes d'abord"
+                                            Command="{Binding SortScenesCommand}" CommandParameter="date_desc"/>
+                                    <Button Classes="scene-menu-item" Content="Plus anciennes d'abord"
+                                            Command="{Binding SortScenesCommand}" CommandParameter="date_asc"/>
+                                    <Button Classes="scene-menu-item" Content="Couleur"
+                                            Command="{Binding SortScenesCommand}" CommandParameter="color"/>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
+                    <ToggleButton Classes="select-mode-toggle"
+                                  Content="Sélectionner"
+                                  IsChecked="{Binding IsSelectionModeActive}"/>
+                </StackPanel>
+
                 <!-- Bulk actions bar -->
-                <Grid Grid.Row="1" ColumnDefinitions="*, Auto, Auto" Margin="14,6"
+                <Grid Grid.Row="2" ColumnDefinitions="*, Auto, Auto" Margin="14,6"
                       IsVisible="{Binding IsSelectionModeActive}">
                     <TextBlock Grid.Column="0" Text="{Binding DeleteSceneError}"
                                IsVisible="{Binding DeleteSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
@@ -174,21 +200,33 @@
                             Padding="8,4" FontSize="10" Cursor="Hand"/>
                 </Grid>
 
-                <Rectangle Grid.Row="2" Fill="{DynamicResource AppBorder}"/>
+                <Rectangle Grid.Row="3" Fill="{DynamicResource AppBorder}"/>
 
                 <!-- Dynamic scene list -->
-                <ScrollViewer Grid.Row="3">
+                <ScrollViewer Grid.Row="4">
                     <ItemsControl ItemsSource="{Binding Scenes}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="m:SceneItem">
-                                <Grid ColumnDefinitions="Auto, *, Auto">
+                                <Grid ColumnDefinitions="Auto, Auto, *, Auto"
+                                      DragDrop.AllowDrop="True"
+                                      DragDrop.DragOver="OnSceneRowDragOver"
+                                      DragDrop.Drop="OnSceneRowDrop">
 
                                     <CheckBox Grid.Column="0"
                                               IsVisible="{Binding #ScenesRoot.DataContext.IsSelectionModeActive}"
                                               IsChecked="{Binding IsMultiSelected}"
                                               VerticalAlignment="Center" Margin="10,0,0,0"/>
 
-                                    <Button Grid.Column="1" Classes="scene-btn"
+                                    <Border Grid.Column="1" Width="22"
+                                            Background="Transparent" Cursor="SizeAll"
+                                            ToolTip.Tip="Glisser pour réordonner"
+                                            PointerPressed="OnSceneDragHandlePointerPressed">
+                                        <TextBlock Text="⠿" FontSize="14"
+                                                   Foreground="{DynamicResource AppFg5}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <Button Grid.Column="2" Classes="scene-btn"
                                             Command="{Binding #ScenesRoot.DataContext.SelectSceneCommand}"
                                             CommandParameter="{Binding}">
                                         <Panel>
@@ -228,7 +266,7 @@
                                     </Button>
 
                                     <!-- Actions -->
-                                    <Button Grid.Column="2"
+                                    <Button Grid.Column="3"
                                             Content="⋮"
                                             Background="Transparent" Foreground="{DynamicResource AppFg5}"
                                             BorderThickness="0" FontSize="16" FontWeight="Bold" Padding="8,4"

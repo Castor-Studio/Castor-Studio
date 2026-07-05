@@ -7,6 +7,8 @@ public partial class SceneItem : ObservableObject
 {
     public Guid Id { get; } = Guid.NewGuid();
 
+    public DateTime CreatedAt { get; } = DateTime.UtcNow;
+
     [ObservableProperty]
     private string _name = "";
 
