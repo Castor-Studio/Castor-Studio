@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
+using CastorApplication.Models.Export;
 using CastorApplication.Services;
 using CastorApplication.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -269,6 +272,121 @@ public partial class ScenesViewModel : ViewModelBase
             var currentIndex = Scenes.IndexOf(orderedScenes[targetIndex]);
             if (currentIndex != targetIndex)
                 Scenes.Move(currentIndex, targetIndex);
+        }
+    }
+
+    private static readonly JsonSerializerOptions SceneExportJsonOptions = new() { WriteIndented = true };
+
+    [ObservableProperty]
+    private string _sceneIoStatus = "";
+
+    [RelayCommand]
+    private async Task ExportScenes()
+    {
+        var selected = Scenes.Where(s => s.IsMultiSelected).ToList();
+        var scenesToExport = selected.Count > 0 ? selected : Scenes.ToList();
+
+        if (scenesToExport.Count == 0)
+        {
+            SceneIoStatus = "Aucune scène à exporter.";
+            return;
+        }
+
+        var path = await _filePickerService.PickSceneExportFileAsync();
+        if (path == null) return;
+
+        try
+        {
+            var export = new SceneCollectionExport
+            {
+                Scenes = scenesToExport.Select(SceneExportMapper.ToExport).ToList()
+            };
+            var json = JsonSerializer.Serialize(export, SceneExportJsonOptions);
+            await File.WriteAllTextAsync(path, json);
+
+            SceneIoStatus = selected.Count > 0
+                ? $"{scenesToExport.Count} scène(s) sélectionnée(s) exportée(s)."
+                : $"{scenesToExport.Count} scène(s) exportée(s).";
+        }
+        catch (Exception ex)
+        {
+            SceneIoStatus = $"Export impossible : {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportScenes()
+    {
+        var path = await _filePickerService.PickSceneImportFileAsync();
+        if (path == null) return;
+
+        SceneCollectionExport? import;
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            import = JsonSerializer.Deserialize<SceneCollectionExport>(json);
+        }
+        catch (Exception ex)
+        {
+            SceneIoStatus = $"Import impossible : {ex.Message}";
+            return;
+        }
+
+        if (import == null || import.Scenes.Count == 0)
+        {
+            SceneIoStatus = "Aucune scène trouvée dans ce fichier.";
+            return;
+        }
+
+        var skippedSources = new List<string>();
+
+        foreach (var sceneExport in import.Scenes)
+        {
+            var scene = _studioController.CreateScene(sceneExport.Name);
+            scene.Color = sceneExport.Color;
+
+            foreach (var sourceExport in sceneExport.Sources)
+                ImportSource(scene, sourceExport, skippedSources);
+        }
+
+        SceneIoStatus = skippedSources.Count == 0
+            ? $"{import.Scenes.Count} scène(s) importée(s)."
+            : $"{import.Scenes.Count} scène(s) importée(s). Sources introuvables ignorées : {string.Join(", ", skippedSources)}";
+    }
+
+    private void ImportSource(SceneItem scene, SourceExport sourceExport, List<string> skippedSources)
+    {
+        switch (sourceExport.Origin)
+        {
+            case SourceOrigin.File when sourceExport.Kind == SourceKind.Video:
+                _studioController.AddFileVideoSource(scene, new FileVideoSourceOption(sourceExport.OriginPath, sourceExport.Loop));
+                break;
+
+            case SourceOrigin.File:
+                _studioController.AddFileAudioSource(scene, new FileAudioSourceOption(sourceExport.OriginPath, sourceExport.Loop));
+                break;
+
+            case SourceOrigin.Network:
+                _studioController.AddNetworkVideoSource(scene, sourceExport.OriginLabel, sourceExport.OriginPath);
+                break;
+
+            case SourceOrigin.HardwareVideo:
+                var videoMatch = AvailableMonitors.Concat(AvailableCameras).Concat(AvailableWindows)
+                    .FirstOrDefault(o => o.Label == sourceExport.OriginLabel);
+                if (videoMatch != null)
+                    _studioController.AddVideoSource(scene, videoMatch);
+                else
+                    skippedSources.Add(sourceExport.Name);
+                break;
+
+            case SourceOrigin.HardwareAudio:
+                var audioMatch = AvailableMics.Concat(AvailableLoopbacks)
+                    .FirstOrDefault(o => o.Label == sourceExport.OriginLabel);
+                if (audioMatch != null)
+                    _studioController.AddAudioSource(scene, audioMatch);
+                else
+                    skippedSources.Add(sourceExport.Name);
+                break;
         }
     }
 

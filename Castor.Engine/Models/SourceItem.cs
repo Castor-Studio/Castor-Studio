@@ -28,6 +28,15 @@ public partial class SourceItem : ObservableObject
     /// <summary>Vrai si la source provient d'un fichier local.</summary>
     public bool IsFileSource => NativeDescriptor is FileSourceInfo;
 
+    /// <summary>D'où provient cette source — permet de la retrouver/recréer lors d'un import.</summary>
+    public SourceOrigin Origin { get; internal set; }
+
+    /// <summary>Libellé du périphérique (hardware/réseau) utilisé pour la retrouver à l'import.</summary>
+    public string OriginLabel { get; internal set; } = "";
+
+    /// <summary>URL réseau ou chemin de fichier local, selon <see cref="Origin"/>. Vide pour une source matérielle.</summary>
+    public string OriginPath { get; internal set; } = "";
+
     internal IntPtr NativePtr { get; set; } = IntPtr.Zero;
 
     public object? NativeDescriptor { get; internal set; }

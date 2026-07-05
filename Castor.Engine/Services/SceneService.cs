@@ -70,7 +70,9 @@ public sealed class SceneService : ISceneService
 
         var item = new SourceItem(source.Label, SourceKind.Video, color)
         {
-            NativeDescriptor = source.Info
+            NativeDescriptor = source.Info,
+            Origin = SourceOrigin.HardwareVideo,
+            OriginLabel = source.Label
         };
         scene.Sources.Add(item);
         return item;
@@ -88,7 +90,10 @@ public sealed class SceneService : ISceneService
 
         var item = new SourceItem(label, SourceKind.Video, "#5b8def")
         {
-            NativeDescriptor = info
+            NativeDescriptor = info,
+            Origin = SourceOrigin.Network,
+            OriginLabel = label,
+            OriginPath = url
         };
         scene.Sources.Add(item);
         return item;
@@ -102,7 +107,9 @@ public sealed class SceneService : ISceneService
 
         var item = new SourceItem(source.Label, SourceKind.Audio, color)
         {
-            NativeDescriptor = source.Info
+            NativeDescriptor = source.Info,
+            Origin = SourceOrigin.HardwareAudio,
+            OriginLabel = source.Label
         };
         scene.Sources.Add(item);
         return item;
@@ -112,7 +119,10 @@ public sealed class SceneService : ISceneService
     {
         var item = new SourceItem(option.Label, SourceKind.Video, "#a78bfa")
         {
-            NativeDescriptor = option.Info
+            NativeDescriptor = option.Info,
+            Origin = SourceOrigin.File,
+            OriginLabel = option.Label,
+            OriginPath = option.FilePath
         };
         scene.Sources.Add(item);
         return item;
@@ -122,7 +132,10 @@ public sealed class SceneService : ISceneService
     {
         var item = new SourceItem(option.Label, SourceKind.Audio, "#fb923c")
         {
-            NativeDescriptor = option.Info
+            NativeDescriptor = option.Info,
+            Origin = SourceOrigin.File,
+            OriginLabel = option.Label,
+            OriginPath = option.FilePath
         };
         scene.Sources.Add(item);
         return item;

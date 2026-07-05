@@ -86,7 +86,7 @@
 
         <!-- ═══ SCENES LIST ═══ -->
         <Border Grid.Column="0" Background="{DynamicResource AppSurface}">
-            <Grid RowDefinitions="56, Auto, Auto, 1, *">
+            <Grid RowDefinitions="56, Auto, Auto, Auto, 1, *">
 
                 <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="14,0">
                     <TextBlock Grid.Column="0" Text="SCÈNES"
@@ -150,13 +150,34 @@
                         </Button.Flyout>
                     </Button>
 
+                    <Button Content="Fichier ▾"
+                            Background="Transparent" Foreground="{DynamicResource AppFg4}"
+                            BorderThickness="1" BorderBrush="{DynamicResource AppBorder2}" CornerRadius="5"
+                            Padding="8,4" FontSize="10" Cursor="Hand">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedRight">
+                                <StackPanel Width="180" Spacing="2" Margin="4">
+                                    <Button Classes="scene-menu-item" Content="Exporter"
+                                            Command="{Binding ExportScenesCommand}"/>
+                                    <Button Classes="scene-menu-item" Content="Importer..."
+                                            Command="{Binding ImportScenesCommand}"/>
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
                     <ToggleButton Classes="select-mode-toggle"
                                   Content="Sélectionner"
                                   IsChecked="{Binding IsSelectionModeActive}"/>
                 </StackPanel>
 
+                <TextBlock Grid.Row="2" Text="{Binding SceneIoStatus}"
+                           IsVisible="{Binding SceneIoStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                           Foreground="{DynamicResource AppFg3}" FontSize="10" TextWrapping="Wrap"
+                           Margin="14,0,14,8"/>
+
                 <!-- Bulk actions bar -->
-                <Grid Grid.Row="2" ColumnDefinitions="*, Auto, Auto" Margin="14,6"
+                <Grid Grid.Row="3" ColumnDefinitions="*, Auto, Auto" Margin="14,6"
                       IsVisible="{Binding IsSelectionModeActive}">
                     <TextBlock Grid.Column="0" Text="{Binding DeleteSceneError}"
                                IsVisible="{Binding DeleteSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
@@ -200,10 +221,10 @@
                             Padding="8,4" FontSize="10" Cursor="Hand"/>
                 </Grid>
 
-                <Rectangle Grid.Row="3" Fill="{DynamicResource AppBorder}"/>
+                <Rectangle Grid.Row="4" Fill="{DynamicResource AppBorder}"/>
 
                 <!-- Dynamic scene list -->
-                <ScrollViewer Grid.Row="4">
+                <ScrollViewer Grid.Row="5">
                     <ItemsControl ItemsSource="{Binding Scenes}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="m:SceneItem">
