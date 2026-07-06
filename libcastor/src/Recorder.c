@@ -198,7 +198,18 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&t0);
 
-    int64_t submitted = 0;
+    int64_t submitted  = 0;
+    int     in_silence = 0;
+
+    /* Tolerance au jitter avant d'injecter du silence.
+     *
+     * WASAPI loopback ne livre AUCUN paquet quand rien n'est rendu : c'est
+     * le seul cas ou il faut combler avec du silence pour tenir la synchro
+     * A/V. Un paquet simplement en retard (charge CPU, ordonnanceur) ne
+     * doit PAS declencher d'injection : ses samples arrivent en rafale
+     * juste apres et l'insertion decalait tout le flux reel de la duree
+     * du retard, a chaque a-coup — c'etait la cause des saccades audio. */
+    const int64_t silence_gap_min = (int64_t)sample_rate / 10;  /* 100 ms */
 
     while (s->recorder->running) {
         AVFrame* aframe = s->file_capture
@@ -214,7 +225,15 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
         int64_t gap = expected - submitted - wasapi_samples;
         if (gap < 0) gap = 0;
 
-        if (gap > 0) {
+        /* Silence uniquement si la capture est reellement muette : aucun
+         * paquet pendant cette iteration (~20 ms) ET deficit au-dela du
+         * seuil. Une fois en periode silencieuse, on complete a chaque
+         * iteration (in_silence) pour produire un flux regulier jusqu'au
+         * retour de vrais samples. */
+        int fill_silence = (aframe == NULL) &&
+                           (in_silence ? gap > 0 : gap > silence_gap_min);
+
+        if (fill_silence) {
             AVFrame* silence = av_frame_alloc();
             silence->format      = AV_SAMPLE_FMT_FLTP;
             silence->sample_rate = sample_rate;
@@ -227,16 +246,23 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
                 audio_encoder_encode_frame(&s->aenc, silence, s->output);
                 LeaveCriticalSection(&s->audio_lock);
                 submitted += gap;
+                in_silence = 1;
             }
             av_frame_free(&silence);
         }
 
         if (aframe) {
+            in_silence = 0;
             EnterCriticalSection(&s->audio_lock);
             audio_encoder_encode_frame(&s->aenc, aframe, s->output);
             LeaveCriticalSection(&s->audio_lock);
             submitted += wasapi_samples;
             av_frame_free(&aframe);
+        } else if (!fill_silence) {
+            /* Rien a encoder cette iteration. WASAPI a deja attendu ~20 ms
+             * en interne, mais une source fichier en EOF (queue fermee)
+             * retourne NULL instantanement : eviter de spinner le CPU. */
+            Sleep(1);
         }
     }
     return 0;
