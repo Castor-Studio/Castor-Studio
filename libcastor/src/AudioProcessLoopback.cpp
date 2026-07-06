@@ -10,9 +10,11 @@
 #define INITGUID
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <objidl.h>       /* IAgileObject */
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <synchapi.h>
+#include <process.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -71,6 +73,16 @@ public:
             AddRef();
             return S_OK;
         }
+        if (riid == __uuidof(IAgileObject)) {
+            /* Marqueur COM "agile" (free-threaded marshaling, cf. FtmBase
+             * dans l'exemple ApplicationLoopback de Microsoft) : sans lui,
+             * ActivateAudioInterfaceAsync rejette le handler avec
+             * E_ILLEGAL_METHOD_CALL (0x8000000E) avant meme d'activer. */
+            *ppv = static_cast<IUnknown*>(
+                       static_cast<IActivateAudioInterfaceCompletionHandler*>(this));
+            AddRef();
+            return S_OK;
+        }
         *ppv = nullptr;
         return E_NOINTERFACE;
     }
@@ -109,9 +121,13 @@ public:
 };
 
 /* ------------------------------------------------------------------ *
- *  Contexte interne (meme layout qu'AudioCaptureInternal dans AudioCapture.c)
+ *  Contexte interne — DOIT avoir exactement le meme layout
+ *  qu'AudioCaptureInternal dans AudioCapture.c : audio_capture_next_frame
+ *  et audio_capture_cleanup y accedent via cette definition-la.
+ *  En particulier is_file doit rester le premier membre (dispatch generique).
  * ------------------------------------------------------------------ */
 typedef struct {
+    int                   is_file;     /* 0 = WASAPI */
     IMMDeviceEnumerator*  enumerator;  /* NULL pour process loopback */
     IMMDevice*            device;      /* NULL pour process loopback */
     IAudioClient*         client;
@@ -119,27 +135,23 @@ typedef struct {
     WAVEFORMATEX*         wave_fmt;
     int                   sample_rate;
     int                   channels;
+    HANDLE                event;       /* event du mode EVENTCALLBACK */
 } AudioCaptureInternal;
 
 /* ------------------------------------------------------------------ *
- *  audio_capture_init_process_loopback
- *  hwnd : fenêtre dont on veut capturer l'audio.
- *  Retourne 0 si succès, -1 si erreur (ou fallback si PID=0).
+ *  Implementation — DOIT s'executer sur un thread MTA :
+ *  ActivateAudioInterfaceAsync retourne E_ILLEGAL_METHOD_CALL
+ *  (0x8000000E) depuis un thread STA (cas du thread UI .NET/Avalonia).
  * ------------------------------------------------------------------ */
-extern "C"
-int audio_capture_init_process_loopback(AudioCaptureContext* ctx, void* hwnd)
+static int init_process_loopback_impl(AudioCaptureContext* ctx, HWND hwnd)
 {
-    if (!ctx || !hwnd) return -1;
-
     /* 1. Process ID depuis le HWND */
     DWORD pid = 0;
-    GetWindowThreadProcessId(static_cast<HWND>(hwnd), &pid);
+    GetWindowThreadProcessId(hwnd, &pid);
     if (pid == 0) {
         fprintf(stderr, "[ProcessLoopback] GetWindowThreadProcessId échoué\n");
         return -1;
     }
-
-    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 
     /* 2. AUDIOCLIENT_ACTIVATION_PARAMS → PROPVARIANT */
     AUDIOCLIENT_ACTIVATION_PARAMS params = {};
@@ -191,19 +203,31 @@ int audio_capture_init_process_loopback(AudioCaptureContext* ctx, void* hwnd)
     handler->Release();
     if (asyncOp) asyncOp->Release();
 
-    /* 5. Format du mix */
-    WAVEFORMATEX* wave_fmt = nullptr;
-    hr = client->GetMixFormat(&wave_fmt);
-    if (FAILED(hr)) {
-        fprintf(stderr, "[ProcessLoopback] GetMixFormat échoué: 0x%lx\n", hr);
+    /* 5. Format de capture.
+     * Le client process-loopback (VAD\Process_Loopback) est un device
+     * virtuel : il ne supporte PAS GetMixFormat, le format doit etre
+     * fourni par l'appelant. Float 32 stereo 48 kHz — format gere
+     * nativement par wasapi_to_avframe (WAVE_FORMAT_IEEE_FLOAT). */
+    WAVEFORMATEX* wave_fmt = (WAVEFORMATEX*)CoTaskMemAlloc(sizeof(WAVEFORMATEX));
+    if (!wave_fmt) {
         client->Release();
         return -1;
     }
+    memset(wave_fmt, 0, sizeof(*wave_fmt));
+    wave_fmt->wFormatTag      = WAVE_FORMAT_IEEE_FLOAT;
+    wave_fmt->nChannels       = 2;
+    wave_fmt->nSamplesPerSec  = 48000;
+    wave_fmt->wBitsPerSample  = 32;
+    wave_fmt->nBlockAlign     = (WORD)(wave_fmt->nChannels * wave_fmt->wBitsPerSample / 8);
+    wave_fmt->nAvgBytesPerSec = wave_fmt->nSamplesPerSec * wave_fmt->nBlockAlign;
 
-    /* 6. Initialize en mode loopback */
+    /* 6. Initialize en mode loopback + event callback.
+     * Le mode event-driven est requis par le process loopback ; on fournit
+     * l'event mais la consommation reste par polling (GetNextPacketSize),
+     * identique aux autres chemins WASAPI. */
     hr = client->Initialize(
         AUDCLNT_SHAREMODE_SHARED,
-        AUDCLNT_STREAMFLAGS_LOOPBACK,
+        AUDCLNT_STREAMFLAGS_LOOPBACK | AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
         10000000,   /* buffer 1s en unités 100ns */
         0,
         wave_fmt,
@@ -215,12 +239,22 @@ int audio_capture_init_process_loopback(AudioCaptureContext* ctx, void* hwnd)
         return -1;
     }
 
+    HANDLE event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!event || FAILED(client->SetEventHandle(event))) {
+        fprintf(stderr, "[ProcessLoopback] SetEventHandle échoué\n");
+        if (event) CloseHandle(event);
+        CoTaskMemFree(wave_fmt);
+        client->Release();
+        return -1;
+    }
+
     /* 7. IAudioCaptureClient */
     IAudioCaptureClient* capture = nullptr;
     hr = client->GetService(__uuidof(IAudioCaptureClient),
                             reinterpret_cast<void**>(&capture));
     if (FAILED(hr)) {
         fprintf(stderr, "[ProcessLoopback] GetService(IAudioCaptureClient) échoué: 0x%lx\n", hr);
+        CloseHandle(event);
         CoTaskMemFree(wave_fmt);
         client->Release();
         return -1;
@@ -233,11 +267,13 @@ int audio_capture_init_process_loopback(AudioCaptureContext* ctx, void* hwnd)
         static_cast<AudioCaptureInternal*>(calloc(1, sizeof(AudioCaptureInternal)));
     if (!internal) {
         capture->Release();
+        CloseHandle(event);
         CoTaskMemFree(wave_fmt);
         client->Release();
         return -1;
     }
 
+    internal->is_file     = 0;
     internal->enumerator  = nullptr;
     internal->device      = nullptr;
     internal->client      = client;
@@ -245,12 +281,65 @@ int audio_capture_init_process_loopback(AudioCaptureContext* ctx, void* hwnd)
     internal->wave_fmt    = wave_fmt;
     internal->sample_rate = static_cast<int>(wave_fmt->nSamplesPerSec);
     internal->channels    = static_cast<int>(wave_fmt->nChannels);
+    internal->event       = event;
 
     ctx->internal    = internal;
     ctx->sample_rate = internal->sample_rate;
     ctx->channels    = internal->channels;
 
-    fprintf(stdout, "[ProcessLoopback] OK — pid=%lu, %d Hz, %d ch\n",
+    fprintf(stderr, "[ProcessLoopback] OK — pid=%lu, %d Hz, %d ch\n",
             pid, ctx->sample_rate, ctx->channels);
     return 0;
+}
+
+/* ------------------------------------------------------------------ *
+ *  audio_capture_init_process_loopback
+ *  hwnd : fenêtre dont on veut capturer l'audio.
+ *  Retourne 0 si succès, -1 si erreur.
+ *
+ *  ActivateAudioInterfaceAsync exige un thread MTA. Si l'appelant est
+ *  deja MTA (threads natifs du recorder), on execute l'init en place ;
+ *  si l'appelant est STA (thread UI .NET/Avalonia via recorder_start),
+ *  on delegue a un thread dedie — sinon echec 0x8000000E systematique
+ *  et fallback silencieux sur le loopback global.
+ * ------------------------------------------------------------------ */
+typedef struct {
+    AudioCaptureContext* ctx;
+    HWND                 hwnd;
+    int                  result;
+} LoopbackInitArgs;
+
+static unsigned __stdcall init_thread_proc(void* arg)
+{
+    LoopbackInitArgs* a = static_cast<LoopbackInitArgs*>(arg);
+    /* Thread neuf → l'init MTA reussit toujours. Pas de CoUninitialize :
+     * les interfaces WASAPI creees ici doivent survivre a ce thread, on
+     * laisse donc l'appartement MTA du process actif. */
+    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    a->result = init_process_loopback_impl(a->ctx, a->hwnd);
+    return 0;
+}
+
+extern "C"
+int audio_capture_init_process_loopback(AudioCaptureContext* ctx, void* hwnd)
+{
+    if (!ctx || !hwnd) return -1;
+
+    HRESULT hr_co = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    if (hr_co != RPC_E_CHANGED_MODE) {
+        /* Le thread courant est (desormais) MTA. */
+        return init_process_loopback_impl(ctx, static_cast<HWND>(hwnd));
+    }
+
+    /* Thread STA : deleguer a un thread MTA dedie. */
+    LoopbackInitArgs args = { ctx, static_cast<HWND>(hwnd), -1 };
+    HANDLE th = (HANDLE)_beginthreadex(nullptr, 0, init_thread_proc, &args, 0, nullptr);
+    if (!th) {
+        fprintf(stderr, "[ProcessLoopback] Creation du thread MTA échouée\n");
+        return -1;
+    }
+    /* INFINITE : args est sur la pile — l'impl a ses propres timeouts (5s). */
+    WaitForSingleObject(th, INFINITE);
+    CloseHandle(th);
+    return args.result;
 }

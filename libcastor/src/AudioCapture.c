@@ -63,6 +63,9 @@ typedef struct {
     WAVEFORMATEX*         wave_fmt;
     int                   sample_rate;
     int                   channels;
+    HANDLE                event;      /* mode EVENTCALLBACK (process loopback) — NULL sinon.
+                                       * ATTENTION : layout dupliqué dans AudioProcessLoopback.cpp,
+                                       * garder les deux définitions identiques. */
 } AudioCaptureInternal;
 
 typedef struct {
@@ -364,6 +367,7 @@ CASTOR_CORE_API void audio_capture_cleanup(AudioCaptureContext* ctx) {
     if (internal->device)    internal->device->lpVtbl->Release(internal->device);
     if (internal->enumerator)internal->enumerator->lpVtbl->Release(internal->enumerator);
     if (internal->wave_fmt)  CoTaskMemFree(internal->wave_fmt);
+    if (internal->event)     CloseHandle(internal->event);
 
     free(internal);
     ctx->internal = NULL;
