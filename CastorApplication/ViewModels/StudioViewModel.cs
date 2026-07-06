@@ -1,8 +1,5 @@
-using System;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
 using Castor.Native;
@@ -11,11 +8,63 @@ using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace CastorApplication.ViewModels;
 
 public partial class StudioViewModel : ViewModelBase
 {
+    // ── Timer Logic ──
+
+    private DispatcherTimer? _recordingTimer;
+    private DateTime _startTime;
+
+    [ObservableProperty]
+    private string _timerText = "00:00:00";
+
+    private void StartTimer()
+    {
+        // Force l'exécution sur le thread de l'interface graphique (UI Thread)
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_recordingTimer != null && _recordingTimer.IsEnabled) return;
+
+            _startTime = DateTime.Now;
+            _recordingTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1),
+            };
+
+            _recordingTimer.Tick += (sender, e) =>
+            {
+                var elapsed = DateTime.Now - _startTime;
+                TimerText = elapsed.ToString(@"hh\:mm\:ss");
+            };
+
+            _recordingTimer.Start();
+        });
+    }
+
+    private void CheckAndStopTimer()
+    {
+        // Force également l'arrêt sur l'UI Thread pour éviter les conflits
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsStreaming && !IsRecording)
+            {
+                if (_recordingTimer != null)
+                {
+                    _recordingTimer.Stop();
+                    _recordingTimer = null;
+                }
+                TimerText = "00:00:00";
+            }
+        });
+    }
+
     // ── Scene selection ──
 
     private readonly IStudioController _studioController;
@@ -108,10 +157,13 @@ public partial class StudioViewModel : ViewModelBase
     private string _streamRtmpKey = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
+
+    public bool IsCapturing => IsStreaming || IsRecording;
+
     public IBrush StreamStatusBrush => IsStreaming
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
-    public IBrush StreamTimerBrush => IsStreaming
+    public IBrush StreamTimerBrush => IsCapturing
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
 
@@ -120,6 +172,7 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(StreamStatusText));
         OnPropertyChanged(nameof(StreamStatusBrush));
         OnPropertyChanged(nameof(StreamTimerBrush));
+        OnPropertyChanged(nameof(IsCapturing));
     }
 
     // ── Provider helpers ──
@@ -185,6 +238,9 @@ public partial class StudioViewModel : ViewModelBase
     partial void OnIsRecordingChanged(bool value)
     {
         OnPropertyChanged(nameof(RecordStatusText));
+        OnPropertyChanged(nameof(StreamTimerBrush));
+        OnPropertyChanged(nameof(IsCapturing));
+
     }
 
     // ── Constructor ──
@@ -356,6 +412,7 @@ public partial class StudioViewModel : ViewModelBase
         {
             IsStreaming = true;
             ApplyAutoMute();
+            StartTimer();
         }
         else
             StreamError = result switch
@@ -384,6 +441,7 @@ public partial class StudioViewModel : ViewModelBase
         _studioController.StopStream();
         IsStreaming = false;
         RestoreAutoMute();
+        CheckAndStopTimer();
     }
 
     // ── Recording commands ──
@@ -423,6 +481,7 @@ public partial class StudioViewModel : ViewModelBase
         {
             IsRecording = true;
             ApplyAutoMute();
+            StartTimer();
         }
         else
         {
@@ -452,6 +511,7 @@ public partial class StudioViewModel : ViewModelBase
         _studioController.StopRecording();
         IsRecording = false;
         RestoreAutoMute();
+        CheckAndStopTimer();
     }
 
     // ── Source management ──
@@ -478,4 +538,3 @@ public sealed class AudioPanelContext(StudioViewModel studio)
 {
     public StudioViewModel Studio => studio;
 }
-

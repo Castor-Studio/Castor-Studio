@@ -27,8 +27,8 @@
                     </StackPanel>
                 </Border>
                 <TextBlock VerticalAlignment="Bottom" HorizontalAlignment="Left"
-                           Margin="14,0,0,12" Text="00:00:00"
-                           Foreground="{Binding StreamTimerBrush}"
+                           Margin="14,0,0,12" Text="{Binding TimerText}"
+						   Foreground="{Binding StreamTimerBrush}"
                            FontSize="16" FontFamily="Courier New"/>
             </Panel>
         </DataTemplate>
