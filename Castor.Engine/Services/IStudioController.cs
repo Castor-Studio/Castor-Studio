@@ -18,6 +18,7 @@ public interface IStudioController
 
     SceneItem CreateScene(string name);
     void DeleteScene(SceneItem scene);
+    void RenameScene(SceneItem scene, string newName);
     void SelectScene(SceneItem scene);
     SourceItem AddVideoSource(SceneItem scene, CaptureSourceOption source);
     SourceItem AddNetworkVideoSource(SceneItem scene, string label, string url);
@@ -28,6 +29,7 @@ public interface IStudioController
     bool HasVideoSource(SceneItem scene);
     bool IsPreviewActive(Guid sceneId);
     int EnsurePreview(SceneItem scene);
+    void RestartPreview(SceneItem scene);
     string GetPreviewPullUrl(Guid sceneId);
     int StartRecording(SceneItem scene, string outputPath,
                        int fps = 30,

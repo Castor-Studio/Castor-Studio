@@ -9,6 +9,7 @@ public interface ISceneService
     SceneItem? ActiveScene { get; }
     SceneItem CreateScene(string name);
     void DeleteScene(SceneItem scene);
+    void RenameScene(SceneItem scene, string newName);
     void SetActiveScene(SceneItem scene);
     SourceItem AddVideoSource(SceneItem scene, CaptureSourceOption source);
     SourceItem AddVideoSource(SceneItem scene, string label, string url);
