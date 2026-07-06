@@ -188,6 +188,7 @@ CASTOR_CORE_API int video_encoder_init_ex(VideoEncoder* enc, int width, int heig
 
     enc->pkt         = av_packet_alloc();
     enc->frame_index = 0;
+    enc->last_pts    = AV_NOPTS_VALUE;
     return 0;
 }
 
@@ -253,6 +254,14 @@ CASTOR_CORE_API int video_encoder_encode_frame(VideoEncoder* enc, AVFrame* src, 
                                        (AVRational){ 1, enc->fps },
                                        enc->ctx->time_base);
     }
+
+    /* Monotonie stricte : quand le thread d'encodage rattrape un retard,
+     * deux ticks quasi simultanes peuvent s'arrondir au meme pts en 1/fps.
+     * Le muxer MP4/MKV rejetterait alors le paquet (dts non croissant) et
+     * l'erreur latcherait mux->fatal_error — fichier fige a cet instant. */
+    if (enc->last_pts != AV_NOPTS_VALUE && enc->frame->pts <= enc->last_pts)
+        enc->frame->pts = enc->last_pts + 1;
+    enc->last_pts = enc->frame->pts;
 
     enc->frame_index++;
 
