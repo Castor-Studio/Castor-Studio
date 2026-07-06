@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <libavutil/frame.h>
+#include <libavutil/mathematics.h>
 #include <libswscale/swscale.h>
 
 /* ================================================================== *
@@ -56,6 +57,17 @@ typedef struct {
 
     volatile int        capture_running;
     volatile int        first_frame_ready;
+
+    /* Switch audio : la bascule de actx est appliquee par le thread audio
+     * lui-meme (proprietaire), jamais par le thread appelant — sinon la
+     * capture serait liberee pendant un audio_capture_next_frame en cours.
+     * audio_from_file indique si le thread audio lit le FileCapture partage ;
+     * il repasse a 0 (avec acquittement via audio_switch_pending) avant que
+     * le FileCapture ne soit detruit par stream_apply_source_switch. */
+    AudioSourceInfo     pending_audio_src;
+    volatile int        audio_switch_pending;
+    volatile int        audio_from_file;
+
     int                 initialized;
     CastorRecorder*     recorder;
     int                 index;
@@ -212,7 +224,31 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
     const int64_t silence_gap_min = (int64_t)sample_rate / 10;  /* 100 ms */
 
     while (s->recorder->running) {
-        AVFrame* aframe = s->file_capture
+        if (s->audio_switch_pending) {
+            /* Bascule de source demandee par recorder_switch_audio_source
+             * ou stream_apply_source_switch. Appliquee ici car ce thread
+             * est le seul utilisateur de actx / du FileCapture audio. */
+            if (s->audio_from_file) {
+                /* On quitte le mode fichier partage : l'appelant detruira
+                 * le FileCapture apres notre acquittement. actx ne contenait
+                 * que des metadonnees dans ce mode. */
+                s->audio_from_file = 0;
+            } else {
+                audio_capture_cleanup(&s->actx);
+            }
+            memset(&s->actx, 0, sizeof(s->actx));
+
+            s->config.audio_src = s->pending_audio_src;
+            if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0)
+                fprintf(stderr, "[Stream %d] Switch audio: init '%s' echouee\n",
+                        s->index, s->config.audio_src.label);
+            else
+                fprintf(stderr, "[Stream %d] Switch audio vers '%s' effectue\n",
+                        s->index, s->config.audio_src.label);
+            s->audio_switch_pending = 0;  /* acquittement */
+        }
+
+        AVFrame* aframe = (s->audio_from_file && s->file_capture)
             ? file_capture_next_audio_frame(s->file_capture)
             : audio_capture_next_frame(&s->actx);
 
@@ -221,7 +257,16 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
         double  elapsed  = (double)(t_now.QuadPart - t0.QuadPart) / freq.QuadPart;
         int64_t expected = (int64_t)(elapsed * sample_rate);
 
-        int     wasapi_samples = aframe ? aframe->nb_samples : 0;
+        int wasapi_samples = 0;
+        if (aframe) {
+            /* Ramene au taux de reference du thread : apres un switch audio,
+             * le nouveau device peut tourner a un autre sample rate que
+             * celui utilise pour le comptage expected/submitted. */
+            int frame_rate = aframe->sample_rate > 0 ? aframe->sample_rate : sample_rate;
+            wasapi_samples = (frame_rate == sample_rate)
+                ? aframe->nb_samples
+                : (int)av_rescale(aframe->nb_samples, sample_rate, frame_rate);
+        }
         int64_t gap = expected - submitted - wasapi_samples;
         if (gap < 0) gap = 0;
 
@@ -320,6 +365,7 @@ static int stream_init(StreamState* s) {
         s->vctx.height      = file_capture_height(s->file_capture);
         s->actx.sample_rate = file_capture_sample_rate(s->file_capture);
         s->actx.channels    = file_capture_channels(s->file_capture);
+        s->audio_from_file  = 1;
         fprintf(stderr, "[Stream %d] FileCapture OK — %dx%d audio %dHz/%dch\n",
                 s->index, s->vctx.width, s->vctx.height,
                 s->actx.sample_rate, s->actx.channels);
@@ -512,12 +558,22 @@ static int stream_apply_source_switch(StreamState* s, const CaptureSourceInfo* n
     s->first_frame_ready = 0;
     LeaveCriticalSection(&s->frame_lock);
 
-    /* Si on était en mode FileCapture, le détruire et ré-init l'audio séparément */
+    /* Si on était en mode FileCapture (vidéo+audio partagés), le thread audio
+     * lit encore ses queues : fermer les queues le débloque, puis on lui
+     * délègue la ré-init de actx (il en est propriétaire) et on attend son
+     * acquittement AVANT de détruire le FileCapture — le détruire pendant
+     * qu'il est dans file_capture_next_audio_frame serait un use-after-free. */
     if (s->file_capture) {
-        file_capture_destroy(&s->file_capture);
-        memset(&s->actx, 0, sizeof(s->actx));
-        if (audio_capture_init_source(&s->actx, &s->config.audio_src) < 0)
-            fprintf(stderr, "[Stream %d] Switch: re-init audio echouee\n", s->index);
+        file_capture_signal_stop(s->file_capture);
+        s->pending_audio_src    = s->config.audio_src;
+        s->audio_switch_pending = 1;
+        for (int i = 0; i < 1000 && s->audio_switch_pending && s->recorder->running; i++)
+            Sleep(2);
+        if (!s->audio_switch_pending)
+            file_capture_destroy(&s->file_capture);
+        else
+            fprintf(stderr, "[Stream %d] Switch: thread audio sans reponse — FileCapture conserve\n",
+                    s->index);
     }
 
     video_capture_cleanup(&s->vctx);
@@ -626,4 +682,28 @@ CASTOR_CORE_API int recorder_switch_video_source(CastorRecorder* rec, int stream
     if (!rec || stream_index < 0 || stream_index >= rec->num_streams || !new_src)
         return -1;
     return stream_apply_source_switch(&rec->streams[stream_index], new_src);
+}
+
+CASTOR_CORE_API int recorder_switch_audio_source(CastorRecorder* rec, int stream_index,
+                                                  const AudioSourceInfo* new_src) {
+    if (!rec || stream_index < 0 || stream_index >= rec->num_streams || !new_src)
+        return -1;
+    StreamState* s = &rec->streams[stream_index];
+    if (!s->initialized) return -1;
+
+    s->pending_audio_src    = *new_src;
+    s->audio_switch_pending = 1;
+
+    /* Attendre l'acquittement du thread audio (proprietaire de actx).
+     * Une iteration de sa boucle dure ~20 ms ; 2 s de marge couvrent
+     * aussi la phase de drain avant le premier frame video. */
+    for (int i = 0; i < 1000 && s->audio_switch_pending && rec->running; i++)
+        Sleep(2);
+
+    if (s->audio_switch_pending) {
+        fprintf(stderr, "[Stream %d] Switch audio: pas d'acquittement — sera applique plus tard\n",
+                stream_index);
+        return -2;
+    }
+    return 0;
 }
