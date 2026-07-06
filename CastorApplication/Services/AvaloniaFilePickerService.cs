@@ -94,4 +94,52 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
 
         return files.Count > 0 ? files[0].Path.LocalPath : null;
     }
+
+    public async Task<string?> PickSceneExportFileAsync()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+        if (topLevel == null) return null;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title             = "Exporter les scènes",
+            SuggestedFileName = $"Castor_Scenes_{DateTime.Now:yyyyMMdd_HHmmss}.json",
+            FileTypeChoices   =
+            [
+                new FilePickerFileType("Scènes Castor (JSON)") { Patterns = ["*.json"] },
+            ]
+        });
+
+        var path = file?.Path.LocalPath;
+        if (path != null && !path.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            path += ".json";
+
+        return path;
+    }
+
+    public async Task<string?> PickSceneImportFileAsync()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+        if (topLevel == null) return null;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Importer des scènes",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Scènes Castor (JSON)") { Patterns = ["*.json"] },
+            ]
+        });
+
+        return files.Count > 0 ? files[0].Path.LocalPath : null;
+    }
 }

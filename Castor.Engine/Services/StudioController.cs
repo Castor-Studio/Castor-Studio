@@ -59,6 +59,8 @@ public sealed class StudioController(
         NotifyActiveSceneChangedIfNeeded(previousScene);
     }
 
+    public void RenameScene(SceneItem scene, string newName) => sceneService.RenameScene(scene, newName);
+
     public void SelectScene(SceneItem scene)
     {
         var previousScene = sceneService.ActiveScene;
@@ -141,6 +143,21 @@ public sealed class StudioController(
         if (!HasVideoSource(scene)) return -2;
         if (recorderService.IsPreviewActive(scene.Id)) return 0;
         return recorderService.StartPreview(scene);
+    }
+
+    /// <summary>
+    /// Force la (re)création de la preview d'une scène, même si elle est déjà active.
+    /// Utilisé pour démarrer plusieurs scènes à sources fichier au même instant : comme
+    /// elles partagent la même horloge de synchro native (voir castor_file_sync_epoch_us),
+    /// les relancer coup sur coup les garde en phase les unes avec les autres.
+    /// </summary>
+    public void RestartPreview(SceneItem scene)
+    {
+        if (recorderService.IsPreviewActive(scene.Id))
+            recorderService.StopPreview(scene);
+
+        if (HasVideoSource(scene))
+            _ = Task.Run(() => recorderService.StartPreview(scene));
     }
 
     public string GetPreviewPullUrl(Guid sceneId) => mediaMtxService.GetPreviewPullUrl(sceneId);

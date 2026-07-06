@@ -7,6 +7,8 @@ public partial class SceneItem : ObservableObject
 {
     public Guid Id { get; } = Guid.NewGuid();
 
+    public DateTime CreatedAt { get; } = DateTime.UtcNow;
+
     [ObservableProperty]
     private string _name = "";
 
@@ -15,6 +17,13 @@ public partial class SceneItem : ObservableObject
 
     [ObservableProperty]
     private bool _isLive;
+
+    [ObservableProperty]
+    private string _color = "#5b8def";
+
+    /// <summary>Coché par l'utilisateur pour une action groupée (suppression, etc.) — état UI uniquement.</summary>
+    [ObservableProperty]
+    private bool _isMultiSelected;
 
     public ObservableCollection<SourceItem> Sources { get; } = new();
 

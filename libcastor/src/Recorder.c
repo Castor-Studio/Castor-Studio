@@ -39,7 +39,16 @@ typedef struct {
 
     AVFrame*            last_video_frame;
     CRITICAL_SECTION    frame_lock;
-    CRITICAL_SECTION    output_lock;
+
+    /* Verrous separes pour video et audio : le muxer (Muxer.c) a deja sa
+     * propre CRITICAL_SECTION pour serialiser l'ecriture reseau elle-meme.
+     * Avant, un seul "output_lock" englobait encodage+ecriture pour les
+     * deux flux : si l'ecriture RTMP video bloquait (paquet cle, reseau
+     * lent), le thread audio restait bloque sur le meme verrou et devait
+     * ensuite rattraper le retard d'un coup avec du silence — d'ou les
+     * saccades audio pendant le stream. */
+    CRITICAL_SECTION    video_lock;
+    CRITICAL_SECTION    audio_lock;
 
     HANDLE              th_video_capture;
     HANDLE              th_video_encode;
@@ -136,9 +145,9 @@ static unsigned __stdcall thread_stream_video_encode(void* arg) {
              * lecture 1:1 meme si l'encodeur (libvpx-vp9) est plus lent que
              * le fps cible (ex : 11fps effectif pour une cible de 60fps). */
             vframe->pts = (int64_t)(elapsed * 1000000.0);
-            EnterCriticalSection(&s->output_lock);
+            EnterCriticalSection(&s->video_lock);
             int enc_ret = video_encoder_encode_frame(&s->venc, vframe, s->output);
-            LeaveCriticalSection(&s->output_lock);
+            LeaveCriticalSection(&s->video_lock);
             av_frame_free(&vframe);
             if (enc_ret < 0) {
                 /* Erreur fatale (connexion perdue, disque plein, ...) : inutile
@@ -214,18 +223,18 @@ static unsigned __stdcall thread_stream_audio(void* arg) {
             if (av_frame_get_buffer(silence, 0) == 0) {
                 for (int ch = 0; ch < silence->ch_layout.nb_channels; ch++)
                     memset(silence->data[ch], 0, silence->nb_samples * sizeof(float));
-                EnterCriticalSection(&s->output_lock);
+                EnterCriticalSection(&s->audio_lock);
                 audio_encoder_encode_frame(&s->aenc, silence, s->output);
-                LeaveCriticalSection(&s->output_lock);
+                LeaveCriticalSection(&s->audio_lock);
                 submitted += gap;
             }
             av_frame_free(&silence);
         }
 
         if (aframe) {
-            EnterCriticalSection(&s->output_lock);
+            EnterCriticalSection(&s->audio_lock);
             audio_encoder_encode_frame(&s->aenc, aframe, s->output);
-            LeaveCriticalSection(&s->output_lock);
+            LeaveCriticalSection(&s->audio_lock);
             submitted += wasapi_samples;
             av_frame_free(&aframe);
         }
@@ -403,7 +412,8 @@ static int stream_init(StreamState* s) {
     }
 
     InitializeCriticalSection(&s->frame_lock);
-    InitializeCriticalSection(&s->output_lock);
+    InitializeCriticalSection(&s->video_lock);
+    InitializeCriticalSection(&s->audio_lock);
     s->initialized = 1;
     return 0;
 }
@@ -435,7 +445,8 @@ static void stream_cleanup(StreamState* s) {
     if (!s->initialized) return;
 
     DeleteCriticalSection(&s->frame_lock);
-    DeleteCriticalSection(&s->output_lock);
+    DeleteCriticalSection(&s->video_lock);
+    DeleteCriticalSection(&s->audio_lock);
     if (s->last_video_frame) {
         av_frame_free(&s->last_video_frame);
         s->last_video_frame = NULL;
@@ -492,21 +503,21 @@ static int stream_apply_source_switch(StreamState* s, const CaptureSourceInfo* n
         return -1;
     }
 
-    EnterCriticalSection(&s->output_lock);
+    EnterCriticalSection(&s->video_lock);
     struct SwsContext* new_sws_ctx = sws_getContext(
         s->vctx.width,      s->vctx.height,      AV_PIX_FMT_BGRA,
         s->venc.ctx->width, s->venc.ctx->height,  AV_PIX_FMT_YUV420P,
         SWS_BILINEAR, NULL, NULL, NULL
     );
     if (!new_sws_ctx) {
-        LeaveCriticalSection(&s->output_lock);
+        LeaveCriticalSection(&s->video_lock);
         fprintf(stderr, "[Stream %d] Switch: recreation sws_ctx echouee\n", s->index);
         video_capture_cleanup(&s->vctx);
         return -1;
     }
     sws_freeContext(s->venc.sws_ctx);
     s->venc.sws_ctx = new_sws_ctx;
-    LeaveCriticalSection(&s->output_lock);
+    LeaveCriticalSection(&s->video_lock);
 
     s->capture_running  = 1;
     s->th_video_capture = (HANDLE)_beginthreadex(NULL, 0, thread_stream_video_capture, s, 0, NULL);

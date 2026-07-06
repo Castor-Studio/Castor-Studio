@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
 using Castor.Native;
@@ -111,7 +112,7 @@ public partial class StudioViewModel : ViewModelBase
     public IBrush StreamStatusBrush => IsStreaming
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
-    public IBrush StreamTimerBrush => IsStreaming
+    public IBrush StreamTimerBrush => IsStreaming || IsRecording
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
 
@@ -120,6 +121,40 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(StreamStatusText));
         OnPropertyChanged(nameof(StreamStatusBrush));
         OnPropertyChanged(nameof(StreamTimerBrush));
+        if (value) StartSessionTimerIfNeeded();
+    }
+
+    // ── Timer stream/record ──
+
+    [ObservableProperty]
+    private string _streamTimerText = "00:00:00";
+
+    private readonly DispatcherTimer _sessionTimer;
+    private DateTime? _sessionStartUtc;
+
+    /// <summary>Démarre le timer si aucune session (stream/recording) n'est déjà en cours.</summary>
+    private void StartSessionTimerIfNeeded()
+    {
+        if (_sessionStartUtc != null) return; // déjà en cours (l'autre était déjà actif)
+        _sessionStartUtc = DateTime.UtcNow;
+        StreamTimerText  = "00:00:00";
+        _sessionTimer.Start();
+    }
+
+    /// <summary>Arrête et remet le timer à zéro. Appelé explicitement à l'arrêt du
+    /// stream ou de l'enregistrement (pas seulement à la fermeture de l'app).</summary>
+    private void ResetSessionTimer()
+    {
+        _sessionTimer.Stop();
+        _sessionStartUtc = null;
+        StreamTimerText  = "00:00:00";
+    }
+
+    private void OnSessionTimerTick(object? sender, EventArgs e)
+    {
+        if (_sessionStartUtc == null) return;
+        var elapsed = DateTime.UtcNow - _sessionStartUtc.Value;
+        StreamTimerText = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
     }
 
     // ── Provider helpers ──
@@ -185,6 +220,8 @@ public partial class StudioViewModel : ViewModelBase
     partial void OnIsRecordingChanged(bool value)
     {
         OnPropertyChanged(nameof(RecordStatusText));
+        OnPropertyChanged(nameof(StreamTimerBrush));
+        if (value) StartSessionTimerIfNeeded();
     }
 
     // ── Constructor ──
@@ -212,6 +249,9 @@ public partial class StudioViewModel : ViewModelBase
         _studioController.ActiveSceneChanged += OnActiveSceneChanged;
 
         RefreshProviderState(_streamPlatformIndex);
+
+        _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _sessionTimer.Tick += OnSessionTimerTick;
     }
 
     private void OnActiveSceneChanged()
@@ -392,6 +432,7 @@ public partial class StudioViewModel : ViewModelBase
         _studioController.StopStream();
         IsStreaming = false;
         RestoreAutoMute();
+        ResetSessionTimer();
     }
 
     // ── Recording commands ──
@@ -460,6 +501,7 @@ public partial class StudioViewModel : ViewModelBase
         _studioController.StopRecording();
         IsRecording = false;
         RestoreAutoMute();
+        ResetSessionTimer();
     }
 
     // ── Source management ──
