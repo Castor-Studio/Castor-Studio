@@ -116,11 +116,27 @@ public partial class StudioViewModel : ViewModelBase
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
 
-    partial void OnIsStreamingChanged(bool value)
+    // ── Barre de scène : état réel (remplace le « Prêt » codé en dur) ──
+
+    public string SceneBarStatusText => IsStreaming ? "EN DIRECT"
+                                      : IsRecording ? "REC"
+                                      : "Prêt";
+    public IBrush SceneBarStatusBrush => IsStreaming || IsRecording
+        ? SolidColorBrush.Parse("#f87171")
+        : SolidColorBrush.Parse("#34d399");
+
+    private void NotifySessionStateChanged()
     {
         OnPropertyChanged(nameof(StreamStatusText));
         OnPropertyChanged(nameof(StreamStatusBrush));
         OnPropertyChanged(nameof(StreamTimerBrush));
+        OnPropertyChanged(nameof(SceneBarStatusText));
+        OnPropertyChanged(nameof(SceneBarStatusBrush));
+    }
+
+    partial void OnIsStreamingChanged(bool value)
+    {
+        NotifySessionStateChanged();
         if (value) StartSessionTimerIfNeeded();
     }
 
@@ -220,8 +236,24 @@ public partial class StudioViewModel : ViewModelBase
     partial void OnIsRecordingChanged(bool value)
     {
         OnPropertyChanged(nameof(RecordStatusText));
-        OnPropertyChanged(nameof(StreamTimerBrush));
+        NotifySessionStateChanged();
         if (value) StartSessionTimerIfNeeded();
+    }
+
+    // ── Résolution/fps de sortie (remplace le « 1920 × 1080 » codé en dur) ──
+
+    [ObservableProperty]
+    private string _outputInfoText = "";
+
+    /// <summary>Relit la résolution et le fps de sortie depuis les paramètres.
+    /// Appelé à chaque affichage de la page Studio, pour refléter un
+    /// changement fait dans Paramètres → Vidéo.</summary>
+    public void RefreshOutputInfo()
+    {
+        var settings = _settingsService.Load();
+        var (w, h)   = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
+        int fps      = FpsFromIndex(settings.SelectedFpsIndex);
+        OutputInfoText = $"{w} × {h} @ {fps} fps";
     }
 
     // ── Constructor ──
@@ -247,6 +279,7 @@ public partial class StudioViewModel : ViewModelBase
         _savedPlayerVolume   = _playerVolume;
 
         RefreshProviderState(_streamPlatformIndex);
+        RefreshOutputInfo();
 
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
@@ -282,6 +315,8 @@ public partial class StudioViewModel : ViewModelBase
     /// </summary>
     public void EnsurePreviewRunning()
     {
+        RefreshOutputInfo();
+
         var scene = _studioController.ActiveScene;
         if (scene == null)
         {
