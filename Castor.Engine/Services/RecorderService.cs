@@ -330,15 +330,27 @@ public sealed class RecorderService(IMediaMtxService mediaMtxService) : IRecorde
             var videoSrc = GetVideoSourceInfo(videoItem);
             if (videoSrc == null) return -1;
 
+            // Si la scène n'a pas de source audio, on conserve l'audio courant
+            // (même logique que la vidéo qui, elle, est obligatoire).
+            var audioSrc = GetAudioSourceInfo(GetAudioSource(scene));
+
             int result = 0;
 
             lock (_nativeRecorderLock)
             {
                 if (_recorderPtr != IntPtr.Zero)
+                {
                     result = CastorNative.RecorderSwitchVideoSource(_recorderPtr, streamIndex: 0, videoSrc.Value);
+                    if (result == 0 && audioSrc != null)
+                        result = CastorNative.RecorderSwitchAudioSource(_recorderPtr, streamIndex: 0, audioSrc.Value);
+                }
 
                 if (_streamPtr != IntPtr.Zero && result == 0)
+                {
                     result = CastorNative.RecorderSwitchVideoSource(_streamPtr, streamIndex: 0, videoSrc.Value);
+                    if (result == 0 && audioSrc != null)
+                        result = CastorNative.RecorderSwitchAudioSource(_streamPtr, streamIndex: 0, audioSrc.Value);
+                }
             }
 
             return result;

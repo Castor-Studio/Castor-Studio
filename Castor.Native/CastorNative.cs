@@ -307,6 +307,9 @@ namespace Castor.Native
         [DllImport(DllName, CallingConvention = Convention)]
         private static extern int recorder_switch_video_source(IntPtr rec, int streamIndex, IntPtr newSrc);
 
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern int recorder_switch_audio_source(IntPtr rec, int streamIndex, IntPtr newSrc);
+
         public static int  RecorderStart(IntPtr rec)   => recorder_start(rec);
         public static void RecorderStop(IntPtr rec)    { if (rec != IntPtr.Zero) recorder_stop(rec);    }
         public static void RecorderDestroy(IntPtr rec) { if (rec != IntPtr.Zero) recorder_destroy(rec); }
@@ -318,6 +321,20 @@ namespace Castor.Native
             {
                 Marshal.StructureToPtr(info, buf, false);
                 return recorder_switch_video_source(rec, streamIndex, buf);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buf);
+            }
+        }
+
+        public static int RecorderSwitchAudioSource(IntPtr rec, int streamIndex, AudioSourceInfo info)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(Marshal.SizeOf<AudioSourceInfo>());
+            try
+            {
+                Marshal.StructureToPtr(info, buf, false);
+                return recorder_switch_audio_source(rec, streamIndex, buf);
             }
             finally
             {
