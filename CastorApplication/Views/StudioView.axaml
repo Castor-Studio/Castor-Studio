@@ -112,7 +112,7 @@
                 <Grid ColumnDefinitions="*, 6, *" VerticalAlignment="Center">
 
                     <Button Grid.Column="0"
-                            Content="GO LIVE"
+                            Content="LANCER LE LIVE"
                             IsVisible="{Binding !IsStreaming}"
                             Classes="ctrl-btn"
                             Background="{DynamicResource AppLiveBg}" Foreground="#34d399"
@@ -171,7 +171,7 @@
                     </Button>
 
                     <Button Grid.Column="0"
-                            Content="STOP STREAM"
+                            Content="ARRÊTER LE LIVE"
                             IsVisible="{Binding IsStreaming}"
                             Command="{Binding StopStreamingCommand}"
                             Classes="ctrl-btn"
@@ -222,7 +222,7 @@
                     </Button>
 
                     <Button Grid.Column="2"
-                            Content="STOP REC"
+                            Content="ARRÊTER"
                             IsVisible="{Binding IsRecording}"
                             Command="{Binding StopRecordingCommand}"
                             Classes="ctrl-btn"
