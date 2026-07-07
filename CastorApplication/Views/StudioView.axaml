@@ -192,12 +192,12 @@
                                     <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 
                                     <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène active" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-                                        <Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7"
-                                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
-                                            <TextBlock Text="{Binding ActiveScene.Name, FallbackValue='Aucune scène'}"
-                                                       Foreground="{DynamicResource AppFg2}" FontSize="12"/>
-                                        </Border>
+                                        <TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+                                        <ComboBox HorizontalAlignment="Stretch"
+                                                  ItemsSource="{Binding Scenes}"
+                                                  DisplayMemberBinding="{Binding Name}"
+                                                  SelectedItem="{Binding ActiveScene}"
+                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                                     </StackPanel>
 
                                     <!-- Message d'erreur -->
