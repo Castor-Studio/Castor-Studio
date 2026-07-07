@@ -25,11 +25,4 @@ public sealed class ApplicationSettings
 
     public int SelectedOutputFormatIndex { get; set; }
     public string OutputPath { get; set; } = "";
-
-    /* ── Lecture (preview player) ── */
-    /// <summary>Volume du player de prévisualisation, de 0 à 100.</summary>
-    public double PlayerVolume { get; set; } = 80;
-
-    /// <summary>Coupe automatiquement le son du player quand un enregistrement ou un live démarre.</summary>
-    public bool MutePlayersOnRecord { get; set; } = true;
 }

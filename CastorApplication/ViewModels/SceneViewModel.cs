@@ -9,7 +9,6 @@ using Castor.Engine.Models;
 using Castor.Engine.Services;
 using CastorApplication.Models.Export;
 using CastorApplication.Services;
-using CastorApplication.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -46,17 +45,7 @@ public partial class ScenesViewModel : ViewModelBase
     public ObservableCollection<AudioSourceOption> AvailableLoopbacks { get; } = new();
     public ObservableCollection<AudioSourceOption> AvailableMics { get; } = new();
 
-    [ObservableProperty]
-    private double _playerVolume = 80;
-
-    [ObservableProperty]
-    private bool _mutePlayersOnRecord = true;
-
-    private double _savedPlayerVolume = 80;
-    private bool _mutedForCapture;
-
     public ScenesViewModel(
-        SettingsService settingsService,
         IStudioController studioController,
         INativeCaptureService nativeCaptureService,
         INetworkCameraDiscoveryService networkCameraDiscoveryService,
@@ -67,35 +56,9 @@ public partial class ScenesViewModel : ViewModelBase
         _networkCameraDiscoveryService = networkCameraDiscoveryService;
         _filePickerService = filePickerService;
 
-        var settings = settingsService.Load();
-        _playerVolume = settings.PlayerVolume;
-        _mutePlayersOnRecord = settings.MutePlayersOnRecord;
-        _savedPlayerVolume = _playerVolume;
-
-        _studioController.RecordingStarted += ApplyAutoMute;
-        _studioController.RecordingStopped += RestoreAutoMute;
-        _studioController.StreamingStarted += ApplyAutoMute;
-        _studioController.StreamingStopped += RestoreAutoMute;
-
         SelectedScene = _studioController.ActiveScene;
 
         LoadAvailableSources();
-    }
-
-    private void ApplyAutoMute()
-    {
-        if (!MutePlayersOnRecord || _mutedForCapture) return;
-        _savedPlayerVolume = PlayerVolume;
-        PlayerVolume = 0;
-        _mutedForCapture = true;
-    }
-
-    private void RestoreAutoMute()
-    {
-        if (!_mutedForCapture) return;
-        if (_studioController.IsRecording || _studioController.IsStreaming) return;
-        PlayerVolume = _savedPlayerVolume;
-        _mutedForCapture = false;
     }
 
     private void LoadAvailableSources()

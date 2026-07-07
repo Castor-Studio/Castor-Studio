@@ -75,7 +75,7 @@
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             Spacing="10"
-                            MaxWidth="320">
+                            HorizontalAlignment="Left">
 
                     <Slider Minimum="500"
                             Maximum="10000"

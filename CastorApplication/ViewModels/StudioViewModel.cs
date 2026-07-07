@@ -87,39 +87,6 @@ public partial class StudioViewModel : ViewModelBase
     partial void OnMicVolumeChanged(double value) => OnPropertyChanged(nameof(MicVolumeDisplay));
     partial void OnMusicVolumeChanged(double value) => OnPropertyChanged(nameof(MusicVolumeDisplay));
 
-    // ── Player preview (volume + mute auto) ──────────────────────────────────
-
-    /// <summary>Volume du player de prévisualisation VLC (0–100).</summary>
-    [ObservableProperty]
-    private double _playerVolume = 80;
-
-    /// <summary>Quand true, le player est automatiquement coupé à l'entrée en record/live.</summary>
-    [ObservableProperty]
-    private bool _mutePlayersOnRecord = true;
-
-    /// <summary>Volume sauvegardé avant le mute automatique, pour restauration à l'arrêt.</summary>
-    private double _savedPlayerVolume = 80;
-
-    /// <summary>Indique que le mute automatique est actuellement actif.</summary>
-    private bool _mutedForCapture;
-
-    private void ApplyAutoMute()
-    {
-        if (!MutePlayersOnRecord || _mutedForCapture) return;
-        _savedPlayerVolume = PlayerVolume;
-        PlayerVolume       = 0;
-        _mutedForCapture   = true;
-    }
-
-    private void RestoreAutoMute()
-    {
-        if (!_mutedForCapture) return;
-        // Restaure uniquement quand ni recording ni streaming ne sont actifs
-        if (IsRecording || IsStreaming) return;
-        PlayerVolume     = _savedPlayerVolume;
-        _mutedForCapture = false;
-    }
-
     // ── Streaming state (F1) ──
 
     [ObservableProperty]
@@ -298,12 +265,6 @@ public partial class StudioViewModel : ViewModelBase
         _studioController  = studioController;
         _filePickerService = filePickerService;
 
-        // Charge les valeurs de lecture depuis les paramètres persistés
-        var settings = settingsService.Load();
-        _playerVolume        = settings.PlayerVolume;
-        _mutePlayersOnRecord = settings.MutePlayersOnRecord;
-        _savedPlayerVolume   = _playerVolume;
-
         RefreshProviderState(_streamPlatformIndex);
         RefreshOutputInfo();
 
@@ -457,7 +418,6 @@ public partial class StudioViewModel : ViewModelBase
         if (result == 0)
         {
             IsStreaming = true;
-            ApplyAutoMute();
         }
         else
             StreamError = result switch
@@ -485,7 +445,6 @@ public partial class StudioViewModel : ViewModelBase
     {
         _studioController.StopStream();
         IsStreaming = false;
-        RestoreAutoMute();
         ResetSessionTimer();
     }
 
@@ -525,7 +484,6 @@ public partial class StudioViewModel : ViewModelBase
         if (result == 0)
         {
             IsRecording = true;
-            ApplyAutoMute();
         }
         else
         {
@@ -554,7 +512,6 @@ public partial class StudioViewModel : ViewModelBase
     {
         _studioController.StopRecording();
         IsRecording = false;
-        RestoreAutoMute();
         ResetSessionTimer();
     }
 
