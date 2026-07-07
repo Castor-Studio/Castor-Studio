@@ -13,7 +13,10 @@ extern "C" {
 }
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <process.h>
 
 // D3D/DXGI en premier
@@ -60,6 +63,8 @@ using namespace winrt::Windows::Graphics::Capture;
 using namespace winrt::Windows::Graphics::DirectX;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
 
+struct SharedCamera;
+
 /* ------------------------------------------------------------------ *
  *  Contexte interne — deux chemins : WGC (ecran/fenêtre) et MF (cam)
  * ------------------------------------------------------------------ */
@@ -77,8 +82,9 @@ struct VideoCaptureContextInternal {
     /* Flag partagé avec le callback FrameArrived pour éviter le use-after-free. */
     std::shared_ptr<std::atomic<bool>> alive = std::make_shared<std::atomic<bool>>(true);
 
-    /* --- Chemin MF (webcam) --- */
-    IMFSourceReader* mf_reader = nullptr;
+    /* --- Chemin MF (webcam) — capture partagée, voir SharedCamera --- */
+    SharedCamera* shared_cam   = nullptr;
+    uint64_t      cam_last_seq = 0;   /* seq de la dernière frame consommée */
 
     /* --- Chemin réseau (RTMP / RTSP / HTTP) et fichier local --- */
     AVFormatContext* net_fmt_ctx    = nullptr;
@@ -96,6 +102,249 @@ struct VideoCaptureContextInternal {
     int width  = 0;
     int height = 0;
 };
+
+/* ================================================================== *
+ *  Capture caméra partagée
+ *
+ *  Un seul IMFSourceReader par webcam (symbolic_link) pour tout le
+ *  process : record, stream et previews consomment les frames du même
+ *  lecteur via un thread de pompe. Deux IMFSourceReader ouverts sur la
+ *  même caméra se préemptent mutuellement (ReadSample échoue en boucle
+ *  avec MF_E_VIDEO_RECORDING_DEVICE_PREEMPTED, 0xC00D3EA3) et l'un des
+ *  deux ne reçoit plus jamais de frame — ex : switch de l'enregistrement
+ *  vers une scène caméra dont le preview est déjà actif.
+ * ================================================================== */
+struct SharedCamera {
+    char             symbolic_link[512] = {};
+    IMFSourceReader* reader   = nullptr;
+    int              width    = 0;
+    int              height   = 0;
+    int              refcount = 0;
+
+    std::mutex              frame_mutex;
+    std::condition_variable frame_cv;
+    AVFrame*                latest = nullptr;  /* dernière frame BGRA */
+    uint64_t                seq    = 0;        /* incrémenté à chaque frame */
+
+    HANDLE            pump_thread = nullptr;
+    std::atomic<bool> running{false};
+
+    SharedCamera* next = nullptr;
+};
+
+static SharedCamera* g_shared_cameras = nullptr;
+static std::mutex    g_shared_cameras_mutex;
+
+/* Ouvre (ou ré-ouvre après préemption) le IMFSourceReader de la caméra. */
+static int shared_camera_open_reader(SharedCamera* cam) {
+    WCHAR link_w[512] = {};
+    MultiByteToWideChar(CP_UTF8, 0, cam->symbolic_link, -1, link_w, 512);
+
+    IMFAttributes* attrs = nullptr;
+    MFCreateAttributes(&attrs, 2);
+    attrs->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
+                   MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
+    attrs->SetString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, link_w);
+
+    IMFMediaSource* source = nullptr;
+    HRESULT hr = MFCreateDeviceSource(attrs, &source);
+    attrs->Release();
+    if (FAILED(hr)) {
+        fprintf(stderr, "[Camera] MFCreateDeviceSource failed: 0x%lx\n", hr);
+        return -1;
+    }
+
+    /* SourceReader avec conversion auto de format activee */
+    IMFAttributes* reader_attrs = nullptr;
+    MFCreateAttributes(&reader_attrs, 1);
+    reader_attrs->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE);
+
+    IMFSourceReader* reader = nullptr;
+    hr = MFCreateSourceReaderFromMediaSource(source, reader_attrs, &reader);
+    source->Release();
+    reader_attrs->Release();
+    if (FAILED(hr)) {
+        fprintf(stderr, "[Camera] MFCreateSourceReaderFromMediaSource failed: 0x%lx\n", hr);
+        return -1;
+    }
+
+    /* Forcer sortie RGB32 (= BGRA côte FFmpeg) */
+    IMFMediaType* out_type = nullptr;
+    MFCreateMediaType(&out_type);
+    out_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
+    out_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
+    hr = reader->SetCurrentMediaType(
+        (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, nullptr, out_type);
+    out_type->Release();
+    if (FAILED(hr)) {
+        fprintf(stderr, "[Camera] SetCurrentMediaType RGB32 failed: 0x%lx\n", hr);
+        reader->Release();
+        return -1;
+    }
+
+    /* Recuperer les dimensions effectives */
+    IMFMediaType* actual_type = nullptr;
+    reader->GetCurrentMediaType(
+        (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, &actual_type);
+    if (actual_type) {
+        UINT32 w = 0, h = 0;
+        MFGetAttributeSize(actual_type, MF_MT_FRAME_SIZE, &w, &h);
+        cam->width  = (int)w;
+        cam->height = (int)h;
+        actual_type->Release();
+    }
+
+    cam->reader = reader;
+    return 0;
+}
+
+/* Thread de pompe : lit les samples MF en continu et publie la dernière
+ * frame BGRA. En cas d'échec persistant (préemption par une application
+ * externe, périphérique débranché), tente de ré-ouvrir le lecteur au lieu
+ * de spammer stderr à chaque frame. */
+static unsigned __stdcall shared_camera_pump(void* arg) {
+    SharedCamera* cam = (SharedCamera*)arg;
+    int consecutive_failures = 0;
+
+    while (cam->running.load()) {
+        if (!cam->reader) {
+            Sleep(500);
+            if (!cam->running.load()) break;
+            if (shared_camera_open_reader(cam) == 0)
+                fprintf(stderr, "[Camera] Lecteur récupéré — %dx%d\n",
+                        cam->width, cam->height);
+            continue;
+        }
+
+        DWORD      stream_index = 0, flags = 0;
+        LONGLONG   timestamp    = 0;
+        IMFSample* sample       = nullptr;
+
+        HRESULT hr = cam->reader->ReadSample(
+            (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+            0, &stream_index, &flags, &timestamp, &sample);
+
+        if (FAILED(hr)) {
+            if (consecutive_failures == 0)
+                fprintf(stderr, "[Camera] ReadSample failed: 0x%lx — tentative de recuperation\n", hr);
+            consecutive_failures++;
+            if (consecutive_failures >= 100) {  /* ~2s d'échecs → ré-ouverture */
+                cam->reader->Release();
+                cam->reader = nullptr;
+                consecutive_failures = 0;
+            } else {
+                Sleep(20);
+            }
+            continue;
+        }
+        consecutive_failures = 0;
+
+        if (!sample) {
+            /* S_OK sans sample = camera pas encore prete ou frame droppee. */
+            continue;
+        }
+
+        IMFMediaBuffer* buffer = nullptr;
+        sample->ConvertToContiguousBuffer(&buffer);
+        sample->Release();
+        if (!buffer) continue;
+
+        BYTE* data    = nullptr;
+        DWORD max_len = 0, cur_len = 0;
+        buffer->Lock(&data, &max_len, &cur_len);
+
+        AVFrame* frame = av_frame_alloc();
+        frame->format = AV_PIX_FMT_BGRA;
+        frame->width  = cam->width;
+        frame->height = cam->height;
+        if (av_frame_get_buffer(frame, 0) < 0) {
+            buffer->Unlock();
+            buffer->Release();
+            av_frame_free(&frame);
+            continue;
+        }
+
+        const int bytes_per_row = cam->width * 4;
+        for (int y = 0; y < cam->height; y++) {
+            memcpy(frame->data[0] + y * frame->linesize[0],
+                   data + y * bytes_per_row,
+                   bytes_per_row);
+        }
+
+        buffer->Unlock();
+        buffer->Release();
+
+        frame->pts = timestamp / 10;
+
+        {
+            std::lock_guard<std::mutex> lk(cam->frame_mutex);
+            if (cam->latest) av_frame_free(&cam->latest);
+            cam->latest = frame;
+            cam->seq++;
+        }
+        cam->frame_cv.notify_all();
+    }
+    return 0;
+}
+
+/* Récupère la capture existante pour ce symbolic_link ou en crée une. */
+static SharedCamera* shared_camera_acquire(const char* symbolic_link) {
+    std::lock_guard<std::mutex> lk(g_shared_cameras_mutex);
+
+    for (SharedCamera* c = g_shared_cameras; c; c = c->next) {
+        if (strcmp(c->symbolic_link, symbolic_link) == 0) {
+            c->refcount++;
+            return c;
+        }
+    }
+
+    MFStartup(MF_VERSION);
+
+    SharedCamera* cam = new SharedCamera();
+    strncpy(cam->symbolic_link, symbolic_link, sizeof(cam->symbolic_link) - 1);
+
+    if (shared_camera_open_reader(cam) < 0) {
+        delete cam;
+        MFShutdown();
+        return nullptr;
+    }
+
+    cam->refcount = 1;
+    cam->running  = true;
+    cam->pump_thread = (HANDLE)_beginthreadex(nullptr, 0, shared_camera_pump, cam, 0, nullptr);
+    if (!cam->pump_thread) {
+        cam->reader->Release();
+        delete cam;
+        MFShutdown();
+        return nullptr;
+    }
+
+    cam->next        = g_shared_cameras;
+    g_shared_cameras = cam;
+    return cam;
+}
+
+static void shared_camera_release(SharedCamera* cam) {
+    {
+        std::lock_guard<std::mutex> lk(g_shared_cameras_mutex);
+        if (--cam->refcount > 0) return;
+
+        SharedCamera** p = &g_shared_cameras;
+        while (*p && *p != cam) p = &(*p)->next;
+        if (*p) *p = cam->next;
+    }
+
+    cam->running = false;
+    cam->frame_cv.notify_all();
+    if (cam->pump_thread) {
+        WaitForSingleObject(cam->pump_thread, 5000);
+        CloseHandle(cam->pump_thread);
+    }
+    if (cam->reader) cam->reader->Release();
+    if (cam->latest) av_frame_free(&cam->latest);
+    delete cam;
+    MFShutdown();
+}
 
 extern "C" {
 
@@ -367,78 +616,23 @@ CASTOR_CORE_API int video_capture_init_monitor(VideoCaptureContext* ctx, void* h
  * ================================================================== */
 
 CASTOR_CORE_API int video_capture_init_camera(VideoCaptureContext* ctx, const char* symbolic_link) {
-    MFStartup(MF_VERSION);
-
     auto* internal = new VideoCaptureContextInternal();
     internal->capture_type = CAPTURE_SOURCE_CAMERA;
 
-    WCHAR link_w[512] = {};
-    MultiByteToWideChar(CP_UTF8, 0, symbolic_link, -1, link_w, 512);
-
-    IMFAttributes* attrs = nullptr;
-    MFCreateAttributes(&attrs, 2);
-    attrs->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
-                   MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
-    attrs->SetString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, link_w);
-
-    IMFMediaSource* source = nullptr;
-    HRESULT hr = MFCreateDeviceSource(attrs, &source);
-    attrs->Release();
-
-    if (FAILED(hr)) {
-        fprintf(stderr, "[Camera] MFCreateDeviceSource failed: 0x%lx\n", hr);
+    internal->shared_cam = shared_camera_acquire(symbolic_link);
+    if (!internal->shared_cam) {
         delete internal;
         return -1;
     }
 
-    /* SourceReader avec conversion auto de format activee */
-    IMFAttributes* reader_attrs = nullptr;
-    MFCreateAttributes(&reader_attrs, 1);
-    reader_attrs->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE);
-
-    hr = MFCreateSourceReaderFromMediaSource(source, reader_attrs, &internal->mf_reader);
-    source->Release();
-    reader_attrs->Release();
-
-    if (FAILED(hr)) {
-        fprintf(stderr, "[Camera] MFCreateSourceReaderFromMediaSource failed: 0x%lx\n", hr);
-        delete internal;
-        return -1;
-    }
-
-    /* Forcer sortie RGB32 (= BGRA côte FFmpeg) */
-    IMFMediaType* out_type = nullptr;
-    MFCreateMediaType(&out_type);
-    out_type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
-    out_type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
-    hr = internal->mf_reader->SetCurrentMediaType(
-        (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, nullptr, out_type);
-    out_type->Release();
-
-    if (FAILED(hr)) {
-        fprintf(stderr, "[Camera] SetCurrentMediaType RGB32 failed: 0x%lx\n", hr);
-        internal->mf_reader->Release();
-        delete internal;
-        return -1;
-    }
-
-    /* Recuperer les dimensions effectives */
-    IMFMediaType* actual_type = nullptr;
-    internal->mf_reader->GetCurrentMediaType(
-        (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM, &actual_type);
-    if (actual_type) {
-        UINT32 w = 0, h = 0;
-        MFGetAttributeSize(actual_type, MF_MT_FRAME_SIZE, &w, &h);
-        internal->width  = (int)w;
-        internal->height = (int)h;
-        actual_type->Release();
-    }
+    internal->width  = internal->shared_cam->width;
+    internal->height = internal->shared_cam->height;
 
     ctx->internal = internal;
     ctx->width    = internal->width;
     ctx->height   = internal->height;
 
-    fprintf(stdout, "[Camera] Init OK — %dx%d\n", ctx->width, ctx->height);
+    fprintf(stdout, "[Camera] Init OK — %dx%d (capture partagée)\n", ctx->width, ctx->height);
     return 0;
 }
 
@@ -700,54 +894,21 @@ static AVFrame* next_frame_wgc(VideoCaptureContextInternal* internal) {
 }
 
 static AVFrame* next_frame_camera(VideoCaptureContextInternal* internal) {
-    DWORD    stream_index = 0, flags = 0;
-    LONGLONG timestamp    = 0;
-    IMFSample* sample     = nullptr;
+    SharedCamera* cam = internal->shared_cam;
+    if (!cam) return nullptr;
 
-    HRESULT hr = internal->mf_reader->ReadSample(
-        (DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
-        0, &stream_index, &flags, &timestamp, &sample);
+    std::unique_lock<std::mutex> lk(cam->frame_mutex);
+    /* Attend une frame plus récente que la dernière consommée par CE
+     * contexte — chaque consommateur (record, preview...) suit sa propre
+     * position via cam_last_seq et clone la frame publiée par la pompe. */
+    cam->frame_cv.wait_for(lk, std::chrono::milliseconds(100),
+        [&] { return cam->latest && cam->seq != internal->cam_last_seq; });
 
-    if (FAILED(hr)) {
-        fprintf(stderr, "[Camera] ReadSample failed: 0x%lx\n", hr);
-        return nullptr;
-    }
-    if (!sample) {
-        /* S_OK sans sample = camera pas encore prete ou frame droppee — on reessaie silencieusement. */
-        return nullptr;
-    }
+    if (!cam->latest || cam->seq == internal->cam_last_seq)
+        return nullptr;   /* timeout — pas de nouvelle frame */
 
-    IMFMediaBuffer* buffer = nullptr;
-    sample->ConvertToContiguousBuffer(&buffer);
-    sample->Release();
-    if (!buffer) return nullptr;
-
-    BYTE* data    = nullptr;
-    DWORD max_len = 0, cur_len = 0;
-    buffer->Lock(&data, &max_len, &cur_len);
-
-    AVFrame* frame = av_frame_alloc();
-    frame->format = AV_PIX_FMT_BGRA;
-    frame->width  = internal->width;
-    frame->height = internal->height;
-    av_frame_get_buffer(frame, 0);
-
-    /*
-     * MF livre RGB32 bottom-up (convention DIB).
-     * On flip verticalement pour obtenir top-down.
-     */
-    const int bytes_per_row = internal->width * 4;
-    for (int y = 0; y < internal->height; y++) {
-        memcpy(frame->data[0] + y * frame->linesize[0],
-               data + y * bytes_per_row,
-               bytes_per_row);
-    }
-
-    buffer->Unlock();
-    buffer->Release();
-
-    frame->pts = timestamp / 10;
-    return frame;
+    internal->cam_last_seq = cam->seq;
+    return av_frame_clone(cam->latest);
 }
 
 static AVFrame* next_frame_network(VideoCaptureContextInternal* internal) {
@@ -917,8 +1078,9 @@ CASTOR_CORE_API void video_capture_cleanup(VideoCaptureContext* ctx) {
     if (!internal) return;
 
     if (internal->capture_type == CAPTURE_SOURCE_CAMERA) {
-        if (internal->mf_reader) internal->mf_reader->Release();
-        MFShutdown();
+        /* Décrémente le refcount ; le lecteur MF n'est libéré (et MFShutdown
+         * appelé) que lorsque plus personne n'utilise cette webcam. */
+        if (internal->shared_cam) shared_camera_release(internal->shared_cam);
     } else if (internal->capture_type == CAPTURE_SOURCE_NETWORK ||
                internal->capture_type == CAPTURE_SOURCE_FILE) {
         if (internal->net_sws_ctx)   sws_freeContext(internal->net_sws_ctx);

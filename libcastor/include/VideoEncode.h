@@ -68,6 +68,11 @@ typedef struct {
     AVFrame*           frame;
     AVPacket*          pkt;
     int                frame_index;
+    int64_t            last_pts;        /* dernier pts envoye a l'encodeur (unite
+                                         * time_base). Les muxers MP4/MKV exigent
+                                         * des dts strictement croissants : deux
+                                         * frames arrondies au meme tick 1/fps
+                                         * doivent etre re-espacees. */
     int                fps;             /* fps cible — sauvegarde AVANT avcodec_open2.
                                          * Certains encodeurs (libvpx-vp9) modifient
                                          * ctx->time_base apres open ; on utilise ce
