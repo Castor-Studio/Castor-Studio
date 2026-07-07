@@ -429,6 +429,42 @@ public partial class ScenesViewModel : ViewModelBase
         _studioController.AddVideoSource(SelectedScene, option);
     }
 
+    // ── Dialogue « Ajouter une source » ──────────────────────────────────────
+
+    /// <summary>Construit le ViewModel du dialogue d'ajout de source pour la
+    /// scène sélectionnée. La vue (code-behind) se charge du ShowDialog.</summary>
+    public AddSourceDialogViewModel CreateAddSourceDialog()
+        => new(_nativeCaptureService, _networkCameraDiscoveryService, SelectedScene);
+
+    /// <summary>Applique le résultat du dialogue à la scène sélectionnée en
+    /// réutilisant les chemins d'ajout existants.</summary>
+    public async Task ApplyAddSourceResultAsync(AddSourceResult result)
+    {
+        if (SelectedScene == null) return;
+
+        switch (result)
+        {
+            case AddSourceResult.Video v:
+                _studioController.AddVideoSource(SelectedScene, v.Option);
+                break;
+            case AddSourceResult.Audio a:
+                _studioController.AddAudioSource(SelectedScene, a.Option);
+                break;
+            case AddSourceResult.Network n:
+                _studioController.AddNetworkVideoSource(SelectedScene, n.Label, n.Url);
+                break;
+            case AddSourceResult.PickFileVideo:
+                await AddFileVideoSourceCommand.ExecuteAsync(null);
+                break;
+            case AddSourceResult.PickFileAudio:
+                await AddFileAudioSourceCommand.ExecuteAsync(null);
+                break;
+            case AddSourceResult.PickFileMedia:
+                await AddFileMediaSourceCommand.ExecuteAsync(null);
+                break;
+        }
+    }
+
     [RelayCommand]
     private async Task ScanNetworkCameras()
     {

@@ -91,6 +91,7 @@ public partial class AddSourceDialogViewModel : ViewModelBase
     private const string IconMovie   = "M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z M8 4v16 M16 4v16 M4 8h4 M16 8h4 M4 16h4 M16 16h4 M4 12h16";
 
     private readonly INativeCaptureService _nativeCaptureService;
+    private readonly INetworkCameraDiscoveryService _networkCameraDiscoveryService;
     private readonly SceneItem? _scene;
 
     private List<AddSourceItem> _monitors    = new();
@@ -121,6 +122,11 @@ public partial class AddSourceDialogViewModel : ViewModelBase
     [ObservableProperty]
     private string _networkError = "";
 
+    [ObservableProperty]
+    private bool _isScanning;
+
+    public ObservableCollection<DiscoveredCamera> DiscoveredCameras { get; } = new();
+
     public bool IsNetworkCategory => SelectedCategory.Kind == AddSourceCategoryKind.Network;
     public bool IsListCategory => !IsNetworkCategory;
     public bool CanConfirm => IsNetworkCategory || SelectedItem != null;
@@ -128,9 +134,13 @@ public partial class AddSourceDialogViewModel : ViewModelBase
     /// <summary>Levé quand le dialogue doit se fermer (null = annulation).</summary>
     public event Action<AddSourceResult?>? CloseRequested;
 
-    public AddSourceDialogViewModel(INativeCaptureService nativeCaptureService, SceneItem? scene)
+    public AddSourceDialogViewModel(
+        INativeCaptureService nativeCaptureService,
+        INetworkCameraDiscoveryService networkCameraDiscoveryService,
+        SceneItem? scene)
     {
         _nativeCaptureService = nativeCaptureService;
+        _networkCameraDiscoveryService = networkCameraDiscoveryService;
         _scene = scene;
 
         Categories = new ObservableCollection<AddSourceCategoryItem>
@@ -420,4 +430,37 @@ public partial class AddSourceDialogViewModel : ViewModelBase
         var label = url.Length > 30 ? url[..30] + "…" : url;
         CloseRequested?.Invoke(new AddSourceResult.Network(label, url));
     }
+
+    // ── Scan réseau ONVIF (repris du flyout historique) ──────────────────────
+
+    [RelayCommand]
+    private async Task ScanNetwork()
+    {
+        if (IsScanning) return;
+        IsScanning = true;
+        NetworkError = "";
+        DiscoveredCameras.Clear();
+
+        try
+        {
+            var found = await _networkCameraDiscoveryService.ScanAsync(TimeSpan.FromSeconds(3));
+            foreach (var camera in found)
+                DiscoveredCameras.Add(camera);
+
+            if (DiscoveredCameras.Count == 0)
+                NetworkError = "Aucune caméra ONVIF trouvée sur le réseau.";
+        }
+        catch (Exception ex)
+        {
+            NetworkError = $"Erreur scan : {ex.Message}";
+        }
+        finally
+        {
+            IsScanning = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ConfirmDiscoveredCamera(DiscoveredCamera camera)
+        => CloseRequested?.Invoke(new AddSourceResult.Network(camera.Label, camera.SuggestedUrl));
 }
