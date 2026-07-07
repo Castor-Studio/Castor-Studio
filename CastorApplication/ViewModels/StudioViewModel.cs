@@ -32,7 +32,33 @@ public partial class StudioViewModel : ViewModelBase
             if (value == null) return;
             _studioController.SelectScene(value);
             OnPropertyChanged();
+            RefreshPreviewPlaceholder();
         }
+    }
+
+    // ── Placeholder du preview ───────────────────────────────────────────────
+    // Sans lui, l'utilisateur regarde un rectangle noir sans savoir si c'est
+    // un bug ou juste une scène vide.
+
+    public string PreviewPlaceholderText
+    {
+        get
+        {
+            var scene = _studioController.ActiveScene;
+            if (scene == null)
+                return "Aucune scène active — créez-en une dans l'onglet Scènes.";
+            if (!_studioController.HasVideoSource(scene))
+                return "Cette scène n'a pas de source vidéo.";
+            return "";
+        }
+    }
+
+    public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
+
+    private void RefreshPreviewPlaceholder()
+    {
+        OnPropertyChanged(nameof(PreviewPlaceholderText));
+        OnPropertyChanged(nameof(ShowPreviewPlaceholder));
     }
 
     [ObservableProperty]
@@ -316,6 +342,7 @@ public partial class StudioViewModel : ViewModelBase
     public void EnsurePreviewRunning()
     {
         RefreshOutputInfo();
+        RefreshPreviewPlaceholder();
 
         var scene = _studioController.ActiveScene;
         if (scene == null)

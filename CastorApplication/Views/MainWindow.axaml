@@ -112,18 +112,18 @@
                             Spacing="10"
                             Margin="16,0">
 
-                    <!-- Status badge -->
+                    <!-- Badge d'état global : OFFLINE / REC / EN DIRECT -->
                     <Border Background="{DynamicResource AppSurface3}"
                             BorderBrush="{DynamicResource AppBorder}"
                             BorderThickness="1"
                             CornerRadius="12"
                             Padding="10,5">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="7" Height="7" Fill="{DynamicResource AppFg5}" VerticalAlignment="Center"/>
-                            <TextBlock Text="OFFLINE"
+                            <Ellipse Width="7" Height="7" Fill="{Binding GlobalStatusBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding GlobalStatusText}"
                                        FontSize="11"
                                        FontWeight="SemiBold"
-                                       Foreground="{DynamicResource AppFg5}"
+                                       Foreground="{Binding GlobalStatusBrush}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>

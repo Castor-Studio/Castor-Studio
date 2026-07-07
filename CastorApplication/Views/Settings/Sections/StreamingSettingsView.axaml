@@ -26,7 +26,7 @@
                     <ComboBoxItem Content="Twitch"/>
                     <ComboBoxItem Content="YouTube Live"/>
                     <ComboBoxItem Content="Facebook Live"/>
-                    <ComboBoxItem Content="Personnalis� (RTMP)"/>
+                    <ComboBoxItem Content="Personnalisé (RTMP)"/>
 
                 </ComboBox>
 
@@ -35,7 +35,7 @@
             <Grid ColumnDefinitions="180,*">
 
                 <TextBlock Grid.Column="0"
-                           Text="Cl� de stream"
+                           Text="Clé de stream"
                            Classes="setting-label"/>
 
                 <TextBox Grid.Column="1"
@@ -44,8 +44,8 @@
                          Background="{DynamicResource AppSurface2}"
                          BorderBrush="{DynamicResource AppBorder2}"
                          Foreground="{DynamicResource AppFg2}"
-                         PasswordChar="�"
-                         Watermark="Entrez votre cl� de stream..."
+                         PasswordChar="•"
+                         Watermark="Entrez votre clé de stream..."
                          Text="{Binding StreamKey}"/>
 
             </Grid>
@@ -105,7 +105,7 @@
                           HorizontalAlignment="Left"
                           SelectedIndex="{Binding SelectedServerIndex}">
 
-                    <ComboBoxItem Content="Auto (recommand�)"/>
+                    <ComboBoxItem Content="Auto (recommandé)"/>
                     <ComboBoxItem Content="Europe - Paris"/>
                     <ComboBoxItem Content="Europe - Amsterdam"/>
 
