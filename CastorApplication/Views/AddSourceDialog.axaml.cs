@@ -22,9 +22,11 @@ public partial class AddSourceDialog : Window
     protected override void OnOpened(System.EventArgs e)
     {
         base.OnOpened(e);
-        // Première énumération asynchrone dès l'ouverture.
+        // Première énumération asynchrone dès l'ouverture, et focus sur la
+        // recherche pour pouvoir taper directement le nom cherché.
         if (DataContext is AddSourceDialogViewModel vm)
             _ = vm.RefreshCommand.ExecuteAsync(null);
+        SearchBox.Focus();
     }
 
     private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)

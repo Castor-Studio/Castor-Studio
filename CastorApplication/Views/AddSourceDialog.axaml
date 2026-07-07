@@ -126,7 +126,7 @@
                     <!-- Recherche + actualiser (catégories liste uniquement) -->
                     <Grid Grid.Row="0" ColumnDefinitions="*, 6, Auto"
                           IsVisible="{Binding IsListCategory}" Margin="0,0,0,8">
-                        <TextBox Grid.Column="0"
+                        <TextBox Grid.Column="0" x:Name="SearchBox"
                                  Text="{Binding SearchText}"
                                  Watermark="Rechercher…"
                                  FontSize="12" Padding="8,5"

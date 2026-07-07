@@ -55,17 +55,6 @@ public partial class ScenesViewModel : ViewModelBase
     private double _savedPlayerVolume = 80;
     private bool _mutedForCapture;
 
-    [ObservableProperty]
-    private string _networkSourceUrl = "";
-
-    [ObservableProperty]
-    private string _networkSourceError = "";
-
-    [ObservableProperty]
-    private bool _isScanning;
-
-    public ObservableCollection<DiscoveredCamera> DiscoveredCameras { get; } = new();
-
     public ScenesViewModel(
         SettingsService settingsService,
         IStudioController studioController,
@@ -422,13 +411,6 @@ public partial class ScenesViewModel : ViewModelBase
             scene.Color = color;
     }
 
-    [RelayCommand]
-    private void AddSpecificVideoSource(CaptureSourceOption option)
-    {
-        if (SelectedScene == null) return;
-        _studioController.AddVideoSource(SelectedScene, option);
-    }
-
     // ── Dialogue « Ajouter une source » ──────────────────────────────────────
 
     /// <summary>Construit le ViewModel du dialogue d'ajout de source pour la
@@ -463,79 +445,6 @@ public partial class ScenesViewModel : ViewModelBase
                 await AddFileMediaSourceCommand.ExecuteAsync(null);
                 break;
         }
-    }
-
-    [RelayCommand]
-    private async Task ScanNetworkCameras()
-    {
-        if (IsScanning) return;
-        IsScanning = true;
-        NetworkSourceError = "";
-        DiscoveredCameras.Clear();
-
-        try
-        {
-            var found = await _networkCameraDiscoveryService.ScanAsync(TimeSpan.FromSeconds(3));
-            foreach (var camera in found)
-                DiscoveredCameras.Add(camera);
-
-            if (DiscoveredCameras.Count == 0)
-                NetworkSourceError = "Aucune caméra ONVIF trouvée sur le réseau.";
-        }
-        catch (Exception ex)
-        {
-            NetworkSourceError = $"Erreur scan : {ex.Message}";
-        }
-        finally
-        {
-            IsScanning = false;
-        }
-    }
-
-    [RelayCommand]
-    private void AddDiscoveredCamera(DiscoveredCamera camera)
-    {
-        if (SelectedScene == null) return;
-        _studioController.AddNetworkVideoSource(SelectedScene, camera.Label, camera.SuggestedUrl);
-    }
-
-    [RelayCommand]
-    private void AddNetworkSource()
-    {
-        NetworkSourceError = "";
-        var url = NetworkSourceUrl.Trim();
-
-        if (string.IsNullOrEmpty(url))
-        {
-            NetworkSourceError = "Entrez une URL valide.";
-            return;
-        }
-
-        if (!url.StartsWith("rtmp://", StringComparison.OrdinalIgnoreCase) &&
-            !url.StartsWith("rtmps://", StringComparison.OrdinalIgnoreCase) &&
-            !url.StartsWith("rtsp://", StringComparison.OrdinalIgnoreCase) &&
-            !url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-            !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-        {
-            NetworkSourceError = "URL invalide (rtmp://, rtsp://, http://)";
-            return;
-        }
-
-        if (SelectedScene == null)
-        {
-            NetworkSourceError = "Sélectionnez une scène d'abord.";
-            return;
-        }
-
-        _studioController.AddNetworkVideoSource(SelectedScene, url.Length > 30 ? url[..30] + "…" : url, url);
-        NetworkSourceUrl = "";
-    }
-
-    [RelayCommand]
-    private void AddSpecificAudioSource(AudioSourceOption option)
-    {
-        if (SelectedScene == null) return;
-        _studioController.AddAudioSource(SelectedScene, option);
     }
 
     [RelayCommand]
