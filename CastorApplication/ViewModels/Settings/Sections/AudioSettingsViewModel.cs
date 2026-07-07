@@ -31,7 +31,11 @@ public partial class AudioSettingsViewModel : SettingsSectionViewModel
     protected override void LoadCore(ApplicationSettings settings)
     {
         SelectedSampleRateIndex = settings.SelectedSampleRateIndex;
-        SelectedChannelsIndex = settings.SelectedChannelsIndex;
+        // Migration : « 5.1 Surround » (ex-index 2) a été retiré — le moteur
+        // capture en stéréo maximum.
+        SelectedChannelsIndex = settings.SelectedChannelsIndex is < 0 or > 1
+            ? 0
+            : settings.SelectedChannelsIndex;
         SelectedAudioBitrateIndex = settings.SelectedAudioBitrateIndex;
         PlayerVolume = settings.PlayerVolume;
         MutePlayersOnRecord = settings.MutePlayersOnRecord;

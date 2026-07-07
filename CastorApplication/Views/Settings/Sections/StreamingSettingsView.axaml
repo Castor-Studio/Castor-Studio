@@ -25,7 +25,6 @@
 
                     <ComboBoxItem Content="Twitch"/>
                     <ComboBoxItem Content="YouTube Live"/>
-                    <ComboBoxItem Content="Facebook Live"/>
                     <ComboBoxItem Content="Personnalisé (RTMP)"/>
 
                 </ComboBox>
@@ -91,25 +90,6 @@
                                Text="{Binding StreamingBitrateDisplay}"/>
 
                 </StackPanel>
-
-            </Grid>
-
-            <Grid ColumnDefinitions="180,*">
-
-                <TextBlock Grid.Column="0"
-                           Text="Serveur"
-                           Classes="setting-label"/>
-
-                <ComboBox Grid.Column="1"
-                          MaxWidth="260"
-                          HorizontalAlignment="Left"
-                          SelectedIndex="{Binding SelectedServerIndex}">
-
-                    <ComboBoxItem Content="Auto (recommandé)"/>
-                    <ComboBoxItem Content="Europe - Paris"/>
-                    <ComboBoxItem Content="Europe - Amsterdam"/>
-
-                </ComboBox>
 
             </Grid>
 

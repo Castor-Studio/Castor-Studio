@@ -2,8 +2,6 @@ namespace CastorApplication.Models.Settings;
 
 public sealed class ApplicationSettings
 {
-    public int SelectedLanguageIndex { get; set; }
-    public bool AutoStart { get; set; }
     public int SelectedThemeIndex { get; set; }
 
     public int SelectedBaseResolutionIndex { get; set; } = 1;
@@ -18,14 +16,12 @@ public sealed class ApplicationSettings
     public int SelectedChannelsIndex { get; set; }
     public int SelectedAudioBitrateIndex { get; set; } = 1;
 
+    /* Index plateforme : 0=Twitch, 1=YouTube Live, 2=Personnalisé (RTMP).
+     * (Facebook Live, ex-index 2, a été retiré — migration dans
+     * StreamingSettingsViewModel.LoadCore.) */
     public int SelectedPlatformIndex { get; set; }
     public string StreamKey { get; set; } = "";
     public string RtmpUrl { get; set; } = "";
-    public int SelectedServerIndex { get; set; }
-
-    public bool IsTwitchConnected { get; set; }
-    public bool IsYoutubeConnected { get; set; }
-    public bool IsFacebookConnected { get; set; }
 
     public int SelectedOutputFormatIndex { get; set; }
     public string OutputPath { get; set; } = "";

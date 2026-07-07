@@ -14,12 +14,6 @@ public partial class GeneralSettingsViewModel : SettingsSectionViewModel
     }
 
     [ObservableProperty]
-    private int _selectedLanguageIndex;
-
-    [ObservableProperty]
-    private bool _autoStart;
-
-    [ObservableProperty]
     private int _selectedThemeIndex;
 
     partial void OnSelectedThemeIndexChanged(int value)
@@ -29,9 +23,6 @@ public partial class GeneralSettingsViewModel : SettingsSectionViewModel
 
     protected override void LoadCore(ApplicationSettings settings)
     {
-        SelectedLanguageIndex = settings.SelectedLanguageIndex;
-        AutoStart = settings.AutoStart;
-
         SelectedThemeIndex = settings.SelectedThemeIndex is < 0 or > 1
             ? _themeService.IsLightTheme ? 1 : 0
             : settings.SelectedThemeIndex;
@@ -39,8 +30,6 @@ public partial class GeneralSettingsViewModel : SettingsSectionViewModel
 
     protected override void SaveCore(ApplicationSettings settings)
     {
-        settings.SelectedLanguageIndex = SelectedLanguageIndex;
-        settings.AutoStart = AutoStart;
         settings.SelectedThemeIndex = SelectedThemeIndex;
     }
 }

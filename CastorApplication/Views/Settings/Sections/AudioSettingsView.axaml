@@ -43,7 +43,6 @@
 
                     <ComboBoxItem Content="Stéréo"/>
                     <ComboBoxItem Content="Mono"/>
-                    <ComboBoxItem Content="5.1 Surround"/>
 
                 </ComboBox>
 
