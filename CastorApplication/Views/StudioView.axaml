@@ -66,9 +66,9 @@
                           Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
                             VerticalAlignment="Center">
-                    <Ellipse Width="7" Height="7" Fill="#34d399" VerticalAlignment="Center"/>
-                    <TextBlock Text="Prêt" Foreground="#34d399" FontSize="11"
-                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Ellipse Width="7" Height="7" Fill="{Binding SceneBarStatusBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding SceneBarStatusText}" Foreground="{Binding SceneBarStatusBrush}"
+                               FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -98,7 +98,7 @@
                                FontSize="14" FontFamily="Consolas"
                                VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
-                    <TextBlock Grid.Column="2" Text="1920 × 1080"
+                    <TextBlock Grid.Column="2" Text="{Binding OutputInfoText}"
                                Foreground="{DynamicResource AppFg6}" FontSize="11"
                                VerticalAlignment="Center"/>
                 </Grid>
