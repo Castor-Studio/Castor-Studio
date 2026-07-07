@@ -138,7 +138,6 @@
                                                   Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}">
                                             <ComboBoxItem Content="Twitch"/>
                                             <ComboBoxItem Content="YouTube Live"/>
-                                            <ComboBoxItem Content="Facebook Live"/>
                                             <ComboBoxItem Content="RTMP Manuel"/>
                                         </ComboBox>
                                     </StackPanel>

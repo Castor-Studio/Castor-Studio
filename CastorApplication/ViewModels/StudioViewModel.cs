@@ -175,11 +175,12 @@ public partial class StudioViewModel : ViewModelBase
 
     // ── Provider helpers ──
 
+    /* Index du ComboBox plateforme : 0=Twitch, 1=YouTube Live, 2=RTMP Manuel */
+
     private static string? GetProviderId(int platformIndex) => platformIndex switch
     {
         0 => "twitch",
         1 => "youtube",
-        2 => "facebook",
         _ => null   // RTMP Manuel
     };
 
@@ -187,7 +188,6 @@ public partial class StudioViewModel : ViewModelBase
     {
         0 => "Twitch",
         1 => "YouTube Live",
-        2 => "Facebook Live",
         _ => "RTMP"
     };
 
@@ -216,7 +216,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         RefreshProviderState(value);
 
-        if (value == 3 && string.IsNullOrWhiteSpace(StreamRtmpKey))
+        if (value == 2 && string.IsNullOrWhiteSpace(StreamRtmpKey))
             StreamRtmpKey = AppSettings.CustomRtmpUrl;
     }
 
@@ -369,7 +369,7 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         // Mapping index UI flyout -> StreamingPlatform
-        // 0=Twitch, 1=YouTube Live, 2=Facebook Live, 3=RTMP Manuel
+        // 0=Twitch, 1=YouTube Live, 2=RTMP Manuel
         StreamingPlatform service = StreamPlatformIndex switch
         {
             0 => StreamingPlatform.Twitch,
