@@ -5,6 +5,7 @@
 #endif
 
 #include "FileCapture.h"
+#include "utils/sync_clock.h"
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -390,6 +391,31 @@ CASTOR_CORE_API FileCaptureContext* file_capture_create(const char* path, int lo
             }
         } else {
             ctx->audio_stream_idx = -1;
+        }
+    }
+
+    /* Synchronisation inter-scenes : voir video_capture_init_file (meme logique,
+     * ici sur le AVFormatContext partage video+audio). Sans ca, chaque retour
+     * sur cette scene rouvre le fichier et il "redemarre" a l'image 0, ce qui
+     * desynchronise les scenes fichier entre elles lors des switches. */
+    {
+        int64_t duration_us = ctx->fmt_ctx->duration;
+        if (duration_us <= 0) {
+            int ref_idx = ctx->video_stream_idx >= 0 ? ctx->video_stream_idx : ctx->audio_stream_idx;
+            AVStream* dur_stream = ctx->fmt_ctx->streams[ref_idx];
+            if (dur_stream->duration > 0 && dur_stream->time_base.den > 0)
+                duration_us = av_rescale_q(dur_stream->duration, dur_stream->time_base, AV_TIME_BASE_Q);
+        }
+
+        if (duration_us > 0) {
+            int64_t elapsed_us = av_gettime_relative() - castor_file_sync_epoch_us();
+            if (elapsed_us < 0) elapsed_us = 0;
+
+            int64_t seek_target_us = loop ? (elapsed_us % duration_us)
+                                           : (elapsed_us < duration_us ? elapsed_us : duration_us);
+
+            if (seek_target_us > 0)
+                av_seek_frame(ctx->fmt_ctx, -1, seek_target_us, AVSEEK_FLAG_BACKWARD);
         }
     }
 

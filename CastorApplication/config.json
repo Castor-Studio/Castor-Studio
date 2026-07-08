@@ -1,4 +1,7 @@
 ﻿{
+  "aiServer": {
+    "endpoint": "http://127.0.0.1:50051"
+  },
   "providers": {
     "twitch": {
       "clientId": "scbp8wnfpqgm4rjxij8r4fklq93dsh",
@@ -6,10 +9,6 @@
         "user:read:email",
         "channel:read:stream_key"
       ]
-    },
-    "youtube": {
-      "clientId": "your-youtube-client-id",
-      "scopes": []
     }
   }
 }

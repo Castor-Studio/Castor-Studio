@@ -307,6 +307,9 @@ namespace Castor.Native
         [DllImport(DllName, CallingConvention = Convention)]
         private static extern int recorder_switch_video_source(IntPtr rec, int streamIndex, IntPtr newSrc);
 
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern int recorder_switch_audio_source(IntPtr rec, int streamIndex, IntPtr newSrc);
+
         public static int  RecorderStart(IntPtr rec)   => recorder_start(rec);
         public static void RecorderStop(IntPtr rec)    { if (rec != IntPtr.Zero) recorder_stop(rec);    }
         public static void RecorderDestroy(IntPtr rec) { if (rec != IntPtr.Zero) recorder_destroy(rec); }
@@ -323,6 +326,94 @@ namespace Castor.Native
             {
                 Marshal.FreeHGlobal(buf);
             }
+        }
+
+        public static int RecorderSwitchAudioSource(IntPtr rec, int streamIndex, AudioSourceInfo info)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(Marshal.SizeOf<AudioSourceInfo>());
+            try
+            {
+                Marshal.StructureToPtr(info, buf, false);
+                return recorder_switch_audio_source(rec, streamIndex, buf);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buf);
+            }
+        }
+
+        // ── DirectX preview renderer ─────────────────────────────────────────
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern IntPtr preview_create();
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern int preview_attach_hwnd(IntPtr preview, IntPtr hwnd);
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern int preview_start(IntPtr preview, IntPtr source, int fps);
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern int preview_switch_source(IntPtr preview, IntPtr source);
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern void preview_resize(IntPtr preview, int width, int height);
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern void preview_stop(IntPtr preview);
+
+        [DllImport(DllName, CallingConvention = Convention)]
+        private static extern void preview_destroy(IntPtr preview);
+
+        public static IntPtr PreviewCreate() => preview_create();
+
+        public static int PreviewAttachHwnd(IntPtr preview, IntPtr hwnd)
+            => preview_attach_hwnd(preview, hwnd);
+
+        public static int PreviewStart(IntPtr preview, CaptureSourceInfo source, int fps = 30)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(Marshal.SizeOf<CaptureSourceInfo>());
+            try
+            {
+                Marshal.StructureToPtr(source, buf, false);
+                return preview_start(preview, buf, fps);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buf);
+            }
+        }
+
+        public static int PreviewSwitchSource(IntPtr preview, CaptureSourceInfo source)
+        {
+            IntPtr buf = Marshal.AllocHGlobal(Marshal.SizeOf<CaptureSourceInfo>());
+            try
+            {
+                Marshal.StructureToPtr(source, buf, false);
+                return preview_switch_source(preview, buf);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buf);
+            }
+        }
+
+        public static void PreviewResize(IntPtr preview, int width, int height)
+        {
+            if (preview != IntPtr.Zero && width > 0 && height > 0)
+                preview_resize(preview, width, height);
+        }
+
+        public static void PreviewStop(IntPtr preview)
+        {
+            if (preview != IntPtr.Zero)
+                preview_stop(preview);
+        }
+
+        public static void PreviewDestroy(IntPtr preview)
+        {
+            if (preview != IntPtr.Zero)
+                preview_destroy(preview);
         }
 
         // ── Streaming service ─────────────────────────────────────────────────

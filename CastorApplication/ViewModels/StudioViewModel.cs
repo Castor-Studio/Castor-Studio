@@ -3,16 +3,15 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
 using Castor.Native;
-using CastorApplication.Factories;
 using CastorApplication.Services;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Dock.Model.Controls;
 
 namespace CastorApplication.ViewModels;
 
@@ -33,75 +32,39 @@ public partial class StudioViewModel : ViewModelBase
             if (value == null) return;
             _studioController.SelectScene(value);
             OnPropertyChanged();
+            RefreshPreviewPlaceholder();
         }
     }
 
-    [ObservableProperty]
-    private int _selectedSceneIndex;
+    // ── Placeholder du preview ───────────────────────────────────────────────
+    // Sans lui, l'utilisateur regarde un rectangle noir sans savoir si c'est
+    // un bug ou juste une scène vide.
 
-    // ── Sources ──
-
-    public ObservableCollection<SourceItem> Sources { get; } = new();
-
-    // ── Audio Mixer ──
-
-    [ObservableProperty]
-    private double _desktopVolume = 80;
-
-    [ObservableProperty]
-    private double _micVolume = 65;
-
-    [ObservableProperty]
-    private double _musicVolume = 30;
-
-    public string DesktopVolumeDisplay => $"{(int)DesktopVolume}%";
-    public string MicVolumeDisplay => $"{(int)MicVolume}%";
-    public string MusicVolumeDisplay => $"{(int)MusicVolume}%";
-
-    partial void OnDesktopVolumeChanged(double value) => OnPropertyChanged(nameof(DesktopVolumeDisplay));
-    partial void OnMicVolumeChanged(double value) => OnPropertyChanged(nameof(MicVolumeDisplay));
-    partial void OnMusicVolumeChanged(double value) => OnPropertyChanged(nameof(MusicVolumeDisplay));
-
-    // ── Player preview (volume + mute auto) ──────────────────────────────────
-
-    /// <summary>Volume du player de prévisualisation VLC (0–100).</summary>
-    [ObservableProperty]
-    private double _playerVolume = 80;
-
-    /// <summary>Quand true, le player est automatiquement coupé à l'entrée en record/live.</summary>
-    [ObservableProperty]
-    private bool _mutePlayersOnRecord = true;
-
-    /// <summary>Volume sauvegardé avant le mute automatique, pour restauration à l'arrêt.</summary>
-    private double _savedPlayerVolume = 80;
-
-    /// <summary>Indique que le mute automatique est actuellement actif.</summary>
-    private bool _mutedForCapture;
-
-    private void ApplyAutoMute()
+    public string PreviewPlaceholderText
     {
-        if (!MutePlayersOnRecord || _mutedForCapture) return;
-        _savedPlayerVolume = PlayerVolume;
-        PlayerVolume       = 0;
-        _mutedForCapture   = true;
+        get
+        {
+            var scene = _studioController.ActiveScene;
+            if (scene == null)
+                return "Aucune scène active — créez-en une dans l'onglet Scènes.";
+            if (!_studioController.HasVideoSource(scene))
+                return "Cette scène n'a pas de source vidéo.";
+            return "";
+        }
     }
 
-    private void RestoreAutoMute()
+    public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
+
+    private void RefreshPreviewPlaceholder()
     {
-        if (!_mutedForCapture) return;
-        // Restaure uniquement quand ni recording ni streaming ne sont actifs
-        if (IsRecording || IsStreaming) return;
-        PlayerVolume     = _savedPlayerVolume;
-        _mutedForCapture = false;
+        OnPropertyChanged(nameof(PreviewPlaceholderText));
+        OnPropertyChanged(nameof(ShowPreviewPlaceholder));
     }
 
     // ── Streaming state (F1) ──
 
     [ObservableProperty]
     private bool _isStreaming;
-
-    [ObservableProperty]
-    private int _streamSceneIndex;
 
     [ObservableProperty]
     private int _streamPlatformIndex;
@@ -113,24 +76,75 @@ public partial class StudioViewModel : ViewModelBase
     public IBrush StreamStatusBrush => IsStreaming
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
-    public IBrush StreamTimerBrush => IsStreaming
+    public IBrush StreamTimerBrush => IsStreaming || IsRecording
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
 
-    partial void OnIsStreamingChanged(bool value)
+    // ── Barre de scène : état réel (remplace le « Prêt » codé en dur) ──
+
+    public string SceneBarStatusText => IsStreaming ? "EN DIRECT"
+                                      : IsRecording ? "REC"
+                                      : "Prêt";
+    public IBrush SceneBarStatusBrush => IsStreaming || IsRecording
+        ? SolidColorBrush.Parse("#f87171")
+        : SolidColorBrush.Parse("#34d399");
+
+    private void NotifySessionStateChanged()
     {
         OnPropertyChanged(nameof(StreamStatusText));
         OnPropertyChanged(nameof(StreamStatusBrush));
         OnPropertyChanged(nameof(StreamTimerBrush));
+        OnPropertyChanged(nameof(SceneBarStatusText));
+        OnPropertyChanged(nameof(SceneBarStatusBrush));
+    }
+
+    partial void OnIsStreamingChanged(bool value)
+    {
+        NotifySessionStateChanged();
+        if (value) StartSessionTimerIfNeeded();
+    }
+
+    // ── Timer stream/record ──
+
+    [ObservableProperty]
+    private string _streamTimerText = "00:00:00";
+
+    private readonly DispatcherTimer _sessionTimer;
+    private DateTime? _sessionStartUtc;
+
+    /// <summary>Démarre le timer si aucune session (stream/recording) n'est déjà en cours.</summary>
+    private void StartSessionTimerIfNeeded()
+    {
+        if (_sessionStartUtc != null) return; // déjà en cours (l'autre était déjà actif)
+        _sessionStartUtc = DateTime.UtcNow;
+        StreamTimerText  = "00:00:00";
+        _sessionTimer.Start();
+    }
+
+    /// <summary>Arrête et remet le timer à zéro. Appelé explicitement à l'arrêt du
+    /// stream ou de l'enregistrement (pas seulement à la fermeture de l'app).</summary>
+    private void ResetSessionTimer()
+    {
+        _sessionTimer.Stop();
+        _sessionStartUtc = null;
+        StreamTimerText  = "00:00:00";
+    }
+
+    private void OnSessionTimerTick(object? sender, EventArgs e)
+    {
+        if (_sessionStartUtc == null) return;
+        var elapsed = DateTime.UtcNow - _sessionStartUtc.Value;
+        StreamTimerText = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
     }
 
     // ── Provider helpers ──
+
+    /* Index du ComboBox plateforme : 0=Twitch, 1=YouTube Live, 2=RTMP Manuel */
 
     private static string? GetProviderId(int platformIndex) => platformIndex switch
     {
         0 => "twitch",
         1 => "youtube",
-        2 => "facebook",
         _ => null   // RTMP Manuel
     };
 
@@ -138,7 +152,6 @@ public partial class StudioViewModel : ViewModelBase
     {
         0 => "Twitch",
         1 => "YouTube Live",
-        2 => "Facebook Live",
         _ => "RTMP"
     };
 
@@ -167,7 +180,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         RefreshProviderState(value);
 
-        if (value == 3 && string.IsNullOrWhiteSpace(StreamRtmpKey))
+        if (value == 2 && string.IsNullOrWhiteSpace(StreamRtmpKey))
             StreamRtmpKey = AppSettings.CustomRtmpUrl;
     }
 
@@ -177,21 +190,29 @@ public partial class StudioViewModel : ViewModelBase
     private bool _isRecording;
 
     [ObservableProperty]
-    private int _recordSceneIndex;
-
-    [ObservableProperty]
     private string _recordError = "";
-
-    public string RecordStatusText => IsRecording ? "REC" : "";
 
     partial void OnIsRecordingChanged(bool value)
     {
-        OnPropertyChanged(nameof(RecordStatusText));
+        NotifySessionStateChanged();
+        if (value) StartSessionTimerIfNeeded();
     }
 
-    // ── Dock layout ──
+    // ── Résolution/fps de sortie (remplace le « 1920 × 1080 » codé en dur) ──
 
-    public IRootDock Layout { get; }
+    [ObservableProperty]
+    private string _outputInfoText = "";
+
+    /// <summary>Relit la résolution et le fps de sortie depuis les paramètres.
+    /// Appelé à chaque affichage de la page Studio, pour refléter un
+    /// changement fait dans Paramètres → Vidéo.</summary>
+    public void RefreshOutputInfo()
+    {
+        var settings = _settingsService.Load();
+        var (w, h)   = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
+        int fps      = FpsFromIndex(settings.SelectedFpsIndex);
+        OutputInfoText = $"{w} × {h} @ {fps} fps";
+    }
 
     // ── Constructor ──
 
@@ -209,16 +230,21 @@ public partial class StudioViewModel : ViewModelBase
         _studioController  = studioController;
         _filePickerService = filePickerService;
 
-        // Charge les valeurs de lecture depuis les paramètres persistés
-        var settings = settingsService.Load();
-        _playerVolume        = settings.PlayerVolume;
-        _mutePlayersOnRecord = settings.MutePlayersOnRecord;
-        _savedPlayerVolume   = _playerVolume;
+        _studioController.ActiveSceneChanged += OnActiveSceneChanged;
 
         RefreshProviderState(_streamPlatformIndex);
-        var factory = new StudioDockFactory(this);
-        Layout = factory.CreateLayout();
-        factory.InitLayout(Layout);
+        RefreshOutputInfo();
+
+        _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _sessionTimer.Tick += OnSessionTimerTick;
+    }
+
+    private void OnActiveSceneChanged()
+    {
+        OnPropertyChanged(nameof(ActiveScene));
+        // Une bascule de scène depuis une autre page (Scènes, Multicam) doit
+        // aussi mettre à jour le placeholder du preview.
+        RefreshPreviewPlaceholder();
     }
 
     // ── Helpers settings → valeurs encoder ───────────────────────────────────
@@ -251,6 +277,9 @@ public partial class StudioViewModel : ViewModelBase
     /// </summary>
     public void EnsurePreviewRunning()
     {
+        RefreshOutputInfo();
+        RefreshPreviewPlaceholder();
+
         var scene = _studioController.ActiveScene;
         if (scene == null)
         {
@@ -280,8 +309,6 @@ public partial class StudioViewModel : ViewModelBase
         });
     }
 
-    public string? CurrentPreviewPullUrl => ActiveScene == null ? null : _studioController.GetPreviewPullUrl(ActiveScene.Id);
-
     // ── Streaming error ──
 
     [ObservableProperty]
@@ -303,7 +330,7 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         // Mapping index UI flyout -> StreamingPlatform
-        // 0=Twitch, 1=YouTube Live, 2=Facebook Live, 3=RTMP Manuel
+        // 0=Twitch, 1=YouTube Live, 2=RTMP Manuel
         StreamingPlatform service = StreamPlatformIndex switch
         {
             0 => StreamingPlatform.Twitch,
@@ -364,7 +391,6 @@ public partial class StudioViewModel : ViewModelBase
         if (result == 0)
         {
             IsStreaming = true;
-            ApplyAutoMute();
         }
         else
             StreamError = result switch
@@ -392,7 +418,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         _studioController.StopStream();
         IsStreaming = false;
-        RestoreAutoMute();
+        ResetSessionTimer();
     }
 
     // ── Recording commands ──
@@ -431,7 +457,6 @@ public partial class StudioViewModel : ViewModelBase
         if (result == 0)
         {
             IsRecording = true;
-            ApplyAutoMute();
         }
         else
         {
@@ -460,31 +485,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         _studioController.StopRecording();
         IsRecording = false;
-        RestoreAutoMute();
+        ResetSessionTimer();
     }
-
-    // ── Source management ──
-
-    [RelayCommand]
-    private void AddSource()
-    {
-        Sources.Add(new SourceItem("Nouvelle source", SourceKind.Video, "#5b8def"));
-    }
-
-    [RelayCommand]
-    private void RemoveSource(SourceItem source)
-    {
-        Sources.Remove(source);
-    }
-}
-
-public sealed class SourcesPanelContext(StudioViewModel studio)
-{
-    public StudioViewModel Studio => studio;
-}
-
-public sealed class AudioPanelContext(StudioViewModel studio)
-{
-    public StudioViewModel Studio => studio;
 }
 

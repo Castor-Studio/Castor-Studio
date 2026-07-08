@@ -25,8 +25,7 @@
 
                     <ComboBoxItem Content="Twitch"/>
                     <ComboBoxItem Content="YouTube Live"/>
-                    <ComboBoxItem Content="Facebook Live"/>
-                    <ComboBoxItem Content="Personnalis� (RTMP)"/>
+                    <ComboBoxItem Content="Personnalisé (RTMP)"/>
 
                 </ComboBox>
 
@@ -35,7 +34,7 @@
             <Grid ColumnDefinitions="180,*">
 
                 <TextBlock Grid.Column="0"
-                           Text="Cl� de stream"
+                           Text="Clé de stream"
                            Classes="setting-label"/>
 
                 <TextBox Grid.Column="1"
@@ -44,8 +43,8 @@
                          Background="{DynamicResource AppSurface2}"
                          BorderBrush="{DynamicResource AppBorder2}"
                          Foreground="{DynamicResource AppFg2}"
-                         PasswordChar="�"
-                         Watermark="Entrez votre cl� de stream..."
+                         PasswordChar="•"
+                         Watermark="Entrez votre clé de stream..."
                          Text="{Binding StreamKey}"/>
 
             </Grid>
@@ -76,7 +75,7 @@
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             Spacing="10"
-                            MaxWidth="320">
+                            HorizontalAlignment="Left">
 
                     <Slider Minimum="500"
                             Maximum="10000"
@@ -91,25 +90,6 @@
                                Text="{Binding StreamingBitrateDisplay}"/>
 
                 </StackPanel>
-
-            </Grid>
-
-            <Grid ColumnDefinitions="180,*">
-
-                <TextBlock Grid.Column="0"
-                           Text="Serveur"
-                           Classes="setting-label"/>
-
-                <ComboBox Grid.Column="1"
-                          MaxWidth="260"
-                          HorizontalAlignment="Left"
-                          SelectedIndex="{Binding SelectedServerIndex}">
-
-                    <ComboBoxItem Content="Auto (recommand�)"/>
-                    <ComboBoxItem Content="Europe - Paris"/>
-                    <ComboBoxItem Content="Europe - Amsterdam"/>
-
-                </ComboBox>
 
             </Grid>
 

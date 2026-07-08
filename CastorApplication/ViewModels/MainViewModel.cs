@@ -1,3 +1,6 @@
+using Avalonia.Media;
+using Avalonia.Threading;
+using Castor.Engine.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CastorApplication.ViewModels.Settings;
@@ -18,6 +21,28 @@ public partial class MainViewModel : ViewModelBase
     private readonly MulticamViewModel _multicamViewModel;
     private readonly ScenesViewModel _scenesViewModel;
     private readonly SettingsViewModel _settingsViewModel;
+    private readonly IStudioController _studioController;
+
+    // ── Badge d'état global (navbar) ─────────────────────────────────────────
+
+    public string GlobalStatusText => _studioController.IsStreaming ? "EN DIRECT"
+                                    : _studioController.IsRecording ? "REC"
+                                    : "OFFLINE";
+
+    public IBrush GlobalStatusBrush => _studioController.IsStreaming || _studioController.IsRecording
+        ? SolidColorBrush.Parse("#f87171")
+        : SolidColorBrush.Parse("#3c3c4e");
+
+    private void NotifyGlobalStatusChanged()
+    {
+        // StreamingStarted peut être levé depuis un thread de fond (StartStream
+        // tourne dans un Task.Run) : on repasse sur le thread UI.
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(GlobalStatusText));
+            OnPropertyChanged(nameof(GlobalStatusBrush));
+        });
+    }
 
     [ObservableProperty]
     private ViewModelBase? _currentPage;
@@ -34,12 +59,19 @@ public partial class MainViewModel : ViewModelBase
         StudioViewModel studioViewModel,
         MulticamViewModel multicamViewModel,
         ScenesViewModel scenesViewModel,
-        SettingsViewModel settingsViewModel)
+        SettingsViewModel settingsViewModel,
+        IStudioController studioController)
     {
         _studioViewModel = studioViewModel;
         _multicamViewModel = multicamViewModel;
         _scenesViewModel = scenesViewModel;
         _settingsViewModel = settingsViewModel;
+        _studioController = studioController;
+
+        _studioController.RecordingStarted += NotifyGlobalStatusChanged;
+        _studioController.RecordingStopped += NotifyGlobalStatusChanged;
+        _studioController.StreamingStarted += NotifyGlobalStatusChanged;
+        _studioController.StreamingStopped += NotifyGlobalStatusChanged;
 
         ShowStudio();
     }

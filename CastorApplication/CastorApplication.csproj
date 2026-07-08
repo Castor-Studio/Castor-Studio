@@ -37,19 +37,20 @@
 		</PackageReference>
 
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="Google.Protobuf" Version="3.29.3" />
+		<PackageReference Include="Grpc.Net.Client" Version="2.67.0" />
+		<PackageReference Include="Grpc.Tools" Version="2.67.0">
+			<PrivateAssets>All</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.7" />
 		<PackageReference Include="TwitchLib" Version="3.5.3" />
-		<PackageReference Include="Dock.Avalonia" Version="11.3.2" />
-		<PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="11.3.2" />
-		<PackageReference Include="Dock.Model.Mvvm" Version="11.3.2" />
-		<PackageReference Include="Dock.Serializer.Newtonsoft" Version="11.3.2" />
-		<PackageReference Include="LibVLCSharp" Version="3.9.6" />
-		<PackageReference Include="LibVLCSharp.Avalonia" Version="3.9.6" />
-		<PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23" />
-
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Castor.Engine\Castor.Engine.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<Protobuf Include="Protos\ia_analysis.proto" GrpcServices="Client" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Content Include="config.json">
@@ -74,5 +75,30 @@
 			<DependentUpon>StudioView.axaml</DependentUpon>
 		</Compile>
 	</ItemGroup>
+
+	<PropertyGroup>
+		<CastorConfigurationLower>$([System.String]::Copy('$(Configuration)').ToLowerInvariant())</CastorConfigurationLower>
+		<CastorSolutionDir Condition="'$(SolutionDir)' != '' and '$(SolutionDir)' != '*Undefined*'">$(SolutionDir)</CastorSolutionDir>
+		<CastorSolutionDir Condition="'$(CastorSolutionDir)' == ''">$(MSBuildThisFileDirectory)..\</CastorSolutionDir>
+		<CastorNativeOutputDir>$(CastorSolutionDir)out\build\x64-$(CastorConfigurationLower)\libcastor\</CastorNativeOutputDir>
+		<CastorNativeDll>$(CastorNativeOutputDir)castor_core.dll</CastorNativeDll>
+	</PropertyGroup>
+
+	<Target Name="CheckNativeDll" BeforeTargets="Build">
+		<Error
+			Condition="!Exists('$(CastorNativeDll)')"
+			Text="Native DLL not found at '$(CastorNativeDll)'. Run scripts/build-all.ps1 -Configuration $(Configuration) from the repository root." />
+	</Target>
+
+	<ItemGroup>
+		<CastorNativeRuntimeDlls Include="$(CastorNativeOutputDir)*.dll" />
+	</ItemGroup>
+
+	<Target Name="CopyNativeDlls" AfterTargets="Build">
+		<Copy
+			SourceFiles="@(CastorNativeRuntimeDlls)"
+			DestinationFolder="$(OutputPath)"
+			SkipUnchangedFiles="true" />
+	</Target>
 
 </Project>

@@ -38,13 +38,34 @@ public sealed class StudioController(
         remove => recorderService.StreamingStopped -= value;
     }
 
-    public SceneItem CreateScene(string name) => sceneService.CreateScene(name);
+    public event Action? ActiveSceneChanged;
 
-    public void DeleteScene(SceneItem scene) => sceneService.DeleteScene(scene);
+    public SceneItem CreateScene(string name)
+    {
+        var previousScene = sceneService.ActiveScene;
+        var scene = sceneService.CreateScene(name);
+        NotifyActiveSceneChangedIfNeeded(previousScene);
+        return scene;
+    }
+
+    public void DeleteScene(SceneItem scene)
+    {
+        var previousScene = sceneService.ActiveScene;
+
+        if (recorderService.IsPreviewActive(scene.Id))
+            recorderService.StopPreview(scene);
+
+        sceneService.DeleteScene(scene);
+        NotifyActiveSceneChangedIfNeeded(previousScene);
+    }
+
+    public void RenameScene(SceneItem scene, string newName) => sceneService.RenameScene(scene, newName);
 
     public void SelectScene(SceneItem scene)
     {
+        var previousScene = sceneService.ActiveScene;
         sceneService.SetActiveScene(scene);
+        NotifyActiveSceneChangedIfNeeded(previousScene);
 
         if (recorderService.IsRecording || recorderService.IsStreaming)
             _ = Task.Run(() => recorderService.SwitchScene(scene));
@@ -53,34 +74,61 @@ public sealed class StudioController(
             _ = Task.Run(() => recorderService.StartPreview(scene));
     }
 
+    private void NotifyActiveSceneChangedIfNeeded(SceneItem? previousScene)
+    {
+        if (previousScene == sceneService.ActiveScene) return;
+        ActiveSceneChanged?.Invoke();
+    }
+
     public SourceItem AddVideoSource(SceneItem scene, CaptureSourceOption source)
     {
-        return sceneService.AddVideoSource(scene, source);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Video,
+            () => sceneService.AddVideoSource(scene, source));
     }
 
     public SourceItem AddNetworkVideoSource(SceneItem scene, string label, string url)
     {
-        return sceneService.AddVideoSource(scene, label, url);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Video,
+            () => sceneService.AddVideoSource(scene, label, url));
     }
 
     public SourceItem AddAudioSource(SceneItem scene, AudioSourceOption source)
     {
-        return sceneService.AddAudioSource(scene, source);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Audio,
+            () => sceneService.AddAudioSource(scene, source));
     }
 
     public SourceItem AddFileVideoSource(SceneItem scene, FileVideoSourceOption option)
     {
-        return sceneService.AddFileVideoSource(scene, option);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Video,
+            () => sceneService.AddFileVideoSource(scene, option));
     }
 
     public SourceItem AddFileAudioSource(SceneItem scene, FileAudioSourceOption option)
     {
-        return sceneService.AddFileAudioSource(scene, option);
+        return ReplaceSourcesAndRestartPreview(
+            scene,
+            SourceKind.Audio,
+            () => sceneService.AddFileAudioSource(scene, option));
     }
 
     public void RemoveSource(SceneItem scene, SourceItem source)
     {
+        var previewWasActive = recorderService.IsPreviewActive(scene.Id);
+        if (previewWasActive)
+            recorderService.StopPreview(scene);
+
         sceneService.RemoveSource(scene, source);
+
+        RestartPreviewIfNeeded(scene, previewWasActive);
     }
 
     public bool HasVideoSource(SceneItem scene)
@@ -95,6 +143,21 @@ public sealed class StudioController(
         if (!HasVideoSource(scene)) return -2;
         if (recorderService.IsPreviewActive(scene.Id)) return 0;
         return recorderService.StartPreview(scene);
+    }
+
+    /// <summary>
+    /// Force la (re)création de la preview d'une scène, même si elle est déjà active.
+    /// Utilisé pour démarrer plusieurs scènes à sources fichier au même instant : comme
+    /// elles partagent la même horloge de synchro native (voir castor_file_sync_epoch_us),
+    /// les relancer coup sur coup les garde en phase les unes avec les autres.
+    /// </summary>
+    public void RestartPreview(SceneItem scene)
+    {
+        if (recorderService.IsPreviewActive(scene.Id))
+            recorderService.StopPreview(scene);
+
+        if (HasVideoSource(scene))
+            _ = Task.Run(() => recorderService.StartPreview(scene));
     }
 
     public string GetPreviewPullUrl(Guid sceneId) => mediaMtxService.GetPreviewPullUrl(sceneId);
@@ -125,5 +188,33 @@ public sealed class StudioController(
     public void StopStream()
     {
         recorderService.StopStream();
+    }
+
+    private SourceItem ReplaceSourcesAndRestartPreview(
+        SceneItem scene,
+        SourceKind kind,
+        Func<SourceItem> addSource)
+    {
+        var previewWasActive = recorderService.IsPreviewActive(scene.Id);
+        if (previewWasActive)
+            recorderService.StopPreview(scene);
+
+        foreach (var existing in scene.Sources.Where(source => source.Kind == kind).ToArray())
+            sceneService.RemoveSource(scene, existing);
+
+        var item = addSource();
+
+        RestartPreviewIfNeeded(scene, previewWasActive);
+
+        if ((recorderService.IsRecording || recorderService.IsStreaming) && scene == sceneService.ActiveScene)
+            _ = Task.Run(() => recorderService.SwitchScene(scene));
+
+        return item;
+    }
+
+    private void RestartPreviewIfNeeded(SceneItem scene, bool previewWasActive)
+    {
+        if (!previewWasActive || !HasVideoSource(scene)) return;
+        _ = Task.Run(() => recorderService.StartPreview(scene));
     }
 }

@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+option csharp_namespace = "Castor.IA.Proto";
+
+package castor.ia;
+
+service IaAnalysisService {
+  rpc StartSession(StartSessionRequest) returns (StartSessionResponse);
+  rpc AnalysisStream(stream ClientMessage) returns (stream ServerEvent);
+  rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
+}
+
+message StartSessionRequest {
+  string              module_name   = 1;
+  map<string, string> module_config = 2;
+}
+
+message StartSessionResponse {
+  bool   success    = 1;
+  string session_id = 2;
+  string message    = 3;
+  string error_code = 4;
+}
+
+message ClientMessage {
+  string session_id = 1;
+  oneof payload {
+    SourceList sources    = 2;
+    KeepAlive  keep_alive = 3;
+    StopSignal stop       = 4;
+  }
+}
+
+message SourceList {
+  repeated Source sources = 1;
+}
+
+message Source {
+  string              scene_id = 1;
+  string              url       = 2;
+  string              label     = 3;
+  map<string, string> metadata  = 4;
+}
+
+message KeepAlive {
+  int64 timestamp_ms = 1;
+}
+
+message StopSignal {
+  string reason = 1;
+}
+
+message EndSessionRequest {
+  string session_id = 1;
+}
+
+message EndSessionResponse {
+  bool   success = 1;
+  string message = 2;
+}
+
+message ServerEvent {
+  string          session_id   = 1;
+  int64           timestamp_ms = 2;
+  ServerEventType event_type   = 3;
+  oneof payload {
+    SceneSwitch   switch_suggestion = 4;
+    SessionStatus status            = 5;
+    ServerError   error             = 6;
+  }
+}
+
+message SceneSwitch {
+  string scene_id   = 1;
+  float  confidence = 2;
+}
+
+message SessionStatus {
+  SessionState state   = 1;
+  string       message = 2;
+}
+
+message ServerError {
+  string error_code    = 1;
+  string error_message = 2;
+  bool   is_fatal      = 3;
+}
+
+enum ServerEventType {
+  SERVER_EVENT_UNKNOWN          = 0;
+  SERVER_EVENT_SWITCH_SUGGESTED = 1;
+  SERVER_EVENT_STATUS_CHANGED   = 2;
+  SERVER_EVENT_ERROR            = 3;
+}
+
+enum SessionState {
+  SESSION_STATE_UNKNOWN      = 0;
+  SESSION_STATE_INITIALIZING = 1;
+  SESSION_STATE_READY        = 2;
+  SESSION_STATE_ANALYZING    = 3;
+  SESSION_STATE_STOPPED      = 4;
+  SESSION_STATE_ERROR        = 5;
+}

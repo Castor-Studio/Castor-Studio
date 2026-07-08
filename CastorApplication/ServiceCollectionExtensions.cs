@@ -1,6 +1,7 @@
 using System.Net.Http;
 using Castor.Engine.Services;
 using CastorApplication.Services;
+using CastorApplication.Services.Ai;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Providers.Twitch;
@@ -35,6 +36,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<SettingsService>();
         collection.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         collection.AddSingleton<IThemeService, AvaloniaThemeService>();
+        collection.AddSingleton<IAiAnalysisClient, GrpcAiAnalysisClient>();
 
         collection.AddTransient<MainViewModel>();
 

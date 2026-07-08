@@ -74,6 +74,15 @@ CASTOR_CORE_API int recorder_switch_video_source(CastorRecorder*          rec,
                                                   int                      stream_index,
                                                   const CaptureSourceInfo* new_src);
 
+/* Bascule la source audio d'un stream en cours d'enregistrement.
+ * La bascule est appliquee par le thread audio lui-meme (proprietaire de
+ * la capture) ; l'appel attend son acquittement (~1 frame audio).
+ * Retourne 0 si applique, -2 si le thread n'a pas acquitte a temps
+ * (la bascule reste programmee), -1 si parametres invalides. */
+CASTOR_CORE_API int recorder_switch_audio_source(CastorRecorder*        rec,
+                                                  int                    stream_index,
+                                                  const AudioSourceInfo* new_src);
+
 #ifdef __cplusplus
 }
 #endif

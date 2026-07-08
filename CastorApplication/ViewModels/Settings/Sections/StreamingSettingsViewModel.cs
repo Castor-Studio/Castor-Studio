@@ -15,9 +15,6 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
     private string _rtmpUrl = "";
 
     [ObservableProperty]
-    private int _selectedServerIndex;
-
-    [ObservableProperty]
     private double _streamingBitrate = 4000;
 
     public string StreamingBitrateDisplay => $"{(int)StreamingBitrate}";
@@ -27,11 +24,17 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
 
     protected override void LoadCore(ApplicationSettings settings)
     {
-        SelectedPlatformIndex = settings.SelectedPlatformIndex;
-        StreamKey             = settings.StreamKey;
-        RtmpUrl               = settings.RtmpUrl;
-        SelectedServerIndex   = settings.SelectedServerIndex;
-        StreamingBitrate      = settings.StreamingBitrate;
+        // Migration : Facebook Live (ex-index 2) a été retiré du sélecteur.
+        // Ancien 3 (Personnalisé) → 2 ; ancien 2 (Facebook) → 0 (Twitch).
+        SelectedPlatformIndex = settings.SelectedPlatformIndex switch
+        {
+            3     => 2,
+            2     => 0,
+            var i => i,
+        };
+        StreamKey        = settings.StreamKey;
+        RtmpUrl          = settings.RtmpUrl;
+        StreamingBitrate = settings.StreamingBitrate;
     }
 
     protected override void SaveCore(ApplicationSettings settings)
@@ -39,7 +42,6 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         settings.SelectedPlatformIndex = SelectedPlatformIndex;
         settings.StreamKey             = StreamKey;
         settings.RtmpUrl               = RtmpUrl;
-        settings.SelectedServerIndex   = SelectedServerIndex;
         settings.StreamingBitrate      = StreamingBitrate;
     }
 }

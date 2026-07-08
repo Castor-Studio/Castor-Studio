@@ -1,6 +1,7 @@
 name: Build & Test
 
 on:
+  push:
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -8,12 +9,52 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-      - run: dotnet restore
-      - run: dotnet build --configuration Release --no-restore
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Setup Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v5
+
+      - name: Setup vcpkg
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg "$env:RUNNER_TEMP/vcpkg"
+          & "$env:RUNNER_TEMP/vcpkg/bootstrap-vcpkg.bat" -disableMetrics
+          "VCPKG_ROOT=$env:RUNNER_TEMP/vcpkg" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Native - Install vcpkg dependencies
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_ROOT/vcpkg.exe" install `
+            --triplet x64-windows `
+            --x-manifest-root="$PWD/libcastor" `
+            --x-install-root="$PWD/libcastor/vcpkg_installed"
+
+      - name: Native - Configure CMake
+        shell: pwsh
+        run: cmake --preset x64-release
+
+      - name: Native - Build DLL
+        shell: pwsh
+        run: cmake --build out/build/x64-release
+
+      - name: .NET - Restore solution
+        shell: pwsh
+        run: dotnet restore Castor.sln '-p:Platform=Any CPU'
+
+      - name: .NET - Build solution
+        shell: pwsh
+        run: dotnet build Castor.sln -c Release '-p:Platform=Any CPU' --no-restore
 
   # tests:
   #   needs: build

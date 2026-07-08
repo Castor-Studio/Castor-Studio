@@ -23,7 +23,8 @@ target_include_directories(castor_core PRIVATE "include/source")
 
 if (WIN32)
     target_compile_definitions(castor_core PRIVATE CASTOR_CORE_BUILD_DLL)
-    target_link_libraries(castor_core PRIVATE winmm dwmapi mmdevapi windowsapp d3d11 winhttp)
+    target_compile_definitions(castor_core PRIVATE _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+    target_link_libraries(castor_core PRIVATE winmm dwmapi mmdevapi windowsapp d3d11 dxgi d3dcompiler winhttp)
 endif()
 
 find_package(FFMPEG REQUIRED)
@@ -33,13 +34,3 @@ target_link_libraries(castor_core PRIVATE ${FFMPEG_LIBRARIES})
 
 find_package(PThreads4W REQUIRED)
 target_link_libraries(castor_core PRIVATE PThreads4W::PThreads4W)
-
-set(SLN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
-set(CASTOR_APP_BIN "${SLN_DIR}/CastorApplication/bin/$<CONFIG>/net8.0")
-
-add_custom_command(TARGET castor_core POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CASTOR_APP_BIN}"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "$<TARGET_FILE_DIR:castor_core>"
-        "${CASTOR_APP_BIN}"
-)

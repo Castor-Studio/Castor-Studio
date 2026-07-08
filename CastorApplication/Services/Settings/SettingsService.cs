@@ -80,7 +80,7 @@ public sealed class SettingsService
         }
     }
 
-    private static void WriteFileAtomically(string destinationPath, string content)
+    internal static void WriteFileAtomically(string destinationPath, string content)
     {
         var directory = Path.GetDirectoryName(destinationPath)
             ?? throw new InvalidOperationException("Settings destination directory is invalid.");

@@ -1,6 +1,7 @@
 #define INITGUID
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <dwmapi.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <mfapi.h>
 #include <mfidl.h>
@@ -12,17 +13,21 @@
 #include "AudioCapture.h"
 #include "source/source.h"
 #include "source/source_registry.h"
+#include "utils/sync_clock.h"
 
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
+#include <libavutil/mathematics.h>
 #include <libavutil/opt.h>
+#include <libavutil/time.h>
 
 #pragma comment(lib, "mf.lib")
 #pragma comment(lib, "mfplat.lib")
 #pragma comment(lib, "mfreadwrite.lib")
 #pragma comment(lib, "mfuuid.lib")
 #pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "dwmapi.lib")
 
 /* ------------------------------------------------------------------ *
  *  GUIDs definis manuellement (coherent avec le reste du fichier)
@@ -60,6 +65,9 @@ typedef struct {
     WAVEFORMATEX*         wave_fmt;
     int                   sample_rate;
     int                   channels;
+    HANDLE                event;      /* mode EVENTCALLBACK (process loopback) — NULL sinon.
+                                       * ATTENTION : layout dupliqué dans AudioProcessLoopback.cpp,
+                                       * garder les deux définitions identiques. */
 } AudioCaptureInternal;
 
 typedef struct {
@@ -361,6 +369,7 @@ CASTOR_CORE_API void audio_capture_cleanup(AudioCaptureContext* ctx) {
     if (internal->device)    internal->device->lpVtbl->Release(internal->device);
     if (internal->enumerator)internal->enumerator->lpVtbl->Release(internal->enumerator);
     if (internal->wave_fmt)  CoTaskMemFree(internal->wave_fmt);
+    if (internal->event)     CloseHandle(internal->event);
 
     free(internal);
     ctx->internal = NULL;
@@ -396,12 +405,23 @@ static int is_camera_mic(const char* name) {
     return 0;
 }
 
+/* Fenetre "cloaked" par DWM : invisible a l'ecran mais IsWindowVisible
+ * retourne TRUE (applis UWP suspendues : Parametres, Films et TV, ...).
+ * Meme filtre que dans VideoCapture.cpp. */
+static int is_window_cloaked(HWND hwnd) {
+    DWORD cloaked = 0;
+    return SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED,
+                                           &cloaked, sizeof(cloaked)))
+           && cloaked != 0;
+}
+
 /* Forward declare avant capture_list_all_audio car utilise dedans */
 static BOOL CALLBACK _enum_windows_audio_cb(HWND hwnd, LPARAM lp) {
     typedef struct { AudioSourceInfo* out; int max; int count; } Ctx;
     Ctx* c = (Ctx*)lp;
     if (c->count >= c->max) return FALSE;
     if (!IsWindowVisible(hwnd)) return TRUE;
+    if (is_window_cloaked(hwnd)) return TRUE;
     char title[256] = {0};
     GetWindowTextA(hwnd, title, sizeof(title));
     if (strlen(title) == 0) return TRUE;
@@ -631,6 +651,26 @@ static int audio_capture_init_file(AudioCaptureContext* ctx, const char* path, i
         avformat_close_input(&internal->fmt_ctx);
         free(internal);
         return -1;
+    }
+
+    /* Synchronisation inter-scenes : meme logique que video_capture_init_file
+     * et FileCapture. Sans ce seek, un switch audio vers une scene fichier
+     * repartirait du debut du fichier et se desynchroniserait de la video
+     * (qui, elle, se cale sur l'horloge de sync partagee). */
+    {
+        int64_t duration_us = internal->fmt_ctx->duration;
+        if (duration_us <= 0 && stream->duration > 0 && stream->time_base.den > 0)
+            duration_us = av_rescale_q(stream->duration, stream->time_base, AV_TIME_BASE_Q);
+
+        if (duration_us > 0) {
+            int64_t elapsed_us = av_gettime_relative() - castor_file_sync_epoch_us();
+            if (elapsed_us < 0) elapsed_us = 0;
+
+            int64_t seek_target_us = loop ? (elapsed_us % duration_us)
+                                          : (elapsed_us < duration_us ? elapsed_us : duration_us);
+            if (seek_target_us > 0)
+                av_seek_frame(internal->fmt_ctx, -1, seek_target_us, AVSEEK_FLAG_BACKWARD);
+        }
     }
 
     internal->sample_rate = 48000;
