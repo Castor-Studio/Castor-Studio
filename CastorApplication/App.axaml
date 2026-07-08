@@ -187,6 +187,14 @@
 		<FluentTheme />
         <StyleInclude Source="avares://CastorApplication/Styles/SettingsStyles.axaml"/>
 
+        <!-- Centrage vertical par défaut du contenu des boutons : sans lui,
+             le contenu est en Stretch et le texte se dessine en haut des
+             boutons à hauteur fixe (CRÉER LA SCÈNE, RENOMMER, barre du
+             Studio...). :is() couvre aussi ToggleButton & co. -->
+        <Style Selector=":is(Button)">
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
         <!-- Apparence commune de tous les flyouts/popups : alignée sur le
              dialogue « Ajouter une source » (surface, bord fin, coins 10). -->
         <Style Selector="FlyoutPresenter">
