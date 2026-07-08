@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.VisualTree;
+using Avalonia.LogicalTree;
 using Castor.Engine.Models;
 using CastorApplication.ViewModels;
 
@@ -44,8 +44,10 @@ public partial class ScenesView : UserControl
 
     private static void CloseParentFlyout(object? sender)
     {
+        // Le contenu d'un flyout vit dans un PopupRoot séparé : le Popup hôte
+        // n'est pas un ancêtre VISUEL, il faut remonter l'arbre LOGIQUE.
         if (sender is not Control control) return;
-        control.FindAncestorOfType<Popup>()?.Close();
+        control.FindLogicalAncestorOfType<Popup>()?.Close();
     }
 
     /// <summary>Ouvre le dialogue modal « Ajouter une source » et applique
