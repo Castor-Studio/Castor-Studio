@@ -1,7 +1,9 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Castor.Engine.Models;
 using CastorApplication.ViewModels;
 
@@ -14,6 +16,36 @@ public partial class ScenesView : UserControl
     public ScenesView()
     {
         InitializeComponent();
+    }
+
+    /// <summary>Entrée dans le champ « Nouvelle scène » : crée la scène et
+    /// ferme la popup (équivalent du bouton CRÉER LA SCÈNE).</summary>
+    private void OnCreateSceneKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || DataContext is not ScenesViewModel vm) return;
+        vm.CreateSceneCommand.Execute(null);
+        CloseParentFlyout(sender);
+        e.Handled = true;
+    }
+
+    /// <summary>Entrée dans le champ de renommage : applique le nouveau nom
+    /// et ferme la popup (équivalent du bouton RENOMMER).</summary>
+    private void OnRenameSceneKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || DataContext is not ScenesViewModel vm) return;
+        vm.ConfirmRenameSceneCommand.Execute(null);
+        CloseParentFlyout(sender);
+        e.Handled = true;
+    }
+
+    /// <summary>Ferme le flyout contenant le bouton cliqué — les boutons de
+    /// validation des popups laissaient le flyout ouvert après action.</summary>
+    private void OnCloseFlyoutClick(object? sender, RoutedEventArgs e) => CloseParentFlyout(sender);
+
+    private static void CloseParentFlyout(object? sender)
+    {
+        if (sender is not Control control) return;
+        control.FindAncestorOfType<Popup>()?.Close();
     }
 
     /// <summary>Ouvre le dialogue modal « Ajouter une source » et applique

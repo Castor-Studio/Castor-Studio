@@ -120,10 +120,12 @@
                                         <TextBlock Text="Nom de la scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <TextBox Text="{Binding NewSceneName}"
                                                  Watermark="Ex: Match Live"
+                                                 KeyDown="OnCreateSceneKeyDown"
                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
                                     </StackPanel>
                                     <Button Content="CRÉER LA SCÈNE"
                                             Command="{Binding CreateSceneCommand}"
+                                            Click="OnCloseFlyoutClick"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                             Height="36" Background="#5b8def" Foreground="#eaeaf0"
                                             BorderThickness="0" CornerRadius="6"
@@ -372,11 +374,13 @@
                                                                     <TextBlock Text="RENOMMER LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
                                                                     <TextBox Text="{Binding #ScenesRoot.DataContext.RenameSceneName}"
+                                                                             KeyDown="OnRenameSceneKeyDown"
                                                                              Background="{DynamicResource AppSurface2}"
                                                                              BorderBrush="{DynamicResource AppBorder2}"
                                                                              Foreground="{DynamicResource AppFg2}"/>
                                                                     <Button Content="RENOMMER"
                                                                             Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"
+                                                                            Click="OnCloseFlyoutClick"
                                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                                             Height="32" Background="#5b8def" Foreground="#eaeaf0"
                                                                             BorderThickness="0" CornerRadius="6"
