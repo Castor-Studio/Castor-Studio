@@ -32,7 +32,33 @@ public partial class StudioViewModel : ViewModelBase
             if (value == null) return;
             _studioController.SelectScene(value);
             OnPropertyChanged();
+            RefreshPreviewPlaceholder();
         }
+    }
+
+    // ── Placeholder du preview ───────────────────────────────────────────────
+    // Sans lui, l'utilisateur regarde un rectangle noir sans savoir si c'est
+    // un bug ou juste une scène vide.
+
+    public string PreviewPlaceholderText
+    {
+        get
+        {
+            var scene = _studioController.ActiveScene;
+            if (scene == null)
+                return "Aucune scène active — créez-en une dans l'onglet Scènes.";
+            if (!_studioController.HasVideoSource(scene))
+                return "Cette scène n'a pas de source vidéo.";
+            return "";
+        }
+    }
+
+    public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
+
+    private void RefreshPreviewPlaceholder()
+    {
+        OnPropertyChanged(nameof(PreviewPlaceholderText));
+        OnPropertyChanged(nameof(ShowPreviewPlaceholder));
     }
 
     [ObservableProperty]
@@ -61,39 +87,6 @@ public partial class StudioViewModel : ViewModelBase
     partial void OnMicVolumeChanged(double value) => OnPropertyChanged(nameof(MicVolumeDisplay));
     partial void OnMusicVolumeChanged(double value) => OnPropertyChanged(nameof(MusicVolumeDisplay));
 
-    // ── Player preview (volume + mute auto) ──────────────────────────────────
-
-    /// <summary>Volume du player de prévisualisation VLC (0–100).</summary>
-    [ObservableProperty]
-    private double _playerVolume = 80;
-
-    /// <summary>Quand true, le player est automatiquement coupé à l'entrée en record/live.</summary>
-    [ObservableProperty]
-    private bool _mutePlayersOnRecord = true;
-
-    /// <summary>Volume sauvegardé avant le mute automatique, pour restauration à l'arrêt.</summary>
-    private double _savedPlayerVolume = 80;
-
-    /// <summary>Indique que le mute automatique est actuellement actif.</summary>
-    private bool _mutedForCapture;
-
-    private void ApplyAutoMute()
-    {
-        if (!MutePlayersOnRecord || _mutedForCapture) return;
-        _savedPlayerVolume = PlayerVolume;
-        PlayerVolume       = 0;
-        _mutedForCapture   = true;
-    }
-
-    private void RestoreAutoMute()
-    {
-        if (!_mutedForCapture) return;
-        // Restaure uniquement quand ni recording ni streaming ne sont actifs
-        if (IsRecording || IsStreaming) return;
-        PlayerVolume     = _savedPlayerVolume;
-        _mutedForCapture = false;
-    }
-
     // ── Streaming state (F1) ──
 
     [ObservableProperty]
@@ -116,11 +109,27 @@ public partial class StudioViewModel : ViewModelBase
         ? SolidColorBrush.Parse("#f87171")
         : SolidColorBrush.Parse("#3c3c4e");
 
-    partial void OnIsStreamingChanged(bool value)
+    // ── Barre de scène : état réel (remplace le « Prêt » codé en dur) ──
+
+    public string SceneBarStatusText => IsStreaming ? "EN DIRECT"
+                                      : IsRecording ? "REC"
+                                      : "Prêt";
+    public IBrush SceneBarStatusBrush => IsStreaming || IsRecording
+        ? SolidColorBrush.Parse("#f87171")
+        : SolidColorBrush.Parse("#34d399");
+
+    private void NotifySessionStateChanged()
     {
         OnPropertyChanged(nameof(StreamStatusText));
         OnPropertyChanged(nameof(StreamStatusBrush));
         OnPropertyChanged(nameof(StreamTimerBrush));
+        OnPropertyChanged(nameof(SceneBarStatusText));
+        OnPropertyChanged(nameof(SceneBarStatusBrush));
+    }
+
+    partial void OnIsStreamingChanged(bool value)
+    {
+        NotifySessionStateChanged();
         if (value) StartSessionTimerIfNeeded();
     }
 
@@ -159,11 +168,12 @@ public partial class StudioViewModel : ViewModelBase
 
     // ── Provider helpers ──
 
+    /* Index du ComboBox plateforme : 0=Twitch, 1=YouTube Live, 2=RTMP Manuel */
+
     private static string? GetProviderId(int platformIndex) => platformIndex switch
     {
         0 => "twitch",
         1 => "youtube",
-        2 => "facebook",
         _ => null   // RTMP Manuel
     };
 
@@ -171,7 +181,6 @@ public partial class StudioViewModel : ViewModelBase
     {
         0 => "Twitch",
         1 => "YouTube Live",
-        2 => "Facebook Live",
         _ => "RTMP"
     };
 
@@ -200,7 +209,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         RefreshProviderState(value);
 
-        if (value == 3 && string.IsNullOrWhiteSpace(StreamRtmpKey))
+        if (value == 2 && string.IsNullOrWhiteSpace(StreamRtmpKey))
             StreamRtmpKey = AppSettings.CustomRtmpUrl;
     }
 
@@ -220,8 +229,24 @@ public partial class StudioViewModel : ViewModelBase
     partial void OnIsRecordingChanged(bool value)
     {
         OnPropertyChanged(nameof(RecordStatusText));
-        OnPropertyChanged(nameof(StreamTimerBrush));
+        NotifySessionStateChanged();
         if (value) StartSessionTimerIfNeeded();
+    }
+
+    // ── Résolution/fps de sortie (remplace le « 1920 × 1080 » codé en dur) ──
+
+    [ObservableProperty]
+    private string _outputInfoText = "";
+
+    /// <summary>Relit la résolution et le fps de sortie depuis les paramètres.
+    /// Appelé à chaque affichage de la page Studio, pour refléter un
+    /// changement fait dans Paramètres → Vidéo.</summary>
+    public void RefreshOutputInfo()
+    {
+        var settings = _settingsService.Load();
+        var (w, h)   = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
+        int fps      = FpsFromIndex(settings.SelectedFpsIndex);
+        OutputInfoText = $"{w} × {h} @ {fps} fps";
     }
 
     // ── Constructor ──
@@ -240,15 +265,8 @@ public partial class StudioViewModel : ViewModelBase
         _studioController  = studioController;
         _filePickerService = filePickerService;
 
-        // Charge les valeurs de lecture depuis les paramètres persistés
-        var settings = settingsService.Load();
-        _playerVolume        = settings.PlayerVolume;
-        _mutePlayersOnRecord = settings.MutePlayersOnRecord;
-        _savedPlayerVolume   = _playerVolume;
-
-        _studioController.ActiveSceneChanged += OnActiveSceneChanged;
-
         RefreshProviderState(_streamPlatformIndex);
+        RefreshOutputInfo();
 
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
@@ -290,6 +308,9 @@ public partial class StudioViewModel : ViewModelBase
     /// </summary>
     public void EnsurePreviewRunning()
     {
+        RefreshOutputInfo();
+        RefreshPreviewPlaceholder();
+
         var scene = _studioController.ActiveScene;
         if (scene == null)
         {
@@ -342,7 +363,7 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         // Mapping index UI flyout -> StreamingPlatform
-        // 0=Twitch, 1=YouTube Live, 2=Facebook Live, 3=RTMP Manuel
+        // 0=Twitch, 1=YouTube Live, 2=RTMP Manuel
         StreamingPlatform service = StreamPlatformIndex switch
         {
             0 => StreamingPlatform.Twitch,
@@ -403,7 +424,6 @@ public partial class StudioViewModel : ViewModelBase
         if (result == 0)
         {
             IsStreaming = true;
-            ApplyAutoMute();
         }
         else
             StreamError = result switch
@@ -431,7 +451,6 @@ public partial class StudioViewModel : ViewModelBase
     {
         _studioController.StopStream();
         IsStreaming = false;
-        RestoreAutoMute();
         ResetSessionTimer();
     }
 
@@ -471,7 +490,6 @@ public partial class StudioViewModel : ViewModelBase
         if (result == 0)
         {
             IsRecording = true;
-            ApplyAutoMute();
         }
         else
         {
@@ -500,7 +518,6 @@ public partial class StudioViewModel : ViewModelBase
     {
         _studioController.StopRecording();
         IsRecording = false;
-        RestoreAutoMute();
         ResetSessionTimer();
     }
 

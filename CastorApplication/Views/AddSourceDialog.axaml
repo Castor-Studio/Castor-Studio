@@ -1,0 +1,273 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:CastorApplication.ViewModels"
+        xmlns:engineModels="using:Castor.Engine.Models"
+        x:Class="CastorApplication.Views.AddSourceDialog"
+        x:Name="DialogRoot"
+        x:DataType="vm:AddSourceDialogViewModel"
+        Title="Ajouter une source"
+        Width="640" Height="500"
+        CanResize="False"
+        SystemDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Window.Styles>
+
+        <!-- Catégorie (colonne de gauche) -->
+        <Style Selector="Button.cat-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.cat-item:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        </Style>
+        <Style Selector="Button.cat-item.selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        </Style>
+        <Style Selector="Button.cat-item.selected">
+            <Setter Property="Foreground" Value="#5b8def"/>
+        </Style>
+
+        <!-- Liste de sources -->
+        <Style Selector="ListBox.source-list">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ListBox.source-list ListBoxItem">
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="ListBox.source-list ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        </Style>
+        <Style Selector="ListBox.source-list ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        </Style>
+
+        <Style Selector="Button.dlg-btn">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+    </Window.Styles>
+
+    <Border Background="{DynamicResource AppSurface}" CornerRadius="10"
+            BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
+        <Grid RowDefinitions="46, 1, *, 1, 54">
+
+            <!-- ── Header (déplaçable) ── -->
+            <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="16,0,10,0"
+                  Background="Transparent" PointerPressed="OnHeaderPointerPressed">
+                <TextBlock Grid.Column="0" Text="AJOUTER UNE SOURCE"
+                           FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Click="OnCloseClick"
+                        Background="Transparent" BorderThickness="0"
+                        Padding="8,4" CornerRadius="5" Cursor="Hand"
+                        Foreground="{DynamicResource AppFg4}" FontSize="13"
+                        Content="✕"/>
+            </Grid>
+
+            <Rectangle Grid.Row="1" Fill="{DynamicResource AppBorder}"/>
+
+            <!-- ── Contenu ── -->
+            <Grid Grid.Row="2" ColumnDefinitions="176, 1, *">
+
+                <!-- Catégories -->
+                <ItemsControl Grid.Column="0" ItemsSource="{Binding Categories}" Margin="8">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AddSourceCategoryItem">
+                            <Button Classes="cat-item" Classes.selected="{Binding IsSelected}"
+                                    Command="{Binding #DialogRoot.DataContext.SelectCategoryCommand}"
+                                    CommandParameter="{Binding}">
+                                <Grid ColumnDefinitions="22, *, Auto">
+                                    <Viewbox Grid.Column="0" Width="15" Height="15"
+                                             HorizontalAlignment="Left" VerticalAlignment="Center">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="{Binding IconPath}"
+                                                  Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                                  StrokeLineCap="Round" StrokeJoin="Round"/>
+                                        </Canvas>
+                                    </Viewbox>
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}"
+                                               Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Count}"
+                                               IsVisible="{Binding HasCount}"
+                                               Foreground="{DynamicResource AppFg5}"
+                                               FontSize="11" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}"/>
+
+                <!-- Panneau droit -->
+                <Grid Grid.Column="2" Margin="10" RowDefinitions="Auto, *">
+
+                    <!-- Recherche + actualiser (catégories liste uniquement) -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*, 6, Auto"
+                          IsVisible="{Binding IsListCategory}" Margin="0,0,0,8">
+                        <TextBox Grid.Column="0" x:Name="SearchBox"
+                                 Text="{Binding SearchText}"
+                                 Watermark="Rechercher…"
+                                 FontSize="12" Padding="8,5"
+                                 Background="{DynamicResource AppSurface2}"
+                                 Foreground="{DynamicResource AppFg1}"
+                                 BorderBrush="{DynamicResource AppBorder2}"
+                                 CornerRadius="5"/>
+                        <Button Grid.Column="2"
+                                Command="{Binding RefreshCommand}"
+                                Background="{DynamicResource AppSurface2}"
+                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
+                                Padding="8,5" CornerRadius="5" Cursor="Hand"
+                                ToolTip.Tip="Actualiser la liste">
+                            <Viewbox Width="14" Height="14">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4 M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"
+                                          Stroke="{DynamicResource AppFg3}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+                                </Canvas>
+                            </Viewbox>
+                        </Button>
+                    </Grid>
+
+                    <!-- Liste des sources -->
+                    <Panel Grid.Row="1" IsVisible="{Binding IsListCategory}">
+                        <ListBox Classes="source-list"
+                                 ItemsSource="{Binding VisibleItems}"
+                                 SelectedItem="{Binding SelectedItem}"
+                                 DoubleTapped="OnItemDoubleTapped"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AddSourceItem">
+                                    <Grid ColumnDefinitions="24, *, Auto" ToolTip.Tip="{Binding FullLabel}">
+                                        <Viewbox Grid.Column="0" Width="16" Height="16"
+                                                 HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Path Data="{Binding IconPath}"
+                                                      Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                                      StrokeLineCap="Round" StrokeJoin="Round"/>
+                                            </Canvas>
+                                        </Viewbox>
+                                        <StackPanel Grid.Column="1" Margin="8,0,8,0" Spacing="1"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="12" Foreground="{DynamicResource AppFg1}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Detail}"
+                                                       IsVisible="{Binding HasDetail}"
+                                                       FontSize="10" Foreground="{DynamicResource AppFg4}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Border Grid.Column="2" IsVisible="{Binding AlreadyInScene}"
+                                                Background="{DynamicResource AppSurface3}"
+                                                CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                                            <TextBlock Text="déjà dans la scène"
+                                                       FontSize="9" Foreground="{DynamicResource AppFg4}"/>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <TextBlock Text="Aucune source dans cette catégorie."
+                                   IsVisible="{Binding !VisibleItems.Count}"
+                                   Foreground="{DynamicResource AppFg5}" FontSize="11"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Panel>
+
+                    <!-- Panneau flux réseau -->
+                    <StackPanel Grid.Row="1" IsVisible="{Binding IsNetworkCategory}" Spacing="10">
+                        <TextBlock Text="URL du flux (RTMP / RTSP / HTTP)"
+                                   Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+                        <TextBox Text="{Binding NetworkUrl}"
+                                 Watermark="rtmp:// ou rtsp://…"
+                                 FontSize="12" Padding="8,5"
+                                 Background="{DynamicResource AppSurface2}"
+                                 Foreground="{DynamicResource AppFg1}"
+                                 BorderBrush="{DynamicResource AppBorder2}"
+                                 CornerRadius="5"/>
+                        <TextBlock Text="{Binding NetworkError}"
+                                   IsVisible="{Binding NetworkError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Foreground="#f87171" FontSize="11" TextWrapping="Wrap"/>
+
+                        <Rectangle Height="1" Fill="{DynamicResource AppBorder}" Margin="0,4"/>
+
+                        <Button Command="{Binding ScanNetworkCommand}"
+                                IsEnabled="{Binding !IsScanning}"
+                                Background="{DynamicResource AppSurface2}"
+                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
+                                Foreground="{DynamicResource AppFg2}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Padding="0,7" CornerRadius="5" FontSize="12" Cursor="Hand">
+                            <Panel>
+                                <TextBlock Text="Scan en cours…" IsVisible="{Binding IsScanning}"/>
+                                <TextBlock Text="Scanner le réseau (ONVIF)" IsVisible="{Binding !IsScanning}"/>
+                            </Panel>
+                        </Button>
+
+                        <ItemsControl ItemsSource="{Binding DiscoveredCameras}"
+                                      IsVisible="{Binding DiscoveredCameras.Count}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="engineModels:DiscoveredCamera">
+                                    <Button Classes="cat-item"
+                                            Command="{Binding #DialogRoot.DataContext.ConfirmDiscoveredCameraCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Spacing="1">
+                                            <TextBlock Text="{Binding Label}" FontSize="12"
+                                                       Foreground="{DynamicResource AppFg1}"/>
+                                            <TextBlock Text="{Binding SuggestedUrl}" FontSize="10"
+                                                       Foreground="{DynamicResource AppFg4}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                </Grid>
+            </Grid>
+
+            <Rectangle Grid.Row="3" Fill="{DynamicResource AppBorder}"/>
+
+            <!-- ── Pied ── -->
+            <Grid Grid.Row="4" ColumnDefinitions="Auto, *, Auto, 8, Auto" Margin="16,0">
+                <TextBlock Grid.Column="0" Text="Actualisation…"
+                           IsVisible="{Binding IsRefreshing}"
+                           Foreground="{DynamicResource AppFg5}" FontSize="11"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Classes="dlg-btn" Content="Annuler"
+                        Command="{Binding CancelCommand}"
+                        Background="{DynamicResource AppSurface2}"
+                        BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
+                        Foreground="{DynamicResource AppFg3}"/>
+                <Button Grid.Column="4" Classes="dlg-btn" Content="Ajouter à la scène"
+                        Command="{Binding ConfirmCommand}"
+                        IsEnabled="{Binding CanConfirm}"
+                        Background="#5b8def" Foreground="#eaeaf0" BorderThickness="0"/>
+            </Grid>
+
+        </Grid>
+    </Border>
+</Window>

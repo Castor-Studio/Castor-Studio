@@ -8,15 +8,15 @@ namespace CastorApplication.Models.Auth
 {
     public sealed class AuthSession
     {   
-        public string ProviderId { get; init; }
+        public string ProviderId { get; init; } = "";
 
-        public string AccessToken { get; init; }
+        public string AccessToken { get; init; } = "";
 
         public string? RefreshToken { get; init; }
 
         public DateTimeOffset ExpiresAt { get; init; }
 
-        public string[] Scopes { get; init; }
+        public string[] Scopes { get; init; } = [];
 
         public UserProfile? Profile { get; set; }
 
