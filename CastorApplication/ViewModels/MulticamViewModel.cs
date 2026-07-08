@@ -241,6 +241,13 @@ public partial class MulticamViewModel : ViewModelBase
     {
         Dispatcher.UIThread.Post(() =>
         {
+            if (IsAiOff &&
+                !aiEvent.IsFatal &&
+                string.Equals(aiEvent.ErrorCode, "SESSION_NOT_FOUND", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             AiError = string.IsNullOrWhiteSpace(aiEvent.ErrorCode)
                 ? aiEvent.ErrorMessage
                 : $"{aiEvent.ErrorCode}: {aiEvent.ErrorMessage}";
