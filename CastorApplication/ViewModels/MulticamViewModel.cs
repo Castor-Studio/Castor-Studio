@@ -211,6 +211,12 @@ public partial class MulticamViewModel : ViewModelBase
                 return;
             }
 
+            if (!IsAiAuto)
+            {
+                AiStatusText = $"Suggestion IA: {scene.Name} ({aiEvent.Confidence:P0})";
+                return;
+            }
+
             _studioController.SelectScene(scene);
             AiStatusText = $"Switch IA: {scene.Name} ({aiEvent.Confidence:P0})";
         });

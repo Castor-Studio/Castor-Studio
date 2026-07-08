@@ -246,10 +246,18 @@ public partial class StudioViewModel : ViewModelBase
         _mutePlayersOnRecord = settings.MutePlayersOnRecord;
         _savedPlayerVolume   = _playerVolume;
 
+        _studioController.ActiveSceneChanged += OnActiveSceneChanged;
+
         RefreshProviderState(_streamPlatformIndex);
 
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
+    }
+
+    private void OnActiveSceneChanged()
+    {
+        OnPropertyChanged(nameof(ActiveScene));
+        OnPropertyChanged(nameof(CurrentPreviewPullUrl));
     }
 
     // ── Helpers settings → valeurs encoder ───────────────────────────────────

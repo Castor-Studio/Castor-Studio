@@ -8,16 +8,28 @@
 	</PropertyGroup>
 
 	<PropertyGroup>
-		<CastorBuildPreset Condition="'$(Configuration)' == 'Debug'">x64-debug</CastorBuildPreset>
-		<CastorBuildPreset Condition="'$(Configuration)' == 'Release'">x64-release</CastorBuildPreset>
+		<CastorConfigurationLower>$([System.String]::Copy('$(Configuration)').ToLowerInvariant())</CastorConfigurationLower>
 		<CastorSolutionDir Condition="'$(SolutionDir)' != '' and '$(SolutionDir)' != '*Undefined*'">$(SolutionDir)</CastorSolutionDir>
 		<CastorSolutionDir Condition="'$(CastorSolutionDir)' == ''">$(MSBuildThisFileDirectory)..\</CastorSolutionDir>
+		<CastorNativeOutputDir>$(CastorSolutionDir)out\build\x64-$(CastorConfigurationLower)\libcastor\</CastorNativeOutputDir>
+		<CastorNativeDll>$(CastorNativeOutputDir)castor_core.dll</CastorNativeDll>
 	</PropertyGroup>
 
-	<Target Name="BuildNative" AfterTargets="Build">
-		<Exec
-		  Command="powershell -ExecutionPolicy Bypass -File &quot;$(CastorSolutionDir)build-native.ps1&quot; -Preset $(CastorBuildPreset)"
-		  WorkingDirectory="$(CastorSolutionDir)" />
+	<Target Name="CheckNativeDll" BeforeTargets="Build">
+		<Error
+			Condition="!Exists('$(CastorNativeDll)')"
+			Text="Native DLL not found at '$(CastorNativeDll)'. Run scripts/build-all.ps1 -Configuration $(Configuration) from the repository root." />
+	</Target>
+
+	<ItemGroup>
+		<CastorNativeRuntimeDlls Include="$(CastorNativeOutputDir)*.dll" />
+	</ItemGroup>
+
+	<Target Name="CopyNativeDlls" AfterTargets="Build">
+		<Copy
+			SourceFiles="@(CastorNativeRuntimeDlls)"
+			DestinationFolder="$(OutputPath)"
+			SkipUnchangedFiles="true" />
 	</Target>
 	
 </Project>
