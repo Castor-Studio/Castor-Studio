@@ -134,6 +134,11 @@ public partial class MulticamViewModel : ViewModelBase
         {
             await _aiAnalysisClient.StopSessionAsync("mode_switch", CancellationToken.None);
 
+            IsAiOff = false;
+            IsAiAgent = mode == "agent";
+            IsAiAuto = mode == "auto";
+            OnPropertyChanged(nameof(IsAiEnabled));
+
             var moduleConfig = new Dictionary<string, string>
             {
                 ["mode"] = mode,
@@ -143,11 +148,7 @@ public partial class MulticamViewModel : ViewModelBase
             await _aiAnalysisClient.StartSessionAsync(GetSelectedModuleName(), moduleConfig, CancellationToken.None);
             await _aiAnalysisClient.SendSourcesAsync(selectedScenes, CancellationToken.None);
 
-            IsAiOff = false;
-            IsAiAgent = mode == "agent";
-            IsAiAuto = mode == "auto";
             AiStatusText = $"IA active - {selectedScenes.Count} scène(s)";
-            OnPropertyChanged(nameof(IsAiEnabled));
         }
         catch (Exception ex)
         {
@@ -213,10 +214,14 @@ public partial class MulticamViewModel : ViewModelBase
 
             if (!IsAiAuto)
             {
+                System.Diagnostics.Debug.WriteLine(
+                    $"[AI] Suggestion scene='{scene.Name}', confidence={aiEvent.Confidence:P0}, auto=false.");
                 AiStatusText = $"Suggestion IA: {scene.Name} ({aiEvent.Confidence:P0})";
                 return;
             }
 
+            System.Diagnostics.Debug.WriteLine(
+                $"[AI] Auto switch scene='{scene.Name}', confidence={aiEvent.Confidence:P0}.");
             _studioController.SelectScene(scene);
             AiStatusText = $"Switch IA: {scene.Name} ({aiEvent.Confidence:P0})";
         });

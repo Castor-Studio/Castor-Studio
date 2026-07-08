@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using Castor.Engine.Models;
 using Castor.Engine.Services;
 using CastorApplication.Models.Export;
@@ -58,8 +59,14 @@ public partial class ScenesViewModel : ViewModelBase
         _filePickerService = filePickerService;
 
         SelectedScene = _studioController.ActiveScene;
+        _studioController.ActiveSceneChanged += OnActiveSceneChanged;
 
         LoadAvailableSources();
+    }
+
+    private void OnActiveSceneChanged()
+    {
+        Dispatcher.UIThread.Post(() => SelectedScene = _studioController.ActiveScene);
     }
 
     private void LoadAvailableSources()
