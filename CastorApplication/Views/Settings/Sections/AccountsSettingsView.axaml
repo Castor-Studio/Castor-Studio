@@ -60,7 +60,7 @@
                     <Button Grid.Column="2"
                             Content="{Binding TwitchButtonText}"
                             Classes="platform-connect"
-                            Command="{Binding ConnectTwitchCommand}"/>
+                            Command="{Binding ToggleTwitchCommand}"/>
 
                 </Grid>
 

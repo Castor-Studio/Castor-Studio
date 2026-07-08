@@ -35,22 +35,21 @@ namespace CastorApplication.Services.Auth.Storage
 
         public void Delete(string providerId)
         {
-            var provider = Get(providerId);
+            _settings.Providers.RemoveAll(p => p.ProviderId == providerId);
             Save(_settings);
         }
 
         public void Save(ProviderSettings provider)
         {
-            var existingProvider = Get(provider.ProviderId);
+            var existingProviderIndex =
+                _settings.Providers.FindIndex(p => p.ProviderId == provider.ProviderId);
 
-            if (existingProvider != null)
+            if (existingProviderIndex >= 0)
             {
-                // Update existing provider
-                existingProvider = provider;
+                _settings.Providers[existingProviderIndex] = provider;
             }
             else
             {
-                // Add new provider
                 _settings.Providers.Add(provider);
             }
 
