@@ -24,6 +24,7 @@ public sealed class GrpcAiAnalysisClient : IAiAnalysisClient
     private CancellationTokenSource? _streamCancellation;
     private Task? _readTask;
     private Task? _keepAliveTask;
+    private bool _isStoppingSession;
 
     public bool HasActiveSession => !string.IsNullOrWhiteSpace(SessionId);
     public string? SessionId { get; private set; }
@@ -131,6 +132,7 @@ public sealed class GrpcAiAnalysisClient : IAiAnalysisClient
         {
             if (!HasActiveSession) return;
 
+            _isStoppingSession = true;
             var sessionId = SessionId!;
 
             if (_stream != null)
@@ -164,6 +166,7 @@ public sealed class GrpcAiAnalysisClient : IAiAnalysisClient
         }
         finally
         {
+            _isStoppingSession = false;
             _sync.Release();
         }
     }
@@ -204,6 +207,9 @@ public sealed class GrpcAiAnalysisClient : IAiAnalysisClient
                             serverEvent.Status.Message));
                         break;
                     case ServerEvent.PayloadOneofCase.Error:
+                        if (_isStoppingSession && IsSessionNotFound(serverEvent.Error.ErrorCode))
+                            break;
+
                         ServerErrorReceived?.Invoke(new AiServerErrorEvent(
                             serverEvent.Error.ErrorCode,
                             serverEvent.Error.ErrorMessage,
@@ -220,6 +226,8 @@ public sealed class GrpcAiAnalysisClient : IAiAnalysisClient
         }
         catch (Exception ex)
         {
+            if (_isStoppingSession) return;
+
             ServerErrorReceived?.Invoke(new AiServerErrorEvent("CLIENT_STREAM_ERROR", ex.Message, true));
         }
     }
@@ -250,6 +258,8 @@ public sealed class GrpcAiAnalysisClient : IAiAnalysisClient
         }
         catch (Exception ex)
         {
+            if (_isStoppingSession) return;
+
             ServerErrorReceived?.Invoke(new AiServerErrorEvent("CLIENT_KEEPALIVE_ERROR", ex.Message, true));
         }
     }
@@ -278,4 +288,7 @@ public sealed class GrpcAiAnalysisClient : IAiAnalysisClient
         _readTask = null;
         _keepAliveTask = null;
     }
+
+    private static bool IsSessionNotFound(string? errorCode) =>
+        string.Equals(errorCode, "SESSION_NOT_FOUND", StringComparison.OrdinalIgnoreCase);
 }
