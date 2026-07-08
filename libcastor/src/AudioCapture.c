@@ -1,6 +1,7 @@
 #define INITGUID
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <dwmapi.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <mfapi.h>
 #include <mfidl.h>
@@ -26,6 +27,7 @@
 #pragma comment(lib, "mfreadwrite.lib")
 #pragma comment(lib, "mfuuid.lib")
 #pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "dwmapi.lib")
 
 /* ------------------------------------------------------------------ *
  *  GUIDs definis manuellement (coherent avec le reste du fichier)
@@ -403,12 +405,23 @@ static int is_camera_mic(const char* name) {
     return 0;
 }
 
+/* Fenetre "cloaked" par DWM : invisible a l'ecran mais IsWindowVisible
+ * retourne TRUE (applis UWP suspendues : Parametres, Films et TV, ...).
+ * Meme filtre que dans VideoCapture.cpp. */
+static int is_window_cloaked(HWND hwnd) {
+    DWORD cloaked = 0;
+    return SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED,
+                                           &cloaked, sizeof(cloaked)))
+           && cloaked != 0;
+}
+
 /* Forward declare avant capture_list_all_audio car utilise dedans */
 static BOOL CALLBACK _enum_windows_audio_cb(HWND hwnd, LPARAM lp) {
     typedef struct { AudioSourceInfo* out; int max; int count; } Ctx;
     Ctx* c = (Ctx*)lp;
     if (c->count >= c->max) return FALSE;
     if (!IsWindowVisible(hwnd)) return TRUE;
+    if (is_window_cloaked(hwnd)) return TRUE;
     char title[256] = {0};
     GetWindowTextA(hwnd, title, sizeof(title));
     if (strlen(title) == 0) return TRUE;

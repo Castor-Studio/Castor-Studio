@@ -12,10 +12,15 @@ public sealed class CaptureSourceOption
     public string SymbolicLink { get; }
     public int Index { get; }
 
+    /// <summary>Handle de la fenêtre capturée (sources Window uniquement) —
+    /// permet à l'UI d'afficher le nom du process associé.</summary>
+    public nint Hwnd { get; }
+
     public CaptureSourceOption(CaptureSourceInfo info)
     {
         Info = info;
         Label = info.Label;
+        Hwnd = info.Hwnd;
         Type = info.Type switch
         {
             CaptureSourceType.Window => VideoCaptureKind.Window,
@@ -38,10 +43,14 @@ public sealed class AudioSourceOption
     public string DeviceId { get; }
     public int Index { get; }
 
+    /// <summary>Handle de la fenêtre ciblée (loopback par fenêtre uniquement).</summary>
+    public nint Hwnd { get; }
+
     public AudioSourceOption(AudioSourceInfo info)
     {
         Info = info;
         Label = info.Label;
+        Hwnd = info.Hwnd;
         Type = info.Type switch
         {
             AudioSourceType.LoopbackGlobal => AudioCaptureKind.LoopbackGlobal,

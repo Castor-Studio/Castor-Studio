@@ -120,10 +120,12 @@
                                         <TextBlock Text="Nom de la scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
                                         <TextBox Text="{Binding NewSceneName}"
                                                  Watermark="Ex: Match Live"
+                                                 KeyDown="OnCreateSceneKeyDown"
                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
                                     </StackPanel>
                                     <Button Content="CRÉER LA SCÈNE"
                                             Command="{Binding CreateSceneCommand}"
+                                            Click="OnCloseFlyoutClick"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                             Height="36" Background="#5b8def" Foreground="#eaeaf0"
                                             BorderThickness="0" CornerRadius="6"
@@ -156,6 +158,9 @@
                         <Button.Flyout>
                             <Flyout Placement="RightEdgeAlignedTop">
                                 <StackPanel Width="180" Spacing="2" Margin="4">
+                                    <TextBlock Text="TRIER PAR"
+                                               FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource AppFg4}" Margin="10,2,0,4"/>
                                     <Button Classes="scene-menu-item" Content="Nom (A → Z)"
                                             Command="{Binding SortScenesCommand}" CommandParameter="name_asc"/>
                                     <Button Classes="scene-menu-item" Content="Nom (Z → A)"
@@ -187,6 +192,9 @@
                         <Button.Flyout>
                             <Flyout Placement="RightEdgeAlignedTop">
                                 <StackPanel Width="180" Spacing="2" Margin="4">
+                                    <TextBlock Text="IMPORT / EXPORT"
+                                               FontSize="10" FontWeight="Bold"
+                                               Foreground="{DynamicResource AppFg4}" Margin="10,2,0,4"/>
                                     <Button Classes="scene-menu-item" Content="Exporter"
                                             Command="{Binding ExportScenesCommand}"/>
                                     <Button Classes="scene-menu-item" Content="Importer..."
@@ -244,6 +252,7 @@
                                 <StackPanel Width="200" Spacing="8" Margin="4">
                                     <TextBlock Text="COULEUR DE LA SÉLECTION"
                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
                                     <ItemsControl ItemsSource="{x:Static vm:ScenesViewModel.SceneColorPalette}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -371,12 +380,15 @@
                                                                 <StackPanel Width="220" Spacing="10" Margin="4">
                                                                     <TextBlock Text="RENOMMER LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
                                                                     <TextBox Text="{Binding #ScenesRoot.DataContext.RenameSceneName}"
+                                                                             KeyDown="OnRenameSceneKeyDown"
                                                                              Background="{DynamicResource AppSurface2}"
                                                                              BorderBrush="{DynamicResource AppBorder2}"
                                                                              Foreground="{DynamicResource AppFg2}"/>
                                                                     <Button Content="RENOMMER"
                                                                             Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"
+                                                                            Click="OnCloseFlyoutClick"
                                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                                             Height="32" Background="#5b8def" Foreground="#eaeaf0"
                                                                             BorderThickness="0" CornerRadius="6"
@@ -394,6 +406,7 @@
                                                                 <StackPanel Width="200" Spacing="8" Margin="4">
                                                                     <TextBlock Text="COULEUR DE LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
                                                                     <ItemsControl ItemsSource="{x:Static vm:ScenesViewModel.SceneColorPalette}">
                                                                         <ItemsControl.ItemsPanel>
                                                                             <ItemsPanelTemplate>
@@ -422,9 +435,12 @@
                                                         <Button.Flyout>
                                                             <Flyout Placement="Right">
                                                                 <StackPanel Width="200" Spacing="10" Margin="4">
-                                                                    <TextBlock Text="Supprimer cette scène ?"
+                                                                    <TextBlock Text="SUPPRIMER LA SCÈNE"
+                                                                               FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+                                                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+                                                                    <TextBlock Text="Cette action est définitive. Supprimer cette scène ?"
                                                                                TextWrapping="Wrap"
-                                                                               FontSize="12" Foreground="{DynamicResource AppFg1}"/>
+                                                                               FontSize="11" Foreground="{DynamicResource AppFg3}"/>
                                                                     <TextBlock Text="{Binding #ScenesRoot.DataContext.DeleteSceneError}"
                                                                                IsVisible="{Binding #ScenesRoot.DataContext.DeleteSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                                                Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
@@ -497,214 +513,14 @@
                                    FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
                                    VerticalAlignment="Center"/>
 
-                        <!-- Add Source Flyout -->
+                        <!-- Ouvre le dialogue « Ajouter une source » -->
                         <Button Grid.Column="1"
                                 Content="+"
+                                Click="OnAddSourceClick"
                                 Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                                 BorderThickness="0" Padding="10,4" CornerRadius="5"
-                                FontSize="16" FontWeight="Bold" Cursor="Hand">
-                            <Button.Flyout>
-                                <Flyout Placement="Top">
-                                    <StackPanel Width="240" Spacing="8" Margin="4">
-                                        <TextBlock Text="AJOUTER UNE SOURCE"
-                                                   FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
-                                        <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
-
-                                        <!-- Moniteurs -->
-                                        <TextBlock Text="MONITEURS" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" FontWeight="Bold" Margin="0,4,0,0"/>
-                                        <ItemsControl ItemsSource="{Binding AvailableMonitors}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="m:CaptureSourceOption">
-                                                    <Button Classes="source-type-btn"
-                                                            Content="{Binding Label}"
-                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificVideoSourceCommand}"
-                                                            CommandParameter="{Binding}"/>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                        <TextBlock IsVisible="{Binding !AvailableMonitors.Count}"
-                                                   Text="Aucun moniteur détecté" Foreground="{DynamicResource AppFg5}"
-                                                   FontSize="10" Margin="4,0"/>
-
-                                        <!-- Caméras -->
-                                        <TextBlock Text="CAMÉRAS" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
-                                        <ItemsControl ItemsSource="{Binding AvailableCameras}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="m:CaptureSourceOption">
-                                                    <Button Classes="source-type-btn"
-                                                            Content="{Binding Label}"
-                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificVideoSourceCommand}"
-                                                            CommandParameter="{Binding}"/>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                        <TextBlock IsVisible="{Binding !AvailableCameras.Count}"
-                                                   Text="Aucune caméra détectée" Foreground="{DynamicResource AppFg5}"
-                                                   FontSize="10" Margin="4,0"/>
-
-                                        <!-- Fenêtres -->
-                                        <TextBlock Text="FENÊTRES" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
-                                        <ScrollViewer MaxHeight="120">
-                                            <ItemsControl ItemsSource="{Binding AvailableWindows}">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="m:CaptureSourceOption">
-                                                        <Button Classes="source-type-btn"
-                                                                Content="{Binding Label}"
-                                                                Command="{Binding #ScenesRoot.DataContext.AddSpecificVideoSourceCommand}"
-                                                                CommandParameter="{Binding}"/>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
-                                        <TextBlock IsVisible="{Binding !AvailableWindows.Count}"
-                                                   Text="Aucune fenêtre détectée" Foreground="{DynamicResource AppFg5}"
-                                                   FontSize="10" Margin="4,0"/>
-
-                                        <!-- Flux réseau -->
-                                        <TextBlock Text="FLUX RÉSEAU (RTMP/RTSP/HTTP)"
-                                                   Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
-
-                                        <!-- Saisie manuelle URL -->
-                                        <Grid ColumnDefinitions="*, 6, Auto">
-                                            <TextBox Grid.Column="0"
-                                                     Text="{Binding NetworkSourceUrl}"
-                                                     Watermark="rtmp:// ou rtsp://..."
-                                                     FontSize="11" Padding="6,4"
-                                                     Background="{DynamicResource AppSurface2}"
-                                                     Foreground="{DynamicResource AppFg1}"
-                                                     BorderBrush="{DynamicResource AppBorder2}"
-                                                     CornerRadius="4"/>
-                                            <Button Grid.Column="2"
-                                                    Content="+"
-                                                    Command="{Binding AddNetworkSourceCommand}"
-                                                    Background="{DynamicResource AppAccentBg}"
-                                                    Foreground="#5b8def"
-                                                    BorderThickness="0"
-                                                    Padding="10,4" CornerRadius="4"
-                                                    FontSize="14" FontWeight="Bold"/>
-                                        </Grid>
-
-                                        <!-- Scan WS-Discovery -->
-                                        <Button Command="{Binding ScanNetworkCamerasCommand}"
-                                                IsEnabled="{Binding !IsScanning}"
-                                                Classes="source-type-btn"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Center">
-                                            <Panel>
-                                                <TextBlock Text="⏳ Scan en cours…"
-                                                           IsVisible="{Binding IsScanning}"
-                                                           HorizontalAlignment="Center"/>
-                                                <TextBlock Text="🔍 Scanner le réseau"
-                                                           IsVisible="{Binding !IsScanning}"
-                                                           HorizontalAlignment="Center"/>
-                                            </Panel>
-                                        </Button>
-
-                                        <!-- Résultats du scan -->
-                                        <ItemsControl ItemsSource="{Binding DiscoveredCameras}"
-                                                      IsVisible="{Binding DiscoveredCameras.Count}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="engineModels:DiscoveredCamera">
-                                                    <Button Classes="source-type-btn"
-                                                            HorizontalAlignment="Stretch"
-                                                            Command="{Binding #ScenesRoot.DataContext.AddDiscoveredCameraCommand}"
-                                                            CommandParameter="{Binding}">
-                                                        <StackPanel>
-                                                            <TextBlock Text="{Binding Label}" FontSize="11"/>
-                                                            <TextBlock Text="{Binding SuggestedUrl}"
-                                                                       FontSize="9"
-                                                                       Foreground="{DynamicResource AppFg4}"
-                                                                       TextTrimming="CharacterEllipsis"/>
-                                                        </StackPanel>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-
-                                        <TextBlock Text="{Binding NetworkSourceError}"
-                                                   IsVisible="{Binding NetworkSourceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                   Foreground="#f87171" FontSize="10" TextWrapping="Wrap"/>
-
-                                        <!-- Fichiers -->
-                                        <TextBlock Text="FICHIERS" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
-
-                                        <!-- Vidéo seulement -->
-                                        <Button Classes="source-type-btn"
-                                                Command="{Binding #ScenesRoot.DataContext.AddFileVideoSourceCommand}">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
-                                                <StackPanel Spacing="1">
-                                                    <TextBlock Text="Vidéo seulement"
-                                                               FontSize="12"/>
-                                                    <TextBlock Text="mp4, mkv, mov, avi, webm"
-                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Button>
-
-                                        <!-- Vidéo + audio -->
-                                        <Button Classes="source-type-btn"
-                                                Command="{Binding #ScenesRoot.DataContext.AddFileMediaSourceCommand}">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
-                                                <StackPanel Spacing="1">
-                                                    <TextBlock Text="Vidéo + audio"
-                                                               FontSize="12"/>
-                                                    <TextBlock Text="Ajoute les deux pistes du fichier"
-                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Button>
-
-                                        <!-- Audio -->
-                                        <TextBlock Text="SOURCES AUDIO" Foreground="{DynamicResource AppFg4}"
-                                                   FontSize="10" FontWeight="Bold" Margin="0,8,0,0"/>
-                                        <ItemsControl ItemsSource="{Binding AvailableLoopbacks}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="m:AudioSourceOption">
-                                                    <Button Classes="source-type-btn"
-                                                            Content="{Binding Label}"
-                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificAudioSourceCommand}"
-                                                            CommandParameter="{Binding}"/>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                        <ItemsControl ItemsSource="{Binding AvailableMics}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="m:AudioSourceOption">
-                                                    <Button Classes="source-type-btn"
-                                                            Content="{Binding Label}"
-                                                            Command="{Binding #ScenesRoot.DataContext.AddSpecificAudioSourceCommand}"
-                                                            CommandParameter="{Binding}"/>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                        <TextBlock IsVisible="{Binding !AvailableLoopbacks.Count}"
-                                                   Text="Aucun périphérique audio détecté" Foreground="{DynamicResource AppFg5}"
-                                                   FontSize="10" Margin="4,0"/>
-
-                                        <!-- Fichiers audio -->
-                                        <Button Classes="source-type-btn"
-                                                Command="{Binding #ScenesRoot.DataContext.AddFileAudioSourceCommand}">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="📂" FontSize="12" VerticalAlignment="Center"/>
-                                                <StackPanel Spacing="1">
-                                                    <TextBlock Text="Audio seulement"
-                                                               FontSize="12"/>
-                                                    <TextBlock Text="mp3, wav, aac, ogg, flac, m4a, vidéo…"
-                                                               FontSize="9" Foreground="{DynamicResource AppFg4}"/>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Button>
-                                    </StackPanel>
-                                </Flyout>
-                            </Button.Flyout>
-                        </Button>
+                                FontSize="16" FontWeight="Bold" Cursor="Hand"
+                                ToolTip.Tip="Ajouter une source"/>
                     </Grid>
 
                     <Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>

@@ -352,6 +352,17 @@ extern "C" {
  *  LISTING
  * ================================================================== */
 
+/* Fenetre "cloaked" par DWM : invisible a l'ecran mais IsWindowVisible
+ * retourne quand meme TRUE. Cas typique : les applis UWP suspendues en
+ * arriere-plan (Parametres, Films et TV, ...) dont l'ApplicationFrameWindow
+ * persiste — elles apparaissaient comme fenetres fantomes dans les listes. */
+static bool is_window_cloaked(HWND hwnd) {
+    DWORD cloaked = 0;
+    return SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED,
+                                           &cloaked, sizeof(cloaked)))
+           && cloaked != 0;
+}
+
 CASTOR_CORE_API int capture_list_windows(WindowInfo* out, int max_count) {
     struct Ctx { WindowInfo* out; int max; int count; };
     Ctx ctx = { out, max_count, 0 };
@@ -360,6 +371,7 @@ CASTOR_CORE_API int capture_list_windows(WindowInfo* out, int max_count) {
         auto* c = reinterpret_cast<Ctx*>(lParam);
         if (c->count >= c->max) return FALSE;
         if (!IsWindowVisible(hwnd)) return TRUE;
+        if (is_window_cloaked(hwnd)) return TRUE;
         char title[256] = {};
         GetWindowTextA(hwnd, title, sizeof(title));
         if (strlen(title) == 0) return TRUE;
@@ -424,6 +436,7 @@ CASTOR_CORE_API int video_capture_list_sources(CaptureSourceInfo* out, int max_c
         auto* c = reinterpret_cast<WCtx*>(lp);
         if (c->count >= c->max) return FALSE;
         if (!IsWindowVisible(hwnd)) return TRUE;
+        if (is_window_cloaked(hwnd)) return TRUE;
         char title[256] = {};
         GetWindowTextA(hwnd, title, sizeof(title));
         if (strlen(title) == 0) return TRUE;
