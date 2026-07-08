@@ -89,7 +89,7 @@
 
         <!-- ═══ BARRE DE CONTRÔLES ═══ -->
         <Grid Grid.Row="2"
-              ColumnDefinitions="*, 8, 220"
+              ColumnDefinitions="*, 8, 280"
               Margin="8,0,8,8">
 
             <!-- ── STATUT ── -->

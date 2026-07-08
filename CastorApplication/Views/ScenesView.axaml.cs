@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Threading;
 using Castor.Engine.Models;
 using CastorApplication.ViewModels;
 
@@ -39,8 +40,12 @@ public partial class ScenesView : UserControl
     }
 
     /// <summary>Ferme le flyout contenant le bouton cliqué — les boutons de
-    /// validation des popups laissaient le flyout ouvert après action.</summary>
-    private void OnCloseFlyoutClick(object? sender, RoutedEventArgs e) => CloseParentFlyout(sender);
+    /// validation des popups laissaient le flyout ouvert après action.
+    /// La fermeture est différée d'un tick : l'événement Click est levé AVANT
+    /// l'invocation de la Command du bouton, et fermer immédiatement détache
+    /// le bouton (binding Command vidé → commande jamais exécutée).</summary>
+    private void OnCloseFlyoutClick(object? sender, RoutedEventArgs e)
+        => Dispatcher.UIThread.Post(() => CloseParentFlyout(sender));
 
     private static void CloseParentFlyout(object? sender)
     {

@@ -61,39 +61,10 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowPreviewPlaceholder));
     }
 
-    [ObservableProperty]
-    private int _selectedSceneIndex;
-
-    // ── Sources ──
-
-    public ObservableCollection<SourceItem> Sources { get; } = new();
-
-    // ── Audio Mixer ──
-
-    [ObservableProperty]
-    private double _desktopVolume = 80;
-
-    [ObservableProperty]
-    private double _micVolume = 65;
-
-    [ObservableProperty]
-    private double _musicVolume = 30;
-
-    public string DesktopVolumeDisplay => $"{(int)DesktopVolume}%";
-    public string MicVolumeDisplay => $"{(int)MicVolume}%";
-    public string MusicVolumeDisplay => $"{(int)MusicVolume}%";
-
-    partial void OnDesktopVolumeChanged(double value) => OnPropertyChanged(nameof(DesktopVolumeDisplay));
-    partial void OnMicVolumeChanged(double value) => OnPropertyChanged(nameof(MicVolumeDisplay));
-    partial void OnMusicVolumeChanged(double value) => OnPropertyChanged(nameof(MusicVolumeDisplay));
-
     // ── Streaming state (F1) ──
 
     [ObservableProperty]
     private bool _isStreaming;
-
-    [ObservableProperty]
-    private int _streamSceneIndex;
 
     [ObservableProperty]
     private int _streamPlatformIndex;
@@ -219,16 +190,10 @@ public partial class StudioViewModel : ViewModelBase
     private bool _isRecording;
 
     [ObservableProperty]
-    private int _recordSceneIndex;
-
-    [ObservableProperty]
     private string _recordError = "";
-
-    public string RecordStatusText => IsRecording ? "REC" : "";
 
     partial void OnIsRecordingChanged(bool value)
     {
-        OnPropertyChanged(nameof(RecordStatusText));
         NotifySessionStateChanged();
         if (value) StartSessionTimerIfNeeded();
     }
@@ -265,6 +230,8 @@ public partial class StudioViewModel : ViewModelBase
         _studioController  = studioController;
         _filePickerService = filePickerService;
 
+        _studioController.ActiveSceneChanged += OnActiveSceneChanged;
+
         RefreshProviderState(_streamPlatformIndex);
         RefreshOutputInfo();
 
@@ -275,7 +242,9 @@ public partial class StudioViewModel : ViewModelBase
     private void OnActiveSceneChanged()
     {
         OnPropertyChanged(nameof(ActiveScene));
-        OnPropertyChanged(nameof(CurrentPreviewPullUrl));
+        // Une bascule de scène depuis une autre page (Scènes, Multicam) doit
+        // aussi mettre à jour le placeholder du preview.
+        RefreshPreviewPlaceholder();
     }
 
     // ── Helpers settings → valeurs encoder ───────────────────────────────────
@@ -339,8 +308,6 @@ public partial class StudioViewModel : ViewModelBase
             System.Diagnostics.Debug.WriteLine($"[Preview] StartPreview retourné : {result}");
         });
     }
-
-    public string? CurrentPreviewPullUrl => ActiveScene == null ? null : _studioController.GetPreviewPullUrl(ActiveScene.Id);
 
     // ── Streaming error ──
 
@@ -520,29 +487,5 @@ public partial class StudioViewModel : ViewModelBase
         IsRecording = false;
         ResetSessionTimer();
     }
-
-    // ── Source management ──
-
-    [RelayCommand]
-    private void AddSource()
-    {
-        Sources.Add(new SourceItem("Nouvelle source", SourceKind.Video, "#5b8def"));
-    }
-
-    [RelayCommand]
-    private void RemoveSource(SourceItem source)
-    {
-        Sources.Remove(source);
-    }
-}
-
-public sealed class SourcesPanelContext(StudioViewModel studio)
-{
-    public StudioViewModel Studio => studio;
-}
-
-public sealed class AudioPanelContext(StudioViewModel studio)
-{
-    public StudioViewModel Studio => studio;
 }
 
