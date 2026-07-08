@@ -21,10 +21,12 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
     private string? _twitchStatus;
 
     [ObservableProperty]
-    private string? _twitchButtonText = "Connection";
+    private string? _twitchButtonText = "Connexion";
 
     [ObservableProperty]
     private bool _isLoading;
+
+    private bool IsTwitchConnected => _providerStore.Get("twitch") != null;
 
     public AccountsSettingsViewModel(IAuthService authService, IProviderStore store)
     {
@@ -39,24 +41,45 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
         var provider = _providerStore.Get("twitch");
         if (provider != null)
         {
-            TwitchStatus = $"Connected as {provider.UserName}";
-            TwitchButtonText = "Reconnect";
+            TwitchStatus = $"Connecté en tant que {provider.UserName}";
+            TwitchButtonText = "Déconnexion";
         }
         else
         {
-            TwitchStatus = "Not connected";
-            TwitchButtonText = "Connect";
+            TwitchStatus = "Non connecté";
+            TwitchButtonText = "Connexion";
         }
     }
 
-    [RelayCommand]
-    public async Task ConnectTwitchAsync()
+    private bool CanToggleTwitch()
+    {
+        return !IsLoading;
+    }
+
+    partial void OnIsLoadingChanged(bool value)
+    {
+        ToggleTwitchCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanToggleTwitch))]
+    private async Task ToggleTwitchAsync()
+    {
+        if (IsTwitchConnected)
+        {
+            await LogoutTwitchAsync();
+            return;
+        }
+
+        await ConnectTwitchAsync();
+    }
+
+    private async Task ConnectTwitchAsync()
     {
         try
         {
             IsLoading = true;
 
-            TwitchStatus = "Requesting device code...";
+            TwitchStatus = "Demande du code Twitch...";
 
             var device =
                 await _authService.BeginLoginAsync("twitch");
@@ -64,7 +87,7 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
             WebBrowser.Open(device.VerificationUri);
 
             TwitchStatus =
-                "Waiting for Twitch authorization...";
+                "En attente de l'autorisation Twitch...";
 
             var session =
                 await _authService.CompleteLoginAsync("twitch", device);
@@ -74,7 +97,8 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
             api.Settings.AccessToken = session.AccessToken;
             
             var usersReponse = await api.Helix.Users.GetUsersAsync();
-            var user = usersReponse.Users.FirstOrDefault();
+            var user = usersReponse.Users.FirstOrDefault()
+                ?? throw new InvalidOperationException("Impossible de récupérer le profil Twitch.");
 
             var streamKeyResponse = await api.Helix.Streams.GetStreamKeyAsync(user.Id);
             var stream = streamKeyResponse.Streams.FirstOrDefault();
@@ -83,6 +107,7 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
             var providerSetting = new ProviderSettings
             {
                 ProviderId = "twitch",
+                IsConnected = true,
                 UserId = user.Id,
                 UserName = user.DisplayName,
                 StreamKey = streamKey,
@@ -90,7 +115,7 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
 
             _providerStore.Save(providerSetting);
 
-            TwitchStatus = $"Connected as {user.DisplayName}";
+            LoadTwitchProvider();
         }
         catch (Exception ex)
         {
@@ -102,14 +127,26 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
         }
     }
 
-    [RelayCommand]
-    private async Task LogoutAsync()
+    private async Task LogoutTwitchAsync()
     {
-        await _authService.LogoutAsync("twitch");
+        try
+        {
+            IsLoading = true;
+            TwitchStatus = "Déconnexion de Twitch...";
 
-        _providerStore.Delete("twitch");
+            await _authService.LogoutAsync("twitch");
 
-        TwitchStatus = "Disconnected";
+            _providerStore.Delete("twitch");
+            LoadTwitchProvider();
+        }
+        catch (Exception ex)
+        {
+            TwitchStatus = ex.Message;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     protected override void LoadCore(ApplicationSettings settings)
