@@ -230,11 +230,21 @@ public partial class StudioViewModel : ViewModelBase
         _studioController  = studioController;
         _filePickerService = filePickerService;
 
+        _studioController.ActiveSceneChanged += OnActiveSceneChanged;
+
         RefreshProviderState(_streamPlatformIndex);
         RefreshOutputInfo();
 
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
+    }
+
+    private void OnActiveSceneChanged()
+    {
+        OnPropertyChanged(nameof(ActiveScene));
+        // Une bascule de scène depuis une autre page (Scènes, Multicam) doit
+        // aussi mettre à jour le placeholder du preview.
+        RefreshPreviewPlaceholder();
     }
 
     // ── Helpers settings → valeurs encoder ───────────────────────────────────
