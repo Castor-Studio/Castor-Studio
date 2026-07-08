@@ -39,6 +39,11 @@
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <!-- Sans ces alignements : texte à gauche quand le bouton est élargi
+             (MinWidth du footer) et bouton étiré sur la hauteur des cartes comptes. -->
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
     <Style Selector="Button.platform-connect:pointerover /template/ ContentPresenter">
