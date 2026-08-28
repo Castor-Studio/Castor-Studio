@@ -6,247 +6,236 @@
              x:Class="CastorApplication.Views.StudioView"
              x:DataType="vm:StudioViewModel">
 
-    <UserControl.Styles>
+	<UserControl.Styles>
 
-        <Style Selector="TextBlock.section-header">
-            <Setter Property="FontSize" Value="10"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
-            <Setter Property="Margin" Value="0,0,0,6"/>
-            <Setter Property="LetterSpacing" Value="1"/>
-        </Style>
+		<Style Selector="TextBlock.section-header">
+			<Setter Property="FontSize" Value="10"/>
+			<Setter Property="FontWeight" Value="Bold"/>
+			<Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+			<Setter Property="Margin" Value="0,0,0,6"/>
+			<Setter Property="LetterSpacing" Value="1"/>
+		</Style>
 
-        <Style Selector="Button.ctrl-btn">
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="CornerRadius" Value="5"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
+		<Style Selector="Button.flyout-start">
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="HorizontalContentAlignment" Value="Center"/>
+			<Setter Property="Height" Value="36"/>
+			<Setter Property="FontSize" Value="12"/>
+			<Setter Property="FontWeight" Value="Bold"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="CornerRadius" Value="6"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
 
-        <Style Selector="Button.flyout-start">
-            <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Center"/>
-            <Setter Property="Height" Value="36"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
+	</UserControl.Styles>
 
-    </UserControl.Styles>
+	<Grid RowDefinitions="*, 38, 72">
 
-    <Grid RowDefinitions="*, 38, 72">
-
-        <!-- ═══ ZONE PRINCIPALE ═══ -->
+		<!-- ═══ ZONE PRINCIPALE ═══ -->
 		<Panel Grid.Row="0" Background="Black">
 
-            <controls:DirectXPreviewView Scene="{Binding ActiveScene}"
+			<controls:DirectXPreviewView Scene="{Binding ActiveScene}"
                                           HorizontalAlignment="Stretch"
                                           VerticalAlignment="Stretch" />
 
-            <!-- Placeholder quand rien ne peut être affiché -->
-            <StackPanel IsVisible="{Binding ShowPreviewPlaceholder}"
+			<!-- Placeholder quand rien ne peut être affiché -->
+			<StackPanel IsVisible="{Binding ShowPreviewPlaceholder}"
                         HorizontalAlignment="Center" VerticalAlignment="Center"
                         Spacing="6">
-                <TextBlock Text="APERÇU"
+				<TextBlock Text="APERÇU"
                            Foreground="{DynamicResource AppFg5}"
                            FontSize="13" FontWeight="Bold" LetterSpacing="2"
                            HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding PreviewPlaceholderText}"
+				<TextBlock Text="{Binding PreviewPlaceholderText}"
                            Foreground="{DynamicResource AppFg4}"
                            FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
                            MaxWidth="380" HorizontalAlignment="Center"/>
-            </StackPanel>
+			</StackPanel>
 		</Panel>
 
-        <!-- ═══ SCENE SELECTOR BAR ═══ -->
-        <Border Grid.Row="1"
+		<!-- ═══ SCENE SELECTOR BAR ═══ -->
+		<Border Grid.Row="1"
                 Background="{DynamicResource AppSurface}" CornerRadius="6" Margin="8,4,8,4"
                 Padding="12,0" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-            <Grid ColumnDefinitions="Auto, Auto, *, Auto">
-                <TextBlock Grid.Column="0" Text="SCÈNE ACTIVE :"
+			<Grid ColumnDefinitions="Auto, Auto, *, Auto">
+				<TextBlock Grid.Column="0" Text="SCÈNE ACTIVE :"
                            Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"
                            VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <ComboBox Grid.Column="1"
+				<ComboBox Grid.Column="1"
                           ItemsSource="{Binding Scenes}"
                           DisplayMemberBinding="{Binding Name}"
                           SelectedItem="{Binding ActiveScene}"
                           MinWidth="180" VerticalAlignment="Center"
                           Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
+				<StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
                             VerticalAlignment="Center">
-                    <Ellipse Width="7" Height="7" Fill="{Binding SceneBarStatusBrush}" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding SceneBarStatusText}" Foreground="{Binding SceneBarStatusBrush}"
+					<Ellipse Width="7" Height="7" Fill="{Binding SceneBarStatusBrush}" VerticalAlignment="Center"/>
+					<TextBlock Text="{Binding SceneBarStatusText}" Foreground="{Binding SceneBarStatusBrush}"
                                FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Grid>
-        </Border>
+				</StackPanel>
+			</Grid>
+		</Border>
 
-        <!-- ═══ BARRE DE CONTRÔLES ═══ -->
-        <Grid Grid.Row="2"
+		<!-- ═══ BARRE DE CONTRÔLES ═══ -->
+		<Grid Grid.Row="2"
               ColumnDefinitions="*, 8, 280"
               Margin="8,0,8,8">
 
-            <!-- ── STATUT ── -->
-            <Border Grid.Column="0" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="12,0"
+			<!-- ── STATUT ── -->
+			<Border Grid.Column="0" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="12,0"
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-                <Grid ColumnDefinitions="Auto, *, Auto">
+				<Grid ColumnDefinitions="Auto, *, Auto">
 
-                    <Border Grid.Column="0" Padding="8,4" CornerRadius="5"
+					<Border Grid.Column="0" Padding="8,4" CornerRadius="5"
                             Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding StreamStatusText}"
+						<StackPanel Orientation="Horizontal" Spacing="5">
+							<Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
+							<TextBlock Text="{Binding StreamStatusText}"
                                        Foreground="{Binding StreamStatusBrush}"
                                        FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
+						</StackPanel>
+					</Border>
 
-                    <TextBlock Grid.Column="1" Text="{Binding StreamTimerText}"
+					<TextBlock Grid.Column="1" Text="{Binding StreamTimerText}"
                                Foreground="{Binding StreamTimerBrush}"
                                FontSize="14" FontFamily="Consolas"
                                VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
-                    <TextBlock Grid.Column="2" Text="{Binding OutputInfoText}"
+					<TextBlock Grid.Column="2" Text="{Binding OutputInfoText}"
                                Foreground="{DynamicResource AppFg6}" FontSize="11"
                                VerticalAlignment="Center"/>
-                </Grid>
-            </Border>
+				</Grid>
+			</Border>
 
-            <Rectangle Grid.Column="1" Fill="Transparent"/>
+			<Rectangle Grid.Column="1" Fill="Transparent"/>
 
-            <!-- ── BOUTONS DIFFUSION + ENREGISTREMENT ── -->
-            <Border Grid.Column="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
+			<!-- ── BOUTONS DIFFUSION + ENREGISTREMENT ── -->
+			<Border Grid.Column="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-                <Grid ColumnDefinitions="*, 6, *" VerticalAlignment="Center">
+				<Grid ColumnDefinitions="*, 6, *" VerticalAlignment="Center">
 
-                    <Button Grid.Column="0"
+					<Button Grid.Column="0"
                             Content="LANCER LE LIVE"
                             IsVisible="{Binding !IsStreaming}"
                             Classes="ctrl-btn"
-                            Background="{DynamicResource AppLiveBg}" Foreground="#34d399"
+                            Background="{DynamicResource AppLiveBg}" Foreground="{StaticResource StatusOkBrush}"
                             BorderBrush="{DynamicResource AppLiveBorder}">
-                        <Button.Flyout>
-                            <Flyout Placement="Top">
-                                <StackPanel Width="280" Spacing="12" Margin="4">
-                                    <TextBlock Text="DÉMARRER LE STREAM"
+						<Button.Flyout>
+							<Flyout Placement="Top">
+								<StackPanel Width="280" Spacing="12" Margin="4">
+									<TextBlock Text="DÉMARRER LE STREAM"
                                                FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
-                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-                                        <ComboBox HorizontalAlignment="Stretch"
+									<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+									<StackPanel Spacing="4">
+										<TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+										<ComboBox HorizontalAlignment="Stretch"
                                                   ItemsSource="{Binding Scenes}"
                                                   DisplayMemberBinding="{Binding Name}"
                                                   SelectedItem="{Binding ActiveScene}"
                                                   Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-                                    </StackPanel>
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Plateforme" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-                                        <ComboBox HorizontalAlignment="Stretch"
+									</StackPanel>
+									<StackPanel Spacing="4">
+										<TextBlock Text="Plateforme" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+										<ComboBox HorizontalAlignment="Stretch"
                                                   SelectedIndex="{Binding StreamPlatformIndex}"
                                                   Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}">
-                                            <ComboBoxItem Content="Twitch"/>
-                                            <ComboBoxItem Content="YouTube Live"/>
-                                            <ComboBoxItem Content="RTMP Manuel"/>
-                                        </ComboBox>
-                                    </StackPanel>
-                                    <Border IsVisible="{Binding !IsManualKeyRequired}"
+											<ComboBoxItem Content="Twitch"/>
+											<ComboBoxItem Content="YouTube Live"/>
+											<ComboBoxItem Content="RTMP Manuel"/>
+										</ComboBox>
+									</StackPanel>
+									<Border IsVisible="{Binding !IsManualKeyRequired}"
                                             Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,8"
                                             BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <Ellipse Width="7" Height="7" Fill="#34d399" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding ConnectedAccountLabel}"
-                                                       Foreground="#34d399" FontSize="11" FontWeight="SemiBold"
+										<StackPanel Orientation="Horizontal" Spacing="6">
+											<Ellipse Width="7" Height="7" Fill="{StaticResource StatusOkBrush}" VerticalAlignment="Center"/>
+											<TextBlock Text="{Binding ConnectedAccountLabel}"
+                                                       Foreground="{StaticResource StatusOkBrush}" FontSize="11" FontWeight="SemiBold"
                                                        VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Border>
-                                    <StackPanel Spacing="4" IsVisible="{Binding IsManualKeyRequired}">
-                                        <TextBlock Text="Clé de stream / URL RTMP" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
-                                        <TextBox PasswordChar="•" Text="{Binding StreamRtmpKey}"
+										</StackPanel>
+									</Border>
+									<StackPanel Spacing="4" IsVisible="{Binding IsManualKeyRequired}">
+										<TextBlock Text="Clé de stream / URL RTMP" Foreground="{DynamicResource AppFg4}" FontSize="11"/>
+										<TextBox PasswordChar="•" Text="{Binding StreamRtmpKey}"
                                                  Watermark="rtmp://..."
                                                  Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
-                                    </StackPanel>
-                                    <Button Content="DÉMARRER"
+									</StackPanel>
+									<Button Content="DÉMARRER"
                                             Command="{Binding StartStreamingCommand}"
                                             Classes="flyout-start"
-                                            Background="#34d399" Foreground="#0b0b12"/>
-                                    <TextBlock Text="{Binding StreamError}"
+                                            Background="{StaticResource StatusOkBrush}" Foreground="{DynamicResource AppVeryDarkBg}"/>
+									<TextBlock Text="{Binding StreamError}"
                                                IsVisible="{Binding StreamError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                               Foreground="#f87171" FontSize="11"
+                                               Foreground="{StaticResource StatusErrorBrush}" FontSize="11"
                                                TextWrapping="Wrap"/>
-                                </StackPanel>
-                            </Flyout>
-                        </Button.Flyout>
-                    </Button>
+								</StackPanel>
+							</Flyout>
+						</Button.Flyout>
+					</Button>
 
-                    <Button Grid.Column="0"
+					<Button Grid.Column="0"
                             Content="ARRÊTER LE LIVE"
                             IsVisible="{Binding IsStreaming}"
                             Command="{Binding StopStreamingCommand}"
                             Classes="ctrl-btn"
-                            Background="{DynamicResource AppStopBg}" Foreground="#f87171"
+                            Background="{DynamicResource AppStopBg}" Foreground="{StaticResource StatusErrorBrush}"
                             BorderBrush="{DynamicResource AppStopBorder}"/>
 
-                    <Button Grid.Column="2"
+					<Button Grid.Column="2"
                             Content="ENREGISTRER"
                             IsVisible="{Binding !IsRecording}"
                             Classes="ctrl-btn"
-                            Background="{DynamicResource AppRecBg}" Foreground="#ef4444"
+                            Background="{DynamicResource AppRecBg}" Foreground="{StaticResource StatusRecBrush}"
                             BorderBrush="{DynamicResource AppRecBorder}">
-                        <Button.Flyout>
-                            <Flyout Placement="Top">
-                                <StackPanel Width="280" Spacing="12" Margin="4">
-                                    <TextBlock Text="DÉMARRER L'ENREGISTREMENT"
+						<Button.Flyout>
+							<Flyout Placement="Top">
+								<StackPanel Width="280" Spacing="12" Margin="4">
+									<TextBlock Text="DÉMARRER L'ENREGISTREMENT"
                                                FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
-                                    <Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+									<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-                                        <ComboBox HorizontalAlignment="Stretch"
+									<StackPanel Spacing="4">
+										<TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+										<ComboBox HorizontalAlignment="Stretch"
                                                   ItemsSource="{Binding Scenes}"
                                                   DisplayMemberBinding="{Binding Name}"
                                                   SelectedItem="{Binding ActiveScene}"
                                                   Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-                                    </StackPanel>
+									</StackPanel>
 
-                                    <!-- Message d'erreur -->
-                                    <Border IsVisible="{Binding RecordError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+									<!-- Message d'erreur -->
+									<Border IsVisible="{Binding RecordError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                             Background="#3b1219" CornerRadius="5" Padding="10,7"
                                             BorderBrush="#7f1d1d" BorderThickness="1">
-                                        <TextBlock Text="{Binding RecordError}"
-                                                   Foreground="#f87171" FontSize="11" TextWrapping="Wrap"/>
-                                    </Border>
+										<TextBlock Text="{Binding RecordError}"
+                                                   Foreground="{StaticResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
+									</Border>
 
-                                    <TextBlock Text="Le fichier de destination sera choisi via la boîte de dialogue."
+									<TextBlock Text="Le fichier de destination sera choisi via la boîte de dialogue."
                                                Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                TextWrapping="Wrap"/>
 
-                                    <Button Content="CHOISIR UN FICHIER ET DÉMARRER"
+									<Button Content="CHOISIR UN FICHIER ET DÉMARRER"
                                             Command="{Binding StartRecordingCommand}"
                                             Classes="flyout-start"
-                                            Background="#ef4444" Foreground="#eaeaf0"/>
-                                </StackPanel>
-                            </Flyout>
-                        </Button.Flyout>
-                    </Button>
+                                            Background="{StaticResource StatusRecBrush}" Foreground="{DynamicResource AppFg1}"/>
+								</StackPanel>
+							</Flyout>
+						</Button.Flyout>
+					</Button>
 
-                    <Button Grid.Column="2"
+					<Button Grid.Column="2"
                             Content="ARRÊTER"
                             IsVisible="{Binding IsRecording}"
                             Command="{Binding StopRecordingCommand}"
                             Classes="ctrl-btn"
-                            Background="{DynamicResource AppStopBg}" Foreground="#f87171"
+                            Background="{DynamicResource AppStopBg}" Foreground="{StaticResource StatusErrorBrush}"
                             BorderBrush="{DynamicResource AppStopBorder}"/>
 
-                </Grid>
-            </Border>
+				</Grid>
+			</Border>
 
-        </Grid>
-    </Grid>
+		</Grid>
+	</Grid>
 
 </UserControl>

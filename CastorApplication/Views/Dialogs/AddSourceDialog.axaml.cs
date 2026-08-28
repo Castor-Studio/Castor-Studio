@@ -3,7 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using CastorApplication.ViewModels;
 
-namespace CastorApplication.Views;
+namespace CastorApplication.Views.Dialogs;
 
 public partial class AddSourceDialog : Window
 {

@@ -7,6 +7,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Castor.Engine.Models;
 using CastorApplication.ViewModels;
+using CastorApplication.Views.Dialogs;
 
 namespace CastorApplication.Views;
 
