@@ -58,17 +58,23 @@
 
 	</Window.Styles>
 
+	<Window.KeyBindings>
+		<KeyBinding Gesture="Escape" Command="{Binding CancelCommand}"/>
+		<KeyBinding Gesture="Enter" Command="{Binding ConfirmCommand}"/>
+	</Window.KeyBindings>
+	
 	<Border Background="{DynamicResource AppSurface}" CornerRadius="10"
             BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
 		<Grid RowDefinitions="46, 1, *, 1, 54">
 
 			<!-- ── Header (déplaçable) ── -->
 			<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="16,0,10,0"
-                  Background="Transparent" PointerPressed="OnHeaderPointerPressed">
+                  Background="Transparent"
+				  PointerPressed="OnHeaderPointerPressed">
 				<TextBlock Grid.Column="0" Text="AJOUTER UNE SOURCE"
                            FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"
                            VerticalAlignment="Center"/>
-				<Button Grid.Column="1" Click="OnCloseClick"
+				<Button Grid.Column="1" Command="{Binding CancelCommand}"
                         Background="Transparent" BorderThickness="0"
                         Padding="8,4" CornerRadius="5" Cursor="Hand"
                         Foreground="{DynamicResource AppFg4}" FontSize="13"
@@ -145,7 +151,6 @@
 						<ListBox Classes="source-list"
                                  ItemsSource="{Binding VisibleItems}"
                                  SelectedItem="{Binding SelectedItem}"
-                                 DoubleTapped="OnItemDoubleTapped"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
 							<ListBox.ItemTemplate>
 								<DataTemplate x:DataType="vm:AddSourceItem">

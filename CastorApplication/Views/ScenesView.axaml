@@ -70,13 +70,17 @@
 									<StackPanel Spacing="4">
 										<TextBlock Text="Nom de la scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
 										<TextBox Text="{Binding NewSceneName}"
-                                                 Watermark="Ex: Match Live"
-                                                 KeyDown="OnCreateSceneKeyDown"
-                                                 Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" Foreground="{DynamicResource AppFg2}"/>
+											Watermark="Ex: Match Live"
+											Background="{DynamicResource AppSurface2}"
+											BorderBrush="{DynamicResource AppBorder2}"
+											Foreground="{DynamicResource AppFg2}">
+											<TextBox.KeyBindings>
+												<KeyBinding Gesture="Enter" Command="{Binding CreateSceneCommand}"/>
+											</TextBox.KeyBindings>
+										</TextBox>
 									</StackPanel>
 									<Button Content="CRÉER LA SCÈNE"
                                             Command="{Binding CreateSceneCommand}"
-                                            Click="OnCloseFlyoutClick"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                             Height="36" Background="#5b8def" Foreground="#eaeaf0"
                                             BorderThickness="0" CornerRadius="6"
@@ -255,9 +259,7 @@
 						<ItemsControl.ItemTemplate>
 							<DataTemplate x:DataType="m:SceneItem">
 								<Grid ColumnDefinitions="Auto, Auto, *, Auto"
-                                      DragDrop.AllowDrop="True"
-                                      DragDrop.DragOver="OnSceneRowDragOver"
-                                      DragDrop.Drop="OnSceneRowDrop">
+                                      DragDrop.AllowDrop="True">
 
 									<CheckBox Grid.Column="0"
                                               IsVisible="{Binding #ScenesRoot.DataContext.IsSelectionModeActive}"
@@ -266,8 +268,7 @@
 
 									<Border Grid.Column="1" Width="22"
                                             Background="Transparent" Cursor="SizeAll"
-                                            ToolTip.Tip="Glisser pour réordonner"
-                                            PointerPressed="OnSceneDragHandlePointerPressed">
+                                            ToolTip.Tip="Glisser pour réordonner">
 										<TextBlock Text="⠿" FontSize="14"
                                                    Foreground="{DynamicResource AppFg5}"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -332,14 +333,16 @@
 																	<TextBlock Text="RENOMMER LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 																	<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
-																	<TextBox Text="{Binding #ScenesRoot.DataContext.RenameSceneName}"
-                                                                             KeyDown="OnRenameSceneKeyDown"
-                                                                             Background="{DynamicResource AppSurface2}"
-                                                                             BorderBrush="{DynamicResource AppBorder2}"
-                                                                             Foreground="{DynamicResource AppFg2}"/>
+																	<TextBox Text="{Binding #ScenesRoot.DataContext.RenameSceneName, UpdateSourceTrigger=PropertyChanged}"
+																		Background="{DynamicResource AppSurface2}"
+																		BorderBrush="{DynamicResource AppBorder2}"
+																		Foreground="{DynamicResource AppFg2}">
+																		<TextBox.KeyBindings>
+																			<KeyBinding Gesture="Enter" Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"/>
+																		</TextBox.KeyBindings>
+																	</TextBox>
 																	<Button Content="RENOMMER"
                                                                             Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"
-                                                                            Click="OnCloseFlyoutClick"
                                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                                             Height="32" Background="#5b8def" Foreground="#eaeaf0"
                                                                             BorderThickness="0" CornerRadius="6"
@@ -467,7 +470,7 @@
 						<!-- Ouvre le dialogue « Ajouter une source » -->
 						<Button Grid.Column="1"
                                 Content="+"
-                                Click="OnAddSourceClick"
+								Click="OnAddSourceClick"
                                 Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
                                 BorderThickness="0" Padding="10,4" CornerRadius="5"
                                 FontSize="16" FontWeight="Bold" Cursor="Hand"
