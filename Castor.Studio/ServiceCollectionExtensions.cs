@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SettingsService>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
+        services.AddSingleton<DockLayoutService>();
 
         services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
         services.AddSingleton<ISceneCollectionService, SceneCollectionService>();
@@ -60,9 +61,11 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IAddSourceDialogViewModelFactory>(), provider.GetRequiredService<IAddSourceDialogService>()));
         services.AddSingleton(provider => new MulticamViewModel(
             provider.GetRequiredService<IAiAnalysisClient>(), provider.GetRequiredService<StudioWorkspaceViewModel>()));
+        services.AddSingleton(provider => new StudioDockViewModel(
+            provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<ScenesViewModel>(),
+            provider.GetRequiredService<MulticamViewModel>(), provider.GetRequiredService<DockLayoutService>()));
         services.AddSingleton(provider => new MainViewModel(
-            provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<MulticamViewModel>(),
-            provider.GetRequiredService<ScenesViewModel>(), provider.GetRequiredService<SettingsViewModel>(),
-            provider.GetRequiredService<StudioWorkspaceViewModel>()));
+            provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<StudioDockViewModel>(),
+            provider.GetRequiredService<SettingsViewModel>(), provider.GetRequiredService<StudioWorkspaceViewModel>()));
     }
 }
