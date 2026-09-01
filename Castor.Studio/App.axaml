@@ -43,6 +43,7 @@
     <Application.Styles>
         <FluentTheme/>
         <DockFluentTheme/>
+        <StyleInclude Source="/Styles/DockTheme.axaml"/>
         <StyleInclude Source="/Styles/Controls.axaml"/>
     </Application.Styles>
 </Application>
