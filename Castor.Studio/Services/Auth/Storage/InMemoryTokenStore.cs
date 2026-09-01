@@ -42,7 +42,7 @@ namespace CastorApplication.Services.Auth.Storage
             return Task.CompletedTask;
         }
 
-        public Task<IReadOnlyCollection<AuthSession>>GetAllAsync(
+        public Task<IReadOnlyCollection<AuthSession>> GetAllAsync(
             CancellationToken ct = default)
         {
             return Task.FromResult(

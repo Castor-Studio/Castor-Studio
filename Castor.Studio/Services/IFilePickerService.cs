@@ -5,7 +5,7 @@ namespace CastorApplication.Services;
 public interface IFilePickerService
 {
     Task<string?> PickRecordingOutputFileAsync(
-        string extension  = ".mp4",
+        string extension = ".mp4",
         string formatLabel = "MP4 (H.264 + AAC)");
 
     /// <summary>Ouvre un sélecteur de fichier pour choisir une source vidéo.</summary>

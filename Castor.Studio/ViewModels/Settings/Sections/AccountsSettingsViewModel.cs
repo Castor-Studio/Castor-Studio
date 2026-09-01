@@ -95,7 +95,7 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
             var api = new TwitchAPI();
             api.Settings.ClientId = _authService.GetClientId("twitch");
             api.Settings.AccessToken = session.AccessToken;
-            
+
             var usersReponse = await api.Helix.Users.GetUsersAsync();
             var user = usersReponse.Users.FirstOrDefault()
                 ?? throw new InvalidOperationException("Impossible de récupérer le profil Twitch.");

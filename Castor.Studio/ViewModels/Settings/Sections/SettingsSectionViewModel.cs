@@ -11,7 +11,7 @@ namespace CastorApplication.ViewModels.Settings.Sections
     public abstract partial class SettingsSectionViewModel : ViewModelBase, ISettingsSection
     {
         private bool _isLoading;
-        
+
         [ObservableProperty]
         private bool _isDirty;
 
