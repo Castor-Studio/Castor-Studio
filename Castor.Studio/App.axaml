@@ -9,7 +9,6 @@
              xmlns:settingsSectionVm="using:CastorApplication.ViewModels.Settings.Sections"
              xmlns:shellVm="using:CastorApplication.ViewModels.Shell"
              xmlns:shellViews="using:CastorApplication.Views.Shell"
-             xmlns:dockMvvm="using:Dock.Model.Mvvm.Controls"
              xmlns:docking="using:CastorApplication.Docking"
              xmlns:studioViews="using:CastorApplication.Views.Studio"
              x:Class="CastorApplication.App"
@@ -25,11 +24,6 @@
         <DataTemplate DataType="{x:Type settingsSectionVm:StreamingSettingsViewModel}"><settingsSectionViews:StreamingSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:OutputSettingsViewModel}"><settingsSectionViews:OutputSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:AccountsSettingsViewModel}"><settingsSectionViews:AccountsSettingsView/></DataTemplate>
-
-        <!-- Dock panes stay thin wrappers: their Context is the real ViewModel, so this
-             re-enters the DataTemplates above and resolves the existing views unchanged. -->
-        <DataTemplate DataType="{x:Type dockMvvm:Document}"><ContentControl Content="{Binding Context}"/></DataTemplate>
-        <DataTemplate DataType="{x:Type dockMvvm:Tool}"><ContentControl Content="{Binding Context}"/></DataTemplate>
 
         <!-- StudioViewModel backs three distinct panes, so these key off the dockable's
              own (marker) type instead of its Context to pick the right pane view. -->

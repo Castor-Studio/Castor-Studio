@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Avalonia.Media;
-using CastorApplication.Docking;
+using CastorApplication.ViewModels.Multicam;
+using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Settings;
 using CastorApplication.ViewModels.Studio;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -10,7 +11,9 @@ namespace CastorApplication.ViewModels.Shell;
 
 public enum MainPageKind
 {
-    StudioWorkspace,
+    Studio,
+    Multicam,
+    Scenes,
     Settings
 }
 
@@ -18,6 +21,8 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly StudioViewModel _studioViewModel;
     private readonly StudioDockViewModel _studioDockViewModel;
+    private readonly MulticamViewModel _multicamViewModel;
+    private readonly ScenesViewModel _scenesViewModel;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly StudioWorkspaceViewModel _workspace;
 
@@ -27,23 +32,26 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty] private ViewModelBase? _currentPage;
     [ObservableProperty] private MainPageKind _currentPageKind;
 
-    public bool IsStudioActive => CurrentPageKind == MainPageKind.StudioWorkspace && _studioDockViewModel.FocusedPaneId == StudioDockIds.Preview;
-    public bool IsMulticamActive => CurrentPageKind == MainPageKind.StudioWorkspace && _studioDockViewModel.FocusedPaneId == StudioDockIds.Multicam;
-    public bool IsScenesActive => CurrentPageKind == MainPageKind.StudioWorkspace && _studioDockViewModel.FocusedPaneId == StudioDockIds.Scenes;
+    public bool IsStudioActive => CurrentPageKind == MainPageKind.Studio;
+    public bool IsMulticamActive => CurrentPageKind == MainPageKind.Multicam;
+    public bool IsScenesActive => CurrentPageKind == MainPageKind.Scenes;
     public bool IsSettingsActive => CurrentPageKind == MainPageKind.Settings;
 
     internal MainViewModel(
         StudioViewModel studioViewModel,
         StudioDockViewModel studioDockViewModel,
+        MulticamViewModel multicamViewModel,
+        ScenesViewModel scenesViewModel,
         SettingsViewModel settingsViewModel,
         StudioWorkspaceViewModel workspace)
     {
         _studioViewModel = studioViewModel;
         _studioDockViewModel = studioDockViewModel;
+        _multicamViewModel = multicamViewModel;
+        _scenesViewModel = scenesViewModel;
         _settingsViewModel = settingsViewModel;
         _workspace = workspace;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
-        _studioDockViewModel.PropertyChanged += OnStudioDockPropertyChanged;
         ShowStudio();
     }
 
@@ -52,24 +60,21 @@ public partial class MainViewModel : ViewModelBase
     {
         _studioViewModel.RefreshOutputInfo();
         CurrentPage = _studioDockViewModel;
-        CurrentPageKind = MainPageKind.StudioWorkspace;
-        _studioDockViewModel.FocusPane(StudioDockIds.Preview);
+        CurrentPageKind = MainPageKind.Studio;
     }
 
     [RelayCommand]
     private void ShowMulticam()
     {
-        CurrentPage = _studioDockViewModel;
-        CurrentPageKind = MainPageKind.StudioWorkspace;
-        _studioDockViewModel.FocusPane(StudioDockIds.Multicam);
+        CurrentPage = _multicamViewModel;
+        CurrentPageKind = MainPageKind.Multicam;
     }
 
     [RelayCommand]
     private void ShowScenes()
     {
-        CurrentPage = _studioDockViewModel;
-        CurrentPageKind = MainPageKind.StudioWorkspace;
-        _studioDockViewModel.FocusPane(StudioDockIds.Scenes);
+        CurrentPage = _scenesViewModel;
+        CurrentPageKind = MainPageKind.Scenes;
     }
 
     [RelayCommand]
@@ -84,14 +89,6 @@ public partial class MainViewModel : ViewModelBase
         if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
         OnPropertyChanged(nameof(GlobalStatusText));
         OnPropertyChanged(nameof(GlobalStatusBrush));
-    }
-
-    private void OnStudioDockPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName != nameof(StudioDockViewModel.FocusedPaneId)) return;
-        OnPropertyChanged(nameof(IsStudioActive));
-        OnPropertyChanged(nameof(IsMulticamActive));
-        OnPropertyChanged(nameof(IsScenesActive));
     }
 
     partial void OnCurrentPageKindChanged(MainPageKind value)

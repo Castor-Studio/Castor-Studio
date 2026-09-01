@@ -62,10 +62,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(provider => new MulticamViewModel(
             provider.GetRequiredService<IAiAnalysisClient>(), provider.GetRequiredService<StudioWorkspaceViewModel>()));
         services.AddSingleton(provider => new StudioDockViewModel(
-            provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<ScenesViewModel>(),
-            provider.GetRequiredService<MulticamViewModel>(), provider.GetRequiredService<DockLayoutService>()));
+            provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<DockLayoutService>()));
         services.AddSingleton(provider => new MainViewModel(
             provider.GetRequiredService<StudioViewModel>(), provider.GetRequiredService<StudioDockViewModel>(),
+            provider.GetRequiredService<MulticamViewModel>(), provider.GetRequiredService<ScenesViewModel>(),
             provider.GetRequiredService<SettingsViewModel>(), provider.GetRequiredService<StudioWorkspaceViewModel>()));
     }
 }
