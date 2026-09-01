@@ -13,8 +13,4 @@
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.7" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<ProjectReference Include="..\Castor.Native\Castor.Native.csproj" />
-	</ItemGroup>
-
 </Project>
