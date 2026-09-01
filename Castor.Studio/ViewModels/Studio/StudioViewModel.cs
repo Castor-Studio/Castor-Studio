@@ -283,11 +283,15 @@ public partial class StudioViewModel : ViewModelBase
     private static int FpsFromIndex(int index) => index switch { 0 => 60, 2 => 25, _ => 30 };
     private static (int Width, int Height) OutputResolutionFromIndex(int index) => index switch
     {
-        1 => (1280, 720), 2 => (854, 480), _ => (1920, 1080)
+        1 => (1280, 720),
+        2 => (854, 480),
+        _ => (1920, 1080)
     };
     private static (string Extension, string Label, string Container) FormatFromIndex(int index) => index switch
     {
-        1 => (".mkv", "MKV", "mkv"), 2 => (".webm", "WebM", "webm"), _ => (".mp4", "MP4", "mp4")
+        1 => (".mkv", "MKV", "mkv"),
+        2 => (".webm", "WebM", "webm"),
+        _ => (".mp4", "MP4", "mp4")
     };
     private static string? GetProviderId(int index) => index switch { 0 => "twitch", 1 => "youtube", _ => null };
     private static string GetPlatformName(int index) => index switch { 0 => "Twitch", 1 => "YouTube Live", _ => "RTMP" };

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace CastorApplication.Models.Auth
 {
     public sealed class AuthSession
-    {   
+    {
         public string ProviderId { get; init; } = "";
 
         public string AccessToken { get; init; } = "";

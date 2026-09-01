@@ -28,20 +28,20 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         // Ancien 3 (Personnalisé) → 2 ; ancien 2 (Facebook) → 0 (Twitch).
         SelectedPlatformIndex = settings.SelectedPlatformIndex switch
         {
-            3     => 2,
-            2     => 0,
+            3 => 2,
+            2 => 0,
             var i => i,
         };
-        StreamKey        = settings.StreamKey;
-        RtmpUrl          = settings.RtmpUrl;
+        StreamKey = settings.StreamKey;
+        RtmpUrl = settings.RtmpUrl;
         StreamingBitrate = settings.StreamingBitrate;
     }
 
     protected override void SaveCore(ApplicationSettings settings)
     {
         settings.SelectedPlatformIndex = SelectedPlatformIndex;
-        settings.StreamKey             = StreamKey;
-        settings.RtmpUrl               = RtmpUrl;
-        settings.StreamingBitrate      = StreamingBitrate;
+        settings.StreamKey = StreamKey;
+        settings.RtmpUrl = RtmpUrl;
+        settings.StreamingBitrate = StreamingBitrate;
     }
 }

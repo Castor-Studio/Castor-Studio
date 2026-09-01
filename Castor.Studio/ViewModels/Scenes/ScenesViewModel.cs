@@ -282,29 +282,46 @@ public partial class ScenesViewModel : ViewModelBase
     private void AddFileSource(SceneItemViewModel scene, string path, SourceKind kind) =>
         _workspace.AddSource(scene, new SourceDefinition
         {
-            Name = Path.GetFileName(path), Kind = kind, Color = kind == SourceKind.Video ? "#a78bfa" : "#fb923c",
-            Origin = SourceOrigin.File, OriginLabel = Path.GetFileName(path), OriginPath = path, Loop = true
+            Name = Path.GetFileName(path),
+            Kind = kind,
+            Color = kind == SourceKind.Video ? "#a78bfa" : "#fb923c",
+            Origin = SourceOrigin.File,
+            OriginLabel = Path.GetFileName(path),
+            OriginPath = path,
+            Loop = true
         });
 
     private void AddNetworkSource(SceneItemViewModel scene, string label, string url) =>
         _workspace.AddSource(scene, new SourceDefinition
         {
-            Name = label, Kind = SourceKind.Video, Color = "#5b8def", Origin = SourceOrigin.Network,
-            OriginLabel = label, OriginPath = url
+            Name = label,
+            Kind = SourceKind.Video,
+            Color = "#5b8def",
+            Origin = SourceOrigin.Network,
+            OriginLabel = label,
+            OriginPath = url
         });
 
     private void AddHardwareVideo(SceneItemViewModel scene, CaptureSourceOption option) =>
         _workspace.AddSource(scene, new SourceDefinition
         {
-            Name = option.Label, Kind = SourceKind.Video, Color = "#5b8def", Origin = SourceOrigin.HardwareVideo,
-            OriginLabel = option.Label, OriginPath = option.Id
+            Name = option.Label,
+            Kind = SourceKind.Video,
+            Color = "#5b8def",
+            Origin = SourceOrigin.HardwareVideo,
+            OriginLabel = option.Label,
+            OriginPath = option.Id
         });
 
     private void AddHardwareAudio(SceneItemViewModel scene, AudioSourceOption option) =>
         _workspace.AddSource(scene, new SourceDefinition
         {
-            Name = option.Label, Kind = SourceKind.Audio, Color = "#f87171", Origin = SourceOrigin.HardwareAudio,
-            OriginLabel = option.Label, OriginPath = option.Id
+            Name = option.Label,
+            Kind = SourceKind.Audio,
+            Color = "#f87171",
+            Origin = SourceOrigin.HardwareAudio,
+            OriginLabel = option.Label,
+            OriginPath = option.Id
         });
 
     private bool WouldLeaveNoScenesWhileLive(int count) => count >= Scenes.Count && (_workspace.IsRecording || _workspace.IsStreaming);

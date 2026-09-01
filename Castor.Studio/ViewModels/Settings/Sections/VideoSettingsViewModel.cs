@@ -27,19 +27,19 @@ public partial class VideoSettingsViewModel : SettingsSectionViewModel
 
     protected override void LoadCore(ApplicationSettings settings)
     {
-        SelectedBaseResolutionIndex   = settings.SelectedBaseResolutionIndex;
+        SelectedBaseResolutionIndex = settings.SelectedBaseResolutionIndex;
         SelectedOutputResolutionIndex = settings.SelectedOutputResolutionIndex;
-        SelectedFpsIndex              = settings.SelectedFpsIndex;
-        VideoBitrate                  = settings.VideoBitrate;
-        SelectedQualityIndex          = settings.RecordingQualityIndex;
+        SelectedFpsIndex = settings.SelectedFpsIndex;
+        VideoBitrate = settings.VideoBitrate;
+        SelectedQualityIndex = settings.RecordingQualityIndex;
     }
 
     protected override void SaveCore(ApplicationSettings settings)
     {
-        settings.SelectedBaseResolutionIndex   = SelectedBaseResolutionIndex;
+        settings.SelectedBaseResolutionIndex = SelectedBaseResolutionIndex;
         settings.SelectedOutputResolutionIndex = SelectedOutputResolutionIndex;
-        settings.SelectedFpsIndex              = SelectedFpsIndex;
-        settings.VideoBitrate                  = VideoBitrate;
-        settings.RecordingQualityIndex         = SelectedQualityIndex;
+        settings.SelectedFpsIndex = SelectedFpsIndex;
+        settings.VideoBitrate = VideoBitrate;
+        settings.RecordingQualityIndex = SelectedQualityIndex;
     }
 }
