@@ -2,6 +2,7 @@
 	<PropertyGroup>
 		<OutputType>WinExe</OutputType>
 		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
 		<PlatformTarget>x64</PlatformTarget>
 		<Nullable>enable</Nullable>
 		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
@@ -21,32 +22,12 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
 		<PackageReference Include="Avalonia" Version="12.1.1" />
 		<PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
-		<PackageReference Include="Avalonia.ReactiveUI" Version="11.3.8" />
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
 		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
 		
-		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-		<PackageReference Include="Avalonia.Diagnostics" Version="11.3.20">
-			<IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
-			<PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
-		</PackageReference>
-
 		<PackageReference Include="LibObs" Version="0.0.1" />
 
-		<PackageReference Include="Google.Protobuf" Version="3.36.1" />
-		<PackageReference Include="Grpc.Net.Client" Version="2.83.0" />
-		<PackageReference Include="Grpc.Tools" Version="2.83.0">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		
 		<PackageReference Include="TwitchLib" Version="3.5.3" />
-	</ItemGroup>
-	<ItemGroup>
-		<ProjectReference Include="..\Castor.Engine\Castor.Engine.csproj" />
-	</ItemGroup>
-	<ItemGroup>
-		<Protobuf Include="Protos\ia_analysis.proto" GrpcServices="Client" />
 	</ItemGroup>
 	
 	<!-- Files need to be copied to build output -->

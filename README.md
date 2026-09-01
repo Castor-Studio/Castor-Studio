@@ -1,28 +1,24 @@
 # Castor Studio
 
+Application desktop Avalonia préparée pour une future intégration du package LibObs C#.
+
+## Prérequis
+
+- .NET SDK 10
+- Windows x64
+
 ## Build
 
-Use the root build script:
-
 ```powershell
-./scripts/build-all.ps1 -Configuration Debug
+./scripts/build-dotnet.ps1 -Configuration Debug
 ```
 
-For release:
+ou directement :
 
 ```powershell
-./scripts/build-all.ps1 -Configuration Release
+dotnet build Castor-Studio.sln -c Debug
 ```
 
-The .NET-only step is also available after the native DLL exists:
-
-```powershell
-./scripts/build-dotnet.ps1 -Configuration Debug -Arch x64
-```
-
-This builds:
-
-1. the native C/C++ DLL with CMake
-2. the .NET/Avalonia solution
-
-Do not use `dotnet build` directly unless the native DLL has already been built.
+La version actuelle conserve les interactions UI locales. Preview, périphériques matériels,
+enregistrement, streaming, scan réseau et analyse IA restent indisponibles tant que
+`IStudioRuntime` n'a pas d'implémentation LibObs.

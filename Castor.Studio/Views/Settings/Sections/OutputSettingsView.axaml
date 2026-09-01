@@ -43,7 +43,7 @@
                          Background="{DynamicResource AppSurface2}"
                          BorderBrush="{DynamicResource AppBorder2}"
                          Foreground="{DynamicResource AppFg2}"
-                         Watermark="C:\Users\...\Videos"
+                         PlaceholderText="C:\Users\...\Videos"
                          Text="{Binding OutputPath}"/>
 
             </Grid>

@@ -31,7 +31,7 @@
                     ItemsSource="{Binding Sections}"
                     Margin="0,8">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="vm:SettingsSectionItem">
                             <components:SettingsNavItem />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

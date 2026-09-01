@@ -35,7 +35,7 @@
                                 Height="36"
                                 ClipToBounds="True">
 
-                            <Image Source="avares://CastorApplication/Assets/twitch-logo.png"
+                            <Image Source="/Assets/twitch-logo.png"
                                    Width="36"
                                    Height="36"
                                    Stretch="UniformToFill"/>
@@ -84,7 +84,7 @@
                                 Height="36"
                                 ClipToBounds="True">
 
-                            <Image Source="avares://CastorApplication/Assets/youtube-logo.png"
+                            <Image Source="/Assets/youtube-logo.png"
                                    Width="36"
                                    Height="36"
                                    Stretch="UniformToFill"/>
@@ -133,7 +133,7 @@
                                 Height="36"
                                 ClipToBounds="True">
 
-                            <Image Source="avares://CastorApplication/Assets/facebook-logo.png"
+                            <Image Source="/Assets/facebook-logo.png"
                                    Width="36"
                                    Height="36"
                                    Stretch="UniformToFill"/>

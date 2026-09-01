@@ -44,7 +44,7 @@
                          BorderBrush="{DynamicResource AppBorder2}"
                          Foreground="{DynamicResource AppFg2}"
                          PasswordChar="•"
-                         Watermark="Entrez votre clé de stream..."
+                         PlaceholderText="Entrez votre clé de stream..."
                          Text="{Binding StreamKey}"/>
 
             </Grid>
@@ -61,7 +61,7 @@
                          Background="{DynamicResource AppSurface2}"
                          BorderBrush="{DynamicResource AppBorder2}"
                          Foreground="{DynamicResource AppFg2}"
-                         Watermark="rtmp://live.twitch.tv/app"
+                         PlaceholderText="rtmp://live.twitch.tv/app"
                          Text="{Binding RtmpUrl}"/>
 
             </Grid>

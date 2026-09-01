@@ -4,7 +4,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Linq;
-using ReactiveUI;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CastorApplication.ViewModels.Settings.Sections;
@@ -92,11 +92,13 @@ public partial class SettingsViewModel : ViewModelBase
 
         foreach (var section in SectionViewModels)
         {
-            section.ObservableForProperty(s => s.IsDirty).Subscribe(_ =>
+            if (section is not INotifyPropertyChanged observable) continue;
+            observable.PropertyChanged += (_, args) =>
             {
+                if (args.PropertyName != nameof(ISettingsSection.IsDirty)) return;
                 OnPropertyChanged(nameof(HasUnsavedChanges));
                 SaveSettingsCommand.NotifyCanExecuteChanged();
-            });
+            };
         }
 
         CurrentSection = Sections.FirstOrDefault()?.ViewModel;

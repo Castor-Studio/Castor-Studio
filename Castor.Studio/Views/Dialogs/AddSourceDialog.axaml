@@ -1,14 +1,14 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:CastorApplication.ViewModels"
-        xmlns:engineModels="using:Castor.Engine.Models"
+        xmlns:vm="using:CastorApplication.ViewModels.Scenes"
+        xmlns:studioModels="using:CastorApplication.Models.Studio"
         x:Class="CastorApplication.Views.Dialogs.AddSourceDialog"
         x:Name="DialogRoot"
         x:DataType="vm:AddSourceDialogViewModel"
         Title="Ajouter une source"
         Width="640" Height="500"
         CanResize="False"
-        SystemDecorations="None"
+        WindowDecorations="None"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
         WindowStartupLocation="CenterOwner"
@@ -124,7 +124,7 @@
                           IsVisible="{Binding IsListCategory}" Margin="0,0,0,8">
 						<TextBox Grid.Column="0" x:Name="SearchBox"
                                  Text="{Binding SearchText}"
-                                 Watermark="Rechercher…"
+                                 PlaceholderText="Rechercher…"
                                  FontSize="12" Padding="8,5"
                                  Background="{DynamicResource AppSurface2}"
                                  Foreground="{DynamicResource AppFg1}"
@@ -195,7 +195,7 @@
 						<TextBlock Text="URL du flux (RTMP / RTSP / HTTP)"
                                    Foreground="{DynamicResource AppFg3}" FontSize="11"/>
 						<TextBox Text="{Binding NetworkUrl}"
-                                 Watermark="rtmp:// ou rtsp://…"
+                                 PlaceholderText="rtmp:// ou rtsp://…"
                                  FontSize="12" Padding="8,5"
                                  Background="{DynamicResource AppSurface2}"
                                  Foreground="{DynamicResource AppFg1}"
@@ -223,7 +223,7 @@
 						<ItemsControl ItemsSource="{Binding DiscoveredCameras}"
                                       IsVisible="{Binding DiscoveredCameras.Count}">
 							<ItemsControl.ItemTemplate>
-								<DataTemplate x:DataType="engineModels:DiscoveredCamera">
+								<DataTemplate x:DataType="studioModels:DiscoveredCamera">
 									<Button Classes="cat-item"
                                             Command="{Binding #DialogRoot.DataContext.ConfirmDiscoveredCameraCommand}"
                                             CommandParameter="{Binding}">

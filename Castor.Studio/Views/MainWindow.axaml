@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:CastorApplication.ViewModels"
+        xmlns:vm="using:CastorApplication.ViewModels.Shell"
         x:Class="CastorApplication.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Castor Studio"
@@ -24,8 +24,7 @@
                             VerticalAlignment="Center"
                             Spacing="10"
                             Margin="16,0">
-					<Image Height="26" Width="26"
-                           Source="avares://CastorApplication/Assets/castor.png"/>
+					<Image Height="26" Width="26" Source="/Assets/castor.png"/>
 					<TextBlock Text="CASTOR"
                                FontSize="15"
                                FontWeight="Bold"

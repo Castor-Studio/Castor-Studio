@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Input;
-using CastorApplication.ViewModels;
+using CastorApplication.ViewModels.Scenes;
 
 namespace CastorApplication.Views.Dialogs;
 
