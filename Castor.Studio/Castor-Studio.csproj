@@ -1,0 +1,58 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<PlatformTarget>x64</PlatformTarget>
+		<Nullable>enable</Nullable>
+		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+		<Platforms>AnyCPU;x64</Platforms>
+	</PropertyGroup>
+	
+	<ItemGroup>
+		<AvaloniaResource Include="Assets\**" />
+	</ItemGroup>
+
+	<!-- Packages -->
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+		
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<PackageReference Include="Avalonia" Version="12.1.1" />
+		<PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+		
+		<PackageReference Include="LibObs" Version="0.0.1" />
+
+		<PackageReference Include="TwitchLib" Version="3.5.3" />
+	</ItemGroup>
+	
+	<!-- Files need to be copied to build output -->
+	<ItemGroup>
+	  <Content Include="config.json">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+	
+	<ItemGroup>
+		<Compile Update="Views\MulticamView.axaml.cs">
+			<DependentUpon>MulticamView.axaml</DependentUpon>
+		</Compile>
+		<Compile Update="Views\Settings\SettingsView.axaml.cs">
+			<DependentUpon>SettingsView.axaml</DependentUpon>
+		</Compile>
+		<Compile Update="Views\ScenesView.axaml.cs">
+			<DependentUpon>ScenesView.axaml</DependentUpon>
+		</Compile>
+		<Compile Update="Views\Settings\Sections\GeneralSettingsView.axaml.cs">
+		  <DependentUpon>GeneralSettingsView.axaml</DependentUpon>
+		</Compile>
+		<Compile Update="Views\StudioView.axaml.cs">
+			<DependentUpon>StudioView.axaml</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+</Project>

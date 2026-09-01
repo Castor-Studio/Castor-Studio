@@ -1,0 +1,115 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:CastorApplication.ViewModels.Shell"
+        x:Class="CastorApplication.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="Castor Studio"
+        Background="{DynamicResource AppBg}"
+        Foreground="{DynamicResource AppFg1}"
+        MinWidth="1024" MinHeight="600"
+        Width="1280" Height="800"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        Icon="/Assets/castor.png">
+
+	<Grid RowDefinitions="48,*">
+
+		<!-- ═══ NAVBAR ═══ -->
+		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
+			<Grid ColumnDefinitions="220,*,220">
+
+				<!-- Logo -->
+				<StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            Margin="16,0">
+					<Image Height="26" Width="26" Source="/Assets/castor.png"/>
+					<TextBlock Text="CASTOR"
+                               FontSize="15"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource AppFg1}"
+                               VerticalAlignment="Center"/>
+				</StackPanel>
+
+				<!-- Navigation tabs -->
+				<StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center">
+
+					<!-- STUDIO -->
+					<StackPanel Orientation="Vertical">
+						<Button Classes="nav" Content="STUDIO"
+                                Command="{Binding ShowStudioCommand}"/>
+						<Border Height="2" CornerRadius="1"
+                                Background="{DynamicResource AppAccentFg}"
+                                IsVisible="{Binding IsStudioActive}"
+                                Margin="8,0"/>
+					</StackPanel>
+
+					<!-- MULTICAM -->
+					<StackPanel Orientation="Vertical">
+						<Button Classes="nav" Content="MULTICAM"
+                                Command="{Binding ShowMulticamCommand}"/>
+						<Border Height="2" CornerRadius="1"
+                                Background="{DynamicResource AppAccentFg}"
+                                IsVisible="{Binding IsMulticamActive}"
+                                Margin="8,0"/>
+					</StackPanel>
+
+					<!-- SCENES -->
+					<StackPanel Orientation="Vertical">
+						<Button Classes="nav" Content="SCÈNES"
+                                Command="{Binding ShowScenesCommand}"/>
+						<Border Height="2" CornerRadius="1"
+                                Background="{DynamicResource AppAccentFg}"
+                                IsVisible="{Binding IsScenesActive}"
+                                Margin="8,0"/>
+					</StackPanel>
+
+					<!-- PARAMETRES -->
+					<StackPanel Orientation="Vertical">
+						<Button Classes="nav" Content="PARAMÈTRES"
+                                Command="{Binding ShowSettingsCommand}"/>
+						<Border Height="2" CornerRadius="1"
+                                Background="{DynamicResource AppAccentFg}"
+                                IsVisible="{Binding IsSettingsActive}"
+                                Margin="8,0"/>
+					</StackPanel>
+
+				</StackPanel>
+
+				<!-- Status + Account -->
+				<StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            Margin="16,0">
+
+					<!-- Badge d'état global : OFFLINE / REC / EN DIRECT -->
+					<Border Background="{DynamicResource AppSurface3}"
+                            BorderBrush="{DynamicResource AppBorder}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="10,5">
+						<StackPanel Orientation="Horizontal" Spacing="6">
+							<Ellipse Width="7" Height="7" Fill="{Binding GlobalStatusBrush}" VerticalAlignment="Center"/>
+							<TextBlock Text="{Binding GlobalStatusText}"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="{Binding GlobalStatusBrush}"
+                                       VerticalAlignment="Center"/>
+						</StackPanel>
+					</Border>
+
+				</StackPanel>
+
+			</Grid>
+		</Border>
+
+		<!-- Page content -->
+		<ContentControl Grid.Row="1" Content="{Binding CurrentPage}"/>
+
+	</Grid>
+</Window>
