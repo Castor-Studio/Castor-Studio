@@ -1,4 +1,4 @@
-name: Build & Test
+name: Lint
 
 on:
   push:
@@ -16,7 +16,7 @@ env:
   NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  build-and-test:
+  dotnet-format:
     runs-on: windows-latest
 
     steps:
@@ -32,8 +32,5 @@ jobs:
       - name: Restore
         run: dotnet restore Castor-Studio.sln
 
-      - name: Build
-        run: dotnet build Castor-Studio.sln --configuration Release --no-restore
-
-      - name: Test
-        run: dotnet test Castor-Studio.sln --configuration Release --no-build --no-restore
+      - name: Check formatting
+        run: dotnet format Castor-Studio.sln --verify-no-changes --no-restore
