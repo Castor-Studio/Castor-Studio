@@ -1,6 +1,0 @@
-# Configuration MediaMTX pour Castor
-
-rtmpAddress: :1935
-
-paths:
-  all_others:

@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
+             x:Class="CastorApplication.Views.Settings.Sections.StreamingSettingsView"
+             x:DataType="vm:StreamingSettingsViewModel">
+
+    <StackPanel Margin="28,20"
+                Spacing="28">
+
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="STREAMING"
+                       Classes="section-title"/>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Plateforme"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedPlatformIndex}">
+
+                    <ComboBoxItem Content="Twitch"/>
+                    <ComboBoxItem Content="YouTube Live"/>
+                    <ComboBoxItem Content="Personnalisé (RTMP)"/>
+
+                </ComboBox>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Clé de stream"
+                           Classes="setting-label"/>
+
+                <TextBox Grid.Column="1"
+                         MaxWidth="320"
+                         HorizontalAlignment="Left"
+                         Background="{DynamicResource AppSurface2}"
+                         BorderBrush="{DynamicResource AppBorder2}"
+                         Foreground="{DynamicResource AppFg2}"
+                         PasswordChar="•"
+                         PlaceholderText="Entrez votre clé de stream..."
+                         Text="{Binding StreamKey}"/>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="URL RTMP"
+                           Classes="setting-label"/>
+
+                <TextBox Grid.Column="1"
+                         MaxWidth="320"
+                         HorizontalAlignment="Left"
+                         Background="{DynamicResource AppSurface2}"
+                         BorderBrush="{DynamicResource AppBorder2}"
+                         Foreground="{DynamicResource AppFg2}"
+                         PlaceholderText="rtmp://live.twitch.tv/app"
+                         Text="{Binding RtmpUrl}"/>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="180,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Débit stream (kbps)"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="10"
+                            HorizontalAlignment="Left">
+
+                    <Slider Minimum="500"
+                            Maximum="10000"
+                            Width="220"
+                            VerticalAlignment="Center"
+                            Value="{Binding StreamingBitrate}"/>
+
+                    <TextBlock Width="50"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{DynamicResource AppFg4}"
+                               Text="{Binding StreamingBitrateDisplay}"/>
+
+                </StackPanel>
+
+            </Grid>
+
+        </StackPanel>
+
+    </StackPanel>
+
+</UserControl>

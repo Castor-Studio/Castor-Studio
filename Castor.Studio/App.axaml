@@ -1,0 +1,38 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:CastorApplication.Views"
+             xmlns:settingsViews="using:CastorApplication.Views.Settings"
+             xmlns:settingsSectionViews="using:CastorApplication.Views.Settings.Sections"
+             xmlns:studioVm="using:CastorApplication.ViewModels.Studio"
+             xmlns:scenesVm="using:CastorApplication.ViewModels.Scenes"
+             xmlns:multicamVm="using:CastorApplication.ViewModels.Multicam"
+             xmlns:settingsVm="using:CastorApplication.ViewModels.Settings"
+             xmlns:settingsSectionVm="using:CastorApplication.ViewModels.Settings.Sections"
+             x:Class="CastorApplication.App"
+             RequestedThemeVariant="Dark">
+    <Application.DataTemplates>
+        <DataTemplate DataType="{x:Type studioVm:StudioViewModel}"><views:StudioView/></DataTemplate>
+        <DataTemplate DataType="{x:Type scenesVm:ScenesViewModel}"><views:ScenesView/></DataTemplate>
+        <DataTemplate DataType="{x:Type multicamVm:MulticamViewModel}"><views:MulticamView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsVm:SettingsViewModel}"><settingsViews:SettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:GeneralSettingsViewModel}"><settingsSectionViews:GeneralSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:VideoSettingsViewModel}"><settingsSectionViews:VideoSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:AudioSettingsViewModel}"><settingsSectionViews:AudioSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:StreamingSettingsViewModel}"><settingsSectionViews:StreamingSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:OutputSettingsViewModel}"><settingsSectionViews:OutputSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:AccountsSettingsViewModel}"><settingsSectionViews:AccountsSettingsView/></DataTemplate>
+    </Application.DataTemplates>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/Styles/Colors.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme/>
+        <StyleInclude Source="/Styles/Controls.axaml"/>
+    </Application.Styles>
+</Application>
