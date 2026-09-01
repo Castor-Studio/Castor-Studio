@@ -8,6 +8,7 @@
              xmlns:multicamVm="using:CastorApplication.ViewModels.Multicam"
              xmlns:settingsVm="using:CastorApplication.ViewModels.Settings"
              xmlns:settingsSectionVm="using:CastorApplication.ViewModels.Settings.Sections"
+             xmlns:dockMvvm="using:Dock.Model.Mvvm.Controls"
              x:Class="CastorApplication.App"
              RequestedThemeVariant="Dark">
     <Application.DataTemplates>
@@ -21,6 +22,11 @@
         <DataTemplate DataType="{x:Type settingsSectionVm:StreamingSettingsViewModel}"><settingsSectionViews:StreamingSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:OutputSettingsViewModel}"><settingsSectionViews:OutputSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:AccountsSettingsViewModel}"><settingsSectionViews:AccountsSettingsView/></DataTemplate>
+
+        <!-- Dock panes stay thin wrappers: their Context is the real ViewModel, so this
+             re-enters the DataTemplates above and resolves the existing views unchanged. -->
+        <DataTemplate DataType="{x:Type dockMvvm:Document}"><ContentControl Content="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type dockMvvm:Tool}"><ContentControl Content="{Binding Context}"/></DataTemplate>
     </Application.DataTemplates>
 
     <Application.Resources>
@@ -33,6 +39,7 @@
 
     <Application.Styles>
         <FluentTheme/>
+        <DockFluentTheme/>
         <StyleInclude Source="/Styles/Controls.axaml"/>
     </Application.Styles>
 </Application>
