@@ -14,7 +14,8 @@ public sealed class StudioDockFactory(StudioViewModel studioViewModel) : Factory
     {
         var preview = new PreviewDocument { Id = StudioDockIds.Preview, Title = "Aperçu", CanClose = false, CanFloat = false };
         var sceneSelector = new SceneSelectorTool { Id = StudioDockIds.SceneSelector, Title = "Scène active", CanClose = false, CanFloat = false };
-        var controls = new ControlsTool { Id = StudioDockIds.Controls, Title = "Contrôles", CanClose = false, CanFloat = false };
+        var status = new StatusTool { Id = StudioDockIds.Status, Title = "Statut", CanClose = false, CanFloat = false };
+        var streamControls = new StreamControlsTool { Id = StudioDockIds.StreamControls, Title = "Diffusion & Enregistrement", CanClose = false, CanFloat = false };
 
         var previewDock = new DocumentDock
         {
@@ -37,14 +38,32 @@ public sealed class StudioDockFactory(StudioViewModel studioViewModel) : Factory
             Proportion = 0.35,
         };
 
-        var controlsDock = new ToolDock
+        var statusDock = new ToolDock
         {
-            Id = StudioDockIds.ControlsDock,
-            ActiveDockable = controls,
-            VisibleDockables = CreateList<IDockable>(controls),
+            Id = StudioDockIds.StatusDock,
+            ActiveDockable = status,
+            VisibleDockables = CreateList<IDockable>(status),
             CanClose = false,
             CanFloat = false,
+            Proportion = 0.75,
+        };
+
+        var streamControlsDock = new ToolDock
+        {
+            Id = StudioDockIds.StreamControlsDock,
+            ActiveDockable = streamControls,
+            VisibleDockables = CreateList<IDockable>(streamControls),
+            CanClose = false,
+            CanFloat = false,
+            Proportion = 0.25,
+        };
+
+        var controlsRow = new ProportionalDock
+        {
+            Id = StudioDockIds.ControlsRow,
+            Orientation = Orientation.Horizontal,
             Proportion = 0.65,
+            VisibleDockables = CreateList<IDockable>(statusDock, new ProportionalDockSplitter(), streamControlsDock),
         };
 
         var bottomBar = new ProportionalDock
@@ -52,7 +71,7 @@ public sealed class StudioDockFactory(StudioViewModel studioViewModel) : Factory
             Id = StudioDockIds.BottomBar,
             Orientation = Orientation.Vertical,
             Proportion = 0.18,
-            VisibleDockables = CreateList<IDockable>(sceneSelectorDock, new ProportionalDockSplitter(), controlsDock),
+            VisibleDockables = CreateList<IDockable>(sceneSelectorDock, new ProportionalDockSplitter(), controlsRow),
         };
 
         var studioColumn = new ProportionalDock
@@ -78,7 +97,8 @@ public sealed class StudioDockFactory(StudioViewModel studioViewModel) : Factory
         {
             [StudioDockIds.Preview] = () => studioViewModel,
             [StudioDockIds.SceneSelector] = () => studioViewModel,
-            [StudioDockIds.Controls] = () => studioViewModel,
+            [StudioDockIds.Status] = () => studioViewModel,
+            [StudioDockIds.StreamControls] = () => studioViewModel,
         };
 
         base.InitLayout(layout);

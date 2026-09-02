@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace CastorApplication.Views.Studio;
 
-public partial class ControlsPaneView : UserControl
+public partial class StreamControlsPaneView : UserControl
 {
-    public ControlsPaneView()
+    public StreamControlsPaneView()
     {
         InitializeComponent();
     }

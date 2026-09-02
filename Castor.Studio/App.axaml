@@ -25,11 +25,12 @@
         <DataTemplate DataType="{x:Type settingsSectionVm:OutputSettingsViewModel}"><settingsSectionViews:OutputSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:AccountsSettingsViewModel}"><settingsSectionViews:AccountsSettingsView/></DataTemplate>
 
-        <!-- StudioViewModel backs three distinct panes, so these key off the dockable's
+        <!-- StudioViewModel backs four distinct panes, so these key off the dockable's
              own (marker) type instead of its Context to pick the right pane view. -->
         <DataTemplate DataType="{x:Type docking:PreviewDocument}"><studioViews:PreviewPaneView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:SceneSelectorTool}"><studioViews:SceneSelectorPaneView DataContext="{Binding Context}"/></DataTemplate>
-        <DataTemplate DataType="{x:Type docking:ControlsTool}"><studioViews:ControlsPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:StatusTool}"><studioViews:StatusPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:StreamControlsTool}"><studioViews:StreamControlsPaneView DataContext="{Binding Context}"/></DataTemplate>
     </Application.DataTemplates>
 
     <Application.Resources>
