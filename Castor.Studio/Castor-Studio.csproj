@@ -24,7 +24,12 @@
 		<PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
 		<PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
-		
+
+		<PackageReference Include="Dock.Avalonia" Version="12.1.0.6" />
+		<PackageReference Include="Dock.Avalonia.Themes.Fluent" Version="12.1.0.6" />
+		<PackageReference Include="Dock.Model.Mvvm" Version="12.1.0.6" />
+		<PackageReference Include="Dock.Serializer.SystemTextJson" Version="12.1.0.6" />
+
 		<PackageReference Include="LibObs" Version="0.1.0" />
 
 		<PackageReference Include="TwitchLib" Version="3.5.3" />
@@ -49,9 +54,6 @@
 		</Compile>
 		<Compile Update="Views\Settings\Sections\GeneralSettingsView.axaml.cs">
 		  <DependentUpon>GeneralSettingsView.axaml</DependentUpon>
-		</Compile>
-		<Compile Update="Views\StudioView.axaml.cs">
-			<DependentUpon>StudioView.axaml</DependentUpon>
 		</Compile>
 	</ItemGroup>
 

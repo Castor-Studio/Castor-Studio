@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Studio"
+             xmlns:controls="using:CastorApplication.Controls"
+             x:Class="CastorApplication.Views.Studio.PreviewPaneView"
+             x:DataType="vm:StudioViewModel">
+
+	<Panel Background="Black">
+
+		<controls:StudioPreview Scene="{Binding ActiveScene}"
+                                Message="{Binding PreviewPlaceholderText}"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch" />
+
+		<!-- Placeholder quand rien ne peut être affiché -->
+		<StackPanel IsVisible="{Binding ShowPreviewPlaceholder}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Spacing="6">
+			<TextBlock Text="APERÇU"
+                       Foreground="{DynamicResource AppFg5}"
+                       FontSize="13" FontWeight="Bold" LetterSpacing="2"
+                       HorizontalAlignment="Center"/>
+			<TextBlock Text="{Binding PreviewPlaceholderText}"
+                       Foreground="{DynamicResource AppFg4}"
+                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                       MaxWidth="380" HorizontalAlignment="Center"/>
+		</StackPanel>
+	</Panel>
+
+</UserControl>
