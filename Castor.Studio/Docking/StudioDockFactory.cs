@@ -41,6 +41,7 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         var previewDock = new DocumentDock
         {
             Id = StudioDockIds.PreviewDock,
+            Title = "Aperçu",
             ActiveDockable = preview,
             VisibleDockables = CreateList<IDockable>(preview),
             CanCreateDocument = false,
@@ -52,6 +53,7 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         var sceneSelectorDock = new ToolDock
         {
             Id = StudioDockIds.SceneSelectorDock,
+            Title = "Scène active",
             ActiveDockable = sceneSelector,
             VisibleDockables = CreateList<IDockable>(sceneSelector),
             CanClose = false,
@@ -62,6 +64,7 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         var statusDock = new ToolDock
         {
             Id = StudioDockIds.StatusDock,
+            Title = "Statut",
             ActiveDockable = status,
             VisibleDockables = CreateList<IDockable>(status),
             CanClose = false,
@@ -72,6 +75,7 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         var streamControlsDock = new ToolDock
         {
             Id = StudioDockIds.StreamControlsDock,
+            Title = "Diffusion & Enregistrement",
             ActiveDockable = streamControls,
             VisibleDockables = CreateList<IDockable>(streamControls),
             CanClose = false,
@@ -129,6 +133,20 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         };
 
         base.InitLayout(layout);
+    }
+
+    public override IDockWindow? CreateWindowFrom(IDockable dockable)
+    {
+        var window = base.CreateWindowFrom(dockable);
+
+        // Detaching a single panel wraps it in a new dock that Dock names after its interface,
+        // and that name is what the window title bar ends up showing. Name it after the panel.
+        if (window?.Layout?.ActiveDockable is IDock created && created.ActiveDockable is { } panel)
+        {
+            created.Title = panel.Title;
+        }
+
+        return window;
     }
 
     public override bool OnWindowClosing(IDockWindow? window)

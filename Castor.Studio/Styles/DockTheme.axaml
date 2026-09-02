@@ -192,6 +192,15 @@
         <Setter Property="Source" Value="{DynamicResource CastorDockTargetCenter}"/>
     </Style>
 
+    <!-- A detached panel is a window in its own right, so it keeps the system title bar: it
+         carries the panel's name and the usual minimize, maximize and close buttons. Dock
+         otherwise hands the whole window over to the panel's own chrome bar as soon as the
+         window holds a single panel, which leaves it without a title or window buttons. The
+         chrome bar stays inside the window and remains the handle for docking the panel back. -->
+    <Style Selector="HostWindow">
+        <Setter Property="ToolChromeControlsWholeWindow" Value="False"/>
+    </Style>
+
     <!-- One rounded card per pane. Tool panes: the title/icons bar (ToolChromeControl's
          header) rounds its top corners and each pane's own root Border rounds the bottom
          ones (see the pane views - CornerRadius on the dock's DeferredContentPresenter

@@ -58,13 +58,9 @@ public partial class StudioDockViewModel : ViewModelBase
     {
         if (Layout is not { } root) return;
 
-        // Pull each detached panel's current position and size into the model first; the
-        // window itself is not part of what gets serialized.
-        if (root.Windows is { } windows)
-        {
-            foreach (var window in windows) window.Save();
-        }
-
+        // Each detached panel's position and size is already in the model: Dock writes it back
+        // whenever its window moves, resizes or closes. Reading it again here would be worse
+        // than useless, because a window that has closed reports its position as 0,0.
         _layoutService.Save(root);
     }
 

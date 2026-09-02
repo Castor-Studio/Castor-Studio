@@ -30,19 +30,22 @@ scène active, statut, diffusion et enregistrement.
 
 ### Détacher et rattacher un panneau
 
-Chaque panneau peut être détaché dans sa propre fenêtre : glisser sa barre de titre hors de
-la fenêtre principale. La rangée qu'il laisse derrière lui se referme, et le panneau reste
-pleinement fonctionnel dans sa nouvelle fenêtre.
+Chaque panneau peut être détaché dans sa propre fenêtre : glisser sa barre de titre et la
+relâcher hors de la fenêtre principale, par exemple sur un second écran. La rangée qu'il
+laisse derrière lui se referme, et le panneau reste pleinement fonctionnel dans sa nouvelle
+fenêtre.
 
-Pour le rattacher, deux gestes équivalents :
+Une fenêtre détachée est une fenêtre à part entière : elle porte le nom du panneau dans sa
+barre de titre système, possède sa propre entrée dans la barre des tâches, peut passer
+derrière la fenêtre principale et vivre sur un autre écran. Elle se ferme malgré tout avec
+l'application, plutôt que de rester ouverte sans elle.
 
-- le glisser sur une zone d'accueil de la fenêtre principale ;
+Pour rattacher un panneau, deux gestes équivalents :
+
+- glisser sa barre de panneau sur une zone d'accueil de la fenêtre principale ;
 - fermer sa fenêtre. Les panneaux ne pouvant pas être fermés, ils retournent alors à leur
   place d'origine plutôt que d'être perdus, et la rangée qui les accueillait est reconstruite
   si elle avait disparu.
-
-Les fenêtres détachées appartiennent à la fenêtre principale : elles la suivent lorsqu'elle
-est réduite ou restaurée, et se ferment avec elle.
 
 ### Persistance
 

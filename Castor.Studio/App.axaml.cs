@@ -18,9 +18,11 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Detached panels are owned by the main window (Dock's default), so they minimize
-            // and restore with it. Closing it takes them down too, instead of leaving stray
-            // windows behind that would keep the process running.
+            // A detached panel is a window in its own right: no owner window, so it gets its own
+            // taskbar entry, can go behind the main window and can be moved to another screen.
+            // Closing the main window still takes them down, rather than leaving stray windows
+            // behind that would keep the process alive.
+            DockSettings.FloatingWindowOwnerPolicy = DockFloatingWindowOwnerPolicy.NeverOwned;
             DockSettings.CloseFloatingWindowsOnMainWindowClose = true;
 
             var collection = new ServiceCollection();

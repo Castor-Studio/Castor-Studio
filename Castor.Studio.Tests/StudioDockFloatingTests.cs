@@ -35,6 +35,8 @@ public sealed class StudioDockFloatingTests
 
         var window = Assert.Single(root.Windows!);
         Assert.True(window.Host!.IsTracked);
+        // The window title bar reads this, so it has to name the panel, not its dock type.
+        Assert.Equal("Statut", (window.Layout!.ActiveDockable as IDock)!.Title);
         // The panel now lives in the floating window layout, and the row it left closed up behind it.
         Assert.Same(window.Layout, factory.FindRoot(status));
         Assert.Equal(
@@ -107,7 +109,7 @@ public sealed class StudioDockFloatingTests
             var host = (FakeHostWindow)root.Windows!.Single().Host!;
             host.SetPosition(320, 240);
             host.SetSize(640, 480);
-            // What StudioDockViewModel.SaveLayout does before writing the layout out.
+            // Stands in for Dock writing the geometry back as the user moves the window.
             root.Windows!.Single().Save();
             service.Save(root);
 
