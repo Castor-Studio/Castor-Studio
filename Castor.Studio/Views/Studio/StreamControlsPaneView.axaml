@@ -18,8 +18,11 @@
 		</Style>
 	</UserControl.Styles>
 
-	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
-            BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Margin="8,4,8,4">
+	<!-- Bottom half of the pane's rounded card: the dock's title bar above rounds the top
+         corners and draws the top/side border (DockTheme.axaml); this completes the same
+         1px outline on the sides/bottom and rounds the bottom corners, flat at the seam. -->
+	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="10,8"
+            BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 		<WrapPanel VerticalAlignment="Center"
                    Orientation="{Binding #PaneRoot.Bounds, Converter={x:Static converters:PortraitOrientationConverter.Instance}}">
 

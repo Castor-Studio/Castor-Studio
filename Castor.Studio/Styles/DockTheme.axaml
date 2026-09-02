@@ -112,14 +112,34 @@
         <Setter Property="IsVisible" Value="False"/>
     </Style>
 
-    <!-- Round the pane chrome to match the app's card/panel corner-radius convention.
-         Tool panes tab at the bottom (top corners belong to the content), document
-         panes tab at the top (bottom corners belong to the content). -->
+    <!-- One rounded card per pane: the title/icons bar (ToolChromeControl's header) rounds
+         its top corners, and each pane's own root Border rounds the bottom ones (see the
+         pane views - CornerRadius on the dock's DeferredContentPresenter didn't reliably
+         render). Nothing rounds at the seam between the two, so bar + content read as a
+         single block. -->
     <Style Selector="ToolControl /template/ Border#PART_Border">
-        <Setter Property="CornerRadius" Value="8,8,0,0"/>
+        <Setter Property="CornerRadius" Value="0"/>
     </Style>
     <Style Selector="DocumentControl /template/ Border#PART_Border">
         <Setter Property="CornerRadius" Value="0,0,8,8"/>
+    </Style>
+
+    <Style Selector="ToolChromeControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="8,8,0,0"/>
+    </Style>
+
+    <!-- ToolChromeControl draws a 1px divider strip between the header and the content
+         (PART_Panel, filled with the border color) - visible as a stray seam line cutting
+         the rounded card in two. Hide it so the bar and content read as one block. -->
+    <Style Selector="ToolChromeControl /template/ Panel#PART_Panel">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
+    <!-- The pin/menu/close/maximize buttons inherit FluentTheme's default rounded Button
+         corners, which shows up as a stray rounded pill floating inside the header instead
+         of a flush toolbar icon. Flatten them so only the bar's own outer corners round. -->
+    <Style Selector="ToolChromeControl /template/ Button">
+        <Setter Property="CornerRadius" Value="0"/>
     </Style>
 
     <!-- UniformToFill can crop/distort the stock chrome icon glyphs (pin, close, ...);

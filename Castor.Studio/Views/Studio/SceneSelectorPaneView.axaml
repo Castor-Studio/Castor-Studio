@@ -5,8 +5,11 @@
              x:Class="CastorApplication.Views.Studio.SceneSelectorPaneView"
              x:DataType="vm:StudioViewModel">
 
-	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="6" Margin="8,4,8,4"
-            Padding="12,8" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+	<!-- Bottom half of the pane's rounded card: the dock's title bar above rounds the top
+         corners and draws the top/side border (DockTheme.axaml); this completes the same
+         1px outline on the sides/bottom and rounds the bottom corners, flat at the seam. -->
+	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="12,8"
+            BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 		<Panel>
 
 			<!-- Landscape: label, selector and status dot in a row. -->
