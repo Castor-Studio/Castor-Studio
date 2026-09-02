@@ -222,8 +222,10 @@
     <!-- "Afficher le nom des docks" setting: CastorDockShowTitles lives in App.axaml's
          resources and is rewritten at runtime by AvaloniaDockChromeService, so this
          DynamicResource re-evaluates live. The pin/menu icons stay so the bar remains
-         a drag handle; only the title text goes. -->
-    <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
+         a drag handle; only the title text goes. A detached panel is left out of this:
+         its chrome bar replaces the window title bar, so hiding the text there would
+         leave the floating window unnamed. -->
+    <Style Selector="ToolChromeControl:not(:floating) /template/ TextBlock#PART_Title">
         <Setter Property="IsVisible" Value="{DynamicResource CastorDockShowTitles}"/>
     </Style>
 

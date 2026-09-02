@@ -87,6 +87,8 @@ public partial class MainViewModel : ViewModelBase
 
     public void ApplyScreenSize(Size screenSize) => _studioDockViewModel.ApplyScreenSize(screenSize);
 
+    public void PresentFloatingPanels() => _studioDockViewModel.PresentFloatingPanels();
+
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
