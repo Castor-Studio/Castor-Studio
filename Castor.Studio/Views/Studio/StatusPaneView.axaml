@@ -1,34 +1,66 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Studio"
+             xmlns:converters="using:CastorApplication.Converters"
              x:Class="CastorApplication.Views.Studio.StatusPaneView"
              x:DataType="vm:StudioViewModel">
 
-	<Border Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="12,0"
+	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="12,8"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Margin="8,4,8,4">
-		<Grid ColumnDefinitions="Auto, Auto, *">
+		<Panel>
 
-			<Border Grid.Column="0" Padding="8,4" CornerRadius="5"
-                    Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-				<StackPanel Orientation="Horizontal" Spacing="5">
-					<Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
-					<TextBlock Text="{Binding StreamStatusText}"
-                               Foreground="{Binding StreamStatusBrush}"
-                               FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
-				</StackPanel>
-			</Border>
+			<!-- Landscape: badge, timer and output info in a row. -->
+			<Grid ColumnDefinitions="Auto, Auto, *"
+                  IsVisible="{Binding #PaneRoot.Bounds, Converter={x:Static converters:IsLandscapeConverter.Instance}}">
 
-			<TextBlock Grid.Column="1" Text="{Binding StreamTimerText}"
-                       Foreground="{Binding StreamTimerBrush}"
-                       FontSize="14" FontFamily="Consolas"
-                       Margin="12,0" VerticalAlignment="Center"/>
+				<Border Grid.Column="0" Padding="8,4" CornerRadius="5"
+                        Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+					<StackPanel Orientation="Horizontal" Spacing="5">
+						<Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
+						<TextBlock Text="{Binding StreamStatusText}"
+                                   Foreground="{Binding StreamStatusBrush}"
+                                   FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Border>
 
-			<!-- Least essential info: shrinks and ellipsizes first when the pane narrows. -->
-			<TextBlock Grid.Column="2" Text="{Binding OutputInfoText}"
-                       Foreground="{DynamicResource AppFg6}" FontSize="11"
-                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                       VerticalAlignment="Center"/>
-		</Grid>
+				<TextBlock Grid.Column="1" Text="{Binding StreamTimerText}"
+                           Foreground="{Binding StreamTimerBrush}"
+                           FontSize="14" FontFamily="Consolas"
+                           Margin="12,0" VerticalAlignment="Center"/>
+
+				<!-- Least essential info: shrinks and ellipsizes first when the pane narrows. -->
+				<TextBlock Grid.Column="2" Text="{Binding OutputInfoText}"
+                           Foreground="{DynamicResource AppFg6}" FontSize="11"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                           VerticalAlignment="Center"/>
+			</Grid>
+
+			<!-- Portrait: same information stacked top to bottom instead of side by side. -->
+			<StackPanel Orientation="Vertical" Spacing="6" HorizontalAlignment="Center"
+                        IsVisible="{Binding #PaneRoot.Bounds, Converter={x:Static converters:IsPortraitConverter.Instance}}">
+
+				<Border Padding="8,4" CornerRadius="5" HorizontalAlignment="Center"
+                        Background="{DynamicResource AppSurface3}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
+					<StackPanel Orientation="Horizontal" Spacing="5">
+						<Ellipse Width="7" Height="7" Fill="{Binding StreamStatusBrush}" VerticalAlignment="Center"/>
+						<TextBlock Text="{Binding StreamStatusText}"
+                                   Foreground="{Binding StreamStatusBrush}"
+                                   FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Border>
+
+				<TextBlock Text="{Binding StreamTimerText}"
+                           Foreground="{Binding StreamTimerBrush}"
+                           FontSize="14" FontFamily="Consolas"
+                           HorizontalAlignment="Center"/>
+
+				<TextBlock Text="{Binding OutputInfoText}"
+                           Foreground="{DynamicResource AppFg6}" FontSize="11"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                           HorizontalAlignment="Center"/>
+			</StackPanel>
+
+		</Panel>
 	</Border>
 
 </UserControl>

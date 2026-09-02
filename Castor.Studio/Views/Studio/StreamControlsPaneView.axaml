@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Studio"
+             xmlns:converters="using:CastorApplication.Converters"
              x:Class="CastorApplication.Views.Studio.StreamControlsPaneView"
              x:DataType="vm:StudioViewModel">
 
@@ -17,11 +18,12 @@
 		</Style>
 	</UserControl.Styles>
 
-	<Border Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
+	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="10,8"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Margin="8,4,8,4">
-		<WrapPanel VerticalAlignment="Center">
+		<WrapPanel VerticalAlignment="Center"
+                   Orientation="{Binding #PaneRoot.Bounds, Converter={x:Static converters:PortraitOrientationConverter.Instance}}">
 
-			<Button MinWidth="150" Margin="0,0,6,6"
+			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
                     Content="LANCER LE LIVE"
                     IsVisible="{Binding !IsStreaming}"
                     Classes="ctrl-btn"
@@ -80,7 +82,7 @@
 				</Button.Flyout>
 			</Button>
 
-			<Button MinWidth="150" Margin="0,0,6,6"
+			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
                     Content="ARRÊTER LE LIVE"
                     IsVisible="{Binding IsStreaming}"
                     Command="{Binding StopStreamingCommand}"
@@ -88,7 +90,7 @@
                     Background="{DynamicResource AppStopBg}" Foreground="{StaticResource StatusErrorBrush}"
                     BorderBrush="{DynamicResource AppStopBorder}"/>
 
-			<Button MinWidth="150" Margin="0,0,6,6"
+			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
                     Content="ENREGISTRER"
                     IsVisible="{Binding !IsRecording}"
                     Classes="ctrl-btn"
@@ -131,7 +133,7 @@
 				</Button.Flyout>
 			</Button>
 
-			<Button MinWidth="150" Margin="0,0,6,6"
+			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
                     Content="ARRÊTER"
                     IsVisible="{Binding IsRecording}"
                     Command="{Binding StopRecordingCommand}"
