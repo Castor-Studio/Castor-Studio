@@ -23,10 +23,14 @@
          1px outline on the sides/bottom and rounds the bottom corners, flat at the seam. -->
 	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="10,8"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
-		<WrapPanel VerticalAlignment="Center"
-                   Orientation="{Binding #PaneRoot.Bounds, Converter={x:Static converters:PortraitOrientationConverter.Instance}}">
+		<!-- UniformGrid, not WrapPanel: the two visible buttons share the space equally,
+             which centres them by symmetry, lets them shrink together instead of wrapping
+             into a second line the slim bottom bar can't fit, and rules out overlap.
+             2 columns in landscape, 1 column (stacked) in portrait; Rows=0 = auto. -->
+		<UniformGrid VerticalAlignment="Center" Rows="0"
+                     Columns="{Binding #PaneRoot.Bounds, Converter={x:Static converters:PortraitColumnsConverter.Instance}}">
 
-			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
+			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                     Content="LANCER LE LIVE"
                     IsVisible="{Binding !IsStreaming}"
                     Classes="ctrl-btn"
@@ -85,7 +89,7 @@
 				</Button.Flyout>
 			</Button>
 
-			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
+			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                     Content="ARRÊTER LE LIVE"
                     IsVisible="{Binding IsStreaming}"
                     Command="{Binding StopStreamingCommand}"
@@ -93,7 +97,7 @@
                     Background="{DynamicResource AppStopBg}" Foreground="{StaticResource StatusErrorBrush}"
                     BorderBrush="{DynamicResource AppStopBorder}"/>
 
-			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
+			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                     Content="ENREGISTRER"
                     IsVisible="{Binding !IsRecording}"
                     Classes="ctrl-btn"
@@ -136,7 +140,7 @@
 				</Button.Flyout>
 			</Button>
 
-			<Button MinWidth="150" Margin="0,0,6,6" HorizontalContentAlignment="Center"
+			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                     Content="ARRÊTER"
                     IsVisible="{Binding IsRecording}"
                     Command="{Binding StopRecordingCommand}"
@@ -144,7 +148,7 @@
                     Background="{DynamicResource AppStopBg}" Foreground="{StaticResource StatusErrorBrush}"
                     BorderBrush="{DynamicResource AppStopBorder}"/>
 
-		</WrapPanel>
+		</UniformGrid>
 	</Border>
 
 </UserControl>
