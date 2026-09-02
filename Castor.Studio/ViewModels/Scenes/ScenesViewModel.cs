@@ -14,6 +14,7 @@ public partial class ScenesViewModel : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IStudioRuntime _runtime;
+    private readonly ISceneRuntime _sceneRuntime;
     private readonly IFilePickerService _filePickerService;
     private readonly ISceneCollectionService _sceneCollectionService;
     private readonly IAddSourceDialogViewModelFactory _dialogFactory;
@@ -38,6 +39,7 @@ public partial class ScenesViewModel : ViewModelBase
     internal ScenesViewModel(
         StudioWorkspaceViewModel workspace,
         IStudioRuntime runtime,
+        ISceneRuntime sceneRuntime,
         IFilePickerService filePickerService,
         ISceneCollectionService sceneCollectionService,
         IAddSourceDialogViewModelFactory dialogFactory,
@@ -45,6 +47,7 @@ public partial class ScenesViewModel : ViewModelBase
     {
         _workspace = workspace;
         _runtime = runtime;
+        _sceneRuntime = sceneRuntime;
         _filePickerService = filePickerService;
         _sceneCollectionService = sceneCollectionService;
         _dialogFactory = dialogFactory;
@@ -76,8 +79,19 @@ public partial class ScenesViewModel : ViewModelBase
     private void CreateScene()
     {
         if (string.IsNullOrWhiteSpace(NewSceneName)) return;
-        SelectedScene = _workspace.CreateScene(NewSceneName);
+
+        var definition = new SceneDefinition { Name = NewSceneName.Trim() };
+        var result = _sceneRuntime.CreateScene(definition.Id, definition.Name);
+        if (!result.IsSuccess)
+        {
+            SceneIoStatus = result.Message;
+            return;
+        }
+
+        definition.Name = result.EffectiveName;
+        SelectedScene = _workspace.AddScene(definition);
         NewSceneName = "";
+        SceneIoStatus = "";
     }
 
     [RelayCommand]
@@ -86,6 +100,13 @@ public partial class ScenesViewModel : ViewModelBase
         if (WouldLeaveNoScenesWhileLive(1))
         {
             DeleteSceneError = "Impossible de supprimer la seule scène pendant un enregistrement ou un live.";
+            return;
+        }
+
+        var result = _sceneRuntime.RemoveScene(scene.Id);
+        if (!result.IsSuccess)
+        {
+            DeleteSceneError = result.Message;
             return;
         }
 
@@ -110,8 +131,22 @@ public partial class ScenesViewModel : ViewModelBase
             return;
         }
 
-        DeleteSceneError = "";
-        foreach (var scene in selected) _workspace.DeleteScene(scene);
+        var failures = new List<string>();
+        foreach (var scene in selected)
+        {
+            var result = _sceneRuntime.RemoveScene(scene.Id);
+            if (!result.IsSuccess)
+            {
+                failures.Add($"{scene.Name} : {result.Message}");
+                continue;
+            }
+
+            _workspace.DeleteScene(scene);
+        }
+
+        DeleteSceneError = failures.Count == 0
+            ? ""
+            : $"{failures.Count} scène(s) non supprimée(s) : {string.Join(" | ", failures)}";
         SelectedScene = _workspace.ActiveScene;
     }
 
@@ -129,8 +164,17 @@ public partial class ScenesViewModel : ViewModelBase
     private void ConfirmRenameScene()
     {
         if (SceneBeingRenamed == null || string.IsNullOrWhiteSpace(RenameSceneName)) return;
-        SceneBeingRenamed.Name = RenameSceneName.Trim();
+
+        var result = _sceneRuntime.RenameScene(SceneBeingRenamed.Id, RenameSceneName);
+        if (!result.IsSuccess)
+        {
+            SceneIoStatus = result.Message;
+            return;
+        }
+
+        SceneBeingRenamed.Name = result.EffectiveName;
         SceneBeingRenamed = null;
+        SceneIoStatus = "";
     }
 
     [RelayCommand]
@@ -202,14 +246,32 @@ public partial class ScenesViewModel : ViewModelBase
             }
 
             var skipped = 0;
+            var failed = 0;
+            var importedCount = 0;
+            var firstFailure = "";
             foreach (var definition in imported)
             {
                 skipped += definition.Sources.RemoveAll(source => source.Origin is SourceOrigin.HardwareVideo or SourceOrigin.HardwareAudio);
+
+                var result = _sceneRuntime.CreateScene(definition.Id, definition.Name);
+                if (!result.IsSuccess)
+                {
+                    failed++;
+                    if (firstFailure.Length == 0) firstFailure = result.Message;
+                    continue;
+                }
+
+                definition.Name = result.EffectiveName;
                 _workspace.AddScene(definition);
+                importedCount++;
             }
-            SceneIoStatus = skipped == 0
-                ? $"{imported.Count} scène(s) importée(s)."
-                : $"{imported.Count} scène(s) importée(s), {skipped} source(s) matérielle(s) ignorée(s).";
+
+            var details = new List<string>();
+            if (skipped > 0) details.Add($"{skipped} source(s) matérielle(s) ignorée(s)");
+            if (failed > 0) details.Add($"{failed} scène(s) refusée(s) ({firstFailure})");
+            SceneIoStatus = details.Count == 0
+                ? $"{importedCount} scène(s) importée(s)."
+                : $"{importedCount} scène(s) importée(s), {string.Join(", ", details)}.";
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
