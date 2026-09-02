@@ -8,7 +8,7 @@ namespace CastorApplication.Services;
 // DocumentControl theme for the document tab strip), so writing them re-renders live.
 public sealed class AvaloniaDockChromeService : IDockChromeService
 {
-    public const string ShowTitlesKey = "CastorDockShowTitles";
+    private const string ShowTitlesKey = "CastorDockShowTitles";
     private const string DocumentTabStripKey = "DockDocumentControlTabStripVisible";
 
     public void ApplyShowTitles(bool showTitles)

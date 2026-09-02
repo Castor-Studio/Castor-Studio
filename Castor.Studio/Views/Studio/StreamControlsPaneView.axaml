@@ -18,9 +18,7 @@
 		</Style>
 	</UserControl.Styles>
 
-	<!-- Bottom half of the pane's rounded card: the dock's title bar above rounds the top
-         corners and draws the top/side border (DockTheme.axaml); this completes the same
-         1px outline on the sides/bottom and rounds the bottom corners, flat at the seam. -->
+	<!-- Bottom half of the pane card: rounds/outlines the sides + bottom, the dock's title bar does the top (DockTheme.axaml). -->
 	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="10,8"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 		<!-- UniformGrid, not WrapPanel: the two visible buttons share the space equally,

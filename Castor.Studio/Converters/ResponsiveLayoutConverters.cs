@@ -2,7 +2,6 @@ using System;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Data.Converters;
-using Avalonia.Layout;
 
 namespace CastorApplication.Converters;
 
@@ -26,17 +25,6 @@ public sealed class IsLandscapeConverter : IValueConverter
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         value is Rect rect && rect.Width >= rect.Height;
-
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        throw new NotSupportedException();
-}
-
-public sealed class PortraitOrientationConverter : IValueConverter
-{
-    public static readonly PortraitOrientationConverter Instance = new();
-
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is Rect rect && rect.Height > rect.Width ? Orientation.Vertical : Orientation.Horizontal;
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();

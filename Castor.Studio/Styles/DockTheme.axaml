@@ -1,6 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:sys="clr-namespace:System;assembly=netstandard">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- Re-skins Dock.Avalonia.Themes.Fluent's default tokens with Castor's own palette
          (Styles/Colors.axaml) so docked panes read as part of the app, not a foreign
@@ -165,8 +164,7 @@
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
-            <!-- Soften the stock theme's square corners to match the app's rounded panels/buttons. -->
-            <sys:Double x:Key="DockCornerRadiusSmall">4</sys:Double>
+            <!-- Round the top of document tabs (the Preview tab) to match the app's rounded chrome. -->
             <CornerRadius x:Key="DockDocumentTabItemCornerRadius">5,5,0,0</CornerRadius>
 
         </ResourceDictionary>
@@ -194,34 +192,31 @@
         <Setter Property="Source" Value="{DynamicResource CastorDockTargetCenter}"/>
     </Style>
 
-    <!-- One rounded card per pane: the title/icons bar (ToolChromeControl's header) rounds
-         its top corners, and each pane's own root Border rounds the bottom ones (see the
-         pane views - CornerRadius on the dock's DeferredContentPresenter didn't reliably
-         render). Nothing rounds at the seam between the two, so bar + content read as a
-         single block. -->
-    <!-- ToolControl wraps the pane content and draws its own 1px side border, which
-         doubled up with the outline on each pane's root Border. Drop Dock's copy: the
-         pane's own Border carries the sides + bottom and follows the rounded corners,
-         which this square one would poke past. -->
-    <Style Selector="ToolControl /template/ Border#PART_Border">
-        <Setter Property="CornerRadius" Value="0"/>
-        <Setter Property="BorderThickness" Value="0"/>
-    </Style>
-
-    <!-- ToolTabStrip sits at the bottom of ToolControl and draws a 1px top line in its
-         two fill borders - a straight stroke running right under the pane's rounded
-         bottom corners and poking past them. With a single tool the strip hides its
-         tabs (:singleitem), so that line was all that remained of it. Zero the lines
-         but keep the strip, so tabs still show if two tools get grouped in one dock. -->
-    <Style Selector="ToolTabStrip /template/ Border#PART_BorderLeftFill, ToolTabStrip /template/ Border#PART_BorderRightFill">
-        <Setter Property="BorderThickness" Value="0"/>
+    <!-- One rounded card per pane. Tool panes: the title/icons bar (ToolChromeControl's
+         header) rounds its top corners and each pane's own root Border rounds the bottom
+         ones (see the pane views - CornerRadius on the dock's DeferredContentPresenter
+         didn't reliably render); nothing rounds at the seam, so bar + content read as a
+         single block. Document panes (Preview): the tab strip sits on top, so the content
+         Border rounds the bottom. -->
+    <Style Selector="ToolChromeControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="8,8,0,0"/>
     </Style>
     <Style Selector="DocumentControl /template/ Border#PART_Border">
         <Setter Property="CornerRadius" Value="0,0,8,8"/>
     </Style>
 
-    <Style Selector="ToolChromeControl /template/ Border#PART_Border">
-        <Setter Property="CornerRadius" Value="8,8,0,0"/>
+    <!-- Dock draws two extra strokes around tool pane content that poke past those
+         rounded corners. ToolControl wraps the content with its own 1px side border,
+         doubling the pane Border's outline; and ToolTabStrip, docked at the bottom,
+         draws a 1px top line in its two fill borders (with a single tool it hides its
+         tabs via :singleitem, so that line was all that remained of it). Zero both -
+         the strip itself stays, so tabs still show if two tools get grouped in one dock. -->
+    <Style Selector="ToolControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="ToolTabStrip /template/ Border#PART_BorderLeftFill, ToolTabStrip /template/ Border#PART_BorderRightFill">
+        <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
     <!-- "Afficher le nom des docks" setting: CastorDockShowTitles lives in App.axaml's

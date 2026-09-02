@@ -23,9 +23,4 @@ public partial class MainWindow : Window
 
         (DataContext as MainViewModel)?.ApplyScreenSize(screenSize);
     }
-
-    protected override void OnClosing(WindowClosingEventArgs e)
-    {
-        base.OnClosing(e);
-    }
 }
