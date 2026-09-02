@@ -125,6 +125,15 @@
         <Setter Property="CornerRadius" Value="0"/>
         <Setter Property="BorderThickness" Value="0"/>
     </Style>
+
+    <!-- ToolTabStrip sits at the bottom of ToolControl and draws a 1px top line in its
+         two fill borders - a straight stroke running right under the pane's rounded
+         bottom corners and poking past them. With a single tool the strip hides its
+         tabs (:singleitem), so that line was all that remained of it. Zero the lines
+         but keep the strip, so tabs still show if two tools get grouped in one dock. -->
+    <Style Selector="ToolTabStrip /template/ Border#PART_BorderLeftFill, ToolTabStrip /template/ Border#PART_BorderRightFill">
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
     <Style Selector="DocumentControl /template/ Border#PART_Border">
         <Setter Property="CornerRadius" Value="0,0,8,8"/>
     </Style>
