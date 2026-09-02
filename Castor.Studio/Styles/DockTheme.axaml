@@ -52,6 +52,41 @@
                     <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="#F87171"/>
                     <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#5c5c72"/>
                     <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#5c5c72"/>
+
+                    <!-- Vector replacements for the stock drag-target PNG glyphs: a rounded
+                         square (AppSurface2 fill, AppBorder stroke) with an accent bar on
+                         the edge the drop would dock to. 40x40 canvas to match
+                         DockTargetSelectorSize. Per-variant so they follow the theme. -->
+                    <DrawingImage x:Key="CastorDockTargetTop">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetBottom">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,25,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetLeft">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetRight">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="25,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetCenter">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="9,9,22,22" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
                 </ResourceDictionary>
 
                 <ResourceDictionary x:Key="Light">
@@ -94,6 +129,39 @@
                     <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="#F87171"/>
                     <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#6868a0"/>
                     <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#6868a0"/>
+
+                    <!-- Light-variant twins of the drop-target glyphs (AppSurface2 #eaeaf4,
+                         AppBorder #ccccde, accent #315fb8). -->
+                    <DrawingImage x:Key="CastorDockTargetTop">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetBottom">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,25,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetLeft">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetRight">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="25,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetCenter">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="9,9,22,22" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
@@ -104,12 +172,26 @@
         </ResourceDictionary>
     </Styles.Resources>
 
-    <!-- The stock drag-target selector renders fixed light PNG glyphs
-         (DockAnchorableTop.png etc.) that can't be recolored for dark mode.
-         Hide them and rely on the colored zone highlights (DockTargetIndicatorBrush,
-         already themed above) to show where a dragged pane will dock. -->
-    <Style Selector="DockTarget /template/ Image">
-        <Setter Property="IsVisible" Value="False"/>
+    <!-- Both drag-target selectors (DockTarget for per-dock zones, GlobalDockTarget for
+         window edges) show fixed light PNG glyphs (DockAnchorableTop.png etc.) that
+         can't be recolored. Swap each Image's Source for the themed DrawingImage above.
+         The theme assigns the PNG through a name-level rule (Image#PART_TopSelector), so
+         these equal-specificity, later-declared rules replace it while leaving the
+         theme's own show/hide logic (:vertical / :horizontal) untouched. -->
+    <Style Selector="DockTarget /template/ Image#PART_TopSelector, GlobalDockTarget /template/ Image#PART_TopSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetTop}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_BottomSelector, GlobalDockTarget /template/ Image#PART_BottomSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetBottom}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_LeftSelector, GlobalDockTarget /template/ Image#PART_LeftSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetLeft}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_RightSelector, GlobalDockTarget /template/ Image#PART_RightSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetRight}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_CenterSelector, GlobalDockTarget /template/ Image#PART_CenterSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetCenter}"/>
     </Style>
 
     <!-- One rounded card per pane: the title/icons bar (ToolChromeControl's header) rounds
