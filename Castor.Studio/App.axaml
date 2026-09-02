@@ -38,6 +38,12 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Styles/Colors.axaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Defaults for the "show dock titles" setting; AvaloniaDockChromeService
+                 rewrites both at runtime. Declared here (not in a Styles file) so the
+                 runtime write lands in the same dictionary the defaults come from. -->
+            <x:Boolean x:Key="CastorDockShowTitles">True</x:Boolean>
+            <x:Boolean x:Key="DockDocumentControlTabStripVisible">True</x:Boolean>
         </ResourceDictionary>
     </Application.Resources>
 

@@ -3,6 +3,7 @@ namespace CastorApplication.Models.Settings;
 public sealed class ApplicationSettings
 {
     public int SelectedThemeIndex { get; set; }
+    public bool ShowDockTitles { get; set; } = true;
 
     public int SelectedBaseResolutionIndex { get; set; } = 1;
     public int SelectedOutputResolutionIndex { get; set; }

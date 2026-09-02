@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SettingsService>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
+        services.AddSingleton<IDockChromeService, AvaloniaDockChromeService>();
         services.AddSingleton<DockLayoutService>();
 
         services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();

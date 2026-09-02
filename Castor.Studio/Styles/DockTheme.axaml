@@ -224,6 +224,14 @@
         <Setter Property="CornerRadius" Value="8,8,0,0"/>
     </Style>
 
+    <!-- "Afficher le nom des docks" setting: CastorDockShowTitles lives in App.axaml's
+         resources and is rewritten at runtime by AvaloniaDockChromeService, so this
+         DynamicResource re-evaluates live. The pin/menu icons stay so the bar remains
+         a drag handle; only the title text goes. -->
+    <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
+        <Setter Property="IsVisible" Value="{DynamicResource CastorDockShowTitles}"/>
+    </Style>
+
     <!-- ToolChromeControl draws a 1px divider strip between the header and the content
          (PART_Panel, filled with the border color) - visible as a stray seam line cutting
          the rounded card in two. Hide it so the bar and content read as one block. -->
