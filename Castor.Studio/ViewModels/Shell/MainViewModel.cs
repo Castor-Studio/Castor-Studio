@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Media;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
@@ -83,6 +84,8 @@ public partial class MainViewModel : ViewModelBase
         CurrentPage = _settingsViewModel;
         CurrentPageKind = MainPageKind.Settings;
     }
+
+    public void ApplyScreenSize(Size screenSize) => _studioDockViewModel.ApplyScreenSize(screenSize);
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

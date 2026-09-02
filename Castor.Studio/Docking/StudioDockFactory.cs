@@ -17,6 +17,15 @@ public sealed class StudioDockFactory(StudioViewModel studioViewModel) : Factory
         var status = new StatusTool { Id = StudioDockIds.Status, Title = "Statut", CanClose = false, CanFloat = false };
         var streamControls = new StreamControlsTool { Id = StudioDockIds.StreamControls, Title = "Diffusion & Enregistrement", CanClose = false, CanFloat = false };
 
+        // Real screen-relative minimums are applied once the window is shown (see
+        // StudioDockViewModel.ApplyScreenSize) - this is just a sane floor until then.
+        foreach (var dockable in new IDockable[] { preview, sceneSelector, status, streamControls })
+        {
+            var minSize = StudioDockSizing.GetMinSize(dockable.Id!, StudioDockSizing.FallbackScreenSize);
+            dockable.MinWidth = minSize.Width;
+            dockable.MinHeight = minSize.Height;
+        }
+
         var previewDock = new DocumentDock
         {
             Id = StudioDockIds.PreviewDock,
