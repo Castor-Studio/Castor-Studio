@@ -1,6 +1,6 @@
 # Castor Studio
 
-Application desktop Avalonia préparée pour une future intégration du package LibObs C#.
+Application desktop Avalonia intégrant le package LibObs C# pour le cycle de vie des scènes.
 
 ## Prérequis
 
@@ -19,6 +19,6 @@ ou directement :
 dotnet build Castor-Studio.sln -c Debug
 ```
 
-La version actuelle conserve les interactions UI locales. Preview, périphériques matériels,
-enregistrement, streaming, scan réseau et analyse IA restent indisponibles tant que
-`IStudioRuntime` n'a pas d'implémentation LibObs.
+La création, le renommage et la suppression des scènes sont synchronisés avec LibObs.
+Preview, périphériques matériels, enregistrement, streaming, scan réseau et analyse IA
+restent indisponibles tant que `IStudioRuntime` n'a pas d'implémentation LibObs.

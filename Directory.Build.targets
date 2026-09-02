@@ -1,0 +1,32 @@
+<Project>
+  <!-- NuGet normalizes package timestamps, so PreserveNewest alone cannot replace
+       a LibObs runtime left by a previous package version. Refresh the complete
+       native payload whenever its packaged manifest changes. -->
+  <Target Name="RemoveStaleLibObsRuntime"
+          BeforeTargets="_CopyOutOfDateSourceItemsToOutputDirectory"
+          Condition="Exists('$(TargetDir)obs-runtime\runtime-manifest.json')">
+    <ItemGroup>
+      <_LibObsRuntimeManifest Include="@(Content)"
+                              Condition="'%(Content.Link)' == 'obs-runtime\runtime-manifest.json'" />
+    </ItemGroup>
+
+    <GetFileHash Files="@(_LibObsRuntimeManifest)" Algorithm="SHA256"
+                 Condition="'@(_LibObsRuntimeManifest)' != ''">
+      <Output TaskParameter="Items" ItemName="_PackagedLibObsRuntimeManifest" />
+    </GetFileHash>
+    <GetFileHash Files="$(TargetDir)obs-runtime\runtime-manifest.json" Algorithm="SHA256"
+                 Condition="'@(_LibObsRuntimeManifest)' != ''">
+      <Output TaskParameter="Items" ItemName="_DeployedLibObsRuntimeManifest" />
+    </GetFileHash>
+
+    <PropertyGroup>
+      <_PackagedLibObsRuntimeManifestHash>@(_PackagedLibObsRuntimeManifest->'%(FileHash)')</_PackagedLibObsRuntimeManifestHash>
+      <_DeployedLibObsRuntimeManifestHash>@(_DeployedLibObsRuntimeManifest->'%(FileHash)')</_DeployedLibObsRuntimeManifestHash>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(TargetDir)obs-runtime"
+               Condition="'$(_PackagedLibObsRuntimeManifestHash)' != '' and '$(_PackagedLibObsRuntimeManifestHash)' != '$(_DeployedLibObsRuntimeManifestHash)'" />
+    <Delete Files="$(TargetDir)obs-ffmpeg-mux.exe"
+            Condition="'$(_PackagedLibObsRuntimeManifestHash)' != '' and '$(_PackagedLibObsRuntimeManifestHash)' != '$(_DeployedLibObsRuntimeManifestHash)'" />
+  </Target>
+</Project>
