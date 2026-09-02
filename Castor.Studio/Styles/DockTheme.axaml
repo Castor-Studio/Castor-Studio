@@ -104,4 +104,28 @@
         </ResourceDictionary>
     </Styles.Resources>
 
+    <!-- The stock drag-target selector renders fixed light PNG glyphs
+         (DockAnchorableTop.png etc.) that can't be recolored for dark mode.
+         Hide them and rely on the colored zone highlights (DockTargetIndicatorBrush,
+         already themed above) to show where a dragged pane will dock. -->
+    <Style Selector="DockTarget /template/ Image">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
+    <!-- Round the pane chrome to match the app's card/panel corner-radius convention.
+         Tool panes tab at the bottom (top corners belong to the content), document
+         panes tab at the top (bottom corners belong to the content). -->
+    <Style Selector="ToolControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="8,8,0,0"/>
+    </Style>
+    <Style Selector="DocumentControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="0,0,8,8"/>
+    </Style>
+
+    <!-- UniformToFill can crop/distort the stock chrome icon glyphs (pin, close, ...);
+         Uniform keeps them legible until they're replaced with the app's own icon set. -->
+    <Style Selector="ToolChromeControl /template/ Path">
+        <Setter Property="Stretch" Value="Uniform"/>
+    </Style>
+
 </Styles>
