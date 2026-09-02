@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Media;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
@@ -20,6 +21,7 @@ public enum MainPageKind
 public partial class MainViewModel : ViewModelBase
 {
     private readonly StudioViewModel _studioViewModel;
+    private readonly StudioDockViewModel _studioDockViewModel;
     private readonly MulticamViewModel _multicamViewModel;
     private readonly ScenesViewModel _scenesViewModel;
     private readonly SettingsViewModel _settingsViewModel;
@@ -38,12 +40,14 @@ public partial class MainViewModel : ViewModelBase
 
     internal MainViewModel(
         StudioViewModel studioViewModel,
+        StudioDockViewModel studioDockViewModel,
         MulticamViewModel multicamViewModel,
         ScenesViewModel scenesViewModel,
         SettingsViewModel settingsViewModel,
         StudioWorkspaceViewModel workspace)
     {
         _studioViewModel = studioViewModel;
+        _studioDockViewModel = studioDockViewModel;
         _multicamViewModel = multicamViewModel;
         _scenesViewModel = scenesViewModel;
         _settingsViewModel = settingsViewModel;
@@ -56,7 +60,7 @@ public partial class MainViewModel : ViewModelBase
     private void ShowStudio()
     {
         _studioViewModel.RefreshOutputInfo();
-        CurrentPage = _studioViewModel;
+        CurrentPage = _studioDockViewModel;
         CurrentPageKind = MainPageKind.Studio;
     }
 
@@ -80,6 +84,8 @@ public partial class MainViewModel : ViewModelBase
         CurrentPage = _settingsViewModel;
         CurrentPageKind = MainPageKind.Settings;
     }
+
+    public void ApplyScreenSize(Size screenSize) => _studioDockViewModel.ApplyScreenSize(screenSize);
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

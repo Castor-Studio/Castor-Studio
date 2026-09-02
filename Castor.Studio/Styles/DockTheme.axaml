@@ -1,0 +1,250 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Re-skins Dock.Avalonia.Themes.Fluent's default tokens with Castor's own palette
+         (Styles/Colors.axaml) so docked panes read as part of the app, not a foreign
+         VS-Code-style theme. Values are duplicated from Colors.axaml rather than aliased,
+         because StaticResource can't reach into another file's ThemeDictionaries - it
+         resolves eagerly against this dictionary's own scope, so an alias to "AppSurface"
+         fails at startup even though the same lookup works fine via DynamicResource. -->
+    <Styles.Resources>
+        <ResourceDictionary>
+
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#13131c"/>
+                    <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#2a2a38"/>
+                    <SolidColorBrush x:Key="DockThemeForegroundBrush" Color="#eaeaf0"/>
+                    <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#1c1c28"/>
+                    <SolidColorBrush x:Key="DockThemeAccentBrush" Color="#5b8def"/>
+
+                    <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#0b0b12"/>
+                    <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#13131c"/>
+                    <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#07070d"/>
+                    <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#13131c"/>
+                    <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#1c1c28"/>
+                    <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#162040"/>
+
+                    <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#2a2a38"/>
+                    <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#36364a"/>
+                    <SolidColorBrush x:Key="DockSeparatorBrush" Color="#2a2a38"/>
+                    <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#2a2a38"/>
+                    <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="#36364a"/>
+                    <SolidColorBrush x:Key="DockSplitterDragBrush" Color="#5b8def"/>
+
+                    <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#1c1c28"/>
+                    <SolidColorBrush x:Key="DockTabActiveBackgroundBrush" Color="#162040"/>
+                    <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#5b8def"/>
+                    <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#8888a0"/>
+                    <SolidColorBrush x:Key="DockTabSelectedForegroundBrush" Color="#eaeaf0"/>
+                    <SolidColorBrush x:Key="DockTabActiveForegroundBrush" Color="#eaeaf0"/>
+                    <SolidColorBrush x:Key="DockTabCloseHoverBackgroundBrush" Color="#36364a"/>
+                    <SolidColorBrush x:Key="DockDocumentTabSelectedForegroundBrush" Color="#eaeaf0"/>
+                    <SolidColorBrush x:Key="DockDocumentTabPointerOverForegroundBrush" Color="#eaeaf0"/>
+                    <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="#eaeaf0"/>
+                    <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="#eaeaf0"/>
+
+                    <SolidColorBrush x:Key="DockTargetIndicatorBrush" Color="#5b8def"/>
+
+                    <SolidColorBrush x:Key="DockChromeButtonHoverBackgroundBrush" Color="#1c1c28"/>
+                    <SolidColorBrush x:Key="DockChromeButtonPressedBackgroundBrush" Color="#36364a"/>
+                    <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="#F87171"/>
+                    <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#5c5c72"/>
+                    <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#5c5c72"/>
+
+                    <!-- Vector replacements for the stock drag-target PNG glyphs: a rounded
+                         square (AppSurface2 fill, AppBorder stroke) with an accent bar on
+                         the edge the drop would dock to. 40x40 canvas to match
+                         DockTargetSelectorSize. Per-variant so they follow the theme. -->
+                    <DrawingImage x:Key="CastorDockTargetTop">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetBottom">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,25,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetLeft">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetRight">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="25,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetCenter">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#1c1c28"><GeometryDrawing.Pen><Pen Brush="#2a2a38" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#5b8def"><GeometryDrawing.Geometry><RectangleGeometry Rect="9,9,22,22" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                </ResourceDictionary>
+
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="DockThemeBackgroundBrush" Color="#f6f6fc"/>
+                    <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#ccccde"/>
+                    <SolidColorBrush x:Key="DockThemeForegroundBrush" Color="#18182a"/>
+                    <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#eaeaf4"/>
+                    <SolidColorBrush x:Key="DockThemeAccentBrush" Color="#315fb8"/>
+
+                    <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#eeeef6"/>
+                    <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#f6f6fc"/>
+                    <SolidColorBrush x:Key="DockSurfaceEditorBrush" Color="#d4d4e8"/>
+                    <SolidColorBrush x:Key="DockSurfacePanelBrush" Color="#f6f6fc"/>
+                    <SolidColorBrush x:Key="DockSurfaceHeaderBrush" Color="#eaeaf4"/>
+                    <SolidColorBrush x:Key="DockSurfaceHeaderActiveBrush" Color="#dce8ff"/>
+
+                    <SolidColorBrush x:Key="DockBorderSubtleBrush" Color="#ccccde"/>
+                    <SolidColorBrush x:Key="DockBorderStrongBrush" Color="#bcbcd2"/>
+                    <SolidColorBrush x:Key="DockSeparatorBrush" Color="#ccccde"/>
+                    <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#ccccde"/>
+                    <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="#bcbcd2"/>
+                    <SolidColorBrush x:Key="DockSplitterDragBrush" Color="#315fb8"/>
+
+                    <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#e0e0f0"/>
+                    <SolidColorBrush x:Key="DockTabActiveBackgroundBrush" Color="#dce8ff"/>
+                    <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#315fb8"/>
+                    <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#484888"/>
+                    <SolidColorBrush x:Key="DockTabSelectedForegroundBrush" Color="#18182a"/>
+                    <SolidColorBrush x:Key="DockTabActiveForegroundBrush" Color="#18182a"/>
+                    <SolidColorBrush x:Key="DockTabCloseHoverBackgroundBrush" Color="#bcbcd2"/>
+                    <SolidColorBrush x:Key="DockDocumentTabSelectedForegroundBrush" Color="#18182a"/>
+                    <SolidColorBrush x:Key="DockDocumentTabPointerOverForegroundBrush" Color="#18182a"/>
+                    <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="#18182a"/>
+                    <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="#18182a"/>
+
+                    <SolidColorBrush x:Key="DockTargetIndicatorBrush" Color="#315fb8"/>
+
+                    <SolidColorBrush x:Key="DockChromeButtonHoverBackgroundBrush" Color="#e0e0f0"/>
+                    <SolidColorBrush x:Key="DockChromeButtonPressedBackgroundBrush" Color="#bcbcd2"/>
+                    <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="#F87171"/>
+                    <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#6868a0"/>
+                    <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#6868a0"/>
+
+                    <!-- Light-variant twins of the drop-target glyphs (AppSurface2 #eaeaf4,
+                         AppBorder #ccccde, accent #315fb8). -->
+                    <DrawingImage x:Key="CastorDockTargetTop">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetBottom">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,25,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetLeft">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetRight">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="25,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                    <DrawingImage x:Key="CastorDockTargetCenter">
+                        <DrawingGroup>
+                            <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="9,9,22,22" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry></GeometryDrawing>
+                        </DrawingGroup>
+                    </DrawingImage>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- Round the top of document tabs (the Preview tab) to match the app's rounded chrome. -->
+            <CornerRadius x:Key="DockDocumentTabItemCornerRadius">5,5,0,0</CornerRadius>
+
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <!-- Both drag-target selectors (DockTarget for per-dock zones, GlobalDockTarget for
+         window edges) show fixed light PNG glyphs (DockAnchorableTop.png etc.) that
+         can't be recolored. Swap each Image's Source for the themed DrawingImage above.
+         The theme assigns the PNG through a name-level rule (Image#PART_TopSelector), so
+         these equal-specificity, later-declared rules replace it while leaving the
+         theme's own show/hide logic (:vertical / :horizontal) untouched. -->
+    <Style Selector="DockTarget /template/ Image#PART_TopSelector, GlobalDockTarget /template/ Image#PART_TopSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetTop}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_BottomSelector, GlobalDockTarget /template/ Image#PART_BottomSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetBottom}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_LeftSelector, GlobalDockTarget /template/ Image#PART_LeftSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetLeft}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_RightSelector, GlobalDockTarget /template/ Image#PART_RightSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetRight}"/>
+    </Style>
+    <Style Selector="DockTarget /template/ Image#PART_CenterSelector, GlobalDockTarget /template/ Image#PART_CenterSelector">
+        <Setter Property="Source" Value="{DynamicResource CastorDockTargetCenter}"/>
+    </Style>
+
+    <!-- One rounded card per pane. Tool panes: the title/icons bar (ToolChromeControl's
+         header) rounds its top corners and each pane's own root Border rounds the bottom
+         ones (see the pane views - CornerRadius on the dock's DeferredContentPresenter
+         didn't reliably render); nothing rounds at the seam, so bar + content read as a
+         single block. Document panes (Preview): the tab strip sits on top, so the content
+         Border rounds the bottom. -->
+    <Style Selector="ToolChromeControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="8,8,0,0"/>
+    </Style>
+    <Style Selector="DocumentControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="0,0,8,8"/>
+    </Style>
+
+    <!-- Dock draws two extra strokes around tool pane content that poke past those
+         rounded corners. ToolControl wraps the content with its own 1px side border,
+         doubling the pane Border's outline; and ToolTabStrip, docked at the bottom,
+         draws a 1px top line in its two fill borders (with a single tool it hides its
+         tabs via :singleitem, so that line was all that remained of it). Zero both -
+         the strip itself stays, so tabs still show if two tools get grouped in one dock. -->
+    <Style Selector="ToolControl /template/ Border#PART_Border">
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+    <Style Selector="ToolTabStrip /template/ Border#PART_BorderLeftFill, ToolTabStrip /template/ Border#PART_BorderRightFill">
+        <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+
+    <!-- "Afficher le nom des docks" setting: CastorDockShowTitles lives in App.axaml's
+         resources and is rewritten at runtime by AvaloniaDockChromeService, so this
+         DynamicResource re-evaluates live. The pin/menu icons stay so the bar remains
+         a drag handle; only the title text goes. -->
+    <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
+        <Setter Property="IsVisible" Value="{DynamicResource CastorDockShowTitles}"/>
+    </Style>
+
+    <!-- ToolChromeControl draws a 1px divider strip between the header and the content
+         (PART_Panel, filled with the border color) - visible as a stray seam line cutting
+         the rounded card in two. Hide it so the bar and content read as one block. -->
+    <Style Selector="ToolChromeControl /template/ Panel#PART_Panel">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
+    <!-- The pin/menu/close/maximize buttons inherit FluentTheme's default rounded Button
+         corners, which shows up as a stray rounded pill floating inside the header instead
+         of a flush toolbar icon. Flatten them so only the bar's own outer corners round. -->
+    <Style Selector="ToolChromeControl /template/ Button">
+        <Setter Property="CornerRadius" Value="0"/>
+    </Style>
+
+    <!-- UniformToFill can crop/distort the stock chrome icon glyphs (pin, close, ...);
+         Uniform keeps them legible until they're replaced with the app's own icon set. -->
+    <Style Selector="ToolChromeControl /template/ Path">
+        <Setter Property="Stretch" Value="Uniform"/>
+    </Style>
+
+</Styles>

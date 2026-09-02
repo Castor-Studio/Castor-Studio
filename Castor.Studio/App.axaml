@@ -3,15 +3,18 @@
              xmlns:views="using:CastorApplication.Views"
              xmlns:settingsViews="using:CastorApplication.Views.Settings"
              xmlns:settingsSectionViews="using:CastorApplication.Views.Settings.Sections"
-             xmlns:studioVm="using:CastorApplication.ViewModels.Studio"
              xmlns:scenesVm="using:CastorApplication.ViewModels.Scenes"
              xmlns:multicamVm="using:CastorApplication.ViewModels.Multicam"
              xmlns:settingsVm="using:CastorApplication.ViewModels.Settings"
              xmlns:settingsSectionVm="using:CastorApplication.ViewModels.Settings.Sections"
+             xmlns:shellVm="using:CastorApplication.ViewModels.Shell"
+             xmlns:shellViews="using:CastorApplication.Views.Shell"
+             xmlns:docking="using:CastorApplication.Docking"
+             xmlns:studioViews="using:CastorApplication.Views.Studio"
              x:Class="CastorApplication.App"
              RequestedThemeVariant="Dark">
     <Application.DataTemplates>
-        <DataTemplate DataType="{x:Type studioVm:StudioViewModel}"><views:StudioView/></DataTemplate>
+        <DataTemplate DataType="{x:Type shellVm:StudioDockViewModel}"><shellViews:StudioDockView/></DataTemplate>
         <DataTemplate DataType="{x:Type scenesVm:ScenesViewModel}"><views:ScenesView/></DataTemplate>
         <DataTemplate DataType="{x:Type multicamVm:MulticamViewModel}"><views:MulticamView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsVm:SettingsViewModel}"><settingsViews:SettingsView/></DataTemplate>
@@ -21,6 +24,13 @@
         <DataTemplate DataType="{x:Type settingsSectionVm:StreamingSettingsViewModel}"><settingsSectionViews:StreamingSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:OutputSettingsViewModel}"><settingsSectionViews:OutputSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:AccountsSettingsViewModel}"><settingsSectionViews:AccountsSettingsView/></DataTemplate>
+
+        <!-- StudioViewModel backs four distinct panes, so these key off the dockable's
+             own (marker) type instead of its Context to pick the right pane view. -->
+        <DataTemplate DataType="{x:Type docking:PreviewDocument}"><studioViews:PreviewPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:SceneSelectorTool}"><studioViews:SceneSelectorPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:StatusTool}"><studioViews:StatusPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:StreamControlsTool}"><studioViews:StreamControlsPaneView DataContext="{Binding Context}"/></DataTemplate>
     </Application.DataTemplates>
 
     <Application.Resources>
@@ -28,11 +38,19 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Styles/Colors.axaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Defaults for the "show dock titles" setting; AvaloniaDockChromeService
+                 rewrites both at runtime. Declared here (not in a Styles file) so the
+                 runtime write lands in the same dictionary the defaults come from. -->
+            <x:Boolean x:Key="CastorDockShowTitles">True</x:Boolean>
+            <x:Boolean x:Key="DockDocumentControlTabStripVisible">True</x:Boolean>
         </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
         <FluentTheme/>
+        <DockFluentTheme/>
+        <StyleInclude Source="/Styles/DockTheme.axaml"/>
         <StyleInclude Source="/Styles/Controls.axaml"/>
     </Application.Styles>
 </Application>

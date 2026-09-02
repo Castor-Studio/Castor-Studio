@@ -28,6 +28,18 @@
                 </ComboBox>
             </Grid>
 
+            <Grid ColumnDefinitions="180,*">
+                <TextBlock Grid.Column="0"
+                           Text="Docks"
+                           Classes="setting-label"/>
+
+                <CheckBox Grid.Column="1"
+                          Content="Afficher le nom des docks"
+                          IsChecked="{Binding ShowDockTitles}"
+                          Foreground="{DynamicResource AppFg2}"
+                          FontSize="13"/>
+            </Grid>
+
             <Rectangle Height="1"
                        Fill="{DynamicResource AppBorder}"
                        Margin="0,4"/>

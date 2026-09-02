@@ -23,6 +23,7 @@ public partial class App : Application
             desktop.MainWindow = new MainWindow { DataContext = _services.GetRequiredService<MainViewModel>() };
             desktop.Exit += (_, _) =>
             {
+                _services.GetRequiredService<StudioDockViewModel>().SaveLayout();
                 _services.Dispose();
                 _services = null;
             };
