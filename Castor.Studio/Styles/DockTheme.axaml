@@ -117,8 +117,13 @@
          pane views - CornerRadius on the dock's DeferredContentPresenter didn't reliably
          render). Nothing rounds at the seam between the two, so bar + content read as a
          single block. -->
+    <!-- ToolControl wraps the pane content and draws its own 1px side border, which
+         doubled up with the outline on each pane's root Border. Drop Dock's copy: the
+         pane's own Border carries the sides + bottom and follows the rounded corners,
+         which this square one would poke past. -->
     <Style Selector="ToolControl /template/ Border#PART_Border">
         <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="BorderThickness" Value="0"/>
     </Style>
     <Style Selector="DocumentControl /template/ Border#PART_Border">
         <Setter Property="CornerRadius" Value="0,0,8,8"/>
