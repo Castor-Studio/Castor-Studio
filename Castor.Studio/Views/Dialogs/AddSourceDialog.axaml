@@ -8,7 +8,7 @@
         Title="Ajouter une source"
         Width="640" Height="500"
         CanResize="False"
-        WindowDecorations="None"
+        SystemDecorations="None"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
         WindowStartupLocation="CenterOwner"
@@ -62,7 +62,7 @@
 		<KeyBinding Gesture="Escape" Command="{Binding CancelCommand}"/>
 		<KeyBinding Gesture="Enter" Command="{Binding ConfirmCommand}"/>
 	</Window.KeyBindings>
-	
+
 	<Border Background="{DynamicResource AppSurface}" CornerRadius="10"
             BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
 		<Grid RowDefinitions="46, 1, *, 1, 54">
@@ -124,7 +124,7 @@
                           IsVisible="{Binding IsListCategory}" Margin="0,0,0,8">
 						<TextBox Grid.Column="0" x:Name="SearchBox"
                                  Text="{Binding SearchText}"
-                                 PlaceholderText="Rechercher…"
+                                 Watermark="Rechercher…"
                                  FontSize="12" Padding="8,5"
                                  Background="{DynamicResource AppSurface2}"
                                  Foreground="{DynamicResource AppFg1}"
@@ -195,7 +195,7 @@
 						<TextBlock Text="URL du flux (RTMP / RTSP / HTTP)"
                                    Foreground="{DynamicResource AppFg3}" FontSize="11"/>
 						<TextBox Text="{Binding NetworkUrl}"
-                                 PlaceholderText="rtmp:// ou rtsp://…"
+                                 Watermark="rtmp:// ou rtsp://…"
                                  FontSize="12" Padding="8,5"
                                  Background="{DynamicResource AppSurface2}"
                                  Foreground="{DynamicResource AppFg1}"
