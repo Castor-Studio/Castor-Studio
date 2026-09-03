@@ -20,6 +20,50 @@ public sealed partial class StudioDockFactory
 
     private Dictionary<string, HomeSlot> Homes => _homes ??= BuildHomes(Template);
 
+    // The panels the workspace is made of, in the order the default layout lays them out.
+    public IReadOnlyList<StudioPanel> Panels()
+    {
+        var panels = new List<StudioPanel>();
+        Collect(Template);
+        return panels;
+
+        void Collect(IDock dock)
+        {
+            foreach (var child in Snapshot(dock))
+            {
+                if (child is IDock childDock)
+                {
+                    Collect(childDock);
+                }
+                else if (child is ITool or IDocument && child.Id is { Length: > 0 } id)
+                {
+                    panels.Add(new StudioPanel(id, child.Title));
+                }
+            }
+        }
+    }
+
+    // Brings a panel back on screen: the one already there gets the focus, a missing one is built
+    // anew from the default layout and docked where it belongs.
+    public void ShowPanel(IRootDock main, string id)
+    {
+        // FindDockable also looks inside detached windows, where the panel may well be.
+        if (FindDockable(main, dockable => dockable.Id == id) is { } present)
+        {
+            SetActiveDockable(present);
+            ActivateWindow(present);
+            return;
+        }
+
+        if (FindDocked(CreateLayout(), dockable => dockable.Id == id) is not { } panel)
+        {
+            return;
+        }
+
+        ReturnHome(panel, main);
+        SetActiveDockable(panel);
+    }
+
     // A saved layout carries what each panel could do when it was written, so one saved before
     // panels could be detached keeps them stuck, and one saved before the docks were named makes
     // a detached window show "IToolDock". The file describes an arrangement; what a panel is and

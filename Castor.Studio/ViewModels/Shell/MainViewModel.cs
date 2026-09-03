@@ -1,5 +1,8 @@
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
@@ -26,6 +29,11 @@ public partial class MainViewModel : ViewModelBase
     private readonly ScenesViewModel _scenesViewModel;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly StudioWorkspaceViewModel _workspace;
+    private readonly IClassicDesktopStyleApplicationLifetime _desktop;
+
+    // The menu bar's "Panneaux" entries. Choosing one goes to the Studio page first, since that
+    // is where the panel it brings back lives.
+    public IReadOnlyList<StudioPanelEntry> PanelMenu { get; }
 
     public string GlobalStatusText => _workspace.IsStreaming ? "EN DIRECT" : _workspace.IsRecording ? "REC" : "OFFLINE";
     public IBrush GlobalStatusBrush => SolidColorBrush.Parse(_workspace.IsStreaming || _workspace.IsRecording ? "#f87171" : "#3c3c4e");
@@ -44,7 +52,8 @@ public partial class MainViewModel : ViewModelBase
         MulticamViewModel multicamViewModel,
         ScenesViewModel scenesViewModel,
         SettingsViewModel settingsViewModel,
-        StudioWorkspaceViewModel workspace)
+        StudioWorkspaceViewModel workspace,
+        IClassicDesktopStyleApplicationLifetime desktop)
     {
         _studioViewModel = studioViewModel;
         _studioDockViewModel = studioDockViewModel;
@@ -52,7 +61,16 @@ public partial class MainViewModel : ViewModelBase
         _scenesViewModel = scenesViewModel;
         _settingsViewModel = settingsViewModel;
         _workspace = workspace;
+        _desktop = desktop;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
+
+        PanelMenu =
+        [
+            .. _studioDockViewModel.Panels.Select(panel =>
+                new StudioPanelEntry(panel.Title, new RelayCommand(() => ShowPanel(panel.Id)))),
+            new StudioPanelEntry("Réinitialiser la disposition", new RelayCommand(ResetStudioLayout)),
+        ];
+
         ShowStudio();
     }
 
@@ -85,9 +103,24 @@ public partial class MainViewModel : ViewModelBase
         CurrentPageKind = MainPageKind.Settings;
     }
 
+    [RelayCommand]
+    private void Quit() => _desktop.Shutdown();
+
     public void ApplyScreenSize(Size screenSize) => _studioDockViewModel.ApplyScreenSize(screenSize);
 
     public void PresentFloatingPanels() => _studioDockViewModel.PresentFloatingPanels();
+
+    private void ShowPanel(string id)
+    {
+        ShowStudio();
+        _studioDockViewModel.ShowPanel(id);
+    }
+
+    private void ResetStudioLayout()
+    {
+        ShowStudio();
+        _studioDockViewModel.ResetLayout();
+    }
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

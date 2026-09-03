@@ -3,9 +3,12 @@
                     x:CompileBindings="False">
 
     <!-- Dock reads both menus through a DynamicResource, so redeclaring their keys here replaces
-         them. What they gain is "Rattacher", which sends a detached panel back to its place; the
-         rest is trimmed to what a fixed four-panel workspace can act on. Panels cannot be closed,
-         so no menu offers to.
+         them. What they gain is "Rattacher", which sends a detached panel back to its place.
+
+         What they lose is everything a fixed four-panel workspace cannot act on, and two ways to
+         make a panel seem to vanish: "Dock as Tabbed Document" buries a panel in the preview's
+         tab strip, behind the preview, and auto-hide collapses it into a strip on a window edge.
+         Panels cannot be closed either, so no menu offers to.
 
          Bindings are resolved at runtime: "Rattacher" hangs off a command declared by
          StudioDockFactory, which the Factory property only exposes as IFactory. -->
@@ -20,19 +23,6 @@
                   Command="{Binding Owner.Factory.ReturnHomeCommand}"
                   CommandParameter="{Binding}"
                   IsVisible="{Binding $parent[ToolChromeControl].IsFloating}"/>
-        <MenuItem Header="{DynamicResource ToolChromeControlDockAsDocumentString}"
-                  Command="{Binding Owner.Factory.DockAsDocument}"
-                  CommandParameter="{Binding ActiveDockable}"
-                  IsVisible="{Binding ActiveDockable.CanDockAsDocument, FallbackValue=False}"/>
-        <MenuItem Header="{DynamicResource ToolChromeControlAutoHideString}"
-                  Command="{Binding Owner.Factory.PinDockable}"
-                  CommandParameter="{Binding ActiveDockable}"
-                  IsVisible="{Binding $parent[ToolChromeControl].IsFloating, Converter={x:Static BoolConverters.Not}}"
-                  IsEnabled="{Binding ActiveDockable.OriginalOwner, Converter={x:Static ObjectConverters.IsNull}, FallbackValue=False}"/>
-        <MenuItem Header="{DynamicResource ToolChromeControlDockString}"
-                  Command="{Binding Owner.Factory.PinDockable}"
-                  CommandParameter="{Binding ActiveDockable}"
-                  IsEnabled="{Binding ActiveDockable.OriginalOwner, Converter={x:Static ObjectConverters.IsNotNull}, FallbackValue=False}"/>
     </MenuFlyout>
 
     <!-- The preview: a right-click on its tab. Its data context is the panel itself, where a tool

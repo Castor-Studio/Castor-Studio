@@ -143,7 +143,8 @@ compte comme barre de panneau, pour la fenêtre principale comme pour les fenêt
 un panneau construit sur `Tool` ou `Document` y est reconnu sans rien ajouter.
 
 L'enregistrement de la disposition, la restauration au démarrage et le thème sont également
-automatiques.
+automatiques. Le panneau apparaît aussi de lui-même dans le menu « Panneaux » de la barre de
+menus, qui est construit à partir de la disposition par défaut.
 
 ## Deux pièges
 

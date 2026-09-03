@@ -12,10 +12,37 @@
         WindowState="Maximized"
         Icon="/Assets/castor.png">
 
-	<Grid RowDefinitions="48,*">
+	<Grid RowDefinitions="Auto,48,*">
+
+		<!-- ═══ BARRE DE MENUS ═══ -->
+		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
+			<Menu Background="Transparent" Padding="6,0">
+				<MenuItem Header="_Fichier">
+					<MenuItem Header="_Paramètres" Command="{Binding ShowSettingsCommand}"/>
+					<Separator/>
+					<MenuItem Header="_Quitter" Command="{Binding QuitCommand}"/>
+				</MenuItem>
+				<MenuItem Header="_Affichage">
+					<MenuItem Header="_Studio" Command="{Binding ShowStudioCommand}"/>
+					<MenuItem Header="_Multicam" Command="{Binding ShowMulticamCommand}"/>
+					<MenuItem Header="S_cènes" Command="{Binding ShowScenesCommand}"/>
+				</MenuItem>
+
+				<!-- Ramène un panneau du studio à sa place : le seul recours quand l'un d'eux
+				     a disparu de la disposition. -->
+				<MenuItem Header="_Panneaux" ItemsSource="{Binding PanelMenu}">
+					<MenuItem.ItemContainerTheme>
+						<ControlTheme TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+							<Setter Property="Header" Value="{Binding Title, DataType=vm:StudioPanelEntry}"/>
+							<Setter Property="Command" Value="{Binding Show, DataType=vm:StudioPanelEntry}"/>
+						</ControlTheme>
+					</MenuItem.ItemContainerTheme>
+				</MenuItem>
+			</Menu>
+		</Border>
 
 		<!-- ═══ NAVBAR ═══ -->
-		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
+		<Border Grid.Row="1" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
 			<Grid ColumnDefinitions="220,*,220">
 
 				<!-- Logo -->
@@ -108,9 +135,9 @@
 			</Grid>
 		</Border>
 
-		<!-- Page content. The margin keeps every page off the window edges; the navigation bar
-		     above stays full width, as a header should. -->
-		<ContentControl Grid.Row="1" Content="{Binding CurrentPage}" Margin="12"/>
+		<!-- Page content. The margin keeps every page off the window edges; the bars above stay
+		     full width, as headers should. -->
+		<ContentControl Grid.Row="2" Content="{Binding CurrentPage}" Margin="12"/>
 
 	</Grid>
 </Window>

@@ -61,9 +61,20 @@ Pour rattacher un panneau, quatre gestes équivalents :
 - glisser sa barre sur une zone d'accueil de la fenêtre principale ;
 - fermer sa fenêtre.
 
-Dans les trois cas le panneau retourne à sa place d'origine plutôt que d'être perdu, avec la
+Dans les quatre cas le panneau retourne à sa place d'origine plutôt que d'être perdu, avec la
 taille qu'il avait dans la disposition par défaut, et la rangée qui l'accueillait est
 reconstruite si elle avait disparu.
+
+### Retrouver un panneau
+
+Le menu « Panneaux » de la barre de menus liste les quatre panneaux. En choisir un ouvre la
+page Studio et ramène le panneau à l'écran : celui qui est déjà là reçoit le focus, celui qui
+est détaché voit sa fenêtre passer devant, et celui qui a disparu de la disposition est recréé
+à sa place.
+
+La dernière entrée, « Réinitialiser la disposition », repart de l'agencement d'origine et
+ferme les fenêtres détachées. C'est le recours quand un espace de travail est devenu
+inutilisable.
 
 ### Persistance
 

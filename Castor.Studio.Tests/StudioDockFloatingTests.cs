@@ -96,6 +96,33 @@ public sealed class StudioDockFloatingTests
     }
 
     [Fact]
+    public void A_panel_that_went_missing_can_be_put_back()
+    {
+        var (factory, root) = CreateStudioLayout();
+
+        // A layout that lost a panel: the row it lived in collapsed behind it.
+        factory.RemoveDockable(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status)!, collapse: true);
+        Assert.Null(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status));
+
+        factory.ShowPanel(root, StudioDockIds.Status);
+
+        Assert.NotNull(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status));
+        Assert.Equal(
+            [StudioDockIds.StatusDock, null, StudioDockIds.StreamControlsDock],
+            ChildIds(factory, root, StudioDockIds.ControlsRow));
+    }
+
+    [Fact]
+    public void Every_panel_of_the_workspace_is_offered_by_the_menu()
+    {
+        var (factory, _) = CreateStudioLayout();
+
+        Assert.Equal(
+            ["Aperçu", "Scène active", "Statut", "Diffusion & Enregistrement"],
+            factory.Panels().Select(panel => panel.Title));
+    }
+
+    [Fact]
     public void A_layout_saved_before_panels_could_be_detached_is_brought_up_to_date()
     {
         var (factory, root) = CreateStudioLayout();
