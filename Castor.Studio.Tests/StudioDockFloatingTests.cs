@@ -96,6 +96,33 @@ public sealed class StudioDockFloatingTests
     }
 
     [Fact]
+    public void The_panel_menu_docks_a_detached_panel_back()
+    {
+        var (factory, root) = CreateStudioLayout();
+        factory.FloatDockable(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status)!);
+        // What the menu is bound to: the dock the window holds.
+        var detached = root.Windows!.Single().Layout!.VisibleDockables!.Single();
+
+        Assert.True(factory.ReturnHomeCommand.CanExecute(detached));
+        factory.ReturnHomeCommand.Execute(detached);
+
+        Assert.Empty(root.Windows!);
+        Assert.Equal(
+            [StudioDockIds.StatusDock, null, StudioDockIds.StreamControlsDock],
+            ChildIds(factory, root, StudioDockIds.ControlsRow));
+    }
+
+    [Fact]
+    public void The_panel_menu_offers_nothing_to_dock_back_for_a_panel_that_never_left()
+    {
+        var (factory, root) = CreateStudioLayout();
+
+        var status = factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status)!;
+
+        Assert.False(factory.ReturnHomeCommand.CanExecute(status));
+    }
+
+    [Fact]
     public void Docking_back_restores_the_sizes_of_the_default_layout()
     {
         var (factory, root) = CreateStudioLayout();
@@ -148,6 +175,14 @@ public sealed class StudioDockFloatingTests
         var factory = new StudioDockFactory(paneContext: null, () => new FakeHostWindow());
         var root = factory.CreateLayout();
         factory.InitLayout(root);
+
+        // The main layout gets a window of its own, as DockControl gives it once it is shown.
+        // A detached panel is told apart from a docked one by who owns the window it sits in.
+        var mainWindow = factory.CreateDockWindow();
+        mainWindow.Layout = root;
+        factory.InitDockWindow(mainWindow, root);
+        root.Window = mainWindow;
+
         return (factory, root);
     }
 

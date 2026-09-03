@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Windows.Input;
+using CommunityToolkit.Mvvm.Input;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 
@@ -17,6 +19,39 @@ public sealed partial class StudioDockFactory
     private IRootDock Template => _template ??= CreateLayout();
 
     private Dictionary<string, HomeSlot> Homes => _homes ??= BuildHomes(Template);
+
+    // Bound by the panel menus (Styles/DockMenus.axaml). Takes the panel, or the dock holding it.
+    public ICommand ReturnHomeCommand => _returnHomeCommand ??= new RelayCommand<IDockable?>(ReturnHome, CanReturnHome);
+
+    private ICommand? _returnHomeCommand;
+
+    // Docks a detached panel back where it belongs, closing the window it was living in.
+    public void ReturnHome(IDockable? dockable)
+    {
+        if (DetachedWindowOf(dockable) is not { } window)
+        {
+            return;
+        }
+
+        ReturnFloatingDockablesHome(window);
+
+        // The window is empty now: drop it from the layout, which closes it.
+        RemoveWindow(window);
+    }
+
+    private bool CanReturnHome(IDockable? dockable) => DetachedWindowOf(dockable) is not null;
+
+    private IDockWindow? DetachedWindowOf(IDockable? dockable)
+    {
+        if (dockable is null || FindRoot(dockable) is not { Window: { } window } root)
+        {
+            return null;
+        }
+
+        // The main layout has a window of its own, owned by itself. A detached panel sits in a
+        // root whose window is owned by the main layout instead.
+        return ReferenceEquals(window.Owner, root) ? null : window;
+    }
 
     // Moves everything a floating window holds back into the main layout, so dismissing the
     // window docks its panels instead of dropping them.

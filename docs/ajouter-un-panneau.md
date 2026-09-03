@@ -135,11 +135,12 @@ logique de retour relit une copie vierge de la disposition par défaut pour savo
 élément habite, et pour lui rendre sa taille. `CreateLayout` reste donc la seule description
 de l'espace de travail.
 
-Les trois gestes de détachement valent aussi pour lui : le double-clic est géré une fois pour
-toutes dans `StudioDockView`, le menu vient de Dock, et le glisser ne dépend que de
-`CanFloat`. `StudioPanelBar` décide de ce qui compte comme barre de panneau, pour la fenêtre
-principale comme pour les fenêtres détachées ; un panneau construit sur `Tool` ou `Document`
-y est reconnu sans rien ajouter.
+Les gestes de détachement et de rattachement valent aussi pour lui : le double-clic est géré
+une fois pour toutes dans `StudioDockView`, le glisser ne dépend que de `CanFloat`, et les
+entrées « Détacher » et « Rattacher » viennent des menus déclarés dans `Styles/DockMenus.axaml`,
+qui remplacent ceux de Dock pour tous les panneaux à la fois. `StudioPanelBar` décide de ce qui
+compte comme barre de panneau, pour la fenêtre principale comme pour les fenêtres détachées ;
+un panneau construit sur `Tool` ou `Document` y est reconnu sans rien ajouter.
 
 L'enregistrement de la disposition, la restauration au démarrage et le thème sont également
 automatiques.

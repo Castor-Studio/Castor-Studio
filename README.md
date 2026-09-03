@@ -35,7 +35,8 @@ Chaque panneau peut être détaché dans sa propre fenêtre, de trois manières 
 
 - double-cliquer sur sa barre : pour l'aperçu, c'est la bande d'onglets, son onglet comme la
   place vide à côté ;
-- ouvrir le menu de sa barre, la flèche à droite, et choisir « Détacher » ;
+- ouvrir son menu et choisir « Détacher ». Pour les trois panneaux du bas, c'est la flèche à
+  droite de leur barre, ou un clic droit dessus ; pour l'aperçu, un clic droit sur son onglet ;
 - glisser sa barre et la relâcher hors de la zone d'ancrage : un autre écran, ou la barre de
   navigation en haut de la fenêtre.
 
@@ -53,8 +54,9 @@ ferme malgré tout avec l'application, plutôt que de rester ouverte sans elle. 
 cadre Windows : la barre du panneau lui tient lieu de barre de titre, elle porte son nom et
 sert à déplacer la fenêtre.
 
-Pour rattacher un panneau, trois gestes équivalents :
+Pour rattacher un panneau, quatre gestes équivalents :
 
+- choisir « Rattacher » dans son menu ;
 - double-cliquer sur sa barre, le geste qui l'avait détaché ;
 - glisser sa barre sur une zone d'accueil de la fenêtre principale ;
 - fermer sa fenêtre.

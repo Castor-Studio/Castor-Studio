@@ -37,6 +37,7 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="/Styles/Colors.axaml"/>
+                <ResourceInclude Source="/Styles/DockMenus.axaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Defaults for the "show dock titles" setting; AvaloniaDockChromeService
@@ -48,6 +49,9 @@
             <!-- Dock ships its menus and drag hints in English. These keys override the ones
                  declared by DockFluentTheme; "Détacher" is how a panel is pulled out of the
                  window without dragging it, so it is worth reading in the app's language. -->
+            <!-- Added by Castor to both panel menus (Styles/DockMenus.axaml). -->
+            <x:String x:Key="CastorDockReturnHomeString">_Rattacher</x:String>
+
             <x:String x:Key="ToolChromeControlFloatString">_Détacher</x:String>
             <x:String x:Key="ToolChromeControlDockString">_Ancrer</x:String>
             <x:String x:Key="ToolChromeControlAutoHideString">_Masquer automatiquement</x:String>
