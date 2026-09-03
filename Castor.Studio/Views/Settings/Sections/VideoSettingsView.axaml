@@ -72,25 +72,6 @@
             <Grid ColumnDefinitions="180,*">
 
                 <TextBlock Grid.Column="0"
-                           Text="Qualité (CRF)"
-                           Classes="setting-label"/>
-
-                <ComboBox Grid.Column="1"
-                          MaxWidth="260"
-                          HorizontalAlignment="Left"
-                          SelectedIndex="{Binding SelectedQualityIndex}">
-
-                    <ComboBoxItem Content="Haute"/>
-                    <ComboBoxItem Content="Bonne"/>
-                    <ComboBoxItem Content="Basse"/>
-
-                </ComboBox>
-
-            </Grid>
-
-            <Grid ColumnDefinitions="180,*">
-
-                <TextBlock Grid.Column="0"
                            Text="Débit enregistrement (kbps)"
                            Classes="setting-label"/>
 

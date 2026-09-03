@@ -11,8 +11,6 @@ public sealed class ApplicationSettings
     public double VideoBitrate { get; set; } = 6000;
     public double StreamingBitrate { get; set; } = 4000;
 
-    public int RecordingQualityIndex { get; set; } = 1; // 0=haute 1=bonne 2=basse
-
     public int SelectedSampleRateIndex { get; set; }
     public int SelectedChannelsIndex { get; set; }
     public int SelectedAudioBitrateIndex { get; set; } = 1;
@@ -25,5 +23,8 @@ public sealed class ApplicationSettings
     public string RtmpUrl { get; set; } = "";
 
     public int SelectedOutputFormatIndex { get; set; }
-    public string OutputPath { get; set; } = "";
+    public string OutputPath { get; set; } = DefaultOutputPath;
+
+    public static string DefaultOutputPath =>
+        Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
 }

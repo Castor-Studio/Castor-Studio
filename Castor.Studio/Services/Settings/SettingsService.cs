@@ -34,7 +34,11 @@ public sealed class SettingsService
             var json = File.ReadAllText(_settingsFilePath);
             try
             {
-                return JsonSerializer.Deserialize<ApplicationSettings>(json, JsonOptions) ?? new ApplicationSettings();
+                var settings = JsonSerializer.Deserialize<ApplicationSettings>(json, JsonOptions)
+                    ?? new ApplicationSettings();
+                if (string.IsNullOrWhiteSpace(settings.OutputPath))
+                    settings.OutputPath = ApplicationSettings.DefaultOutputPath;
+                return settings;
             }
             catch (JsonException ex)
             {

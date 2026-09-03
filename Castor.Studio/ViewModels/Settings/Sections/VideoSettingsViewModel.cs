@@ -17,9 +17,6 @@ public partial class VideoSettingsViewModel : SettingsSectionViewModel
     [ObservableProperty]
     private double _videoBitrate = 6000;
 
-    [ObservableProperty]
-    private int _selectedQualityIndex = 1;
-
     public string VideoBitrateDisplay => $"{(int)VideoBitrate}";
 
     partial void OnVideoBitrateChanged(double value)
@@ -31,7 +28,6 @@ public partial class VideoSettingsViewModel : SettingsSectionViewModel
         SelectedOutputResolutionIndex = settings.SelectedOutputResolutionIndex;
         SelectedFpsIndex = settings.SelectedFpsIndex;
         VideoBitrate = settings.VideoBitrate;
-        SelectedQualityIndex = settings.RecordingQualityIndex;
     }
 
     protected override void SaveCore(ApplicationSettings settings)
@@ -40,6 +36,5 @@ public partial class VideoSettingsViewModel : SettingsSectionViewModel
         settings.SelectedOutputResolutionIndex = SelectedOutputResolutionIndex;
         settings.SelectedFpsIndex = SelectedFpsIndex;
         settings.VideoBitrate = VideoBitrate;
-        settings.RecordingQualityIndex = SelectedQualityIndex;
     }
 }

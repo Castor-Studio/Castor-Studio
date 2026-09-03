@@ -342,7 +342,7 @@ public sealed class ScenesViewModelRuntimeTests
 
     private sealed class FakeFilePicker(string? importPath, string? mediaPath) : IFilePickerService
     {
-        public Task<string?> PickRecordingOutputFileAsync(string extension = ".mp4", string formatLabel = "MP4 (H.264 + AAC)") => Task.FromResult<string?>(null);
+        public Task<string?> PickRecordingOutputFolderAsync(string? initialPath = null) => Task.FromResult<string?>(null);
         public Task<string?> PickVideoFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickAudioFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickMediaFileAsync() => Task.FromResult(mediaPath);

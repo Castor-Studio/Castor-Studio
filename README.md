@@ -21,6 +21,7 @@ dotnet build Castor-Studio.sln -c Debug
 
 La création, le renommage et la suppression des scènes sont synchronisés avec LibObs.
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
-fichiers média, et autorise plusieurs sources dans une scène. Preview, enregistrement,
-streaming, flux réseau et analyse IA restent indisponibles tant que leurs runtimes
-respectifs ne sont pas implémentés.
+fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
+des fichiers MP4, MKV ou WebM depuis la scène active dans le dossier configuré.
+Preview, streaming, flux réseau et analyse IA restent indisponibles tant que leurs
+runtimes respectifs ne sont pas implémentés.

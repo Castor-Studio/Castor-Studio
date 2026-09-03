@@ -16,15 +16,26 @@ public sealed record StudioRuntimeResult(StudioRuntimeStatus Status, string Mess
     public static StudioRuntimeResult Failure(string message) => new(StudioRuntimeStatus.Failure, message);
 }
 
+public enum RecordingContainer
+{
+    Mp4,
+    Mkv,
+    WebM
+}
+
 public sealed record RecordingRequest(
-    SceneDefinition Scene,
+    Guid SceneId,
     string OutputPath,
     int Fps,
     int VideoBitrateKbps,
+    int AudioBitrateKbps,
+    int AudioSampleRate,
+    int AudioChannels,
+    int BaseWidth,
+    int BaseHeight,
     int OutputWidth,
     int OutputHeight,
-    int QualityIndex,
-    string Container);
+    RecordingContainer Container);
 
 public sealed record StreamingRequest(
     SceneDefinition Scene,

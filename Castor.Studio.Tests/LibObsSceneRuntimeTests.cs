@@ -1,3 +1,4 @@
+using CastorApplication.Models.Studio;
 using CastorApplication.Services.Studio;
 using LibObs;
 
@@ -77,6 +78,134 @@ public sealed class LibObsSceneRuntimeTests
 
         Assert.False(Obs.IsInitialized);
     }
+
+    [Theory]
+    [InlineData(RecordingContainer.Mp4, ".mp4")]
+    [InlineData(RecordingContainer.Mkv, ".mkv")]
+    [InlineData(RecordingContainer.WebM, ".webm")]
+    public async Task Native_runtime_records_the_created_scene(
+        RecordingContainer container,
+        string extension)
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}{extension}");
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-record-source-{Guid.NewGuid():N}.wav");
+        WriteSilentWave(mediaPath);
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var sceneId = Guid.NewGuid();
+            var sourceId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(sceneId, $"Record {container}").IsSuccess);
+            Assert.True(runtime.AddSource(sceneId,
+                new SourceAddRequest.Media(sourceId, "Recording source", mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+            var started = await runtime.StartRecordingAsync(CreateRecordingRequest(sceneId, outputPath, container), timeout.Token);
+            Assert.True(started.IsSuccess, started.Message);
+            Assert.Contains("utilisée", runtime.RemoveScene(sceneId).Message);
+
+            await Task.Delay(2_000, timeout.Token);
+            var stopped = await runtime.StopRecordingAsync(timeout.Token);
+
+            Assert.True(stopped.IsSuccess, stopped.Message);
+            Assert.True(File.Exists(outputPath));
+            Assert.True(new FileInfo(outputPath).Length > 0);
+            Assert.True(runtime.RemoveScene(sceneId).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            File.Delete(outputPath);
+            File.Delete(mediaPath);
+        }
+
+        Assert.False(Obs.IsInitialized);
+    }
+
+    [Fact]
+    public async Task Native_runtime_supports_two_recordings_in_sequence()
+    {
+        var firstPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mkv");
+        var secondPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mkv");
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-record-source-{Guid.NewGuid():N}.wav");
+        WriteSilentWave(mediaPath);
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var sceneId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(sceneId, "Record twice").IsSuccess);
+            Assert.True(runtime.AddSource(sceneId,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Recording source", mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+            Assert.True((await runtime.StartRecordingAsync(
+                CreateRecordingRequest(sceneId, firstPath, RecordingContainer.Mkv), timeout.Token)).IsSuccess);
+            Assert.False((await runtime.StartRecordingAsync(
+                CreateRecordingRequest(sceneId, secondPath, RecordingContainer.Mkv), timeout.Token)).IsSuccess);
+            await Task.Delay(300, timeout.Token);
+            Assert.True((await runtime.StopRecordingAsync(timeout.Token)).IsSuccess);
+
+            Assert.True((await runtime.StartRecordingAsync(
+                CreateRecordingRequest(sceneId, secondPath, RecordingContainer.Mkv), timeout.Token)).IsSuccess);
+            await Task.Delay(300, timeout.Token);
+            Assert.True((await runtime.StopRecordingAsync(timeout.Token)).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            File.Delete(firstPath);
+            File.Delete(secondPath);
+            File.Delete(mediaPath);
+        }
+    }
+
+    [Fact]
+    public async Task Native_runtime_rejects_an_unknown_or_empty_scene()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mp4");
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+            var unknown = await runtime.StartRecordingAsync(
+                CreateRecordingRequest(Guid.NewGuid(), outputPath, RecordingContainer.Mp4), timeout.Token);
+            Assert.False(unknown.IsSuccess);
+            Assert.Contains("n'existe pas", unknown.Message);
+
+            var emptySceneId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(emptySceneId, "Empty record").IsSuccess);
+            var empty = await runtime.StartRecordingAsync(
+                CreateRecordingRequest(emptySceneId, outputPath, RecordingContainer.Mp4), timeout.Token);
+            Assert.False(empty.IsSuccess);
+            Assert.Contains("source vidéo ou média", empty.Message);
+        }
+        finally
+        {
+            runtime.Dispose();
+            File.Delete(outputPath);
+        }
+    }
+
+    private static RecordingRequest CreateRecordingRequest(
+        Guid sceneId,
+        string outputPath,
+        RecordingContainer container) => new(
+        sceneId,
+        outputPath,
+        Fps: 30,
+        VideoBitrateKbps: 1_000,
+        AudioBitrateKbps: 128,
+        AudioSampleRate: 48_000,
+        AudioChannels: 2,
+        BaseWidth: 320,
+        BaseHeight: 180,
+        OutputWidth: 320,
+        OutputHeight: 180,
+        container);
 
     private static void WriteSilentWave(string path)
     {

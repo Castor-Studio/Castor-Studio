@@ -125,11 +125,11 @@
                                            Foreground="{StaticResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
 							</Border>
 
-							<TextBlock Text="Le fichier de destination sera choisi via la boîte de dialogue."
-                                       Foreground="{DynamicResource AppFg4}" FontSize="10"
-                                       TextWrapping="Wrap"/>
+							<TextBlock Text="{Binding RecordingOutputDirectory, StringFormat='Dossier : {0}'}"
+							           Foreground="{DynamicResource AppFg4}" FontSize="10"
+							           TextWrapping="Wrap"/>
 
-							<Button Content="CHOISIR UN FICHIER ET DÉMARRER"
+							<Button Content="DÉMARRER L'ENREGISTREMENT"
                                     Command="{Binding StartRecordingCommand}"
                                     Classes="flyout-start"
                                     Background="{StaticResource StatusRecBrush}" Foreground="{DynamicResource AppFg1}"/>

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Avalonia.Media;
 using Avalonia.Threading;
+using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services;
 using CastorApplication.Services.Auth.Storage;
@@ -17,9 +18,9 @@ public partial class StudioViewModel : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IStudioRuntime _runtime;
+    private readonly IRecordingRuntime _recordingRuntime;
     private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
-    private readonly IFilePickerService _filePickerService;
     private readonly DispatcherTimer _sessionTimer;
     private DateTime? _sessionStartUtc;
 
@@ -57,6 +58,7 @@ public partial class StudioViewModel : ViewModelBase
     [ObservableProperty] private string _recordError = "";
     [ObservableProperty] private string _streamError = "";
     [ObservableProperty] private string _outputInfoText = "";
+    [ObservableProperty] private string _recordingOutputDirectory = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
     public IBrush StreamStatusBrush => SolidColorBrush.Parse(IsStreaming ? "#f87171" : "#3c3c4e");
@@ -67,16 +69,17 @@ public partial class StudioViewModel : ViewModelBase
     internal StudioViewModel(
         StudioWorkspaceViewModel workspace,
         IStudioRuntime runtime,
+        IRecordingRuntime recordingRuntime,
         IProviderStore providerStore,
-        SettingsService settingsService,
-        IFilePickerService filePickerService)
+        SettingsService settingsService)
     {
         _workspace = workspace;
         _runtime = runtime;
+        _recordingRuntime = recordingRuntime;
         _providerStore = providerStore;
         _settingsService = settingsService;
-        _filePickerService = filePickerService;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
+        _recordingRuntime.StateChanged += OnRecordingRuntimeStateChanged;
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
         RefreshProviderState(StreamPlatformIndex);
@@ -88,6 +91,9 @@ public partial class StudioViewModel : ViewModelBase
         var settings = _settingsService.Load();
         var (width, height) = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
         OutputInfoText = $"{width} × {height} @ {FpsFromIndex(settings.SelectedFpsIndex)} fps";
+        RecordingOutputDirectory = string.IsNullOrWhiteSpace(settings.OutputPath)
+            ? ApplicationSettings.DefaultOutputPath
+            : settings.OutputPath;
     }
 
     public async Task EnsurePreviewRunning(CancellationToken cancellationToken = default)
@@ -153,9 +159,9 @@ public partial class StudioViewModel : ViewModelBase
     private async Task StartRecording(CancellationToken cancellationToken)
     {
         RecordError = "";
-        if (!_runtime.IsAvailable)
+        if (!_recordingRuntime.IsAvailable)
         {
-            RecordError = _runtime.UnavailableMessage;
+            RecordError = _recordingRuntime.UnavailableMessage;
             return;
         }
 
@@ -167,13 +173,34 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         var settings = _settingsService.Load();
-        var (extension, label, container) = FormatFromIndex(settings.SelectedOutputFormatIndex);
-        var path = await _filePickerService.PickRecordingOutputFileAsync(extension, label);
-        if (path == null) return;
+        var container = FormatFromIndex(settings.SelectedOutputFormatIndex);
+        string path;
+        try
+        {
+            path = RecordingOutputPath.Create(settings.OutputPath, container, DateTime.Now);
+        }
+        catch (Exception exception)
+        {
+            RecordError = exception.Message;
+            return;
+        }
+
+        RecordingOutputDirectory = Path.GetDirectoryName(path) ?? "";
+        var (baseWidth, baseHeight) = BaseResolutionFromIndex(settings.SelectedBaseResolutionIndex);
         var (width, height) = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
-        var result = await _runtime.StartRecordingAsync(new RecordingRequest(
-            scene.ToDefinition(), path, FpsFromIndex(settings.SelectedFpsIndex), (int)settings.VideoBitrate,
-            width, height, settings.RecordingQualityIndex, container), cancellationToken);
+        var result = await _recordingRuntime.StartRecordingAsync(new RecordingRequest(
+            scene.Id,
+            path,
+            FpsFromIndex(settings.SelectedFpsIndex),
+            (int)settings.VideoBitrate,
+            AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
+            AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
+            AudioChannelsFromIndex(settings.SelectedChannelsIndex),
+            baseWidth,
+            baseHeight,
+            width,
+            height,
+            container), cancellationToken);
         if (!result.IsSuccess)
         {
             RecordError = result.Message;
@@ -186,13 +213,25 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private async Task StopRecording(CancellationToken cancellationToken)
     {
-        var result = await _runtime.StopRecordingAsync(cancellationToken);
+        var result = await _recordingRuntime.StopRecordingAsync(cancellationToken);
         if (!result.IsSuccess)
         {
             RecordError = result.Message;
             return;
         }
         _workspace.SetRecordingState(false);
+    }
+
+    private void OnRecordingRuntimeStateChanged(object? sender, RecordingStateChangedEventArgs e)
+    {
+        void ApplyState()
+        {
+            _workspace.SetRecordingState(e.IsRecording);
+            if (!string.IsNullOrWhiteSpace(e.Message)) RecordError = e.Message;
+        }
+
+        if (Dispatcher.UIThread.CheckAccess()) ApplyState();
+        else Dispatcher.UIThread.Post(ApplyState);
     }
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -281,17 +320,26 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     private static int FpsFromIndex(int index) => index switch { 0 => 60, 2 => 25, _ => 30 };
+    private static (int Width, int Height) BaseResolutionFromIndex(int index) => index switch
+    {
+        0 => (3840, 2160),
+        2 => (1280, 720),
+        _ => (1920, 1080)
+    };
     private static (int Width, int Height) OutputResolutionFromIndex(int index) => index switch
     {
         1 => (1280, 720),
         2 => (854, 480),
         _ => (1920, 1080)
     };
-    private static (string Extension, string Label, string Container) FormatFromIndex(int index) => index switch
+    private static int AudioSampleRateFromIndex(int index) => index == 1 ? 44_100 : 48_000;
+    private static int AudioChannelsFromIndex(int index) => index == 1 ? 1 : 2;
+    private static int AudioBitrateFromIndex(int index) => index switch { 0 => 320, 2 => 128, _ => 192 };
+    private static RecordingContainer FormatFromIndex(int index) => index switch
     {
-        1 => (".mkv", "MKV", "mkv"),
-        2 => (".webm", "WebM", "webm"),
-        _ => (".mp4", "MP4", "mp4")
+        1 => RecordingContainer.Mkv,
+        2 => RecordingContainer.WebM,
+        _ => RecordingContainer.Mp4
     };
     private static string? GetProviderId(int index) => index switch { 0 => "twitch", 1 => "youtube", _ => null };
     private static string GetPlatformName(int index) => index switch { 0 => "Twitch", 1 => "YouTube Live", _ => "RTMP" };
