@@ -1,0 +1,40 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    x:CompileBindings="False">
+
+    <!-- Dock reads both menus through a DynamicResource, so redeclaring their keys here replaces
+         them. What they gain is "Rattacher", which sends a detached panel back to its place.
+
+         What they lose is everything a fixed four-panel workspace cannot act on, and two ways to
+         make a panel seem to vanish: "Dock as Tabbed Document" buries a panel in the preview's
+         tab strip, behind the preview, and auto-hide collapses it into a strip on a window edge.
+         Panels cannot be closed either, so no menu offers to.
+
+         Bindings are resolved at runtime: "Rattacher" hangs off a command declared by
+         StudioDockFactory, which the Factory property only exposes as IFactory. -->
+
+    <!-- Tool panels: the bar's arrow button, and a right-click on the bar. -->
+    <MenuFlyout x:Key="ToolChromeControlContextMenu">
+        <MenuItem Header="{DynamicResource ToolChromeControlFloatString}"
+                  Command="{Binding Owner.Factory.FloatDockable}"
+                  CommandParameter="{Binding ActiveDockable}"
+                  IsVisible="{Binding $parent[ToolChromeControl].IsFloating, Converter={x:Static BoolConverters.Not}}"/>
+        <MenuItem Header="{DynamicResource CastorDockReturnHomeString}"
+                  Command="{Binding Owner.Factory.ReturnHomeCommand}"
+                  CommandParameter="{Binding}"
+                  IsVisible="{Binding $parent[ToolChromeControl].IsFloating}"/>
+    </MenuFlyout>
+
+    <!-- The preview: a right-click on its tab. Its data context is the panel itself, where a tool
+         panel's menu is bound to the dock holding it. -->
+    <ContextMenu x:Key="DocumentTabStripItemContextMenu">
+        <MenuItem Header="{DynamicResource DocumentTabStripItemFloatString}"
+                  Command="{Binding Owner.Factory.FloatDockable}"
+                  CommandParameter="{Binding}"
+                  IsVisible="{Binding CanFloat, FallbackValue=False}"/>
+        <MenuItem Header="{DynamicResource CastorDockReturnHomeString}"
+                  Command="{Binding Owner.Factory.ReturnHomeCommand}"
+                  CommandParameter="{Binding}"/>
+    </ContextMenu>
+
+</ResourceDictionary>
