@@ -1,6 +1,6 @@
 # Castor Studio
 
-Application desktop Avalonia intégrant le package LibObs C# pour le cycle de vie des scènes.
+Application desktop Avalonia intégrant le package LibObs C# pour le cycle de vie des scènes et de leurs sources.
 
 ## Prérequis
 
@@ -90,3 +90,7 @@ L'aperçu est encore un composant Avalonia sans contenu natif. Lorsqu'un hôte n
 détachement : Dock recycle la vue d'un panneau au lieu de la reconstruire, et déplace donc
 la même instance entre la fenêtre principale et la fenêtre flottante. Ce recyclage est
 partagé par fabrique, ce qui suppose une seule `StudioDockFactory` pour l'espace de travail.
+Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
+fichiers média, et autorise plusieurs sources dans une scène. Preview, enregistrement,
+streaming, flux réseau et analyse IA restent indisponibles tant que leurs runtimes
+respectifs ne sont pas implémentés.

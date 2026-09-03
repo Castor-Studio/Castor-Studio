@@ -1,7 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:CastorApplication.ViewModels.Scenes"
-        xmlns:studioModels="using:CastorApplication.Models.Studio"
         x:Class="CastorApplication.Views.Dialogs.AddSourceDialog"
         x:Name="DialogRoot"
         x:DataType="vm:AddSourceDialogViewModel"
@@ -62,7 +61,7 @@
 		<KeyBinding Gesture="Escape" Command="{Binding CancelCommand}"/>
 		<KeyBinding Gesture="Enter" Command="{Binding ConfirmCommand}"/>
 	</Window.KeyBindings>
-	
+
 	<Border Background="{DynamicResource AppSurface}" CornerRadius="10"
             BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
 		<Grid RowDefinitions="46, 1, *, 1, 54">
@@ -147,8 +146,9 @@
 					</Grid>
 
 					<!-- Liste des sources -->
-					<Panel Grid.Row="1" IsVisible="{Binding IsListCategory}">
-						<ListBox Classes="source-list"
+					<Grid Grid.Row="1" RowDefinitions="*, Auto">
+						<Panel Grid.Row="0">
+							<ListBox Classes="source-list"
                                  ItemsSource="{Binding VisibleItems}"
                                  SelectedItem="{Binding SelectedItem}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -182,63 +182,19 @@
 									</Grid>
 								</DataTemplate>
 							</ListBox.ItemTemplate>
-						</ListBox>
+							</ListBox>
 
-						<TextBlock Text="Aucune source dans cette catégorie."
+							<TextBlock Text="Aucune source dans cette catégorie."
                                    IsVisible="{Binding !VisibleItems.Count}"
                                    Foreground="{DynamicResource AppFg5}" FontSize="11"
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
-					</Panel>
+						</Panel>
 
-					<!-- Panneau flux réseau -->
-					<StackPanel Grid.Row="1" IsVisible="{Binding IsNetworkCategory}" Spacing="10">
-						<TextBlock Text="URL du flux (RTMP / RTSP / HTTP)"
-                                   Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-						<TextBox Text="{Binding NetworkUrl}"
-                                 PlaceholderText="rtmp:// ou rtsp://…"
-                                 FontSize="12" Padding="8,5"
-                                 Background="{DynamicResource AppSurface2}"
-                                 Foreground="{DynamicResource AppFg1}"
-                                 BorderBrush="{DynamicResource AppBorder2}"
-                                 CornerRadius="5"/>
-						<TextBlock Text="{Binding NetworkError}"
-                                   IsVisible="{Binding NetworkError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                   Foreground="{StaticResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
-
-						<Rectangle Height="1" Fill="{DynamicResource AppBorder}" Margin="0,4"/>
-
-						<Button Command="{Binding ScanNetworkCommand}"
-                                IsEnabled="{Binding !IsScanning}"
-                                Background="{DynamicResource AppSurface2}"
-                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
-                                Foreground="{DynamicResource AppFg2}"
-                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Padding="0,7" CornerRadius="5" FontSize="12" Cursor="Hand">
-							<Panel>
-								<TextBlock Text="Scan en cours…" IsVisible="{Binding IsScanning}"/>
-								<TextBlock Text="Scanner le réseau (ONVIF)" IsVisible="{Binding !IsScanning}"/>
-							</Panel>
-						</Button>
-
-						<ItemsControl ItemsSource="{Binding DiscoveredCameras}"
-                                      IsVisible="{Binding DiscoveredCameras.Count}">
-							<ItemsControl.ItemTemplate>
-								<DataTemplate x:DataType="studioModels:DiscoveredCamera">
-									<Button Classes="cat-item"
-                                            Command="{Binding #DialogRoot.DataContext.ConfirmDiscoveredCameraCommand}"
-                                            CommandParameter="{Binding}">
-										<StackPanel Spacing="1">
-											<TextBlock Text="{Binding Label}" FontSize="12"
-                                                       Foreground="{DynamicResource AppFg1}"/>
-											<TextBlock Text="{Binding SuggestedUrl}" FontSize="10"
-                                                       Foreground="{DynamicResource AppFg4}"
-                                                       TextTrimming="CharacterEllipsis"/>
-										</StackPanel>
-									</Button>
-								</DataTemplate>
-							</ItemsControl.ItemTemplate>
-						</ItemsControl>
-					</StackPanel>
+						<TextBlock Grid.Row="1" Text="{Binding CatalogMessage}"
+                                   IsVisible="{Binding CatalogMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Foreground="{StaticResource StatusErrorBrush}" FontSize="10"
+                                   TextWrapping="Wrap" Margin="4,8,4,0" MaxHeight="52"/>
+					</Grid>
 
 				</Grid>
 			</Grid>

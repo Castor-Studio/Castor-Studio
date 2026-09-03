@@ -2,8 +2,9 @@ namespace CastorApplication.Models.Studio;
 
 public enum SourceKind
 {
-    Video,
-    Audio
+    Video = 0,
+    Audio = 1,
+    Media = 2
 }
 
 public enum SourceOrigin
