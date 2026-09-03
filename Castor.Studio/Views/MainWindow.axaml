@@ -108,8 +108,9 @@
 			</Grid>
 		</Border>
 
-		<!-- Page content -->
-		<ContentControl Grid.Row="1" Content="{Binding CurrentPage}"/>
+		<!-- Page content. The margin keeps every page off the window edges; the navigation bar
+		     above stays full width, as a header should. -->
+		<ContentControl Grid.Row="1" Content="{Binding CurrentPage}" Margin="12"/>
 
 	</Grid>
 </Window>
