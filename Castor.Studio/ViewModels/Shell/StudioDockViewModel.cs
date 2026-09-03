@@ -23,7 +23,20 @@ public partial class StudioDockViewModel : ViewModelBase
         var factory = new StudioDockFactory(studioViewModel);
         _factory = factory;
 
-        var layout = _layoutService.Load() as IRootDock ?? factory.CreateLayout();
+        IRootDock layout;
+        if (_layoutService.Load() is IRootDock saved)
+        {
+            layout = saved;
+
+            // The saved arrangement is kept, but what each panel is and is allowed to do comes
+            // from the factory: a layout written by an older build would otherwise keep panels
+            // that cannot be detached, and docks with no name.
+            factory.ApplyPanelDefaults(layout);
+        }
+        else
+        {
+            layout = factory.CreateLayout();
+        }
 
         // Panels that were detached when the app last closed are held back until the main
         // window exists (see PresentFloatingPanels): InitLayout would otherwise put them on

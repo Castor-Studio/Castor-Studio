@@ -96,6 +96,26 @@ public sealed class StudioDockFloatingTests
     }
 
     [Fact]
+    public void A_layout_saved_before_panels_could_be_detached_is_brought_up_to_date()
+    {
+        var (factory, root) = CreateStudioLayout();
+
+        // What an older build wrote: panels that could not be detached, and unnamed docks.
+        foreach (var id in new[] { StudioDockIds.Status, StudioDockIds.StatusDock })
+        {
+            var stale = factory.FindDockable(root, dockable => dockable.Id == id)!;
+            stale.CanFloat = false;
+            stale.Title = string.Empty;
+        }
+
+        factory.ApplyPanelDefaults(root);
+
+        Assert.True(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status)!.CanFloat);
+        Assert.True(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.StatusDock)!.CanFloat);
+        Assert.Equal("Statut", factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.StatusDock)!.Title);
+    }
+
+    [Fact]
     public void The_panel_menu_docks_a_detached_panel_back()
     {
         var (factory, root) = CreateStudioLayout();

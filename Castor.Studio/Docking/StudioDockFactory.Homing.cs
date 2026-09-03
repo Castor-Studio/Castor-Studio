@@ -20,6 +20,41 @@ public sealed partial class StudioDockFactory
 
     private Dictionary<string, HomeSlot> Homes => _homes ??= BuildHomes(Template);
 
+    // A saved layout carries what each panel could do when it was written, so one saved before
+    // panels could be detached keeps them stuck, and one saved before the docks were named makes
+    // a detached window show "IToolDock". The file describes an arrangement; what a panel is and
+    // what it is allowed to do belongs to CreateLayout, so those are put back on load.
+    public void ApplyPanelDefaults(IRootDock layout)
+    {
+        ApplyDefaults(layout);
+
+        foreach (var window in layout.Windows ?? [])
+        {
+            if (window.Layout is { } floating)
+            {
+                ApplyDefaults(floating);
+            }
+        }
+
+        void ApplyDefaults(IDockable dockable)
+        {
+            if (dockable.Id is { Length: > 0 } id && FindDocked(Template, d => d.Id == id) is { } template)
+            {
+                dockable.Title = template.Title;
+                dockable.CanFloat = template.CanFloat;
+                dockable.CanClose = template.CanClose;
+            }
+
+            if (dockable is IDock dock)
+            {
+                foreach (var child in Snapshot(dock))
+                {
+                    ApplyDefaults(child);
+                }
+            }
+        }
+    }
+
     // Bound by the panel menus (Styles/DockMenus.axaml). Takes the panel, or the dock holding it.
     public ICommand ReturnHomeCommand => _returnHomeCommand ??= new RelayCommand<IDockable?>(ReturnHome, CanReturnHome);
 
