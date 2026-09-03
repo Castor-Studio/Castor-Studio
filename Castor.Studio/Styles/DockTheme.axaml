@@ -192,13 +192,21 @@
         <Setter Property="Source" Value="{DynamicResource CastorDockTargetCenter}"/>
     </Style>
 
-    <!-- A detached panel is a window in its own right, so it keeps the system title bar: it
-         carries the panel's name and the usual minimize, maximize and close buttons. Dock
-         otherwise hands the whole window over to the panel's own chrome bar as soon as the
-         window holds a single panel, which leaves it without a title or window buttons. The
-         chrome bar stays inside the window and remains the handle for docking the panel back. -->
+    <!-- A detached panel is framed by its own bar rather than by the Windows title bar: the bar
+         carries the panel's name, and dragging it moves the window - which is also how the panel
+         is brought back into the main window. Dock does this on its own for a tool window holding
+         a single panel; the preview is a document, so it needs the matching flag. -->
     <Style Selector="HostWindow">
-        <Setter Property="ToolChromeControlsWholeWindow" Value="False"/>
+        <Setter Property="DocumentChromeControlsWholeWindow" Value="True"/>
+    </Style>
+
+    <!-- Dock drops the frame itself for a tool window, but the rule it ships for a document one
+         hangs off a ":documentwindow" pseudo class that nothing ever sets, so the preview would
+         keep its frame. Same treatment, off the pseudo class that is actually set. -->
+    <Style Selector="HostWindow:documentchromecontrolswindow">
+        <Setter Property="ExtendClientAreaToDecorationsHint" Value="True"/>
+        <Setter Property="ExtendClientAreaTitleBarHeightHint" Value="0"/>
+        <Setter Property="WindowDecorations" Value="BorderOnly"/>
     </Style>
 
     <!-- One rounded card per pane. Tool panes: the title/icons bar (ToolChromeControl's

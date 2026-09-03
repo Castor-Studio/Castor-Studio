@@ -33,7 +33,8 @@ scène active, statut, diffusion et enregistrement. L'ajout d'un panneau est dé
 
 Chaque panneau peut être détaché dans sa propre fenêtre, de trois manières :
 
-- double-cliquer sur sa barre de titre ;
+- double-cliquer sur sa barre : pour l'aperçu, c'est la bande d'onglets, son onglet comme la
+  place vide à côté ;
 - ouvrir le menu de sa barre, la flèche à droite, et choisir « Détacher » ;
 - glisser sa barre et la relâcher hors de la zone d'ancrage : un autre écran, ou la barre de
   navigation en haut de la fenêtre.
@@ -46,17 +47,21 @@ que soit le nombre d'écrans.
 La rangée que le panneau laisse derrière lui se referme, et le panneau reste pleinement
 fonctionnel dans sa nouvelle fenêtre.
 
-Une fenêtre détachée est une fenêtre à part entière : elle porte le nom du panneau dans sa
-barre de titre système, possède sa propre entrée dans la barre des tâches, peut passer
-derrière la fenêtre principale et vivre sur un autre écran. Elle se ferme malgré tout avec
-l'application, plutôt que de rester ouverte sans elle.
+Une fenêtre détachée est une fenêtre à part entière : sa propre entrée dans la barre des
+tâches, libre de passer derrière la fenêtre principale et de vivre sur un autre écran. Elle se
+ferme malgré tout avec l'application, plutôt que de rester ouverte sans elle. Elle n'a pas de
+cadre Windows : la barre du panneau lui tient lieu de barre de titre, elle porte son nom et
+sert à déplacer la fenêtre.
 
-Pour rattacher un panneau, deux gestes équivalents :
+Pour rattacher un panneau, trois gestes équivalents :
 
-- glisser sa barre de panneau sur une zone d'accueil de la fenêtre principale ;
-- fermer sa fenêtre. Les panneaux ne pouvant pas être fermés, ils retournent alors à leur
-  place d'origine plutôt que d'être perdus, avec la taille qu'ils avaient dans la disposition
-  par défaut, et la rangée qui les accueillait est reconstruite si elle avait disparu.
+- double-cliquer sur sa barre, le geste qui l'avait détaché ;
+- glisser sa barre sur une zone d'accueil de la fenêtre principale ;
+- fermer sa fenêtre.
+
+Dans les trois cas le panneau retourne à sa place d'origine plutôt que d'être perdu, avec la
+taille qu'il avait dans la disposition par défaut, et la rangée qui l'accueillait est
+reconstruite si elle avait disparu.
 
 ### Persistance
 

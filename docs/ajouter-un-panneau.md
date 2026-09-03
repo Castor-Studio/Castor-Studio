@@ -137,7 +137,9 @@ de l'espace de travail.
 
 Les trois gestes de détachement valent aussi pour lui : le double-clic est géré une fois pour
 toutes dans `StudioDockView`, le menu vient de Dock, et le glisser ne dépend que de
-`CanFloat`.
+`CanFloat`. `StudioPanelBar` décide de ce qui compte comme barre de panneau, pour la fenêtre
+principale comme pour les fenêtres détachées ; un panneau construit sur `Tool` ou `Document`
+y est reconnu sans rien ajouter.
 
 L'enregistrement de la disposition, la restauration au démarrage et le thème sont également
 automatiques.

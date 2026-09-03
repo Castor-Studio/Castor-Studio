@@ -1,9 +1,6 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.VisualTree;
-using Dock.Avalonia.Controls;
-using Dock.Model.Core;
+using CastorApplication.Docking;
 
 namespace CastorApplication.Views.Shell;
 
@@ -21,23 +18,7 @@ public partial class StudioDockView : UserControl
 
     private static void OnDoubleTapped(object? sender, TappedEventArgs e)
     {
-        if (e.Source is not Visual source)
-        {
-            return;
-        }
-
-        // The bar's own buttons (pin, menu, close) keep their single-click behaviour.
-        if (source.FindAncestorOfType<Button>() is not null)
-        {
-            return;
-        }
-
-        // Only the panel's bar detaches, not its content: a double-click inside a panel belongs
-        // to whatever it holds.
-        var bar = (Visual?)source.FindAncestorOfType<ToolChromeControl>()
-                  ?? source.FindAncestorOfType<DocumentTabStripItem>();
-
-        if (bar?.DataContext is not IDockable dockable || dockable.Factory is not { } factory)
+        if (StudioPanelBar.Find(e.Source) is not { } dockable || dockable.Factory is not { } factory)
         {
             return;
         }

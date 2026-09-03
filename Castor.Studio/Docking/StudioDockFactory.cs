@@ -15,7 +15,7 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
     // A detached panel lives in a platform window of its own. DockControl only installs a
     // default host window locator when InitializeFactory is on, and that would also overwrite
     // the ContextLocator below, so the factory brings its own.
-    private readonly Func<IHostWindow?> _hostWindowFactory = hostWindowFactory ?? (() => new HostWindow());
+    private readonly Func<IHostWindow?> _hostWindowFactory = hostWindowFactory ?? (() => new StudioHostWindow());
 
     public override IRootDock CreateLayout()
     {
