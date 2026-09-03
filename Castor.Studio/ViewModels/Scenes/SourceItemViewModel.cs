@@ -25,7 +25,13 @@ public partial class SourceItemViewModel : ViewModelBase
     public SourceOrigin Origin { get; }
     public string OriginLabel { get; }
     public string OriginPath { get; }
-    public string Type => Kind == SourceKind.Video ? "Vidéo" : "Audio";
+    public string Type => Kind switch
+    {
+        SourceKind.Video => "Vidéo",
+        SourceKind.Audio => "Audio",
+        SourceKind.Media => "Média",
+        _ => "Source"
+    };
     public bool IsFileSource => Origin == SourceOrigin.File;
 
     public SourceItemViewModel(SourceDefinition source)
@@ -51,6 +57,8 @@ public partial class SourceItemViewModel : ViewModelBase
         OriginLabel = OriginLabel,
         OriginPath = OriginPath
     };
+
+    internal void RefreshLoopState() => OnPropertyChanged(nameof(Loop));
 
     partial void OnKindChanged(SourceKind value) => OnPropertyChanged(nameof(Type));
 }

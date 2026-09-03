@@ -7,7 +7,7 @@ internal interface IAddSourceDialogViewModelFactory
     AddSourceDialogViewModel Create(SceneItemViewModel? scene);
 }
 
-internal sealed class AddSourceDialogViewModelFactory(IStudioRuntime runtime) : IAddSourceDialogViewModelFactory
+internal sealed class AddSourceDialogViewModelFactory(ISourceRuntime runtime) : IAddSourceDialogViewModelFactory
 {
     public AddSourceDialogViewModel Create(SceneItemViewModel? scene) => new(runtime, scene);
 }

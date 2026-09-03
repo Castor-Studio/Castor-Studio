@@ -150,6 +150,113 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Contains("1 scène(s) refusée(s)", viewModel.SceneIoStatus);
     }
 
+    [Fact]
+    public async Task Adding_multiple_video_sources_uses_native_names_and_keeps_every_item()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var suffix = 0;
+        sourceRuntime.Add = (_, request) =>
+            SourceRuntimeResult.Success(suffix++ == 0 ? request.RequestedName : $"{request.RequestedName} 2");
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Scène");
+        var option = new CaptureSourceOption("window-1", "Navigateur", VideoCaptureKind.Window);
+
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(option));
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(option));
+
+        Assert.Equal(2, viewModel.SelectedScene!.Sources.Count);
+        Assert.Equal(["Navigateur", "Navigateur 2"], viewModel.SelectedScene.Sources.Select(source => source.Name));
+        Assert.Equal(2, sourceRuntime.AddedRequests.Count);
+    }
+
+    [Fact]
+    public async Task Native_add_failure_does_not_change_local_sources()
+    {
+        var sourceRuntime = new FakeSourceRuntime
+        {
+            Add = (_, _) => SourceRuntimeResult.Failure("périphérique refusé")
+        };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Scène");
+
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Audio(
+            new AudioSourceOption("micro-1", "Micro", AudioCaptureKind.Microphone)));
+
+        Assert.Empty(viewModel.SelectedScene!.Sources);
+        Assert.Equal("périphérique refusé", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public async Task Media_picker_adds_one_native_media_source_and_cancellation_adds_nothing()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var canceled = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(canceled, "Annulée");
+        await canceled.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        Assert.Empty(canceled.SelectedScene!.Sources);
+
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(), sourceRuntime: sourceRuntime, mediaPath: @"C:\media\clip.mp4");
+        CreateScene(viewModel, "Média");
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+
+        var source = Assert.Single(viewModel.SelectedScene!.Sources);
+        Assert.Equal(SourceKind.Media, source.Kind);
+        Assert.Equal(@"C:\media\clip.mp4", source.OriginPath);
+        Assert.IsType<SourceAddRequest.Media>(Assert.Single(sourceRuntime.AddedRequests));
+    }
+
+    [Fact]
+    public async Task Remove_and_loop_changes_update_local_state_only_after_native_success()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(), sourceRuntime: sourceRuntime, mediaPath: @"C:\media\clip.mp4");
+        CreateScene(viewModel, "Média");
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        var source = Assert.Single(viewModel.SelectedScene!.Sources);
+
+        sourceRuntime.SetLoop = (_, _, _) => SourceRuntimeResult.Failure("boucle refusée");
+        viewModel.ToggleMediaLoopCommand.Execute(source);
+        Assert.True(source.Loop);
+
+        sourceRuntime.SetLoop = (_, _, _) => SourceRuntimeResult.Success();
+        viewModel.ToggleMediaLoopCommand.Execute(source);
+        Assert.False(source.Loop);
+
+        sourceRuntime.Remove = (_, _) => SourceRuntimeResult.Failure("suppression refusée");
+        viewModel.RemoveSourceCommand.Execute(source);
+        Assert.Single(viewModel.SelectedScene.Sources);
+
+        sourceRuntime.Remove = (_, _) => SourceRuntimeResult.Success();
+        viewModel.RemoveSourceCommand.Execute(source);
+        Assert.Empty(viewModel.SelectedScene.Sources);
+    }
+
+    [Fact]
+    public async Task Import_merges_legacy_video_audio_pair_into_one_native_media_source()
+    {
+        const string path = @"C:\media\legacy.mp4";
+        var imported = new SceneDefinition
+        {
+            Name = "Importée",
+            Sources =
+            [
+                new SourceDefinition { Name = "Vidéo", Kind = SourceKind.Video, Origin = SourceOrigin.File, OriginPath = path },
+                new SourceDefinition { Name = "Audio", Kind = SourceKind.Audio, Origin = SourceOrigin.File, OriginPath = path }
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var source = Assert.Single(Assert.Single(viewModel.Scenes).Sources);
+        Assert.Equal(SourceKind.Media, source.Kind);
+        Assert.Single(sourceRuntime.AddedRequests);
+    }
+
     private static SceneItemViewModel CreateScene(ScenesViewModel viewModel, string name)
     {
         viewModel.NewSceneName = name;
@@ -160,14 +267,17 @@ public sealed class ScenesViewModelRuntimeTests
     private static ScenesViewModel CreateViewModel(
         FakeSceneRuntime runtime,
         StudioWorkspaceViewModel? workspace = null,
-        IReadOnlyList<SceneDefinition>? imported = null) =>
+        IReadOnlyList<SceneDefinition>? imported = null,
+        FakeSourceRuntime? sourceRuntime = null,
+        string? mediaPath = null) =>
         new(
             workspace ?? new StudioWorkspaceViewModel(),
             new UnavailableStudioRuntime(),
             runtime,
-            new FakeFilePicker(imported == null ? null : "scenes.json"),
+            sourceRuntime ??= new FakeSourceRuntime(),
+            new FakeFilePicker(imported == null ? null : "scenes.json", mediaPath),
             new FakeSceneCollection(imported ?? []),
-            new FakeDialogFactory(),
+            new FakeDialogFactory(sourceRuntime),
             new FakeDialogService());
 
     private sealed class FakeSceneRuntime : ISceneRuntime
@@ -193,11 +303,49 @@ public sealed class ScenesViewModelRuntimeTests
         }
     }
 
-    private sealed class FakeFilePicker(string? importPath) : IFilePickerService
+    private sealed class FakeSourceRuntime : ISourceRuntime
+    {
+        public Func<Guid, SourceAddRequest, SourceRuntimeResult> Add { get; set; } =
+            (_, request) => SourceRuntimeResult.Success(request.RequestedName);
+        public Func<Guid, Guid, SourceRuntimeResult> Remove { get; set; } =
+            (_, _) => SourceRuntimeResult.Success();
+        public Func<Guid, Guid, bool, SourceRuntimeResult> SetLoop { get; set; } =
+            (_, _, _) => SourceRuntimeResult.Success();
+        public List<SourceAddRequest> AddedRequests { get; } = [];
+        public int RemoveCalls { get; private set; }
+        public List<bool> LoopValues { get; } = [];
+
+        public bool IsAvailable => true;
+        public string UnavailableMessage => "";
+
+        public Task<SourceCatalog> EnumerateSourcesAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(new SourceCatalog([], []));
+
+        public SourceRuntimeResult AddSource(Guid sceneId, SourceAddRequest request)
+        {
+            AddedRequests.Add(request);
+            return Add(sceneId, request);
+        }
+
+        public SourceRuntimeResult RemoveSource(Guid sceneId, Guid sourceId)
+        {
+            RemoveCalls++;
+            return Remove(sceneId, sourceId);
+        }
+
+        public SourceRuntimeResult SetMediaLoop(Guid sceneId, Guid sourceId, bool loop)
+        {
+            LoopValues.Add(loop);
+            return SetLoop(sceneId, sourceId, loop);
+        }
+    }
+
+    private sealed class FakeFilePicker(string? importPath, string? mediaPath) : IFilePickerService
     {
         public Task<string?> PickRecordingOutputFileAsync(string extension = ".mp4", string formatLabel = "MP4 (H.264 + AAC)") => Task.FromResult<string?>(null);
         public Task<string?> PickVideoFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickAudioFileAsync() => Task.FromResult<string?>(null);
+        public Task<string?> PickMediaFileAsync() => Task.FromResult(mediaPath);
         public Task<string?> PickSceneExportFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickSceneImportFileAsync() => Task.FromResult(importPath);
     }
@@ -208,9 +356,9 @@ public sealed class ScenesViewModelRuntimeTests
         public Task<IReadOnlyList<SceneDefinition>> LoadAsync(string path, CancellationToken cancellationToken) => Task.FromResult(scenes);
     }
 
-    private sealed class FakeDialogFactory : IAddSourceDialogViewModelFactory
+    private sealed class FakeDialogFactory(ISourceRuntime runtime) : IAddSourceDialogViewModelFactory
     {
-        public AddSourceDialogViewModel Create(SceneItemViewModel? scene) => new(new UnavailableStudioRuntime(), scene);
+        public AddSourceDialogViewModel Create(SceneItemViewModel? scene) => new(runtime, scene);
     }
 
     private sealed class FakeDialogService : IAddSourceDialogService

@@ -49,16 +49,13 @@ public partial class StudioWorkspaceViewModel : ViewModelBase
 
     public SourceItemViewModel AddSource(SceneItemViewModel scene, SourceDefinition definition)
     {
-        foreach (var existing in scene.Sources.Where(source => source.Kind == definition.Kind).ToArray())
-            scene.Sources.Remove(existing);
-
         var source = new SourceItemViewModel(definition);
         scene.Sources.Add(source);
         return source;
     }
 
     public static bool HasVideoSource(SceneItemViewModel scene) =>
-        scene.Sources.Any(source => source.Kind == SourceKind.Video);
+        scene.Sources.Any(source => source.Kind is SourceKind.Video or SourceKind.Media);
 
     internal void SetRecordingState(bool value) => IsRecording = value;
     internal void SetStreamingState(bool value) => IsStreaming = value;
