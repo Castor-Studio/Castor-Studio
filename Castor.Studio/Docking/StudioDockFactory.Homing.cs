@@ -146,11 +146,32 @@ public sealed partial class StudioDockFactory
             InsertSplitter(container, index + 1);
         }
 
+        RestoreProportions(container);
+
         container.ActiveDockable ??= dockable;
 
         if (container is IRootDock root)
         {
             root.DefaultDockable ??= dockable;
+        }
+    }
+
+    // A row that collapses hands its proportion down to the panel that survived it, so sizes
+    // drift a little every time a panel leaves and comes back. Put back what the default
+    // layout says, for the panel that just arrived and for the ones that stayed.
+    private void RestoreProportions(IDock container)
+    {
+        foreach (var child in Snapshot(container))
+        {
+            if (child is IProportionalDockSplitter || child.Id is not { Length: > 0 } id)
+            {
+                continue;
+            }
+
+            if (FindDocked(Template, dockable => dockable.Id == id) is { } template)
+            {
+                child.Proportion = template.Proportion;
+            }
         }
     }
 

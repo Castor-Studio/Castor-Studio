@@ -44,6 +44,31 @@
                  runtime write lands in the same dictionary the defaults come from. -->
             <x:Boolean x:Key="CastorDockShowTitles">True</x:Boolean>
             <x:Boolean x:Key="DockDocumentControlTabStripVisible">True</x:Boolean>
+
+            <!-- Dock ships its menus and drag hints in English. These keys override the ones
+                 declared by DockFluentTheme; "Détacher" is how a panel is pulled out of the
+                 window without dragging it, so it is worth reading in the app's language. -->
+            <x:String x:Key="ToolChromeControlFloatString">_Détacher</x:String>
+            <x:String x:Key="ToolChromeControlDockString">_Ancrer</x:String>
+            <x:String x:Key="ToolChromeControlAutoHideString">_Masquer automatiquement</x:String>
+            <x:String x:Key="ToolChromeControlDockAsDocumentString">Ancrer comme onglet</x:String>
+            <x:String x:Key="ToolChromeControlCloseString">_Fermer</x:String>
+
+            <x:String x:Key="ToolTabStripItemFloatString">_Détacher</x:String>
+            <x:String x:Key="ToolTabStripItemFloatAllString">Tout détacher</x:String>
+            <x:String x:Key="ToolTabStripItemDockString">_Ancrer</x:String>
+            <x:String x:Key="ToolTabStripItemAutoHideString">_Masquer automatiquement</x:String>
+            <x:String x:Key="ToolTabStripItemDockAsDocumentString">Ancrer comme onglet</x:String>
+            <x:String x:Key="ToolTabStripItemCloseString">_Fermer</x:String>
+
+            <x:String x:Key="DocumentTabStripItemFloatString">_Détacher</x:String>
+            <x:String x:Key="DocumentTabStripItemFloatAllString">Tout détacher</x:String>
+            <x:String x:Key="DocumentTabStripItemCloseString">_Fermer</x:String>
+
+            <!-- Badge that follows the pointer while a panel is being dragged. -->
+            <x:String x:Key="DragPreviewControlDockString">Ancrer</x:String>
+            <x:String x:Key="DragPreviewControlFloatString">Détacher</x:String>
+            <x:String x:Key="DragPreviewControlNoneString">Impossible</x:String>
         </ResourceDictionary>
     </Application.Resources>
 

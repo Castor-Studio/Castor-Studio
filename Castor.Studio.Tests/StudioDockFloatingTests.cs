@@ -96,6 +96,19 @@ public sealed class StudioDockFloatingTests
     }
 
     [Fact]
+    public void Docking_back_restores_the_sizes_of_the_default_layout()
+    {
+        var (factory, root) = CreateStudioLayout();
+        factory.FloatDockable(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status)!);
+
+        factory.OnWindowClosing(root.Windows!.Single());
+
+        // Collapsing the row had handed its own proportion to the panel left behind.
+        Assert.Equal(0.75, Proportion(factory, root, StudioDockIds.StatusDock));
+        Assert.Equal(0.25, Proportion(factory, root, StudioDockIds.StreamControlsDock));
+    }
+
+    [Fact]
     public void A_detached_panel_keeps_its_place_and_size_across_a_restart()
     {
         var layoutFile = Path.Combine(Path.GetTempPath(), $"castor-dock-layout-{Guid.NewGuid():N}.json");
@@ -137,6 +150,9 @@ public sealed class StudioDockFloatingTests
         factory.InitLayout(root);
         return (factory, root);
     }
+
+    private static double Proportion(StudioDockFactory factory, IRootDock root, string dockId)
+        => Assert.IsAssignableFrom<IDock>(factory.FindDockable(root, dockable => dockable.Id == dockId)).Proportion;
 
     // Ids of a dock's children, with null standing in for the splitters between them.
     private static string?[] ChildIds(StudioDockFactory factory, IRootDock root, string dockId)

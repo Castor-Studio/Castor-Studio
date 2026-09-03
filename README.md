@@ -26,14 +26,25 @@ restent indisponibles tant que `IStudioRuntime` n'a pas d'implémentation LibObs
 ## Espace de travail Studio
 
 La page Studio est un espace de travail Dock.Avalonia composé de quatre panneaux : aperçu,
-scène active, statut, diffusion et enregistrement.
+scène active, statut, diffusion et enregistrement. L'ajout d'un panneau est décrit dans
+[docs/ajouter-un-panneau.md](docs/ajouter-un-panneau.md).
 
 ### Détacher et rattacher un panneau
 
-Chaque panneau peut être détaché dans sa propre fenêtre : glisser sa barre de titre et la
-relâcher hors de la fenêtre principale, par exemple sur un second écran. La rangée qu'il
-laisse derrière lui se referme, et le panneau reste pleinement fonctionnel dans sa nouvelle
-fenêtre.
+Chaque panneau peut être détaché dans sa propre fenêtre, de trois manières :
+
+- double-cliquer sur sa barre de titre ;
+- ouvrir le menu de sa barre, la flèche à droite, et choisir « Détacher » ;
+- glisser sa barre et la relâcher hors de la zone d'ancrage : un autre écran, ou la barre de
+  navigation en haut de la fenêtre.
+
+Le glisser ne détache que si le panneau est relâché hors de la zone d'ancrage ; relâché
+dessus, il s'y ancre, ce qui est bien le but. La fenêtre principale s'ouvrant maximisée, elle
+ne laisse presque aucune zone libre : d'où les deux premiers gestes, qui fonctionnent quel
+que soit le nombre d'écrans.
+
+La rangée que le panneau laisse derrière lui se referme, et le panneau reste pleinement
+fonctionnel dans sa nouvelle fenêtre.
 
 Une fenêtre détachée est une fenêtre à part entière : elle porte le nom du panneau dans sa
 barre de titre système, possède sa propre entrée dans la barre des tâches, peut passer
@@ -44,8 +55,8 @@ Pour rattacher un panneau, deux gestes équivalents :
 
 - glisser sa barre de panneau sur une zone d'accueil de la fenêtre principale ;
 - fermer sa fenêtre. Les panneaux ne pouvant pas être fermés, ils retournent alors à leur
-  place d'origine plutôt que d'être perdus, et la rangée qui les accueillait est reconstruite
-  si elle avait disparu.
+  place d'origine plutôt que d'être perdus, avec la taille qu'ils avaient dans la disposition
+  par défaut, et la rangée qui les accueillait est reconstruite si elle avait disparu.
 
 ### Persistance
 
