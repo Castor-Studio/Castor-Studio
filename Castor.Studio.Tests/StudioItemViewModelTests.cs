@@ -11,7 +11,7 @@ public sealed class StudioItemViewModelTests
         var source = new SourceItemViewModel(new SourceDefinition
         {
             Name = "clip.mp4",
-            Kind = SourceKind.Video,
+            Kind = SourceKind.Media,
             Origin = SourceOrigin.File,
             OriginPath = "C:\\media\\clip.mp4",
             Loop = true
@@ -22,7 +22,7 @@ public sealed class StudioItemViewModelTests
         source.Loop = false;
 
         Assert.True(source.IsFileSource);
-        Assert.Equal("Vidéo", source.Type);
+        Assert.Equal("Média", source.Type);
         Assert.Contains(nameof(SourceItemViewModel.Loop), changed);
         Assert.False(source.ToDefinition().Loop);
     }

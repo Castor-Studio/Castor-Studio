@@ -9,12 +9,6 @@ internal sealed class UnavailableStudioRuntime : IStudioRuntime
     public bool IsAvailable => false;
     public string UnavailableMessage => Message;
 
-    public Task<IReadOnlyList<CaptureSourceOption>> GetVideoSourcesAsync(CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<CaptureSourceOption>>([]);
-
-    public Task<IReadOnlyList<AudioSourceOption>> GetAudioSourcesAsync(CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<AudioSourceOption>>([]);
-
     public Task<StudioRuntimeResult> StartPreviewAsync(SceneDefinition scene, CancellationToken cancellationToken) => Unavailable();
     public Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken) => Unavailable();
     public Task<StudioRuntimeResult> StartRecordingAsync(RecordingRequest request, CancellationToken cancellationToken) => Unavailable();

@@ -15,6 +15,7 @@ public partial class ScenesViewModel : ViewModelBase
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IStudioRuntime _runtime;
     private readonly ISceneRuntime _sceneRuntime;
+    private readonly ISourceRuntime _sourceRuntime;
     private readonly IFilePickerService _filePickerService;
     private readonly ISceneCollectionService _sceneCollectionService;
     private readonly IAddSourceDialogViewModelFactory _dialogFactory;
@@ -30,6 +31,7 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty] private string _renameSceneName = "";
     [ObservableProperty] private SceneItemViewModel? _sceneBeingColored;
     [ObservableProperty] private string _sceneIoStatus = "";
+    [ObservableProperty] private string _sourceOperationStatus = "";
 
     public static IReadOnlyList<string> SceneColorPalette { get; } =
     [
@@ -40,6 +42,7 @@ public partial class ScenesViewModel : ViewModelBase
         StudioWorkspaceViewModel workspace,
         IStudioRuntime runtime,
         ISceneRuntime sceneRuntime,
+        ISourceRuntime sourceRuntime,
         IFilePickerService filePickerService,
         ISceneCollectionService sceneCollectionService,
         IAddSourceDialogViewModelFactory dialogFactory,
@@ -48,6 +51,7 @@ public partial class ScenesViewModel : ViewModelBase
         _workspace = workspace;
         _runtime = runtime;
         _sceneRuntime = sceneRuntime;
+        _sourceRuntime = sourceRuntime;
         _filePickerService = filePickerService;
         _sceneCollectionService = sceneCollectionService;
         _dialogFactory = dialogFactory;
@@ -247,11 +251,14 @@ public partial class ScenesViewModel : ViewModelBase
 
             var skipped = 0;
             var failed = 0;
+            var sourceFailures = 0;
             var importedCount = 0;
             var firstFailure = "";
+            var firstSourceFailure = "";
             foreach (var definition in imported)
             {
-                skipped += definition.Sources.RemoveAll(source => source.Origin is SourceOrigin.HardwareVideo or SourceOrigin.HardwareAudio);
+                var importedSources = NormalizeImportedSources(definition.Sources, ref skipped);
+                definition.Sources = [];
 
                 var result = _sceneRuntime.CreateScene(definition.Id, definition.Name);
                 if (!result.IsSuccess)
@@ -262,13 +269,28 @@ public partial class ScenesViewModel : ViewModelBase
                 }
 
                 definition.Name = result.EffectiveName;
+                foreach (var source in importedSources)
+                {
+                    var sourceResult = _sourceRuntime.AddSource(definition.Id, new SourceAddRequest.Media(
+                        source.Id, source.Name, source.OriginPath, source.Loop));
+                    if (!sourceResult.IsSuccess)
+                    {
+                        sourceFailures++;
+                        if (firstSourceFailure.Length == 0) firstSourceFailure = sourceResult.Message;
+                        continue;
+                    }
+
+                    source.Name = sourceResult.EffectiveName;
+                    definition.Sources.Add(source);
+                }
                 _workspace.AddScene(definition);
                 importedCount++;
             }
 
             var details = new List<string>();
-            if (skipped > 0) details.Add($"{skipped} source(s) matérielle(s) ignorée(s)");
+            if (skipped > 0) details.Add($"{skipped} source(s) non prise(s) en charge ignorée(s)");
             if (failed > 0) details.Add($"{failed} scène(s) refusée(s) ({firstFailure})");
+            if (sourceFailures > 0) details.Add($"{sourceFailures} source(s) média refusée(s) ({firstSourceFailure})");
             SceneIoStatus = details.Count == 0
                 ? $"{importedCount} scène(s) importée(s)."
                 : $"{importedCount} scène(s) importée(s), {string.Join(", ", details)}.";
@@ -304,68 +326,71 @@ public partial class ScenesViewModel : ViewModelBase
             case AddSourceResult.Audio audio:
                 AddHardwareAudio(SelectedScene, audio.Option);
                 break;
-            case AddSourceResult.Network network:
-                AddNetworkSource(SelectedScene, network.Label, network.Url);
-                break;
-            case AddSourceResult.PickFileVideo:
-                await AddFileSourceAsync(SourceKind.Video);
-                break;
-            case AddSourceResult.PickFileAudio:
-                await AddFileSourceAsync(SourceKind.Audio);
-                break;
-            case AddSourceResult.PickFileMedia:
+            case AddSourceResult.Media:
                 await AddFileMediaSourceAsync();
                 break;
         }
     }
 
     [RelayCommand]
-    private void RemoveSource(SourceItemViewModel source) => SelectedScene?.Sources.Remove(source);
-
-    private async Task AddFileSourceAsync(SourceKind kind)
+    private void RemoveSource(SourceItemViewModel source)
     {
-        if (SelectedScene == null) return;
-        var path = kind == SourceKind.Video
-            ? await _filePickerService.PickVideoFileAsync()
-            : await _filePickerService.PickAudioFileAsync();
-        if (path == null) return;
-        AddFileSource(SelectedScene, path, kind);
+        var scene = SelectedScene;
+        if (scene == null) return;
+
+        var result = _sourceRuntime.RemoveSource(scene.Id, source.Id);
+        if (!result.IsSuccess)
+        {
+            SourceOperationStatus = result.Message;
+            return;
+        }
+
+        scene.Sources.Remove(source);
+        SourceOperationStatus = "";
+    }
+
+    [RelayCommand]
+    private void ToggleMediaLoop(SourceItemViewModel source)
+    {
+        var scene = SelectedScene;
+        if (scene == null || !source.IsFileSource) return;
+
+        var loop = !source.Loop;
+        var result = _sourceRuntime.SetMediaLoop(scene.Id, source.Id, loop);
+        if (!result.IsSuccess)
+        {
+            SourceOperationStatus = result.Message;
+            source.RefreshLoopState();
+            return;
+        }
+
+        source.Loop = loop;
+        SourceOperationStatus = "";
     }
 
     private async Task AddFileMediaSourceAsync()
     {
         if (SelectedScene == null) return;
-        var path = await _filePickerService.PickVideoFileAsync();
+        var path = await _filePickerService.PickMediaFileAsync();
         if (path == null) return;
-        AddFileSource(SelectedScene, path, SourceKind.Video);
-        AddFileSource(SelectedScene, path, SourceKind.Audio);
-    }
 
-    private void AddFileSource(SceneItemViewModel scene, string path, SourceKind kind) =>
-        _workspace.AddSource(scene, new SourceDefinition
+        var definition = new SourceDefinition
         {
             Name = Path.GetFileName(path),
-            Kind = kind,
-            Color = kind == SourceKind.Video ? "#a78bfa" : "#fb923c",
+            Kind = SourceKind.Media,
+            Color = "#a78bfa",
             Origin = SourceOrigin.File,
             OriginLabel = Path.GetFileName(path),
             OriginPath = path,
             Loop = true
-        });
+        };
+        AddSource(SelectedScene, definition,
+            new SourceAddRequest.Media(definition.Id, definition.Name, path, definition.Loop));
+    }
 
-    private void AddNetworkSource(SceneItemViewModel scene, string label, string url) =>
-        _workspace.AddSource(scene, new SourceDefinition
-        {
-            Name = label,
-            Kind = SourceKind.Video,
-            Color = "#5b8def",
-            Origin = SourceOrigin.Network,
-            OriginLabel = label,
-            OriginPath = url
-        });
-
-    private void AddHardwareVideo(SceneItemViewModel scene, CaptureSourceOption option) =>
-        _workspace.AddSource(scene, new SourceDefinition
+    private void AddHardwareVideo(SceneItemViewModel scene, CaptureSourceOption option)
+    {
+        var definition = new SourceDefinition
         {
             Name = option.Label,
             Kind = SourceKind.Video,
@@ -373,10 +398,13 @@ public partial class ScenesViewModel : ViewModelBase
             Origin = SourceOrigin.HardwareVideo,
             OriginLabel = option.Label,
             OriginPath = option.Id
-        });
+        };
+        AddSource(scene, definition, new SourceAddRequest.Video(definition.Id, definition.Name, option));
+    }
 
-    private void AddHardwareAudio(SceneItemViewModel scene, AudioSourceOption option) =>
-        _workspace.AddSource(scene, new SourceDefinition
+    private void AddHardwareAudio(SceneItemViewModel scene, AudioSourceOption option)
+    {
+        var definition = new SourceDefinition
         {
             Name = option.Label,
             Kind = SourceKind.Audio,
@@ -384,7 +412,58 @@ public partial class ScenesViewModel : ViewModelBase
             Origin = SourceOrigin.HardwareAudio,
             OriginLabel = option.Label,
             OriginPath = option.Id
-        });
+        };
+        AddSource(scene, definition, new SourceAddRequest.Audio(definition.Id, definition.Name, option));
+    }
+
+    private void AddSource(SceneItemViewModel scene, SourceDefinition definition, SourceAddRequest request)
+    {
+        var result = _sourceRuntime.AddSource(scene.Id, request);
+        if (!result.IsSuccess)
+        {
+            SourceOperationStatus = result.Message;
+            return;
+        }
+
+        definition.Name = result.EffectiveName;
+        _workspace.AddSource(scene, definition);
+        SourceOperationStatus = "";
+    }
+
+    private static List<SourceDefinition> NormalizeImportedSources(
+        IEnumerable<SourceDefinition> sources,
+        ref int skipped)
+    {
+        var sourceList = sources.ToList();
+        var pairedLegacyPaths = sourceList
+            .Where(source => source.Origin == SourceOrigin.File &&
+                             source.Kind is SourceKind.Video or SourceKind.Audio &&
+                             !string.IsNullOrWhiteSpace(source.OriginPath))
+            .GroupBy(source => source.OriginPath, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Any(source => source.Kind == SourceKind.Video) &&
+                            group.Any(source => source.Kind == SourceKind.Audio))
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var mergedLegacyPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var normalized = new List<SourceDefinition>();
+
+        foreach (var source in sourceList)
+        {
+            if (source.Origin != SourceOrigin.File)
+            {
+                skipped++;
+                continue;
+            }
+
+            if (pairedLegacyPaths.Contains(source.OriginPath) && !mergedLegacyPaths.Add(source.OriginPath))
+                continue;
+
+            source.Kind = SourceKind.Media;
+            normalized.Add(source);
+        }
+
+        return normalized;
+    }
 
     private bool WouldLeaveNoScenesWhileLive(int count) => count >= Scenes.Count && (_workspace.IsRecording || _workspace.IsStreaming);
     private List<SceneItemViewModel> GetSelectedScenes() => Scenes.Where(scene => scene.IsMultiSelected).ToList();

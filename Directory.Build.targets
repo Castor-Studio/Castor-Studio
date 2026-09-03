@@ -1,4 +1,17 @@
 <Project>
+  <!-- Managed NuGet assemblies also carry normalized timestamps. Remove the
+       previous LibObs copy so MSBuild cannot keep a different package version. -->
+  <Target Name="RemoveStaleLibObsManagedAssembly"
+          BeforeTargets="_CopyFilesMarkedCopyLocal">
+    <ItemGroup>
+      <_LibObsManagedAssembly Include="@(ReferenceCopyLocalPaths)"
+                              Condition="'%(Filename)%(Extension)' == 'LibObs.dll'" />
+    </ItemGroup>
+
+    <Delete Files="$(TargetDir)LibObs.dll"
+            Condition="'@(_LibObsManagedAssembly)' != '' and Exists('$(TargetDir)LibObs.dll')" />
+  </Target>
+
   <!-- NuGet normalizes package timestamps, so PreserveNewest alone cannot replace
        a LibObs runtime left by a previous package version. Refresh the complete
        native payload whenever its packaged manifest changes. -->

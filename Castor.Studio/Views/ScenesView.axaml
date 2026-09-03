@@ -459,7 +459,7 @@
 
 			<!-- Sources of selected scene -->
 			<Border Grid.Row="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="14">
-				<Grid RowDefinitions="Auto, 10, *">
+				<Grid RowDefinitions="Auto, 10, *, Auto">
 
 					<Grid Grid.Row="0" ColumnDefinitions="*, Auto">
 						<TextBlock Grid.Column="0" Text="SOURCES DE LA SCÈNE"
@@ -494,9 +494,11 @@
                                                        Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                        VerticalAlignment="Center" Margin="0,0,4,0"/>
 											<!-- Bouton boucle — visible uniquement pour les sources fichier -->
-											<ToggleButton Grid.Column="3"
+							<ToggleButton Grid.Column="3"
                                                           IsVisible="{Binding IsFileSource}"
-                                                          IsChecked="{Binding Loop}"
+                                                          IsChecked="{Binding Loop, Mode=OneWay}"
+                                                          Command="{Binding #ScenesRoot.DataContext.ToggleMediaLoopCommand}"
+                                                          CommandParameter="{Binding}"
                                                           ToolTip.Tip="Boucle automatique"
                                                           Background="Transparent"
                                                           BorderThickness="0"
@@ -525,6 +527,11 @@
 							</ItemsControl.ItemTemplate>
 						</ItemsControl>
 					</ScrollViewer>
+
+					<TextBlock Grid.Row="3" Text="{Binding SourceOperationStatus}"
+                               IsVisible="{Binding SourceOperationStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Foreground="{StaticResource StatusErrorBrush}" FontSize="10"
+                               TextWrapping="Wrap" Margin="2,6,2,0"/>
 				</Grid>
 			</Border>
 

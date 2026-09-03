@@ -95,6 +95,36 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
         return files.Count > 0 ? files[0].Path.LocalPath : null;
     }
 
+    public async Task<string?> PickMediaFileAsync()
+    {
+        if (Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime desktop)
+            return null;
+
+        var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
+        if (topLevel == null) return null;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Choisir un fichier média",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Fichiers média")
+                {
+                    Patterns =
+                    [
+                        "*.mp4", "*.mkv", "*.mov", "*.avi", "*.webm",
+                        "*.mp3", "*.wav", "*.aac", "*.ogg", "*.flac", "*.m4a"
+                    ]
+                },
+                new FilePickerFileType("Tous les fichiers") { Patterns = ["*.*"] }
+            ]
+        });
+
+        return files.Count > 0 ? files[0].Path.LocalPath : null;
+    }
+
     public async Task<string?> PickSceneExportFileAsync()
     {
         if (Application.Current?.ApplicationLifetime
