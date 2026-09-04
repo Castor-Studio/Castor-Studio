@@ -31,6 +31,7 @@ public partial class AddSourceDialog : Window
         if (DataContext is AddSourceDialogViewModel vm)
         {
             vm.CloseRequested += OnCloseRequested;
+            _ = vm.RefreshCommand.ExecuteAsync(null);
         }
     }
 

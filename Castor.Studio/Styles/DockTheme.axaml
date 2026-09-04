@@ -192,6 +192,23 @@
         <Setter Property="Source" Value="{DynamicResource CastorDockTargetCenter}"/>
     </Style>
 
+    <!-- A detached panel is framed by its own bar rather than by the Windows title bar: the bar
+         carries the panel's name, and dragging it moves the window - which is also how the panel
+         is brought back into the main window. Dock does this on its own for a tool window holding
+         a single panel; the preview is a document, so it needs the matching flag. -->
+    <Style Selector="HostWindow">
+        <Setter Property="DocumentChromeControlsWholeWindow" Value="True"/>
+    </Style>
+
+    <!-- Dock drops the frame itself for a tool window, but the rule it ships for a document one
+         hangs off a ":documentwindow" pseudo class that nothing ever sets, so the preview would
+         keep its frame. Same treatment, off the pseudo class that is actually set. -->
+    <Style Selector="HostWindow:documentchromecontrolswindow">
+        <Setter Property="ExtendClientAreaToDecorationsHint" Value="True"/>
+        <Setter Property="ExtendClientAreaTitleBarHeightHint" Value="0"/>
+        <Setter Property="WindowDecorations" Value="BorderOnly"/>
+    </Style>
+
     <!-- One rounded card per pane. Tool panes: the title/icons bar (ToolChromeControl's
          header) rounds its top corners and each pane's own root Border rounds the bottom
          ones (see the pane views - CornerRadius on the dock's DeferredContentPresenter
@@ -222,8 +239,10 @@
     <!-- "Afficher le nom des docks" setting: CastorDockShowTitles lives in App.axaml's
          resources and is rewritten at runtime by AvaloniaDockChromeService, so this
          DynamicResource re-evaluates live. The pin/menu icons stay so the bar remains
-         a drag handle; only the title text goes. -->
-    <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
+         a drag handle; only the title text goes. A detached panel is left out of this:
+         its chrome bar replaces the window title bar, so hiding the text there would
+         leave the floating window unnamed. -->
+    <Style Selector="ToolChromeControl:not(:floating) /template/ TextBlock#PART_Title">
         <Setter Property="IsVisible" Value="{DynamicResource CastorDockShowTitles}"/>
     </Style>
 

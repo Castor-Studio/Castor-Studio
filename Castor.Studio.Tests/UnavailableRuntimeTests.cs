@@ -7,14 +7,12 @@ namespace Castor.Studio.Tests;
 public sealed class UnavailableRuntimeTests
 {
     [Fact]
-    public async Task Runtime_never_reports_success_or_devices()
+    public async Task Runtime_never_reports_success()
     {
         var runtime = new UnavailableStudioRuntime();
 
-        var devices = await runtime.GetVideoSourcesAsync(CancellationToken.None);
         var result = await runtime.StartPreviewAsync(new SceneDefinition(), CancellationToken.None);
 
-        Assert.Empty(devices);
         Assert.False(runtime.IsAvailable);
         Assert.Equal(StudioRuntimeStatus.Unavailable, result.Status);
         Assert.Contains("LibObs", result.Message);

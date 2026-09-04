@@ -26,6 +26,11 @@ public sealed class SceneCollectionServiceTests
                         {
                             Name = "Caméra réseau", Kind = SourceKind.Video, Origin = SourceOrigin.Network,
                             OriginLabel = "Caméra", OriginPath = "rtsp://example/stream", Loop = false
+                        },
+                        new SourceDefinition
+                        {
+                            Name = "Générique", Kind = SourceKind.Media, Origin = SourceOrigin.File,
+                            OriginLabel = "generic.wav", OriginPath = @"C:\media\generic.wav", Loop = true
                         }
                     ]
                 }
@@ -35,10 +40,14 @@ public sealed class SceneCollectionServiceTests
             var loaded = await service.LoadAsync(path, CancellationToken.None);
 
             var scene = Assert.Single(loaded);
-            var source = Assert.Single(scene.Sources);
+            Assert.Equal(2, scene.Sources.Count);
+            var source = scene.Sources.Single(item => item.Origin == SourceOrigin.Network);
+            var media = scene.Sources.Single(item => item.Origin == SourceOrigin.File);
             Assert.Equal("Live", scene.Name);
             Assert.Equal("rtsp://example/stream", source.OriginPath);
             Assert.Equal(SourceOrigin.Network, source.Origin);
+            Assert.Equal(SourceKind.Media, media.Kind);
+            Assert.True(media.Loop);
         }
         finally
         {

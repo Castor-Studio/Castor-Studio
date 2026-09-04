@@ -25,7 +25,7 @@ public sealed class StudioWorkspaceViewModelTests
     }
 
     [Fact]
-    public void Adding_a_source_replaces_only_the_same_media_kind()
+    public void Adding_sources_preserves_multiple_items_of_the_same_kind()
     {
         var workspace = new StudioWorkspaceViewModel();
         var scene = workspace.CreateScene("Scène");
@@ -34,7 +34,8 @@ public sealed class StudioWorkspaceViewModelTests
         workspace.AddSource(scene, FileSource("audio.wav", SourceKind.Audio));
         workspace.AddSource(scene, FileSource("video-2.mp4", SourceKind.Video));
 
-        Assert.Equal(2, scene.Sources.Count);
+        Assert.Equal(3, scene.Sources.Count);
+        Assert.Contains(scene.Sources, source => source.Name == "video-1.mp4");
         Assert.Contains(scene.Sources, source => source.Name == "video-2.mp4");
         Assert.Contains(scene.Sources, source => source.Name == "audio.wav");
     }
