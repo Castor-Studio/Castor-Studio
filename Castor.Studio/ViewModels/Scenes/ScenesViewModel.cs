@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services;
 using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Studio;
+using CastorApplication.Services.Settings;
 using CastorApplication.ViewModels.Studio;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,12 +16,14 @@ public partial class ScenesViewModel : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IStudioRuntime _runtime;
+    private readonly IScenePreviewRuntime _previewRuntime;
     private readonly ISceneRuntime _sceneRuntime;
     private readonly ISourceRuntime _sourceRuntime;
     private readonly IFilePickerService _filePickerService;
     private readonly ISceneCollectionService _sceneCollectionService;
     private readonly IAddSourceDialogViewModelFactory _dialogFactory;
     private readonly IAddSourceDialogService _dialogService;
+    private readonly SettingsService? _settingsService;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
@@ -33,6 +37,17 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty] private string _sceneIoStatus = "";
     [ObservableProperty] private string _sourceOperationStatus = "";
 
+    public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
+
+    [ObservableProperty] private int _baseCanvasWidth = 1920;
+    [ObservableProperty] private int _baseCanvasHeight = 1080;
+
+    public string PreviewPlaceholderText => !_previewRuntime.IsAvailable
+        ? _previewRuntime.UnavailableMessage
+        : SelectedScene == null
+            ? "Aucune scène sélectionnée."
+            : "";
+
     public static IReadOnlyList<string> SceneColorPalette { get; } =
     [
         "#5b8def", "#34d399", "#f87171", "#fbbf24", "#a78bfa", "#fb923c", "#8888a0"
@@ -41,23 +56,32 @@ public partial class ScenesViewModel : ViewModelBase
     internal ScenesViewModel(
         StudioWorkspaceViewModel workspace,
         IStudioRuntime runtime,
+        IScenePreviewRuntime previewRuntime,
         ISceneRuntime sceneRuntime,
         ISourceRuntime sourceRuntime,
         IFilePickerService filePickerService,
         ISceneCollectionService sceneCollectionService,
         IAddSourceDialogViewModelFactory dialogFactory,
-        IAddSourceDialogService dialogService)
+        IAddSourceDialogService dialogService,
+        SettingsService? settingsService = null)
     {
         _workspace = workspace;
         _runtime = runtime;
+        _previewRuntime = previewRuntime;
         _sceneRuntime = sceneRuntime;
         _sourceRuntime = sourceRuntime;
         _filePickerService = filePickerService;
         _sceneCollectionService = sceneCollectionService;
         _dialogFactory = dialogFactory;
         _dialogService = dialogService;
+        _settingsService = settingsService;
+        var baseResolution = VideoResolution.BaseFromIndex(settingsService?.Load().SelectedBaseResolutionIndex ?? 1);
+        BaseCanvasWidth = baseResolution.Width;
+        BaseCanvasHeight = baseResolution.Height;
         SelectedScene = workspace.ActiveScene;
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
+        if (_settingsService != null)
+            _settingsService.SettingsSaved += OnSettingsSaved;
     }
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -70,6 +94,21 @@ public partial class ScenesViewModel : ViewModelBase
     {
         if (value) return;
         foreach (var scene in Scenes) scene.IsMultiSelected = false;
+    }
+
+    partial void OnSelectedSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
+    {
+        OnPropertyChanged(nameof(PreviewPlaceholderText));
+    }
+
+    private void OnSettingsSaved(object? sender, EventArgs e)
+    {
+        var settings = _settingsService?.Load();
+        if (settings == null) return;
+
+        var baseResolution = VideoResolution.BaseFromIndex(settings.SelectedBaseResolutionIndex);
+        BaseCanvasWidth = baseResolution.Width;
+        BaseCanvasHeight = baseResolution.Height;
     }
 
     [RelayCommand]
@@ -93,7 +132,9 @@ public partial class ScenesViewModel : ViewModelBase
         }
 
         definition.Name = result.EffectiveName;
-        SelectedScene = _workspace.AddScene(definition);
+        var scene = _workspace.AddScene(definition);
+        _workspace.SelectScene(scene);
+        SelectedScene = scene;
         NewSceneName = "";
         SceneIoStatus = "";
     }

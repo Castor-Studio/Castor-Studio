@@ -30,7 +30,7 @@
 		<PackageReference Include="Dock.Model.Mvvm" Version="12.1.0.6" />
 		<PackageReference Include="Dock.Serializer.SystemTextJson" Version="12.1.0.6" />
 
-		<PackageReference Include="LibObs" Version="0.1.1" />
+		<PackageReference Include="LibObs" Version="0.2.0" />
 
 		<PackageReference Include="TwitchLib" Version="3.5.3" />
 	</ItemGroup>
