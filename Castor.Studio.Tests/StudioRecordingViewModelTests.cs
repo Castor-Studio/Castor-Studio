@@ -11,6 +11,40 @@ namespace Castor.Studio.Tests;
 public sealed class StudioRecordingViewModelTests
 {
     [Fact]
+    public async Task Start_recording_supports_a_2k_base_and_output()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings
+            {
+                OutputPath = directory,
+                SelectedBaseResolutionIndex = 3,
+                SelectedOutputResolutionIndex = 3
+            });
+            var workspace = new StudioWorkspaceViewModel();
+            var scene = workspace.CreateScene("Enregistrement 2K");
+            workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
+            var recordingRuntime = new FakeRecordingRuntime();
+            var viewModel = new StudioViewModel(
+                workspace, new FakeStudioRuntime(), recordingRuntime, new FakeProviderStore(), settingsService);
+
+            await viewModel.StartRecordingCommand.ExecuteAsync(null);
+
+            var request = Assert.IsType<RecordingRequest>(recordingRuntime.Request);
+            Assert.Equal(2560, request.BaseWidth);
+            Assert.Equal(1440, request.BaseHeight);
+            Assert.Equal(2560, request.OutputWidth);
+            Assert.Equal(1440, request.OutputHeight);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Start_recording_uses_the_active_native_scene_and_all_saved_settings()
     {
         var directory = CreateTemporaryDirectory();

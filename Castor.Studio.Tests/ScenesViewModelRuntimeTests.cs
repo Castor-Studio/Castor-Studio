@@ -1,6 +1,7 @@
 using CastorApplication.Models.Studio;
 using CastorApplication.Services;
 using CastorApplication.Services.Dialogs;
+using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Studio;
@@ -32,6 +33,66 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Single(viewModel.Scenes);
         Assert.Equal("Refusée", viewModel.NewSceneName);
         Assert.Equal("échec natif", viewModel.SceneIoStatus);
+    }
+
+    [Fact]
+    public async Task Empty_scene_has_an_active_preview_and_sources_do_not_change_its_placeholder()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(), workspace, sourceRuntime: sourceRuntime,
+            previewRuntime: new FakeScenePreviewRuntime());
+
+        Assert.Equal("Aucune scène sélectionnée.", viewModel.PreviewPlaceholderText);
+
+        var scene = CreateScene(viewModel, "Preview");
+        Assert.Same(scene, workspace.ActiveScene);
+        Assert.Equal("", viewModel.PreviewPlaceholderText);
+
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(
+            new CaptureSourceOption("window-1", "Fenêtre", VideoCaptureKind.Window)));
+
+        Assert.Equal("", viewModel.PreviewPlaceholderText);
+        Assert.Same(scene, workspace.ActiveScene);
+    }
+
+    [Fact]
+    public void Creating_another_scene_selects_it_and_makes_it_active()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+        CreateScene(viewModel, "Première");
+
+        var second = CreateScene(viewModel, "Deuxième");
+
+        Assert.Same(second, viewModel.SelectedScene);
+        Assert.Same(second, workspace.ActiveScene);
+    }
+
+    [Fact]
+    public void Preview_canvas_updates_when_video_settings_are_saved()
+    {
+        var directory = Directory.CreateTempSubdirectory("castor-preview-settings-");
+        var settingsPath = Path.Combine(directory.FullName, "settings.json");
+        try
+        {
+            var settings = new SettingsService(settingsPath);
+            var viewModel = CreateViewModel(new FakeSceneRuntime(), settingsService: settings);
+
+            Assert.Equal((1920, 1080), (viewModel.BaseCanvasWidth, viewModel.BaseCanvasHeight));
+
+            settings.Save(new CastorApplication.Models.Settings.ApplicationSettings
+            {
+                SelectedBaseResolutionIndex = 3
+            });
+
+            Assert.Equal((2560, 1440), (viewModel.BaseCanvasWidth, viewModel.BaseCanvasHeight));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
     }
 
     [Fact]
@@ -269,16 +330,20 @@ public sealed class ScenesViewModelRuntimeTests
         StudioWorkspaceViewModel? workspace = null,
         IReadOnlyList<SceneDefinition>? imported = null,
         FakeSourceRuntime? sourceRuntime = null,
-        string? mediaPath = null) =>
+        string? mediaPath = null,
+        IScenePreviewRuntime? previewRuntime = null,
+        SettingsService? settingsService = null) =>
         new(
             workspace ?? new StudioWorkspaceViewModel(),
             new UnavailableStudioRuntime(),
+            previewRuntime ?? new UnavailableScenePreviewRuntime(),
             runtime,
             sourceRuntime ??= new FakeSourceRuntime(),
             new FakeFilePicker(imported == null ? null : "scenes.json", mediaPath),
             new FakeSceneCollection(imported ?? []),
             new FakeDialogFactory(sourceRuntime),
-            new FakeDialogService());
+            new FakeDialogService(),
+            settingsService);
 
     private sealed class FakeSceneRuntime : ISceneRuntime
     {
@@ -301,6 +366,32 @@ public sealed class ScenesViewModelRuntimeTests
             RemoveCalls++;
             return Remove(sceneId);
         }
+    }
+
+    private sealed class FakeScenePreviewRuntime : IScenePreviewRuntime
+    {
+        public bool IsAvailable => true;
+        public string UnavailableMessage => "";
+        public event EventHandler? PreviewResetRequested
+        {
+            add { }
+            remove { }
+        }
+
+        public Task<StudioRuntimeResult> StartPreviewAsync(
+            SceneDefinition scene,
+            IntPtr windowHandle,
+            uint width,
+            uint height,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(StudioRuntimeResult.Success());
+
+        public void ResizePreview(uint width, uint height)
+        {
+        }
+
+        public Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken) =>
+            Task.FromResult(StudioRuntimeResult.Success());
     }
 
     private sealed class FakeSourceRuntime : ISourceRuntime

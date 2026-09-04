@@ -5,7 +5,14 @@
              x:Name="PreviewRoot"
              x:DataType="controls:StudioPreview">
     <Panel Background="Black">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
+        <controls:ObsPreviewHost x:Name="NativePreview"
+                                 Scene="{Binding #PreviewRoot.Scene}"
+                                 Runtime="{Binding #PreviewRoot.PreviewRuntime}"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+
+        <StackPanel IsVisible="{Binding #NativePreview.ShowPlaceholder}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
             <TextBlock Text="APERÇU"
                        HorizontalAlignment="Center"
                        Foreground="{DynamicResource AppFg5}"
@@ -13,7 +20,14 @@
             <TextBlock Text="{Binding #PreviewRoot.Message}"
                        HorizontalAlignment="Center"
                        Foreground="{DynamicResource AppFg4}"
-                       FontSize="12" TextWrapping="Wrap"/>
+                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                       MaxWidth="380" />
+            <TextBlock Text="{Binding #NativePreview.ErrorMessage}"
+                       IsVisible="{Binding #NativePreview.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       HorizontalAlignment="Center"
+                       Foreground="{StaticResource StatusErrorBrush}"
+                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                       MaxWidth="380" />
         </StackPanel>
         <Border VerticalAlignment="Bottom" HorizontalAlignment="Left"
                 Margin="12" Padding="10,6" CornerRadius="5"

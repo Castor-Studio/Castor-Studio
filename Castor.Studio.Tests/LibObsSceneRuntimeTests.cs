@@ -1,11 +1,37 @@
 using CastorApplication.Models.Studio;
 using CastorApplication.Services.Studio;
 using LibObs;
+using System.Runtime.InteropServices;
 
 namespace Castor.Studio.Tests;
 
 public sealed class LibObsSceneRuntimeTests
 {
+    [Fact]
+    public void Recording_video_settings_keep_base_canvas_and_requested_output_resolution()
+    {
+        var request = new RecordingRequest(
+            Guid.NewGuid(),
+            "recording.mkv",
+            Fps: 60,
+            VideoBitrateKbps: 8_000,
+            AudioBitrateKbps: 192,
+            AudioSampleRate: 48_000,
+            AudioChannels: 2,
+            BaseWidth: 2560,
+            BaseHeight: 1440,
+            OutputWidth: 2560,
+            OutputHeight: 1440,
+            RecordingContainer.Mkv);
+
+        var settings = LibObsSceneRuntime.CreateRecordingVideoSettings(request);
+
+        Assert.Equal(2560u, settings.BaseWidth);
+        Assert.Equal(1440u, settings.BaseHeight);
+        Assert.Equal(2560u, settings.OutputWidth);
+        Assert.Equal(1440u, settings.OutputHeight);
+    }
+
     [Fact]
     public void Native_scene_lifecycle_deduplicates_names_and_shuts_down_cleanly()
     {
@@ -190,6 +216,71 @@ public sealed class LibObsSceneRuntimeTests
         }
     }
 
+    [Fact]
+    public async Task Native_preview_rejects_an_invalid_surface_and_unknown_scene()
+    {
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            var invalidSurface = await runtime.StartPreviewAsync(
+                new SceneDefinition(), IntPtr.Zero, 320, 180, timeout.Token);
+            Assert.False(invalidSurface.IsSuccess);
+            Assert.Contains("handle", invalidSurface.Message);
+
+            var unknown = await runtime.StartPreviewAsync(
+                new SceneDefinition(), new IntPtr(1), 320, 180, timeout.Token);
+            Assert.False(unknown.IsSuccess);
+            Assert.Contains("n'existe pas", unknown.Message);
+
+        }
+        finally
+        {
+            runtime.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Native_preview_keeps_an_empty_scene_alive_while_sources_change()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var windowHandle = CreateWindowEx(
+            0, "STATIC", "Castor preview test", WindowStylePopup,
+            0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        Assert.NotEqual(IntPtr.Zero, windowHandle);
+
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-preview-source-{Guid.NewGuid():N}.wav");
+        WriteSilentWave(mediaPath);
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var scene = new SceneDefinition { Name = "Empty preview" };
+            var sourceId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+            var started = await runtime.StartPreviewAsync(
+                scene, windowHandle, 320, 180, timeout.Token);
+
+            Assert.True(started.IsSuccess, started.Message);
+            Assert.True(runtime.AddSource(scene.Id,
+                new SourceAddRequest.Media(sourceId, "Preview source", mediaPath, true)).IsSuccess);
+            Assert.True(runtime.RemoveSource(scene.Id, sourceId).IsSuccess);
+            Assert.True((await runtime.StopPreviewAsync(scene.Id, timeout.Token)).IsSuccess);
+            Assert.True(runtime.RemoveScene(scene.Id).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            DestroyWindow(windowHandle);
+            File.Delete(mediaPath);
+        }
+    }
+
     private static RecordingRequest CreateRecordingRequest(
         Guid sceneId,
         string outputPath,
@@ -231,4 +322,25 @@ public sealed class LibObsSceneRuntimeTests
         writer.Write(data.Length);
         writer.Write(data);
     }
+
+    private const uint WindowStylePopup = 0x80000000;
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CreateWindowEx(
+        uint extendedStyle,
+        string className,
+        string windowName,
+        uint style,
+        int x,
+        int y,
+        int width,
+        int height,
+        IntPtr parent,
+        IntPtr menu,
+        IntPtr instance,
+        IntPtr parameter);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyWindow(IntPtr windowHandle);
 }

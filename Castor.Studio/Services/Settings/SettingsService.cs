@@ -22,6 +22,8 @@ public sealed class SettingsService
         _settingsFilePath = settingsFilePath ?? BuildDefaultSettingsPath(CurrentAppFolderName);
     }
 
+    public event EventHandler? SettingsSaved;
+
     public ApplicationSettings Load()
     {
         try
@@ -64,6 +66,7 @@ public sealed class SettingsService
 
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         WriteFileAtomically(_settingsFilePath, json);
+        SettingsSaved?.Invoke(this, EventArgs.Empty);
     }
 
     private void BackupCorruptSettingsFile()

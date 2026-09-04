@@ -320,18 +320,10 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     private static int FpsFromIndex(int index) => index switch { 0 => 60, 2 => 25, _ => 30 };
-    private static (int Width, int Height) BaseResolutionFromIndex(int index) => index switch
-    {
-        0 => (3840, 2160),
-        2 => (1280, 720),
-        _ => (1920, 1080)
-    };
-    private static (int Width, int Height) OutputResolutionFromIndex(int index) => index switch
-    {
-        1 => (1280, 720),
-        2 => (854, 480),
-        _ => (1920, 1080)
-    };
+    private static (int Width, int Height) BaseResolutionFromIndex(int index) =>
+        VideoResolution.BaseFromIndex(index);
+    private static (int Width, int Height) OutputResolutionFromIndex(int index) =>
+        VideoResolution.OutputFromIndex(index);
     private static int AudioSampleRateFromIndex(int index) => index == 1 ? 44_100 : 48_000;
     private static int AudioChannelsFromIndex(int index) => index == 1 ? 1 : 2;
     private static int AudioBitrateFromIndex(int index) => index switch { 0 => 320, 2 => 128, _ => 192 };
