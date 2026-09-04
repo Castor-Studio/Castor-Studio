@@ -415,11 +415,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         ArgumentNullException.ThrowIfNull(request);
         Task<ObsOutputStateChangedEventArgs> startedTask;
 
-        var width = request.BaseWidth;
-        var height = request.BaseHeight;
-
-        var res = (width, height);
-
         lock (_gate)
         {
             if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
