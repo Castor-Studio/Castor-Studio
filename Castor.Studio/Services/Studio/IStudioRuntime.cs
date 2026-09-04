@@ -9,8 +9,6 @@ internal interface IStudioRuntime
 
     Task<StudioRuntimeResult> StartPreviewAsync(SceneDefinition scene, CancellationToken cancellationToken);
     Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken);
-    Task<StudioRuntimeResult> StartRecordingAsync(RecordingRequest request, CancellationToken cancellationToken);
-    Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken);
     Task<StudioRuntimeResult> StartStreamingAsync(StreamingRequest request, CancellationToken cancellationToken);
     Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken);
 }

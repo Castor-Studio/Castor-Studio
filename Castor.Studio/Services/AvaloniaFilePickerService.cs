@@ -9,9 +9,7 @@ namespace CastorApplication.Services;
 
 public sealed class AvaloniaFilePickerService : IFilePickerService
 {
-    public async Task<string?> PickRecordingOutputFileAsync(
-        string extension = ".mp4",
-        string formatLabel = "MP4 (H.264 + AAC)")
+    public async Task<string?> PickRecordingOutputFolderAsync(string? initialPath = null)
     {
         if (Application.Current?.ApplicationLifetime
             is not IClassicDesktopStyleApplicationLifetime desktop)
@@ -20,22 +18,27 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
         var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
         if (topLevel == null) return null;
 
-        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        IStorageFolder? initialFolder = null;
+        if (!string.IsNullOrWhiteSpace(initialPath))
         {
-            Title = "Enregistrer la vidéo sous...",
-            SuggestedFileName = $"Castor_{DateTime.Now:yyyyMMdd_HHmmss}{extension}",
-            FileTypeChoices =
-            [
-                new FilePickerFileType(formatLabel) { Patterns = [$"*{extension}"] },
-            ]
+            try
+            {
+                initialFolder = await topLevel.StorageProvider.TryGetFolderFromPathAsync(initialPath);
+            }
+            catch
+            {
+                // The picker still opens at its platform default for an invalid saved path.
+            }
+        }
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Choisir le dossier des enregistrements",
+            AllowMultiple = false,
+            SuggestedStartLocation = initialFolder
         });
 
-        // Garantir que le chemin retourné a la bonne extension
-        var path = file?.Path.LocalPath;
-        if (path != null && !path.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
-            path += extension;
-
-        return path;
+        return folders.Count > 0 ? folders[0].Path.LocalPath : null;
     }
 
     public async Task<string?> PickVideoFileAsync()

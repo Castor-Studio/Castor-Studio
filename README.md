@@ -91,6 +91,7 @@ détachement : Dock recycle la vue d'un panneau au lieu de la reconstruire, et d
 la même instance entre la fenêtre principale et la fenêtre flottante. Ce recyclage est
 partagé par fabrique, ce qui suppose une seule `StudioDockFactory` pour l'espace de travail.
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
-fichiers média, et autorise plusieurs sources dans une scène. Preview, enregistrement,
-streaming, flux réseau et analyse IA restent indisponibles tant que leurs runtimes
-respectifs ne sont pas implémentés.
+fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
+des fichiers MP4, MKV ou WebM depuis la scène active dans le dossier configuré.
+Preview, streaming, flux réseau et analyse IA restent indisponibles tant que leurs
+runtimes respectifs ne sont pas implémentés.

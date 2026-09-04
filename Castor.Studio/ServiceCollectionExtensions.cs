@@ -38,9 +38,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DockLayoutService>();
 
         services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
-        services.AddSingleton<LibObsSceneRuntime>();
+        services.AddSingleton<LibObsSceneRuntime>(provider =>
+            new LibObsSceneRuntime(provider.GetRequiredService<SettingsService>()));
         services.AddSingleton<ISceneRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<ISourceRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
+        services.AddSingleton<IRecordingRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
+        services.AddSingleton<IScenePreviewRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<ISceneCollectionService, SceneCollectionService>();
         services.AddSingleton<IAiAnalysisClient, UnavailableAiAnalysisClient>();
         services.AddSingleton<IAddSourceDialogService, AddSourceDialogService>();
@@ -57,13 +60,15 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(provider => new StudioViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),
-            provider.GetRequiredService<IProviderStore>(), provider.GetRequiredService<SettingsService>(),
-            provider.GetRequiredService<IFilePickerService>()));
+            provider.GetRequiredService<IRecordingRuntime>(), provider.GetRequiredService<IProviderStore>(),
+            provider.GetRequiredService<SettingsService>()));
         services.AddSingleton(provider => new ScenesViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(), provider.GetRequiredService<IStudioRuntime>(),
+            provider.GetRequiredService<IScenePreviewRuntime>(),
             provider.GetRequiredService<ISceneRuntime>(), provider.GetRequiredService<ISourceRuntime>(),
             provider.GetRequiredService<IFilePickerService>(), provider.GetRequiredService<ISceneCollectionService>(),
-            provider.GetRequiredService<IAddSourceDialogViewModelFactory>(), provider.GetRequiredService<IAddSourceDialogService>()));
+            provider.GetRequiredService<IAddSourceDialogViewModelFactory>(), provider.GetRequiredService<IAddSourceDialogService>(),
+            provider.GetRequiredService<SettingsService>()));
         services.AddSingleton(provider => new MulticamViewModel(
             provider.GetRequiredService<IAiAnalysisClient>(), provider.GetRequiredService<StudioWorkspaceViewModel>()));
         services.AddSingleton(provider => new StudioDockViewModel(

@@ -22,6 +22,8 @@ public sealed class SettingsService
         _settingsFilePath = settingsFilePath ?? BuildDefaultSettingsPath(CurrentAppFolderName);
     }
 
+    public event EventHandler? SettingsSaved;
+
     public ApplicationSettings Load()
     {
         try
@@ -34,7 +36,11 @@ public sealed class SettingsService
             var json = File.ReadAllText(_settingsFilePath);
             try
             {
-                return JsonSerializer.Deserialize<ApplicationSettings>(json, JsonOptions) ?? new ApplicationSettings();
+                var settings = JsonSerializer.Deserialize<ApplicationSettings>(json, JsonOptions)
+                    ?? new ApplicationSettings();
+                if (string.IsNullOrWhiteSpace(settings.OutputPath))
+                    settings.OutputPath = ApplicationSettings.DefaultOutputPath;
+                return settings;
             }
             catch (JsonException ex)
             {
@@ -60,6 +66,7 @@ public sealed class SettingsService
 
         var json = JsonSerializer.Serialize(settings, JsonOptions);
         WriteFileAtomically(_settingsFilePath, json);
+        SettingsSaved?.Invoke(this, EventArgs.Empty);
     }
 
     private void BackupCorruptSettingsFile()

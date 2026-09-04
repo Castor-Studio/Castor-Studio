@@ -26,6 +26,7 @@
                     <ComboBoxItem Content="3840x2160 (4K)"/>
                     <ComboBoxItem Content="1920x1080 (Full HD)"/>
                     <ComboBoxItem Content="1280x720 (HD)"/>
+                    <ComboBoxItem Content="2560x1440 (2K)"/>
 
                 </ComboBox>
 
@@ -45,6 +46,7 @@
                     <ComboBoxItem Content="1920x1080 (Full HD)"/>
                     <ComboBoxItem Content="1280x720 (HD)"/>
                     <ComboBoxItem Content="854x480 (SD)"/>
+                    <ComboBoxItem Content="2560x1440 (2K)"/>
 
                 </ComboBox>
 
@@ -64,25 +66,6 @@
                     <ComboBoxItem Content="60 fps"/>
                     <ComboBoxItem Content="30 fps"/>
                     <ComboBoxItem Content="25 fps"/>
-
-                </ComboBox>
-
-            </Grid>
-
-            <Grid ColumnDefinitions="180,*">
-
-                <TextBlock Grid.Column="0"
-                           Text="Qualité (CRF)"
-                           Classes="setting-label"/>
-
-                <ComboBox Grid.Column="1"
-                          MaxWidth="260"
-                          HorizontalAlignment="Left"
-                          SelectedIndex="{Binding SelectedQualityIndex}">
-
-                    <ComboBoxItem Content="Haute"/>
-                    <ComboBoxItem Content="Bonne"/>
-                    <ComboBoxItem Content="Basse"/>
 
                 </ComboBox>
 
