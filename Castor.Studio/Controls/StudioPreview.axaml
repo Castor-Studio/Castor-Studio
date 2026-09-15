@@ -9,6 +9,7 @@
                                  IsHitTestVisible="False"
                                  Scene="{Binding #PreviewRoot.Scene}"
                                  Runtime="{Binding #PreviewRoot.PreviewRuntime}"
+                                 Composition="{Binding #PreviewRoot.Composition}"
                                  HorizontalAlignment="Center"
                                  VerticalAlignment="Center" />
 
