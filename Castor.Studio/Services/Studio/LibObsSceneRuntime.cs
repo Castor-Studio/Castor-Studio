@@ -322,6 +322,67 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public SceneCompositionResult GetSceneComposition(Guid sceneId)
+    {
+        if (!IsAvailable) return SceneCompositionResult.Unavailable(UnavailableMessageForOperation());
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SceneCompositionResult.Unavailable(UnavailableMessageForOperation());
+            if (!_scenes.TryGetValue(sceneId, out var scene) || !_sources.TryGetValue(sceneId, out var sources))
+                return SceneCompositionResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                // Une seule prise sous le verrou : ordre et transformations décrivent le même
+                // instant du moteur, jamais deux états entremêlés.
+                var transforms = new List<SourceTransform>(sources.Count);
+                foreach (var sourceId in ReadLayerOrder(scene, sources))
+                {
+                    if (sources.TryGetValue(sourceId, out var native))
+                        transforms.Add(ReadTransform(sourceId, native));
+                }
+
+                return SceneCompositionResult.Success(new SceneComposition(
+                    (int)(_videoSettings?.BaseWidth ?? 0),
+                    (int)(_videoSettings?.BaseHeight ?? 0),
+                    transforms));
+            }
+            catch (Exception exception)
+            {
+                return SceneCompositionResult.Failure(
+                    $"Lecture de la composition impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    // Le rectangle composé se déduit ici, au contact du moteur : c'est sa règle (taille de la
+    // source, moins le rognage, mise à l'échelle de l'item), et elle n'a rien à faire dans
+    // l'interface qui se contente ensuite de poser ce rectangle.
+    private static SourceTransform ReadTransform(Guid sourceId, NativeSource native)
+    {
+        var position = native.Item.Position;
+        var scale = native.Item.Scale;
+        var crop = native.Item.Crop;
+        var sourceWidth = (int)native.Source.Width;
+        var sourceHeight = (int)native.Source.Height;
+        var croppedWidth = Math.Max(0, sourceWidth - (int)crop.Left - (int)crop.Right);
+        var croppedHeight = Math.Max(0, sourceHeight - (int)crop.Top - (int)crop.Bottom);
+
+        return new SourceTransform(
+            sourceId,
+            position.X,
+            position.Y,
+            croppedWidth * (double)scale.X,
+            croppedHeight * (double)scale.Y,
+            scale.X,
+            scale.Y,
+            new SourceCrop((int)crop.Left, (int)crop.Top, (int)crop.Right, (int)crop.Bottom),
+            sourceWidth,
+            sourceHeight,
+            native.Item.IsVisible);
+    }
+
     // libobs énumère ses items de l'arrière-plan vers le premier plan ; on rend l'inverse, et
     // traduit en identifiants applicatifs pour qu'aucun handle natif ne sorte du runtime.
     private static IReadOnlyList<Guid> ReadLayerOrder(ObsScene scene, Dictionary<Guid, NativeSource> sources)

@@ -53,6 +53,23 @@ internal sealed record SourceOrderResult(
         new(StudioRuntimeStatus.Failure, [], message);
 }
 
+internal sealed record SceneCompositionResult(
+    StudioRuntimeStatus Status,
+    SceneComposition Composition,
+    string Message = "")
+{
+    public bool IsSuccess => Status == StudioRuntimeStatus.Success;
+
+    public static SceneCompositionResult Success(SceneComposition composition) =>
+        new(StudioRuntimeStatus.Success, composition);
+
+    public static SceneCompositionResult Unavailable(string message) =>
+        new(StudioRuntimeStatus.Unavailable, SceneComposition.Empty, message);
+
+    public static SceneCompositionResult Failure(string message) =>
+        new(StudioRuntimeStatus.Failure, SceneComposition.Empty, message);
+}
+
 internal interface ISourceRuntime
 {
     bool IsAvailable { get; }
@@ -74,4 +91,12 @@ internal interface ISourceRuntime
     /// premier plan. Le moteur reste seul à connaître sa propre numérotation interne.
     /// </summary>
     SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex);
+
+    /// <summary>
+    /// Composition que le moteur rend pour cette scène : la taille de son canvas et la
+    /// transformation de chaque source, dans l'ordre d'empilement (rang 0 = premier plan).
+    /// Tout est lu d'un seul tenant, pour que l'interface dessine un état cohérent plutôt
+    /// qu'un assemblage de lectures prises à des instants différents.
+    /// </summary>
+    SceneCompositionResult GetSceneComposition(Guid sceneId);
 }

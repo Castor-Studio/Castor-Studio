@@ -600,6 +600,11 @@ public sealed class ScenesViewModelRuntimeTests
                 ? SourceOrderResult.Failure("ordre illisible")
                 : SourceOrderResult.Success(Layers(sceneId).ToArray());
 
+        // La composition elle-même est éprouvée par SceneCompositionViewModelTests ; ici, il
+        // suffit que la scène en rende une pour que le canvas suive les gestes.
+        public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
+            SceneCompositionResult.Success(new SceneComposition(1920, 1080, []));
+
         public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
         {
             RequestedLayerIndexes.Add(layerIndex);
