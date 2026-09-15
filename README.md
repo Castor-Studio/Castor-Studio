@@ -23,8 +23,8 @@ La création, le renommage et la suppression des scènes sont synchronisés avec
 La preview, l'enregistrement et le direct Twitch utilisent également le runtime natif LibObs.
 Le live Twitch nécessite un compte connecté dans `Paramètres → Comptes`.
 
-La page Scènes affiche au choix l'aperçu direct du moteur ou le canvas de composition, qui
-dessine chaque source à la transformation lue dans le moteur — position, taille, rognage et
+Dans la page Scènes, l'aperçu montre l'image composée par le moteur et, par-dessus, le cadre
+de chaque source à la transformation qu'il lui applique — position, taille, rognage et
 empilement. Son fonctionnement est décrit dans
 [docs/canvas-de-composition.md](docs/canvas-de-composition.md).
 
