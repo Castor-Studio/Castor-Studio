@@ -23,6 +23,11 @@ La création, le renommage et la suppression des scènes sont synchronisés avec
 La preview, l'enregistrement et le direct Twitch utilisent également le runtime natif LibObs.
 Le live Twitch nécessite un compte connecté dans `Paramètres → Comptes`.
 
+La page Scènes affiche au choix l'aperçu direct du moteur ou le canvas de composition, qui
+dessine chaque source à la transformation lue dans le moteur — position, taille, rognage et
+empilement. Son fonctionnement est décrit dans
+[docs/canvas-de-composition.md](docs/canvas-de-composition.md).
+
 ## Espace de travail Studio
 
 La page Studio est un espace de travail Dock.Avalonia composé de quatre panneaux : aperçu,
