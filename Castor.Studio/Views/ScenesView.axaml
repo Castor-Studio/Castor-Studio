@@ -47,6 +47,30 @@
 			<Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
 		</Style>
 
+		<Style Selector="Button.view-toggle">
+			<Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+			<Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="Padding" Value="10,5"/>
+			<Setter Property="CornerRadius" Value="5"/>
+			<Setter Property="FontSize" Value="11"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+
+		<Style Selector="Button.view-toggle.selected">
+			<Setter Property="Foreground" Value="#5b8def"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+		</Style>
+
+		<Style Selector="Button.view-toggle.selected /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+		</Style>
+
+		<Style Selector="Button.view-toggle.selected:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+		</Style>
+
 	</UserControl.Styles>
 
 	<Grid ColumnDefinitions="240, 1, *" Background="{DynamicResource AppBg}">
@@ -419,28 +443,59 @@
 		<Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}"/>
 
 		<!-- ═══ RIGHT PANEL ═══ -->
-		<Grid Grid.Column="2" RowDefinitions="*, 8, 200" Margin="8">
+		<Grid Grid.Column="2" RowDefinitions="Auto, *, 8, 200" Margin="8">
+
+			<!-- Bascule entre le canvas de composition et l'aperçu direct. Les deux occupent
+			     la même place : la surface native de libobs est une fenêtre Windows, elle
+			     recouvre tout ce qu'Avalonia dessine au même endroit. -->
+			<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="2,0,2,8">
+				<StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+					<TextBlock Text="RENDU DE LA SCÈNE"
+                               FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"/>
+					<TextBlock Text="Canvas de composition ou aperçu direct du moteur"
+                               FontSize="9" Foreground="{DynamicResource AppFg5}"/>
+				</StackPanel>
+
+				<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+					<Button Classes="view-toggle"
+                            Classes.selected="{Binding IsCompositionVisible}"
+                            Command="{Binding ShowCompositionCommand}"
+                            Content="Composition"
+                            ToolTip.Tip="Dessiner chaque source à la transformation lue dans le moteur"/>
+					<Button Classes="view-toggle"
+                            Classes.selected="{Binding IsLivePreviewVisible}"
+                            Command="{Binding ShowLivePreviewCommand}"
+                            Content="Aperçu direct"
+                            ToolTip.Tip="Afficher l'image composée par le moteur"/>
+				</StackPanel>
+			</Grid>
 
 			<!-- Scene preview -->
-			<Border Grid.Row="0"
+			<Border Grid.Row="1"
                     Background="Black" CornerRadius="8"
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
                     ClipToBounds="True">
 				<Panel>
-				<controls:StudioPreview Scene="{Binding SelectedScene}"
+				<controls:SceneCompositionCanvas DataContext="{Binding Composition}"
+                                            IsVisible="{Binding #ScenesRoot.DataContext.IsCompositionVisible}"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Stretch"/>
+
+				<controls:StudioPreview Scene="{Binding LivePreviewScene}"
                                             PreviewRuntime="{Binding PreviewRuntime}"
                                             BaseCanvasWidth="{Binding BaseCanvasWidth}"
                                             BaseCanvasHeight="{Binding BaseCanvasHeight}"
                                             Message="{Binding PreviewPlaceholderText}"
+                                            IsVisible="{Binding IsLivePreviewVisible}"
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"/>
 				</Panel>
 			</Border>
 
-			<Rectangle Grid.Row="1" Fill="Transparent"/>
+			<Rectangle Grid.Row="2" Fill="Transparent"/>
 
 			<!-- Sources of selected scene -->
-			<Border Grid.Row="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="14">
+			<Border Grid.Row="3" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="14">
 				<Grid RowDefinitions="Auto, 10, *, Auto">
 
 					<Grid Grid.Row="0" ColumnDefinitions="*, Auto">

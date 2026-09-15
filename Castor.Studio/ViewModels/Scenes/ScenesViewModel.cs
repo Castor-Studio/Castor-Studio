@@ -39,6 +39,28 @@ public partial class ScenesViewModel : ViewModelBase
 
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
+    /// <summary>
+    /// Le canvas de composition de la scène sélectionnée : les sources y sont dessinées à la
+    /// transformation que le moteur leur applique.
+    /// </summary>
+    public SceneCompositionViewModel Composition { get; }
+
+    /// <summary>
+    /// Le canvas et l'aperçu direct occupent la même place et ne peuvent pas cohabiter :
+    /// l'aperçu de libobs est une fenêtre Windows posée sur la page, elle recouvre tout ce
+    /// qu'Avalonia dessine au même endroit.
+    /// </summary>
+    [ObservableProperty] private bool _isCompositionVisible = true;
+
+    public bool IsLivePreviewVisible => !IsCompositionVisible;
+
+    /// <summary>
+    /// La scène que l'aperçu direct doit rendre, c'est-à-dire aucune tant que le canvas
+    /// occupe la place. Masquer l'aperçu ne suffirait pas : sa surface reste dans l'arbre
+    /// visuel, et libobs continuerait de dessiner dans une fenêtre que personne ne regarde.
+    /// </summary>
+    public SceneItemViewModel? LivePreviewScene => IsCompositionVisible ? null : SelectedScene;
+
     [ObservableProperty] private int _baseCanvasWidth = 1920;
     [ObservableProperty] private int _baseCanvasHeight = 1080;
 
@@ -75,9 +97,11 @@ public partial class ScenesViewModel : ViewModelBase
         _dialogFactory = dialogFactory;
         _dialogService = dialogService;
         _settingsService = settingsService;
+        Composition = new SceneCompositionViewModel(sourceRuntime);
         var baseResolution = VideoResolution.BaseFromIndex(settingsService?.Load().SelectedBaseResolutionIndex ?? 1);
         BaseCanvasWidth = baseResolution.Width;
         BaseCanvasHeight = baseResolution.Height;
+        Composition.UseFallbackCanvas(BaseCanvasWidth, BaseCanvasHeight);
         SelectedScene = workspace.ActiveScene;
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         if (_settingsService != null)
@@ -99,6 +123,9 @@ public partial class ScenesViewModel : ViewModelBase
     partial void OnSelectedSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
     {
         if (oldValue != null) oldValue.IsSelected = false;
+        // Le canvas repart de la composition que le moteur détient pour cette scène : une
+        // scène rouverte se redessine sur ce qui est réellement rendu, pas sur un souvenir.
+        Composition.ShowScene(newValue);
         if (newValue != null)
         {
             newValue.IsSelected = true;
@@ -108,6 +135,7 @@ public partial class ScenesViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(PreviewPlaceholderText));
+        OnPropertyChanged(nameof(LivePreviewScene));
     }
 
     private void OnSettingsSaved(object? sender, EventArgs e)
@@ -118,7 +146,20 @@ public partial class ScenesViewModel : ViewModelBase
         var baseResolution = VideoResolution.BaseFromIndex(settings.SelectedBaseResolutionIndex);
         BaseCanvasWidth = baseResolution.Width;
         BaseCanvasHeight = baseResolution.Height;
+        Composition.UseFallbackCanvas(BaseCanvasWidth, BaseCanvasHeight);
     }
+
+    partial void OnIsCompositionVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsLivePreviewVisible));
+        OnPropertyChanged(nameof(LivePreviewScene));
+    }
+
+    [RelayCommand]
+    private void ShowComposition() => IsCompositionVisible = true;
+
+    [RelayCommand]
+    private void ShowLivePreview() => IsCompositionVisible = false;
 
     // The workspace owns the global scene selection. Keep this page's selection projection
     // synchronized with it so Studio, Scenes, recording, and streaming all use one scene.
@@ -488,6 +529,10 @@ public partial class ScenesViewModel : ViewModelBase
         // Les extrémités de la pile bougent avec l'ordre, les boutons doivent suivre.
         RaiseSourceCommand.NotifyCanExecuteChanged();
         LowerSourceCommand.NotifyCanExecuteChanged();
+
+        // Tout geste sur les sources passe par ici : le canvas se recale dans la foulée, sans
+        // attendre sa prochaine relecture périodique.
+        Composition.Refresh();
 
         // Un moteur globalement indisponible est déjà annoncé par l'aperçu ; seul un refus
         // propre à cette scène mérite d'être écrit sous la liste.
