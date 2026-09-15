@@ -23,12 +23,24 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     // taking turns on a single global one.
     private sealed class PreviewSession
     {
+        // Le thread graphique de libobs lit ce champ à chaque image pendant que le thread de
+        // l'interface le remplace : une référence s'échange d'un bloc, sans verrou — en
+        // prendre un ici s'interbloquerait avec les opérations qui attendent ce même thread.
+        private volatile IReadOnlyList<SourceTransform> _outlines = [];
+
         public required ObsView View { get; init; }
         public required ObsSource SceneSource { get; init; }
         public required Guid SceneId { get; init; }
         public required uint CanvasWidth { get; init; }
         public required uint CanvasHeight { get; init; }
         public required ObsDisplay Display { get; init; }
+
+        /// <summary>Les sources dont le cadre est peint sur l'image de cette session.</summary>
+        public IReadOnlyList<SourceTransform> Outlines
+        {
+            get => _outlines;
+            set => _outlines = value;
+        }
     }
 
     private readonly object _gate = new();
@@ -549,6 +561,17 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 return Task.FromResult(StudioRuntimeResult.Failure(
                     $"Démarrage de la preview impossible : {exception.Message}"));
             }
+        }
+    }
+
+    public void SetCompositionOutlines(IntPtr windowHandle, IReadOnlyList<SourceTransform> sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        lock (_gate)
+        {
+            if (!IsAvailable || !_previewSessions.TryGetValue(windowHandle, out var session)) return;
+            session.Outlines = sources;
         }
     }
 
@@ -1563,7 +1586,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             frame,
             session.SceneSource,
             session.CanvasWidth,
-            session.CanvasHeight);
+            session.CanvasHeight,
+            session.Outlines);
 
     private static void TryRollbackSource(ObsSource? source, ObsSceneItem? item)
     {
