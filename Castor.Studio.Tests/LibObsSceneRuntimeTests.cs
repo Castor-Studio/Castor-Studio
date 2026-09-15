@@ -63,6 +63,39 @@ public sealed class LibObsSceneRuntimeTests
     }
 
     [Fact]
+    public void Windows_capture_uses_safe_fallbacks_when_libobs_winrt_is_missing()
+    {
+        var baseDirectory = Path.Combine(Path.GetTempPath(), $"castor-winrt-{Guid.NewGuid():N}");
+        var runtimeDirectory = Path.Combine(baseDirectory, "obs-runtime", "bin", "64bit");
+        Directory.CreateDirectory(runtimeDirectory);
+
+        try
+        {
+            Assert.False(LibObsSceneRuntime.HasWinRtCaptureRuntime(baseDirectory));
+
+            var displaySettings = LibObsSceneRuntime.CreateDisplayCaptureSettings("monitor", baseDirectory);
+            var windowSettings = LibObsSceneRuntime.CreateWindowCaptureSettings("window", baseDirectory);
+
+            Assert.Equal(ObsWindowsDisplayCaptureMethod.DxgiDesktopDuplication, displaySettings.Method);
+            Assert.Equal(ObsWindowsWindowCaptureMethod.BitBlt, windowSettings.Method);
+
+            File.WriteAllBytes(Path.Combine(runtimeDirectory, "libobs-winrt.dll"), []);
+
+            Assert.True(LibObsSceneRuntime.HasWinRtCaptureRuntime(baseDirectory));
+            Assert.Equal(
+                ObsWindowsDisplayCaptureMethod.Automatic,
+                LibObsSceneRuntime.CreateDisplayCaptureSettings("monitor", baseDirectory).Method);
+            Assert.Equal(
+                ObsWindowsWindowCaptureMethod.Automatic,
+                LibObsSceneRuntime.CreateWindowCaptureSettings("window", baseDirectory).Method);
+        }
+        finally
+        {
+            if (Directory.Exists(baseDirectory)) Directory.Delete(baseDirectory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Recording_video_settings_keep_base_canvas_and_requested_output_resolution()
     {
         var request = new RecordingRequest(
@@ -158,6 +191,66 @@ public sealed class LibObsSceneRuntimeTests
         }
 
         Assert.False(Obs.IsInitialized);
+    }
+
+    [Fact]
+    public async Task Native_runtime_adds_and_removes_a_monitor_source()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        using var runtime = new LibObsSceneRuntime();
+        Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+
+        var catalog = await runtime.EnumerateSourcesAsync(CancellationToken.None);
+        var monitor = catalog.VideoSources.FirstOrDefault(source => source.Type == VideoCaptureKind.Monitor);
+        if (monitor == null) return;
+
+        var sceneId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        Assert.True(runtime.CreateScene(sceneId, "Monitor capture test").IsSuccess);
+
+        try
+        {
+            var added = runtime.AddSource(sceneId,
+                new SourceAddRequest.Video(sourceId, "Monitor capture", monitor));
+            Assert.True(added.IsSuccess, added.Message);
+            await Task.Delay(250);
+            Assert.True(runtime.RemoveSource(sceneId, sourceId).IsSuccess);
+        }
+        finally
+        {
+            runtime.RemoveScene(sceneId);
+        }
+    }
+
+    [Fact]
+    public async Task Native_runtime_adds_and_removes_a_window_source()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        using var runtime = new LibObsSceneRuntime();
+        Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+
+        var catalog = await runtime.EnumerateSourcesAsync(CancellationToken.None);
+        var window = catalog.VideoSources.FirstOrDefault(source => source.Type == VideoCaptureKind.Window);
+        if (window == null) return;
+
+        var sceneId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        Assert.True(runtime.CreateScene(sceneId, "Window capture test").IsSuccess);
+
+        try
+        {
+            var added = runtime.AddSource(sceneId,
+                new SourceAddRequest.Video(sourceId, "Window capture", window));
+            Assert.True(added.IsSuccess, added.Message);
+            await Task.Delay(250);
+            Assert.True(runtime.RemoveSource(sceneId, sourceId).IsSuccess);
+        }
+        finally
+        {
+            runtime.RemoveScene(sceneId);
+        }
     }
 
     [Theory]

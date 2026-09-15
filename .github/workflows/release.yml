@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+      - "beta-*.*.*"
 
 permissions:
   contents: write
@@ -52,7 +53,7 @@ jobs:
       - name: Publish application
         shell: pwsh
         run: |
-          dotnet publish Castor-Studio/Castor-Studio.csproj `
+          dotnet publish Castor.Studio\Castor-Studio.csproj `
             --configuration Release `
             --runtime win-x64 `
             --self-contained true `
@@ -74,7 +75,7 @@ jobs:
           }
 
           & $iscc `
-            "--define=Version=$env:VERSION" `
+            "/DVersion=$env:VERSION" `
             "installer\Castor-Studio.iss"
 
       - name: Generate SHA-256 checksum

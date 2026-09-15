@@ -10,6 +10,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private const string FfmpegOutputId = "ffmpeg_output";
     private const string LibVpxVp9EncoderName = "libvpx-vp9";
     private const string LibOpusEncoderName = "libopus";
+    private const string WinRtRuntimeRelativePath = "obs-runtime\\bin\\64bit\\libobs-winrt.dll";
 
     private sealed record NativeSource(
         ObsSource Source,
@@ -1350,14 +1351,37 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    internal static bool HasWinRtCaptureRuntime(string baseDirectory) =>
+        File.Exists(Path.Combine(baseDirectory, WinRtRuntimeRelativePath));
+
+    internal static ObsWindowsDisplayCaptureSettings CreateDisplayCaptureSettings(
+        string monitorId,
+        string baseDirectory) => new()
+        {
+            MonitorId = monitorId,
+            Method = HasWinRtCaptureRuntime(baseDirectory)
+                ? ObsWindowsDisplayCaptureMethod.Automatic
+                : ObsWindowsDisplayCaptureMethod.DxgiDesktopDuplication
+        };
+
+    internal static ObsWindowsWindowCaptureSettings CreateWindowCaptureSettings(
+        string window,
+        string baseDirectory) => new()
+        {
+            Window = window,
+            Method = HasWinRtCaptureRuntime(baseDirectory)
+                ? ObsWindowsWindowCaptureMethod.Automatic
+                : ObsWindowsWindowCaptureMethod.BitBlt
+        };
+
     private static ObsSource CreateNativeSource(SourceAddRequest request) => request switch
     {
         SourceAddRequest.Video video => video.Option.Type switch
         {
             VideoCaptureKind.Monitor => ObsSource.CreateWindowsDisplayCapture(video.RequestedName,
-                new ObsWindowsDisplayCaptureSettings { MonitorId = video.Option.Id }),
+                CreateDisplayCaptureSettings(video.Option.Id, AppContext.BaseDirectory)),
             VideoCaptureKind.Window => ObsSource.CreateWindowsWindowCapture(video.RequestedName,
-                new ObsWindowsWindowCaptureSettings { Window = video.Option.Id }),
+                CreateWindowCaptureSettings(video.Option.Id, AppContext.BaseDirectory)),
             VideoCaptureKind.Camera => ObsSource.CreateWindowsVideoCaptureDevice(video.RequestedName,
                 new ObsWindowsVideoCaptureDeviceSettings { DeviceId = video.Option.Id }),
             _ => throw new NotSupportedException($"Le type vidéo '{video.Option.Type}' n'est pas pris en charge.")
