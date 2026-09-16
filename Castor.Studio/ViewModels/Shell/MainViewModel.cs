@@ -102,6 +102,22 @@ public partial class MainViewModel : ViewModelBase
         CurrentPageKind = MainPageKind.Settings;
     }
 
+    // Menu bar entries for the Scenes page's import/export: the logic stays in ScenesViewModel.
+    // The Scenes page is shown first so the imported scenes and the result message are visible.
+    [RelayCommand]
+    private Task ImportScenes()
+    {
+        ShowScenes();
+        return _scenesViewModel.ImportScenesCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
+    private Task ExportScenes()
+    {
+        ShowScenes();
+        return _scenesViewModel.ExportScenesCommand.ExecuteAsync(null);
+    }
+
     [RelayCommand]
     private void Quit() => _desktop.Shutdown();
 

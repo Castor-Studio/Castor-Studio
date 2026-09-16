@@ -139,32 +139,37 @@
 						</Button.Flyout>
 					</Button>
 
-					<Button Classes="scene-toolbar-item">
+					<!-- Direct actions, not a "Fichier" submenu: the menu bar owns the only "Fichier". -->
+					<Button Classes="scene-toolbar-item"
+                            Command="{Binding ImportScenesCommand}"
+                            ToolTip.Tip="Importer des scènes depuis un fichier">
 						<Grid ColumnDefinitions="20, *, Auto">
 							<Viewbox Grid.Column="0" Width="16" Height="16"
                                      HorizontalAlignment="Center" VerticalAlignment="Center">
 								<Canvas Width="24" Height="24">
-									<Path Data="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2"
+									<Path Data="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2M7 11l5 5l5 -5M12 4v12"
                                           Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
                                           StrokeLineCap="Round" StrokeJoin="Round"/>
 								</Canvas>
 							</Viewbox>
-							<TextBlock Grid.Column="1" Text="Fichier" Margin="6,0,0,0" VerticalAlignment="Center"/>
-							<TextBlock Grid.Column="2" Text="›" Foreground="{DynamicResource AppFg5}"/>
+							<TextBlock Grid.Column="1" Text="Importer…" Margin="6,0,0,0" VerticalAlignment="Center"/>
 						</Grid>
-						<Button.Flyout>
-							<Flyout Placement="RightEdgeAlignedTop">
-								<StackPanel Width="180" Spacing="2" Margin="4">
-									<TextBlock Text="IMPORT / EXPORT"
-                                               FontSize="10" FontWeight="Bold"
-                                               Foreground="{DynamicResource AppFg4}" Margin="10,2,0,4"/>
-									<Button Classes="scene-menu-item" Content="Exporter"
-                                            Command="{Binding ExportScenesCommand}"/>
-									<Button Classes="scene-menu-item" Content="Importer..."
-                                            Command="{Binding ImportScenesCommand}"/>
-								</StackPanel>
-							</Flyout>
-						</Button.Flyout>
+					</Button>
+
+					<Button Classes="scene-toolbar-item"
+                            Command="{Binding ExportScenesCommand}"
+                            ToolTip.Tip="Exporter les scènes sélectionnées, ou toutes si aucune ne l'est">
+						<Grid ColumnDefinitions="20, *, Auto">
+							<Viewbox Grid.Column="0" Width="16" Height="16"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+								<Canvas Width="24" Height="24">
+									<Path Data="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2M7 9l5 -5l5 5M12 4v12"
+                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+								</Canvas>
+							</Viewbox>
+							<TextBlock Grid.Column="1" Text="Exporter…" Margin="6,0,0,0" VerticalAlignment="Center"/>
+						</Grid>
 					</Button>
 
 					<ToggleButton Classes="scene-toolbar-item"

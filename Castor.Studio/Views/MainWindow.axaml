@@ -18,6 +18,9 @@
 		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
 			<Menu Background="Transparent" Padding="6,0">
 				<MenuItem Header="_Fichier">
+					<MenuItem Header="_Importer des scènes…" Command="{Binding ImportScenesCommand}"/>
+					<MenuItem Header="_Exporter des scènes…" Command="{Binding ExportScenesCommand}"/>
+					<Separator/>
 					<MenuItem Header="_Paramètres" Command="{Binding ShowSettingsCommand}"/>
 					<Separator/>
 					<MenuItem Header="_Quitter" Command="{Binding QuitCommand}"/>
