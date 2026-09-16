@@ -32,7 +32,13 @@ public sealed class ScenesViewModelRuntimeTests
 
         Assert.Single(viewModel.Scenes);
         Assert.Equal("Refusée", viewModel.NewSceneName);
-        Assert.Equal("échec natif", viewModel.SceneIoStatus);
+        Assert.Equal("échec natif", viewModel.CreateSceneError);
+
+        viewModel.NewSceneName = "Refusée bis";
+        Assert.Equal("", viewModel.CreateSceneError);
+
+        viewModel.NewSceneName = "   ";
+        Assert.False(viewModel.CreateSceneCommand.CanExecute(null));
     }
 
     [Fact]
@@ -134,13 +140,15 @@ public sealed class ScenesViewModelRuntimeTests
 
         Assert.Equal("Originale", scene.Name);
         Assert.Same(scene, viewModel.SceneBeingRenamed);
+        Assert.Equal("nom refusé", viewModel.RenameSceneError);
 
         runtime.Rename = (_, _) => SceneRuntimeResult.Success("Demandée 2");
         viewModel.ConfirmRenameSceneCommand.Execute(null);
 
         Assert.Equal("Demandée 2", scene.Name);
         Assert.Null(viewModel.SceneBeingRenamed);
-        Assert.Equal("", viewModel.SceneIoStatus);
+        Assert.Equal("", viewModel.RenameSceneError);
+        Assert.False(viewModel.ConfirmRenameSceneCommand.CanExecute(null));
     }
 
     [Fact]

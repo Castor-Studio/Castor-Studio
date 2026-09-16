@@ -69,24 +69,26 @@
                             VerticalAlignment="Center" Cursor="Hand">
 						<Button.Flyout>
 							<Flyout Placement="Right">
-								<StackPanel Width="260" Spacing="12" Margin="4">
+								<StackPanel Width="260" Spacing="12" Margin="4"
+                                            controls:FlyoutActions.Error="{Binding CreateSceneError}">
 									<TextBlock Text="NOUVELLE SCÈNE"
                                                FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 									<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 									<StackPanel Spacing="4">
 										<TextBlock Text="Nom de la scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-										<TextBox Text="{Binding NewSceneName}"
+										<TextBox Text="{Binding NewSceneName, UpdateSourceTrigger=PropertyChanged}"
 											PlaceholderText="Ex: Match Live"
 											Background="{DynamicResource AppSurface2}"
 											BorderBrush="{DynamicResource AppBorder2}"
-											Foreground="{DynamicResource AppFg2}">
-											<TextBox.KeyBindings>
-												<KeyBinding Gesture="Enter" Command="{Binding CreateSceneCommand}"/>
-											</TextBox.KeyBindings>
-										</TextBox>
+											Foreground="{DynamicResource AppFg2}"
+											controls:FlyoutActions.EnterCommand="{Binding CreateSceneCommand}"/>
 									</StackPanel>
+									<TextBlock Text="{Binding CreateSceneError}"
+                                               IsVisible="{Binding CreateSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Foreground="{StaticResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
 									<Button Content="CRÉER LA SCÈNE"
                                             Command="{Binding CreateSceneCommand}"
+                                            controls:FlyoutActions.CloseOnSuccess="True"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                             Height="36" Background="#5b8def" Foreground="#eaeaf0"
                                             BorderThickness="0" CornerRadius="6"
@@ -321,20 +323,22 @@
                                                             CommandParameter="{Binding}">
 														<Button.Flyout>
 															<Flyout Placement="Right">
-																<StackPanel Width="220" Spacing="10" Margin="4">
+																<StackPanel Width="220" Spacing="10" Margin="4"
+                                                                                controls:FlyoutActions.Error="{Binding #ScenesRoot.DataContext.RenameSceneError}">
 																	<TextBlock Text="RENOMMER LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 																	<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 																	<TextBox Text="{Binding #ScenesRoot.DataContext.RenameSceneName, UpdateSourceTrigger=PropertyChanged}"
 																		Background="{DynamicResource AppSurface2}"
 																		BorderBrush="{DynamicResource AppBorder2}"
-																		Foreground="{DynamicResource AppFg2}">
-																		<TextBox.KeyBindings>
-																			<KeyBinding Gesture="Enter" Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"/>
-																		</TextBox.KeyBindings>
-																	</TextBox>
+																		Foreground="{DynamicResource AppFg2}"
+																		controls:FlyoutActions.EnterCommand="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"/>
+																	<TextBlock Text="{Binding #ScenesRoot.DataContext.RenameSceneError}"
+                                                                               IsVisible="{Binding #ScenesRoot.DataContext.RenameSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                                               Foreground="{StaticResource StatusErrorBrush}" FontSize="10" TextWrapping="Wrap"/>
 																	<Button Content="RENOMMER"
                                                                             Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"
+                                                                            controls:FlyoutActions.CloseOnSuccess="True"
                                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                                             Height="32" Background="#5b8def" Foreground="#eaeaf0"
                                                                             BorderThickness="0" CornerRadius="6"
@@ -365,6 +369,7 @@
                                                                                         Background="{Binding}"
                                                                                         BorderThickness="1" BorderBrush="{DynamicResource AppBorder2}"
                                                                                         Padding="0" Cursor="Hand"
+                                                                                        controls:FlyoutActions.CloseOnSuccess="True"
                                                                                         Command="{Binding #ScenesRoot.DataContext.AssignSceneColorCommand}"
                                                                                         CommandParameter="{Binding}"/>
 																			</DataTemplate>
@@ -380,7 +385,8 @@
 													<Button Classes="scene-menu-item danger" Content="Supprimer">
 														<Button.Flyout>
 															<Flyout Placement="Right">
-																<StackPanel Width="200" Spacing="10" Margin="4">
+																<StackPanel Width="200" Spacing="10" Margin="4"
+                                                                                controls:FlyoutActions.Error="{Binding #ScenesRoot.DataContext.DeleteSceneError}">
 																	<TextBlock Text="SUPPRIMER LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 																	<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
@@ -392,6 +398,7 @@
                                                                                Foreground="{StaticResource StatusErrorBrush}" FontSize="10" TextWrapping="Wrap"/>
 																	<Button Content="SUPPRIMER"
                                                                             Command="{Binding #ScenesRoot.DataContext.DeleteSceneCommand}"
+                                                                            controls:FlyoutActions.CloseOnSuccess="True"
                                                                             CommandParameter="{Binding}"
                                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                                             Height="32" Background="{StaticResource StatusErrorBrush}" Foreground="#eaeaf0"

@@ -28,11 +28,19 @@ public partial class ScenesViewModel : ViewModelBase
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
     [ObservableProperty] private SceneItemViewModel? _selectedScene;
-    [ObservableProperty] private string _newSceneName = "";
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CreateSceneCommand))]
+    private string _newSceneName = "";
+    [ObservableProperty] private string _createSceneError = "";
     [ObservableProperty] private bool _isSelectionModeActive;
     [ObservableProperty] private string _deleteSceneError = "";
-    [ObservableProperty] private SceneItemViewModel? _sceneBeingRenamed;
-    [ObservableProperty] private string _renameSceneName = "";
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmRenameSceneCommand))]
+    private SceneItemViewModel? _sceneBeingRenamed;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmRenameSceneCommand))]
+    private string _renameSceneName = "";
+    [ObservableProperty] private string _renameSceneError = "";
     [ObservableProperty] private SceneItemViewModel? _sceneBeingColored;
     [ObservableProperty] private string _sceneIoStatus = "";
     [ObservableProperty] private string _sourceOperationStatus = "";
@@ -123,16 +131,21 @@ public partial class ScenesViewModel : ViewModelBase
         SelectedScene = _workspace.ActiveScene;
     }
 
-    [RelayCommand]
+    // Typing again clears the previous failure; the flyout reads a non-empty error as "keep open".
+    partial void OnNewSceneNameChanged(string value) => CreateSceneError = "";
+
+    private bool CanCreateScene() => !string.IsNullOrWhiteSpace(NewSceneName);
+
+    [RelayCommand(CanExecute = nameof(CanCreateScene))]
     private void CreateScene()
     {
-        if (string.IsNullOrWhiteSpace(NewSceneName)) return;
+        if (!CanCreateScene()) return;
 
         var definition = new SceneDefinition { Name = NewSceneName.Trim() };
         var result = _sceneRuntime.CreateScene(definition.Id, definition.Name);
         if (!result.IsSuccess)
         {
-            SceneIoStatus = result.Message;
+            CreateSceneError = result.Message;
             return;
         }
 
@@ -141,7 +154,6 @@ public partial class ScenesViewModel : ViewModelBase
         var scene = _workspace.AddScene(definition);
         SelectScene(scene);
         NewSceneName = "";
-        SceneIoStatus = "";
     }
 
     [RelayCommand]
@@ -208,9 +220,13 @@ public partial class ScenesViewModel : ViewModelBase
     {
         SceneBeingRenamed = scene;
         RenameSceneName = scene.Name;
+        RenameSceneError = "";
     }
 
-    [RelayCommand]
+    private bool CanConfirmRenameScene() =>
+        SceneBeingRenamed != null && !string.IsNullOrWhiteSpace(RenameSceneName);
+
+    [RelayCommand(CanExecute = nameof(CanConfirmRenameScene))]
     private void ConfirmRenameScene()
     {
         if (SceneBeingRenamed == null || string.IsNullOrWhiteSpace(RenameSceneName)) return;
@@ -218,13 +234,13 @@ public partial class ScenesViewModel : ViewModelBase
         var result = _sceneRuntime.RenameScene(SceneBeingRenamed.Id, RenameSceneName);
         if (!result.IsSuccess)
         {
-            SceneIoStatus = result.Message;
+            RenameSceneError = result.Message;
             return;
         }
 
         SceneBeingRenamed.Name = result.EffectiveName;
         SceneBeingRenamed = null;
-        SceneIoStatus = "";
+        RenameSceneError = "";
     }
 
     [RelayCommand]

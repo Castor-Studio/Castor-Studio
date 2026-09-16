@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Studio"
              xmlns:converters="using:CastorApplication.Converters"
+             xmlns:controls="using:CastorApplication.Controls"
              x:Class="CastorApplication.Views.Studio.StreamControlsPaneView"
              x:DataType="vm:StudioViewModel">
 
@@ -37,7 +38,8 @@
                     BorderBrush="{DynamicResource AppLiveBorder}">
 				<Button.Flyout>
 					<Flyout Placement="Top">
-						<StackPanel Width="280" Spacing="12" Margin="4">
+						<StackPanel Width="280" Spacing="12" Margin="4"
+                                    controls:FlyoutActions.Error="{Binding StreamError}">
 							<TextBlock Text="DÉMARRER LE STREAM"
                                        FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 							<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
@@ -64,6 +66,7 @@
 							</Border>
 							<Button Content="DÉMARRER"
                                     Command="{Binding StartStreamingCommand}"
+                                    controls:FlyoutActions.CloseOnSuccess="True"
                                     Classes="flyout-start"
                                     Background="{StaticResource StatusOkBrush}" Foreground="{DynamicResource AppVeryDarkBg}"/>
 							<TextBlock Text="{Binding StreamError}"
@@ -92,7 +95,8 @@
                     BorderBrush="{DynamicResource AppRecBorder}">
 				<Button.Flyout>
 					<Flyout Placement="Top">
-						<StackPanel Width="280" Spacing="12" Margin="4">
+						<StackPanel Width="280" Spacing="12" Margin="4"
+                                    controls:FlyoutActions.Error="{Binding RecordError}">
 							<TextBlock Text="DÉMARRER L'ENREGISTREMENT"
                                        FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 							<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
@@ -120,6 +124,7 @@
 
 							<Button Content="DÉMARRER L'ENREGISTREMENT"
                                     Command="{Binding StartRecordingCommand}"
+                                    controls:FlyoutActions.CloseOnSuccess="True"
                                     Classes="flyout-start"
                                     Background="{StaticResource StatusRecBrush}" Foreground="{DynamicResource AppFg1}"/>
 						</StackPanel>
