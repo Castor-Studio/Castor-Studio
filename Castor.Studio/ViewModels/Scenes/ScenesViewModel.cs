@@ -23,6 +23,7 @@ public partial class ScenesViewModel : ViewModelBase
     private readonly ISceneCollectionService _sceneCollectionService;
     private readonly IAddSourceDialogViewModelFactory _dialogFactory;
     private readonly IAddSourceDialogService _dialogService;
+    private readonly ISceneTransferDialogService _transferDialogService;
     private readonly SettingsService? _settingsService;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
@@ -116,8 +117,10 @@ public partial class ScenesViewModel : ViewModelBase
         ISceneCollectionService sceneCollectionService,
         IAddSourceDialogViewModelFactory dialogFactory,
         IAddSourceDialogService dialogService,
+        ISceneTransferDialogService transferDialogService,
         SettingsService? settingsService = null)
     {
+        _transferDialogService = transferDialogService;
         _workspace = workspace;
         _runtime = runtime;
         _previewRuntime = previewRuntime;
@@ -363,23 +366,30 @@ public partial class ScenesViewModel : ViewModelBase
         }
     }
 
+    // The scenes are chosen first, in a dialog that pre-checks the current selection (every scene
+    // when nothing is selected) and counts what will be written; the file comes after. Cancelling
+    // either step writes nothing.
     [RelayCommand]
     private async Task ExportScenes(CancellationToken cancellationToken)
     {
-        var selected = GetSelectedScenes();
-        var scenes = selected.Count > 0 ? selected : Scenes.ToList();
-        if (scenes.Count == 0)
+        if (Scenes.Count == 0)
         {
             SceneIoStatus = "Aucune scène à exporter.";
             return;
         }
 
+        var dialog = SceneTransferDialogViewModel.ForExport(Scenes);
+        if (!await _transferDialogService.ShowAsync(dialog)) return;
+
+        var scenes = dialog.CheckedItems.Select(item => item.Definition).ToArray();
+        if (scenes.Length == 0) return;
+
         var path = await _filePickerService.PickSceneExportFileAsync();
         if (path == null) return;
         try
         {
-            await _sceneCollectionService.SaveAsync(path, scenes.Select(scene => scene.ToDefinition()).ToArray(), cancellationToken);
-            SceneIoStatus = $"{scenes.Count} scène(s) exportée(s).";
+            await _sceneCollectionService.SaveAsync(path, scenes, cancellationToken);
+            SceneIoStatus = $"{scenes.Length} scène(s) exportée(s).";
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -387,20 +397,64 @@ public partial class ScenesViewModel : ViewModelBase
         }
     }
 
+    // One or more files, then a dialog listing every scene they hold, all checked, with name and
+    // identity collisions flagged. Only what is still checked when the dialog is confirmed is
+    // written; cancelling it writes nothing.
     [RelayCommand]
     private async Task ImportScenes(CancellationToken cancellationToken)
     {
-        var path = await _filePickerService.PickSceneImportFileAsync();
-        if (path == null) return;
+        var paths = await _filePickerService.PickSceneImportFilesAsync();
+        if (paths.Count == 0) return;
+
+        var found = new List<SceneTransferItem>();
+        var fileErrors = new List<string>();
+        foreach (var path in paths)
+        {
+            try
+            {
+                var scenes = await _sceneCollectionService.LoadAsync(path, cancellationToken);
+                var origin = paths.Count > 1 ? Path.GetFileName(path) : "";
+                found.AddRange(scenes.Select(scene => new SceneTransferItem(scene, origin)));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                fileErrors.Add($"{Path.GetFileName(path)} : {exception.Message}");
+            }
+        }
+
+        if (found.Count == 0)
+        {
+            SceneIoStatus = fileErrors.Count == 0
+                ? "Aucune scène trouvée dans ce fichier."
+                : $"Import impossible : {string.Join(" | ", fileErrors)}";
+            return;
+        }
+
+        var dialog = SceneTransferDialogViewModel.ForImport(Scenes, found, fileErrors);
+        if (!await _transferDialogService.ShowAsync(dialog)) return;
+
+        // The same scene twice (already in the project, or twice in the import) comes in as a copy:
+        // the engine refuses a second scene with an identity it already holds.
+        var takenIds = Scenes.Select(scene => scene.Id).ToHashSet();
+        var imported = new List<SceneDefinition>();
+        foreach (var item in dialog.CheckedItems)
+        {
+            var definition = item.Definition;
+            if (!takenIds.Add(definition.Id))
+            {
+                definition.Id = Guid.NewGuid();
+                takenIds.Add(definition.Id);
+            }
+            imported.Add(definition);
+        }
+
+        ImportDefinitions(imported);
+    }
+
+    private void ImportDefinitions(IReadOnlyList<SceneDefinition> imported)
+    {
         try
         {
-            var imported = await _sceneCollectionService.LoadAsync(path, cancellationToken);
-            if (imported.Count == 0)
-            {
-                SceneIoStatus = "Aucune scène trouvée dans ce fichier.";
-                return;
-            }
-
             var skipped = 0;
             var failed = 0;
             var sourceFailures = 0;

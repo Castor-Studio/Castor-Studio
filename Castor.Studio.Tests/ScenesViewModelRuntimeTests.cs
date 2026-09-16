@@ -496,6 +496,104 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Null(viewModel.SourceBeingRenamed);
     }
 
+    [Fact]
+    public async Task Import_writes_only_the_scenes_left_checked_from_every_picked_file()
+    {
+        var first = new SceneDefinition { Name = "Plateau" };
+        var second = new SceneDefinition { Name = "Interview" };
+        var third = new SceneDefinition { Name = "Générique" };
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>
+        {
+            [@"C:\a.json"] = [first, second],
+            [@"C:\b.json"] = [third],
+        });
+        var dialog = new FakeTransferDialogService(choose: shown =>
+            shown.Items.Single(item => item.Name == "Interview").IsChecked = false);
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            filePicker: new FakeFilePicker([@"C:\a.json", @"C:\b.json", @"C:\broken.json"], null),
+            sceneCollection: collection,
+            transferDialog: dialog);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        // Everything found was offered, checked, with the file it came from and the unreadable one reported.
+        Assert.Equal(3, dialog.Shown!.Items.Count);
+        Assert.Contains("b.json", dialog.Shown.Items.Single(item => item.Name == "Générique").Detail);
+        Assert.Contains("broken.json", Assert.Single(dialog.Shown.FileErrors));
+        Assert.Equal(["Plateau", "Générique"], viewModel.Scenes.Select(scene => scene.Name));
+    }
+
+    [Fact]
+    public async Task Cancelling_the_import_selection_writes_nothing()
+    {
+        var runtime = new FakeSceneRuntime();
+        var created = 0;
+        runtime.Create = (_, name) => { created++; return SceneRuntimeResult.Success(name); };
+        var viewModel = CreateViewModel(
+            runtime,
+            imported: [new SceneDefinition { Name = "Plateau" }],
+            transferDialog: new FakeTransferDialogService(confirm: false));
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        Assert.Empty(viewModel.Scenes);
+        Assert.Equal(0, created);
+    }
+
+    [Fact]
+    public async Task Importing_a_scene_already_in_the_project_adds_a_copy()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+        var existing = CreateScene(viewModel, "Plateau");
+        var sameScene = new SceneDefinition { Id = existing.Id, Name = "Plateau" };
+        var dialog = new FakeTransferDialogService();
+        viewModel = CreateViewModel(new FakeSceneRuntime(), workspace, imported: [sameScene], transferDialog: dialog);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        Assert.True(dialog.Shown!.Items.Single().HasCollision);
+        Assert.Equal(2, workspace.Scenes.Count);
+        Assert.NotEqual(workspace.Scenes[0].Id, workspace.Scenes[1].Id);
+    }
+
+    [Fact]
+    public async Task Export_pre_checks_the_selection_and_writes_what_is_checked()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var dialog = new FakeTransferDialogService();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            filePicker: new FakeFilePicker([], null, exportPath: @"C:\export.json"),
+            sceneCollection: collection,
+            transferDialog: dialog);
+        CreateScene(viewModel, "Plateau");
+        var interview = CreateScene(viewModel, "Interview");
+        interview.IsMultiSelected = true;
+
+        await viewModel.ExportScenesCommand.ExecuteAsync(null);
+
+        Assert.Equal([false, true], dialog.Shown!.Items.Select(item => item.IsChecked));
+        Assert.Equal(["Interview"], collection.Saved.Select(scene => scene.Name));
+    }
+
+    [Fact]
+    public async Task Cancelling_the_export_selection_writes_nothing()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            filePicker: new FakeFilePicker([], null, exportPath: @"C:\export.json"),
+            sceneCollection: collection,
+            transferDialog: new FakeTransferDialogService(confirm: false));
+        CreateScene(viewModel, "Plateau");
+
+        await viewModel.ExportScenesCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, collection.SaveCalls);
+    }
+
     private static SceneItemViewModel CreateScene(ScenesViewModel viewModel, string name)
     {
         viewModel.NewSceneName = name;
@@ -510,17 +608,21 @@ public sealed class ScenesViewModelRuntimeTests
         FakeSourceRuntime? sourceRuntime = null,
         string? mediaPath = null,
         IScenePreviewRuntime? previewRuntime = null,
-        SettingsService? settingsService = null) =>
+        SettingsService? settingsService = null,
+        FakeTransferDialogService? transferDialog = null,
+        FakeFilePicker? filePicker = null,
+        FakeSceneCollection? sceneCollection = null) =>
         new(
             workspace ?? new StudioWorkspaceViewModel(),
             new UnavailableStudioRuntime(),
             previewRuntime ?? new UnavailableScenePreviewRuntime(),
             runtime,
             sourceRuntime ??= new FakeSourceRuntime(),
-            new FakeFilePicker(imported == null ? null : "scenes.json", mediaPath),
-            new FakeSceneCollection(imported ?? []),
+            filePicker ?? new FakeFilePicker(imported == null ? [] : ["scenes.json"], mediaPath),
+            sceneCollection ?? new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>> { ["scenes.json"] = imported ?? [] }),
             new FakeDialogFactory(sourceRuntime),
             new FakeDialogService(),
+            transferDialog ?? new FakeTransferDialogService(),
             settingsService);
 
     private sealed class FakeSceneRuntime : ISceneRuntime
@@ -619,20 +721,45 @@ public sealed class ScenesViewModelRuntimeTests
         }
     }
 
-    private sealed class FakeFilePicker(string? importPath, string? mediaPath) : IFilePickerService
+    private sealed class FakeFilePicker(IReadOnlyList<string> importPaths, string? mediaPath, string? exportPath = null) : IFilePickerService
     {
         public Task<string?> PickRecordingOutputFolderAsync(string? initialPath = null) => Task.FromResult<string?>(null);
         public Task<string?> PickVideoFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickAudioFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickMediaFileAsync() => Task.FromResult(mediaPath);
-        public Task<string?> PickSceneExportFileAsync() => Task.FromResult<string?>(null);
-        public Task<string?> PickSceneImportFileAsync() => Task.FromResult(importPath);
+        public Task<string?> PickSceneExportFileAsync() => Task.FromResult(exportPath);
+        public Task<IReadOnlyList<string>> PickSceneImportFilesAsync() => Task.FromResult(importPaths);
     }
 
-    private sealed class FakeSceneCollection(IReadOnlyList<SceneDefinition> scenes) : ISceneCollectionService
+    private sealed class FakeSceneCollection(IReadOnlyDictionary<string, IReadOnlyList<SceneDefinition>> files) : ISceneCollectionService
     {
-        public Task SaveAsync(string path, IReadOnlyCollection<SceneDefinition> definitions, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<IReadOnlyList<SceneDefinition>> LoadAsync(string path, CancellationToken cancellationToken) => Task.FromResult(scenes);
+        public List<SceneDefinition> Saved { get; } = [];
+        public int SaveCalls { get; private set; }
+
+        public Task SaveAsync(string path, IReadOnlyCollection<SceneDefinition> definitions, CancellationToken cancellationToken)
+        {
+            SaveCalls++;
+            Saved.AddRange(definitions);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<SceneDefinition>> LoadAsync(string path, CancellationToken cancellationToken) =>
+            files.TryGetValue(path, out var scenes)
+                ? Task.FromResult(scenes)
+                : throw new InvalidDataException("fichier illisible");
+    }
+
+    // Stands in for the operator: optionally changes what is checked, then confirms or cancels.
+    private sealed class FakeTransferDialogService(bool confirm = true, Action<SceneTransferDialogViewModel>? choose = null) : ISceneTransferDialogService
+    {
+        public SceneTransferDialogViewModel? Shown { get; private set; }
+
+        public Task<bool> ShowAsync(SceneTransferDialogViewModel viewModel)
+        {
+            Shown = viewModel;
+            choose?.Invoke(viewModel);
+            return Task.FromResult(confirm);
+        }
     }
 
     private sealed class FakeDialogFactory(ISourceRuntime runtime) : IAddSourceDialogViewModelFactory

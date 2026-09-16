@@ -142,7 +142,7 @@
 					<!-- Direct actions, not a "Fichier" submenu: the menu bar owns the only "Fichier". -->
 					<Button Classes="scene-toolbar-item"
                             Command="{Binding ImportScenesCommand}"
-                            ToolTip.Tip="Importer des scènes depuis un fichier">
+                            ToolTip.Tip="Choisir les scènes à importer depuis un ou plusieurs fichiers">
 						<Grid ColumnDefinitions="20, *, Auto">
 							<Viewbox Grid.Column="0" Width="16" Height="16"
                                      HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -158,7 +158,7 @@
 
 					<Button Classes="scene-toolbar-item"
                             Command="{Binding ExportScenesCommand}"
-                            ToolTip.Tip="Exporter les scènes sélectionnées, ou toutes si aucune ne l'est">
+                            ToolTip.Tip="Choisir les scènes à exporter">
 						<Grid ColumnDefinitions="20, *, Auto">
 							<Viewbox Grid.Column="0" Width="16" Height="16"
                                      HorizontalAlignment="Center" VerticalAlignment="Center">
