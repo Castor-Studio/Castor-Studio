@@ -25,6 +25,7 @@ public partial class App : Application
             // Closing the main window still takes them down, rather than leaving stray windows
             // behind that would keep the process alive.
             DockSettings.FloatingWindowOwnerPolicy = DockFloatingWindowOwnerPolicy.NeverOwned;
+            CastorApplication.Docking.StudioPanelChrome.Register();
             DockSettings.CloseFloatingWindowsOnMainWindowClose = true;
 
             var collection = new ServiceCollection();

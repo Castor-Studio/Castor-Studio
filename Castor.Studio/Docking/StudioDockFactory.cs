@@ -22,7 +22,7 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         // CanFloat lets a panel be dragged out of the main window; CanClose stays off because
         // the Studio page needs all four of them (see OnWindowClosing for what a closed
         // floating window does with the panels it was holding).
-        var preview = new PreviewDocument { Id = StudioDockIds.Preview, Title = "Aperçu", CanClose = false, CanFloat = true };
+        var preview = new PreviewTool { Id = StudioDockIds.Preview, Title = "Aperçu", CanClose = false, CanFloat = true };
         var sceneSelector = new SceneSelectorTool { Id = StudioDockIds.SceneSelector, Title = "Scène active", CanClose = false, CanFloat = true };
         var status = new StatusTool { Id = StudioDockIds.Status, Title = "Statut", CanClose = false, CanFloat = true };
         var streamControls = new StreamControlsTool { Id = StudioDockIds.StreamControls, Title = "Diffusion & Enregistrement", CanClose = false, CanFloat = true };
@@ -38,17 +38,8 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
 
         // The docks float too: with a single pane inside, the chrome bar - not the hidden tab
         // strip - is the drag handle, and dragging it detaches the dock rather than the pane.
-        var previewDock = new DocumentDock
-        {
-            Id = StudioDockIds.PreviewDock,
-            Title = "Aperçu",
-            ActiveDockable = preview,
-            VisibleDockables = CreateList<IDockable>(preview),
-            CanCreateDocument = false,
-            CanClose = false,
-            CanFloat = true,
-            Proportion = 0.82,
-        };
+        // The preview is a tool like the others, so it gets the same bar (title, menu, pin).
+        var previewDock = CreatePreviewDock(preview, proportion: 0.82);
 
         var sceneSelectorDock = new ToolDock
         {
@@ -114,6 +105,52 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         root.CanFloat = false;
 
         return root;
+    }
+
+    private ToolDock CreatePreviewDock(PreviewTool preview, double proportion) => new()
+    {
+        Id = StudioDockIds.PreviewDock,
+        Title = "Aperçu",
+        ActiveDockable = preview,
+        VisibleDockables = CreateList<IDockable>(preview),
+        CanClose = false,
+        CanFloat = true,
+        Proportion = proportion,
+    };
+
+    // A layout saved while the preview was a document holds it in a document dock, with a tab
+    // instead of a bar. Swaps that dock for a tool dock in the same place and at the same size,
+    // detached windows included, so the saved arrangement survives. Call before InitLayout.
+    public void MigrateLegacyPreview(IRootDock layout)
+    {
+        Migrate(layout);
+        foreach (var window in layout.Windows ?? [])
+        {
+            if (window.Layout is { } floating) Migrate(floating);
+        }
+
+        void Migrate(IDock dock)
+        {
+            if (dock.VisibleDockables is not { } children) return;
+
+            for (var index = 0; index < children.Count; index++)
+            {
+                if (children[index] is not IDock child) continue;
+
+                if (child is IDocumentDock legacy && legacy.VisibleDockables?.OfType<PreviewDocument>().Any() == true)
+                {
+                    var preview = new PreviewTool { Id = StudioDockIds.Preview, Title = "Aperçu", CanClose = false, CanFloat = true };
+                    var replacement = CreatePreviewDock(preview, legacy.Proportion);
+                    children[index] = replacement;
+                    if (ReferenceEquals(dock.ActiveDockable, legacy)) dock.ActiveDockable = replacement;
+                    if (ReferenceEquals(dock.DefaultDockable, legacy)) dock.DefaultDockable = replacement;
+                    if (ReferenceEquals(dock.FocusedDockable, legacy)) dock.FocusedDockable = replacement;
+                    continue;
+                }
+
+                Migrate(child);
+            }
+        }
     }
 
     public override void InitLayout(IDockable layout)

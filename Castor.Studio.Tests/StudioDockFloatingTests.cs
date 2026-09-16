@@ -217,6 +217,73 @@ public sealed class StudioDockFloatingTests
         }
     }
 
+    [Fact]
+    public void A_layout_saved_while_the_preview_was_a_document_gets_the_preview_bar()
+    {
+        var layoutFile = Path.Combine(Path.GetTempPath(), $"castor-dock-layout-{Guid.NewGuid():N}.json");
+        var service = new DockLayoutService(layoutFile);
+
+        try
+        {
+            // What an older build wrote: the preview as a document, in a document dock the user resized.
+            var writer = new StudioDockFactory(null, () => new FakeHostWindow());
+            var legacy = writer.CreateLayout();
+            var column = (IDock)legacy.VisibleDockables!.Single();
+            var previewDockIndex = column.VisibleDockables!.IndexOf(
+                column.VisibleDockables.Single(dockable => dockable.Id == StudioDockIds.PreviewDock));
+            var document = new PreviewDocument { Id = StudioDockIds.Preview, Title = "Aperçu" };
+            column.VisibleDockables[previewDockIndex] = new Dock.Model.Mvvm.Controls.DocumentDock
+            {
+                Id = StudioDockIds.PreviewDock,
+                Proportion = 0.6,
+                ActiveDockable = document,
+                VisibleDockables = writer.CreateList<IDockable>(document),
+            };
+            service.Save(legacy);
+
+            var reloaded = Assert.IsAssignableFrom<IRootDock>(service.Load());
+            var factory = new StudioDockFactory(null, () => new FakeHostWindow());
+            factory.MigrateLegacyPreview(reloaded);
+            factory.InitLayout(reloaded);
+
+            var preview = Assert.IsType<PreviewTool>(factory.FindDockable(reloaded, dockable => dockable.Id == StudioDockIds.Preview));
+            var previewDock = Assert.IsAssignableFrom<IToolDock>(preview.Owner);
+            Assert.Equal(StudioDockIds.PreviewDock, previewDock.Id);
+            Assert.Equal(0.6, previewDock.Proportion);
+            Assert.True(previewDock.CanFloat);
+            Assert.Empty(factory.Find(reloaded, dockable => dockable is PreviewDocument or IDocumentDock));
+        }
+        finally
+        {
+            File.Delete(layoutFile);
+        }
+    }
+
+    [Fact]
+    public void Only_a_detached_preview_can_fill_its_screen()
+    {
+        var (factory, root) = CreateStudioLayout();
+        var previewDock = factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.PreviewDock)!;
+
+        // Docked, it would cover the app it is meant to leave room for.
+        Assert.False(factory.TogglePreviewFullscreenCommand.CanExecute(previewDock));
+
+        factory.FloatDockable(previewDock);
+        factory.FloatDockable(factory.FindDockable(root, dockable => dockable.Id == StudioDockIds.Status)!);
+        var previewWindow = root.Windows!.Single(window => factory.FindDockable(window.Layout!, d => d is PreviewTool) is not null);
+        var statusWindow = root.Windows!.Single(window => window != previewWindow);
+        var detachedPreview = previewWindow.Layout!.VisibleDockables!.Single();
+        var detachedStatus = statusWindow.Layout!.VisibleDockables!.Single();
+
+        Assert.False(factory.TogglePreviewFullscreenCommand.CanExecute(detachedStatus));
+        Assert.True(factory.TogglePreviewFullscreenCommand.CanExecute(detachedPreview));
+
+        factory.TogglePreviewFullscreenCommand.Execute(detachedPreview);
+
+        Assert.Equal(1, ((FakeHostWindow)previewWindow.Host!).FullscreenToggles);
+        Assert.Equal(0, ((FakeHostWindow)statusWindow.Host!).FullscreenToggles);
+    }
+
     private static (StudioDockFactory Factory, IRootDock Root) CreateStudioLayout()
     {
         var factory = new StudioDockFactory(paneContext: null, () => new FakeHostWindow());
@@ -245,8 +312,12 @@ public sealed class StudioDockFloatingTests
             .ToArray();
     }
 
-    private sealed class FakeHostWindow : IHostWindow
+    private sealed class FakeHostWindow : IHostWindow, IFullscreenHost
     {
+        public int FullscreenToggles { get; private set; }
+
+        public void ToggleFullscreen() => FullscreenToggles++;
+
         private double _x;
         private double _y;
         private double _width;

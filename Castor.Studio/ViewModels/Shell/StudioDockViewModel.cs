@@ -31,6 +31,7 @@ public partial class StudioDockViewModel : ViewModelBase
         if (_layoutService.Load() is IRootDock saved)
         {
             layout = saved;
+            _factory.MigrateLegacyPreview(layout);
 
             // The saved arrangement is kept, but what each panel is and is allowed to do comes
             // from the factory: a layout written by an older build would otherwise keep panels
