@@ -616,6 +616,50 @@ public sealed class LibObsSceneRuntimeTests
         OutputHeight: 180,
         container);
 
+
+    [Fact]
+    public void Native_runtime_reads_back_and_changes_the_stacking_order()
+    {
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-order-{Guid.NewGuid():N}.wav");
+        WriteSilentWave(mediaPath);
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var sceneId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(sceneId, $"Order {Guid.NewGuid():N}").IsSuccess);
+
+            var first = Guid.NewGuid();
+            var second = Guid.NewGuid();
+            var third = Guid.NewGuid();
+            foreach (var (id, name) in new[] { (first, "Une"), (second, "Deux"), (third, "Trois") })
+            {
+                var added = runtime.AddSource(sceneId, new SourceAddRequest.Media(id, name, mediaPath, true));
+                Assert.True(added.IsSuccess, added.Message);
+            }
+
+            // Une source ajoutée arrive au premier plan, donc en tête de l'ordre lu.
+            var order = runtime.GetSourceOrder(sceneId);
+            Assert.True(order.IsSuccess, order.Message);
+            Assert.Equal([third, second, first], order.SourceIds);
+
+            // Rang 0 = premier plan.
+            Assert.True(runtime.MoveSource(sceneId, first, 0).IsSuccess);
+            Assert.Equal([first, third, second], runtime.GetSourceOrder(sceneId).SourceIds);
+
+            // Dernier rang = arrière-plan.
+            Assert.True(runtime.MoveSource(sceneId, first, 2).IsSuccess);
+            Assert.Equal([third, second, first], runtime.GetSourceOrder(sceneId).SourceIds);
+
+            Assert.True(runtime.RemoveScene(sceneId).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            File.Delete(mediaPath);
+        }
+    }
+
     private static void WriteSilentWave(string path)
     {
         const int sampleRate = 8_000;

@@ -257,9 +257,130 @@ public sealed class ScenesViewModelRuntimeTests
         await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(option));
 
         Assert.Equal(2, viewModel.SelectedScene!.Sources.Count);
-        Assert.Equal(["Navigateur", "Navigateur 2"], viewModel.SelectedScene.Sources.Select(source => source.Name));
+        // La liste suit l'empilement du moteur, premier plan en tête : la source la plus
+        // récemment ajoutée passe devant les précédentes.
+        Assert.Equal(["Navigateur 2", "Navigateur"], viewModel.SelectedScene.Sources.Select(source => source.Name));
         Assert.Equal(2, sourceRuntime.AddedRequests.Count);
     }
+
+    [Fact]
+    public async Task Three_sources_can_be_reordered_entirely_from_the_interface()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Écran", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        Assert.Equal(["Overlay", "Écran", "Caméra"], Names(scene));
+
+        // Glisser-déposer : lâcher une source sur une autre lui prend son rang.
+        viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
+        Assert.Equal(["Caméra", "Overlay", "Écran"], Names(scene));
+        Assert.Equal(0, sourceRuntime.RequestedLayerIndexes[^1]);
+
+        // Équivalent clavier : un plan en arrière, puis un plan en avant.
+        viewModel.LowerSourceCommand.Execute(scene.Sources[0]);
+        Assert.Equal(["Overlay", "Caméra", "Écran"], Names(scene));
+        Assert.Equal(1, sourceRuntime.RequestedLayerIndexes[^1]);
+
+        viewModel.RaiseSourceCommand.Execute(scene.Sources[2]);
+        Assert.Equal(["Overlay", "Écran", "Caméra"], Names(scene));
+        Assert.Equal(1, sourceRuntime.RequestedLayerIndexes[^1]);
+        Assert.Equal("", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public async Task Reloading_a_scene_takes_the_order_back_from_the_engine()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        var scene = CreateScene(viewModel, "Composition");
+        var other = CreateScene(viewModel, "Autre");
+        viewModel.SelectSceneCommand.Execute(scene);
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Écran", "Overlay");
+
+        viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
+        var engineOrder = Names(scene);
+
+        // Une liste locale qui dériverait n'est pas une source de vérité : la scène rouverte
+        // se recale sur ce que le moteur détient.
+        scene.Sources.Move(0, 2);
+        Assert.NotEqual(engineOrder, Names(scene));
+
+        viewModel.SelectSceneCommand.Execute(other);
+        viewModel.SelectSceneCommand.Execute(scene);
+
+        Assert.Equal(engineOrder, Names(scene));
+    }
+
+    [Fact]
+    public async Task A_refused_reorder_leaves_the_list_on_what_the_engine_holds()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Écran", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        var before = Names(scene);
+        sourceRuntime.Move = (_, _, _) => SourceRuntimeResult.Failure("réordonnancement refusé");
+
+        viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
+
+        Assert.Equal(before, Names(scene));
+        Assert.Equal("réordonnancement refusé", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public async Task The_two_ends_of_the_stack_cannot_be_pushed_further()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        Assert.False(viewModel.RaiseSourceCommand.CanExecute(scene.Sources[0]));
+        Assert.True(viewModel.LowerSourceCommand.CanExecute(scene.Sources[0]));
+        Assert.True(viewModel.RaiseSourceCommand.CanExecute(scene.Sources[^1]));
+        Assert.False(viewModel.LowerSourceCommand.CanExecute(scene.Sources[^1]));
+
+        viewModel.RaiseSourceCommand.Execute(scene.Sources[0]);
+        Assert.Empty(sourceRuntime.RequestedLayerIndexes);
+    }
+
+    [Fact]
+    public async Task An_order_the_engine_cannot_give_back_is_reported_rather_than_swallowed()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        var before = Names(scene);
+        sourceRuntime.OrderIsUnreadable = true;
+
+        // Le moteur accepte le déplacement mais ne sait plus rendre l'ordre : la liste reste
+        // en arrière, ce qui doit se voir plutôt que passer pour un geste sans effet.
+        viewModel.LowerSourceCommand.Execute(scene.Sources[0]);
+
+        Assert.Equal(before, Names(scene));
+        Assert.Equal("ordre illisible", viewModel.SourceOperationStatus);
+    }
+
+    private static async Task AddVideoSourcesAsync(ScenesViewModel viewModel, params string[] labels)
+    {
+        foreach (var label in labels)
+        {
+            await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(
+                new CaptureSourceOption(label, label, VideoCaptureKind.Window)));
+        }
+    }
+
+    private static string[] Names(SceneItemViewModel scene) =>
+        scene.Sources.Select(source => source.Name).ToArray();
 
     [Fact]
     public async Task Native_add_failure_does_not_change_local_sources()
@@ -421,6 +542,10 @@ public sealed class ScenesViewModelRuntimeTests
         {
         }
 
+        public void SetCompositionOutlines(IntPtr windowHandle, IReadOnlyList<SourceTransform> sources)
+        {
+        }
+
         public Task<StudioRuntimeResult> StopPreviewAsync(IntPtr windowHandle, Guid sceneId, CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
     }
@@ -433,9 +558,17 @@ public sealed class ScenesViewModelRuntimeTests
             (_, _) => SourceRuntimeResult.Success();
         public Func<Guid, Guid, bool, SourceRuntimeResult> SetLoop { get; set; } =
             (_, _, _) => SourceRuntimeResult.Success();
+        public Func<Guid, Guid, int, SourceRuntimeResult> Move { get; set; } =
+            (_, _, _) => SourceRuntimeResult.Success();
         public List<SourceAddRequest> AddedRequests { get; } = [];
         public int RemoveCalls { get; private set; }
         public List<bool> LoopValues { get; } = [];
+        public List<int> RequestedLayerIndexes { get; } = [];
+        public bool OrderIsUnreadable { get; set; }
+
+        // Empilement tenu par le faux moteur, du premier plan vers l'arrière-plan, pour que
+        // les tests exercent la relecture plutôt qu'un ordre supposé côté ViewModel.
+        private readonly Dictionary<Guid, List<Guid>> _layers = [];
 
         public bool IsAvailable => true;
         public string UnavailableMessage => "";
@@ -446,19 +579,59 @@ public sealed class ScenesViewModelRuntimeTests
         public SourceRuntimeResult AddSource(Guid sceneId, SourceAddRequest request)
         {
             AddedRequests.Add(request);
-            return Add(sceneId, request);
+            var result = Add(sceneId, request);
+            // Comme libobs, une source ajoutée se place au premier plan.
+            if (result.IsSuccess) Layers(sceneId).Insert(0, request.SourceId);
+            return result;
         }
 
         public SourceRuntimeResult RemoveSource(Guid sceneId, Guid sourceId)
         {
             RemoveCalls++;
-            return Remove(sceneId, sourceId);
+            var result = Remove(sceneId, sourceId);
+            if (result.IsSuccess) Layers(sceneId).Remove(sourceId);
+            return result;
         }
 
         public SourceRuntimeResult SetMediaLoop(Guid sceneId, Guid sourceId, bool loop)
         {
             LoopValues.Add(loop);
             return SetLoop(sceneId, sourceId, loop);
+        }
+
+        public SourceOrderResult GetSourceOrder(Guid sceneId) =>
+            OrderIsUnreadable
+                ? SourceOrderResult.Failure("ordre illisible")
+                : SourceOrderResult.Success(Layers(sceneId).ToArray());
+
+        // La composition elle-même est éprouvée par SceneCompositionViewModelTests ; ici, il
+        // suffit que la scène en rende une pour que le canvas suive les gestes.
+        public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
+            SceneCompositionResult.Success(new SceneComposition(1920, 1080, []));
+
+        public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
+        {
+            RequestedLayerIndexes.Add(layerIndex);
+            var result = Move(sceneId, sourceId, layerIndex);
+            if (!result.IsSuccess) return result;
+
+            var layers = Layers(sceneId);
+            var current = layers.IndexOf(sourceId);
+            if (current < 0 || layerIndex < 0 || layerIndex >= layers.Count)
+                return SourceRuntimeResult.Failure("rang hors de la pile");
+
+            layers.RemoveAt(current);
+            layers.Insert(layerIndex, sourceId);
+            return result;
+        }
+
+        private List<Guid> Layers(Guid sceneId)
+        {
+            if (_layers.TryGetValue(sceneId, out var layers)) return layers;
+
+            layers = [];
+            _layers[sceneId] = layers;
+            return layers;
         }
     }
 

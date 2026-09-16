@@ -421,7 +421,9 @@
 		<!-- ═══ RIGHT PANEL ═══ -->
 		<Grid Grid.Column="2" RowDefinitions="*, 8, 200" Margin="8">
 
-			<!-- Scene preview -->
+			<!-- Scene preview. Le canvas de composition, c'est cette image : le moteur y
+			     trace le cadre de chaque source composée. Rien d'autre ne peut se poser
+			     au-dessus, sa surface est une fenêtre Windows. -->
 			<Border Grid.Row="0"
                     Background="Black" CornerRadius="8"
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
@@ -429,6 +431,7 @@
 				<Panel>
 				<controls:StudioPreview Scene="{Binding SelectedScene}"
                                             PreviewRuntime="{Binding PreviewRuntime}"
+                                            Composition="{Binding Composition}"
                                             BaseCanvasWidth="{Binding BaseCanvasWidth}"
                                             BaseCanvasHeight="{Binding BaseCanvasHeight}"
                                             Message="{Binding PreviewPlaceholderText}"
@@ -444,9 +447,12 @@
 				<Grid RowDefinitions="Auto, 10, *, Auto">
 
 					<Grid Grid.Row="0" ColumnDefinitions="*, Auto">
-						<TextBlock Grid.Column="0" Text="SOURCES DE LA SCÈNE"
-                                   FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
-                                   VerticalAlignment="Center"/>
+						<StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+							<TextBlock Text="SOURCES DE LA SCÈNE"
+                                       FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"/>
+							<TextBlock Text="Premier plan en haut, arrière-plan en bas"
+                                       FontSize="9" Foreground="{DynamicResource AppFg5}"/>
+						</StackPanel>
 
 						<!-- Ouvre le dialogue « Ajouter une source » -->
 						<Button Grid.Column="1"
@@ -460,23 +466,50 @@
 
 					<Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
 
-					<!-- Dynamic source list -->
+					<!-- Dynamic source list, empilée du premier plan vers l'arrière-plan -->
 					<ScrollViewer Grid.Row="2">
 						<ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
 							<ItemsControl.ItemTemplate>
 								<DataTemplate x:DataType="m:SourceItemViewModel">
-									<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2">
-										<Grid ColumnDefinitions="12, *, Auto, Auto, Auto">
-											<Ellipse Grid.Column="0" Width="7" Height="7"
+									<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2"
+                                            DragDrop.AllowDrop="True"
+                                            DragDrop.DragOver="OnSourceDragOver"
+                                            DragDrop.Drop="OnSourceDrop">
+										<Grid ColumnDefinitions="18, 12, *, Auto, Auto, Auto, Auto, Auto">
+											<Border Grid.Column="0" Background="Transparent" Cursor="SizeAll"
+                                                    PointerPressed="OnSourceHandlePointerPressed"
+                                                    ToolTip.Tip="Glisser pour changer le plan de cette source">
+												<TextBlock Text="⠿" FontSize="13"
+                                                           Foreground="{DynamicResource AppFg5}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+											</Border>
+											<Ellipse Grid.Column="1" Width="7" Height="7"
                                                      Fill="{Binding Color}" VerticalAlignment="Center"/>
-											<TextBlock Grid.Column="1" Text="{Binding Name}"
+											<TextBlock Grid.Column="2" Text="{Binding Name}"
                                                        Foreground="{DynamicResource AppFg2}" FontSize="12"
                                                        Margin="8,0" VerticalAlignment="Center"/>
-											<TextBlock Grid.Column="2" Text="{Binding Type}"
+											<TextBlock Grid.Column="3" Text="{Binding Type}"
                                                        Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                        VerticalAlignment="Center" Margin="0,0,4,0"/>
+											<!-- Équivalent clavier du glisser-déposer -->
+											<Button Grid.Column="4"
+                                                    Content="▲"
+                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
+                                                    BorderThickness="0" FontSize="9" Padding="4,2"
+                                                    Cursor="Hand"
+                                                    ToolTip.Tip="Rapprocher du premier plan"
+                                                    Command="{Binding #ScenesRoot.DataContext.RaiseSourceCommand}"
+                                                    CommandParameter="{Binding}"/>
+											<Button Grid.Column="5"
+                                                    Content="▼"
+                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
+                                                    BorderThickness="0" FontSize="9" Padding="4,2"
+                                                    Cursor="Hand"
+                                                    ToolTip.Tip="Reculer vers l'arrière-plan"
+                                                    Command="{Binding #ScenesRoot.DataContext.LowerSourceCommand}"
+                                                    CommandParameter="{Binding}"/>
 											<!-- Bouton boucle — visible uniquement pour les sources fichier -->
-							<ToggleButton Grid.Column="3"
+							<ToggleButton Grid.Column="6"
                                                           IsVisible="{Binding IsFileSource}"
                                                           IsChecked="{Binding Loop, Mode=OneWay}"
                                                           Command="{Binding #ScenesRoot.DataContext.ToggleMediaLoopCommand}"
@@ -496,7 +529,7 @@
 												</ToggleButton.Styles>
 												<TextBlock Text="⟳" FontSize="14"/>
 											</ToggleButton>
-											<Button Grid.Column="4"
+											<Button Grid.Column="7"
                                                     Content="✕"
                                                     Background="Transparent" Foreground="{DynamicResource AppFg5}"
                                                     BorderThickness="0" FontSize="11" Padding="4,2"
@@ -510,10 +543,19 @@
 						</ItemsControl>
 					</ScrollViewer>
 
-					<TextBlock Grid.Row="3" Text="{Binding SourceOperationStatus}"
-                               IsVisible="{Binding SourceOperationStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                               Foreground="{StaticResource StatusErrorBrush}" FontSize="10"
-                               TextWrapping="Wrap" Margin="2,6,2,0"/>
+					<StackPanel Grid.Row="3" Margin="2,6,2,0" Spacing="2">
+						<TextBlock Text="{Binding SourceOperationStatus}"
+                                   IsVisible="{Binding SourceOperationStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Foreground="{StaticResource StatusErrorBrush}" FontSize="10"
+                                   TextWrapping="Wrap"/>
+
+						<!-- Un refus de lecture de la composition fige les cadres sur
+						     l'aperçu : il doit se voir plutôt que passer pour un aperçu figé. -->
+						<TextBlock Text="{Binding Composition.Status}"
+                                   IsVisible="{Binding Composition.Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Foreground="{StaticResource StatusErrorBrush}" FontSize="10"
+                                   TextWrapping="Wrap"/>
+					</StackPanel>
 				</Grid>
 			</Border>
 

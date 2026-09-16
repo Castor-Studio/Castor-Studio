@@ -23,12 +23,24 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     // taking turns on a single global one.
     private sealed class PreviewSession
     {
+        // Le thread graphique de libobs lit ce champ à chaque image pendant que le thread de
+        // l'interface le remplace : une référence s'échange d'un bloc, sans verrou — en
+        // prendre un ici s'interbloquerait avec les opérations qui attendent ce même thread.
+        private volatile IReadOnlyList<SourceTransform> _outlines = [];
+
         public required ObsView View { get; init; }
         public required ObsSource SceneSource { get; init; }
         public required Guid SceneId { get; init; }
         public required uint CanvasWidth { get; init; }
         public required uint CanvasHeight { get; init; }
         public required ObsDisplay Display { get; init; }
+
+        /// <summary>Les sources dont le cadre est peint sur l'image de cette session.</summary>
+        public IReadOnlyList<SourceTransform> Outlines
+        {
+            get => _outlines;
+            set => _outlines = value;
+        }
     }
 
     private readonly object _gate = new();
@@ -273,6 +285,143 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public SourceOrderResult GetSourceOrder(Guid sceneId)
+    {
+        if (!IsAvailable) return SourceOrderResult.Unavailable(UnavailableMessageForOperation());
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceOrderResult.Unavailable(UnavailableMessageForOperation());
+            if (!_scenes.TryGetValue(sceneId, out var scene) || !_sources.TryGetValue(sceneId, out var sources))
+                return SourceOrderResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                return SourceOrderResult.Success(ReadLayerOrder(scene, sources));
+            }
+            catch (Exception exception)
+            {
+                return SourceOrderResult.Failure($"Lecture de l'ordre impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
+    {
+        if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+        if (layerIndex < 0) return SourceRuntimeResult.Failure("Le rang d'une source ne peut pas être négatif.");
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceRuntimeResult.Failure("Cette source n'existe pas dans LibObs.");
+            if (layerIndex >= sources.Count)
+                return SourceRuntimeResult.Failure("Ce rang dépasse le nombre de sources de la scène.");
+
+            try
+            {
+                // libobs numérote ses scene items de l'arrière-plan (0) vers le premier plan,
+                // soit l'inverse du rang manipulé par l'opérateur. Le compte suivi ici est
+                // tenu en phase avec la scène native par AddSource/RemoveSource, sous ce verrou.
+                source.Item.SetOrderPosition(sources.Count - 1 - layerIndex);
+                return SourceRuntimeResult.Success(source.Source.Name);
+            }
+            catch (Exception exception)
+            {
+                return SourceRuntimeResult.Failure($"Réordonnancement impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    public SceneCompositionResult GetSceneComposition(Guid sceneId)
+    {
+        if (!IsAvailable) return SceneCompositionResult.Unavailable(UnavailableMessageForOperation());
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SceneCompositionResult.Unavailable(UnavailableMessageForOperation());
+            if (!_scenes.TryGetValue(sceneId, out var scene) || !_sources.TryGetValue(sceneId, out var sources))
+                return SceneCompositionResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                // Une seule prise sous le verrou : ordre et transformations décrivent le même
+                // instant du moteur, jamais deux états entremêlés.
+                var transforms = new List<SourceTransform>(sources.Count);
+                foreach (var sourceId in ReadLayerOrder(scene, sources))
+                {
+                    if (sources.TryGetValue(sourceId, out var native))
+                        transforms.Add(ReadTransform(sourceId, native));
+                }
+
+                return SceneCompositionResult.Success(new SceneComposition(
+                    (int)(_videoSettings?.BaseWidth ?? 0),
+                    (int)(_videoSettings?.BaseHeight ?? 0),
+                    transforms));
+            }
+            catch (Exception exception)
+            {
+                return SceneCompositionResult.Failure(
+                    $"Lecture de la composition impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    // Le rectangle composé se déduit ici, au contact du moteur : c'est sa règle (taille de la
+    // source, moins le rognage, mise à l'échelle de l'item), et elle n'a rien à faire dans
+    // l'interface qui se contente ensuite de poser ce rectangle.
+    private static SourceTransform ReadTransform(Guid sourceId, NativeSource native)
+    {
+        var position = native.Item.Position;
+        var scale = native.Item.Scale;
+        var crop = native.Item.Crop;
+        var sourceWidth = (int)native.Source.Width;
+        var sourceHeight = (int)native.Source.Height;
+        var croppedWidth = Math.Max(0, sourceWidth - (int)crop.Left - (int)crop.Right);
+        var croppedHeight = Math.Max(0, sourceHeight - (int)crop.Top - (int)crop.Bottom);
+
+        return new SourceTransform(
+            sourceId,
+            position.X,
+            position.Y,
+            croppedWidth * (double)scale.X,
+            croppedHeight * (double)scale.Y,
+            scale.X,
+            scale.Y,
+            new SourceCrop((int)crop.Left, (int)crop.Top, (int)crop.Right, (int)crop.Bottom),
+            sourceWidth,
+            sourceHeight,
+            native.Item.IsVisible);
+    }
+
+    // libobs énumère ses items de l'arrière-plan vers le premier plan ; on rend l'inverse, et
+    // traduit en identifiants applicatifs pour qu'aucun handle natif ne sorte du runtime.
+    private static IReadOnlyList<Guid> ReadLayerOrder(ObsScene scene, Dictionary<Guid, NativeSource> sources)
+    {
+        var sourceIdsByItemId = new Dictionary<long, Guid>(sources.Count);
+        foreach (var (sourceId, native) in sources)
+            sourceIdsByItemId[native.Item.Id] = sourceId;
+
+        var items = scene.GetItems();
+        try
+        {
+            var ordered = new List<Guid>(items.Count);
+            for (var index = items.Count - 1; index >= 0; index--)
+            {
+                if (sourceIdsByItemId.TryGetValue(items[index].Id, out var sourceId))
+                    ordered.Add(sourceId);
+            }
+
+            return ordered;
+        }
+        finally
+        {
+            // GetItems() prend une référence sur chaque item : à nous de les relâcher.
+            foreach (var item in items) item.Dispose();
+        }
+    }
+
     private void OnSettingsSaved(object? sender, EventArgs e)
     {
         var settings = _settingsService?.Load();
@@ -412,6 +561,17 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 return Task.FromResult(StudioRuntimeResult.Failure(
                     $"Démarrage de la preview impossible : {exception.Message}"));
             }
+        }
+    }
+
+    public void SetCompositionOutlines(IntPtr windowHandle, IReadOnlyList<SourceTransform> sources)
+    {
+        ArgumentNullException.ThrowIfNull(sources);
+
+        lock (_gate)
+        {
+            if (!IsAvailable || !_previewSessions.TryGetValue(windowHandle, out var session)) return;
+            session.Outlines = sources;
         }
     }
 
@@ -1426,7 +1586,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             frame,
             session.SceneSource,
             session.CanvasWidth,
-            session.CanvasHeight);
+            session.CanvasHeight,
+            session.Outlines);
 
     private static void TryRollbackSource(ObsSource? source, ObsSceneItem? item)
     {
