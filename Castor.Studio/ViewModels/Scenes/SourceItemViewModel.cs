@@ -22,6 +22,10 @@ public partial class SourceItemViewModel : ViewModelBase
     [ObservableProperty]
     private bool _loop;
 
+    // Set by ScenesViewModel while this row's name is edited inline.
+    [ObservableProperty]
+    private bool _isRenaming;
+
     public SourceOrigin Origin { get; }
     public string OriginLabel { get; }
     public string OriginPath { get; }

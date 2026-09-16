@@ -247,6 +247,30 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public SourceRuntimeResult RenameSource(Guid sceneId, Guid sourceId, string requestedName)
+    {
+        if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+        if (string.IsNullOrWhiteSpace(requestedName))
+            return SourceRuntimeResult.Failure("Le nom de la source est obligatoire.");
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceRuntimeResult.Failure("Cette source n'existe pas dans LibObs.");
+
+            try
+            {
+                source.Source.Name = requestedName.Trim();
+                return SourceRuntimeResult.Success(source.Source.Name);
+            }
+            catch (Exception exception)
+            {
+                return SourceRuntimeResult.Failure($"Renommage impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
     public SourceRuntimeResult SetMediaLoop(Guid sceneId, Guid sourceId, bool loop)
     {
         if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());

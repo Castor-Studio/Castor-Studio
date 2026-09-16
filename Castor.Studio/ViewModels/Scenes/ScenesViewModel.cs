@@ -51,6 +51,8 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty] private SourceListSort _sourceSort = SourceListSort.SceneOrder;
     [ObservableProperty] private SourceListFilter _sourceFilter = SourceListFilter.All;
     private SceneItemViewModel? _observedSourcesScene;
+    [ObservableProperty] private SourceItemViewModel? _sourceBeingRenamed;
+    [ObservableProperty] private string _renameSourceName = "";
 
     public IReadOnlyList<SourceListOption> SourceSortOptions { get; } =
     [
@@ -160,6 +162,7 @@ public partial class ScenesViewModel : ViewModelBase
     // is added, removed or moved in the scene.
     private void ObserveSources(SceneItemViewModel? scene)
     {
+        EndSourceRename();
         if (_observedSourcesScene != null)
             _observedSourcesScene.Sources.CollectionChanged -= OnSelectedSceneSourcesChanged;
         _observedSourcesScene = scene;
@@ -168,8 +171,12 @@ public partial class ScenesViewModel : ViewModelBase
         RefreshDisplayedSources();
     }
 
-    private void OnSelectedSceneSourcesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+    private void OnSelectedSceneSourcesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (SourceBeingRenamed != null && _observedSourcesScene?.Sources.Contains(SourceBeingRenamed) != true)
+            EndSourceRename();
         RefreshDisplayedSources();
+    }
 
     partial void OnSourceSortChanged(SourceListSort value) => RefreshDisplayedSources();
 
@@ -492,6 +499,57 @@ public partial class ScenesViewModel : ViewModelBase
 
         scene.Sources.Remove(source);
         SourceOperationStatus = "";
+    }
+
+    [RelayCommand]
+    private void BeginRenameSource(SourceItemViewModel source)
+    {
+        if (SelectedScene?.Sources.Contains(source) != true) return;
+        if (SourceBeingRenamed != null) SourceBeingRenamed.IsRenaming = false;
+
+        RenameSourceName = source.Name;
+        SourceBeingRenamed = source;
+        source.IsRenaming = true;
+    }
+
+    // Enter and leaving the field both confirm. An empty or unchanged name just ends the
+    // edit; a refused one keeps the field open with the reason under the list.
+    [RelayCommand]
+    private void ConfirmRenameSource()
+    {
+        var source = SourceBeingRenamed;
+        var scene = SelectedScene;
+        if (source == null) return;
+
+        var requested = RenameSourceName.Trim();
+        if (scene == null || requested.Length == 0 || requested == source.Name)
+        {
+            EndSourceRename();
+            return;
+        }
+
+        var result = _sourceRuntime.RenameSource(scene.Id, source.Id, requested);
+        if (!result.IsSuccess)
+        {
+            SourceOperationStatus = result.Message;
+            return;
+        }
+
+        source.Name = string.IsNullOrWhiteSpace(result.EffectiveName) ? requested : result.EffectiveName;
+        SourceOperationStatus = "";
+        EndSourceRename();
+        // A name sort has to place the renamed source again.
+        RefreshDisplayedSources();
+    }
+
+    [RelayCommand]
+    private void CancelRenameSource() => EndSourceRename();
+
+    private void EndSourceRename()
+    {
+        if (SourceBeingRenamed != null) SourceBeingRenamed.IsRenaming = false;
+        SourceBeingRenamed = null;
+        RenameSourceName = "";
     }
 
     [RelayCommand]

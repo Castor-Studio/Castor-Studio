@@ -407,6 +407,95 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Equal("Aucune source. Ajoutez-en une avec +.", viewModel.SourceListPlaceholder);
     }
 
+    [Fact]
+    public void Source_rename_applies_the_native_name_and_keeps_editing_on_failure()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var source = workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var sourceRuntime = new FakeSourceRuntime { Rename = (_, _, _) => SourceRuntimeResult.Failure("nom refusé") };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace, sourceRuntime: sourceRuntime);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        Assert.True(source.IsRenaming);
+        Assert.Equal("Caméra", viewModel.RenameSourceName);
+
+        viewModel.RenameSourceName = "Plateau";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+
+        Assert.Equal("Caméra", source.Name);
+        Assert.True(source.IsRenaming);
+        Assert.Equal("nom refusé", viewModel.SourceOperationStatus);
+
+        sourceRuntime.Rename = (_, _, name) => SourceRuntimeResult.Success($"{name} 2");
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+
+        Assert.Equal("Plateau 2", source.Name);
+        Assert.False(source.IsRenaming);
+        Assert.Null(viewModel.SourceBeingRenamed);
+        Assert.Equal("", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public void Source_rename_with_empty_or_same_name_or_cancel_does_not_reach_the_engine()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var source = workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace, sourceRuntime: sourceRuntime);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        viewModel.RenameSourceName = "   ";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+        Assert.False(source.IsRenaming);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+        Assert.False(source.IsRenaming);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        viewModel.RenameSourceName = "Autre";
+        viewModel.CancelRenameSourceCommand.Execute(null);
+
+        Assert.False(source.IsRenaming);
+        Assert.Equal("Caméra", source.Name);
+        Assert.Equal(0, sourceRuntime.RenameCalls);
+    }
+
+    [Fact]
+    public void Renaming_a_source_resorts_a_name_sorted_list_without_reordering_the_scene()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var first = workspace.AddSource(scene, new SourceDefinition { Name = "Alpha", Kind = SourceKind.Video });
+        workspace.AddSource(scene, new SourceDefinition { Name = "Beta", Kind = SourceKind.Audio });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+        viewModel.SourceSort = SourceListSort.NameAscending;
+
+        viewModel.BeginRenameSourceCommand.Execute(first);
+        viewModel.RenameSourceName = "Zulu";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+
+        Assert.Equal(["Beta", "Zulu"], viewModel.DisplayedSources.Select(source => source.Name));
+        Assert.Equal(["Zulu", "Beta"], scene.Sources.Select(source => source.Name));
+    }
+
+    [Fact]
+    public void Switching_scene_ends_a_source_rename()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var source = workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        workspace.SelectScene(workspace.CreateScene("Autre"));
+
+        Assert.False(source.IsRenaming);
+        Assert.Null(viewModel.SourceBeingRenamed);
+    }
+
     private static SceneItemViewModel CreateScene(ScenesViewModel viewModel, string name)
     {
         viewModel.NewSceneName = name;
@@ -517,6 +606,16 @@ public sealed class ScenesViewModelRuntimeTests
         {
             LoopValues.Add(loop);
             return SetLoop(sceneId, sourceId, loop);
+        }
+
+        public Func<Guid, Guid, string, SourceRuntimeResult> Rename { get; set; } =
+            (_, _, name) => SourceRuntimeResult.Success(name.Trim());
+        public int RenameCalls { get; private set; }
+
+        public SourceRuntimeResult RenameSource(Guid sceneId, Guid sourceId, string requestedName)
+        {
+            RenameCalls++;
+            return Rename(sceneId, sourceId, requestedName);
         }
     }
 
