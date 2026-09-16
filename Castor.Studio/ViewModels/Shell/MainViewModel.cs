@@ -102,6 +102,31 @@ public partial class MainViewModel : ViewModelBase
         CurrentPageKind = MainPageKind.Settings;
     }
 
+    // Settings is configuration, not a place to work in: leaving it goes back to the workspace
+    // the operator came from, whatever opened it (the gear, the menu bar).
+    private MainPageKind _lastWorkspace = MainPageKind.Studio;
+
+    // The top bar gear: opens Settings, or closes it when it is already open.
+    [RelayCommand]
+    private void ToggleSettings()
+    {
+        if (IsSettingsActive) CloseSettings();
+        else ShowSettings();
+    }
+
+    [RelayCommand(CanExecute = nameof(IsSettingsActive))]
+    private void CloseSettings()
+    {
+        if (!IsSettingsActive) return;
+
+        switch (_lastWorkspace)
+        {
+            case MainPageKind.Multicam: ShowMulticam(); break;
+            case MainPageKind.Scenes: ShowScenes(); break;
+            default: ShowStudio(); break;
+        }
+    }
+
     // Menu bar entries for the Scenes page's import/export: the logic stays in ScenesViewModel.
     // The Scenes page is shown first so the imported scenes and the result message are visible.
     [RelayCommand]
@@ -150,6 +175,9 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnCurrentPageKindChanged(MainPageKind value)
     {
+        if (value != MainPageKind.Settings) _lastWorkspace = value;
+        CloseSettingsCommand.NotifyCanExecuteChanged();
+
         OnPropertyChanged(nameof(IsStudioActive));
         OnPropertyChanged(nameof(IsMulticamActive));
         OnPropertyChanged(nameof(IsScenesActive));

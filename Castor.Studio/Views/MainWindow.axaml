@@ -15,6 +15,10 @@
         ExtendClientAreaTitleBarHeightHint="32"
         Icon="/Assets/castor.png">
 
+	<Window.KeyBindings>
+		<KeyBinding Gesture="Escape" Command="{Binding CloseSettingsCommand}"/>
+	</Window.KeyBindings>
+
 	<!-- Maximized, Windows pushes the frame past the screen edges: OffScreenMargin pulls the
 	     content back so the title bar is not cut off at the top. -->
 	<Grid RowDefinitions="32,48,*" Margin="{Binding $parent[Window].OffScreenMargin}">
@@ -123,16 +127,6 @@
                                 Margin="8,0"/>
 					</StackPanel>
 
-					<!-- PARAMETRES -->
-					<StackPanel Orientation="Vertical">
-						<Button Classes="nav" Content="PARAMÈTRES"
-                                Command="{Binding ShowSettingsCommand}"/>
-						<Border Height="2" CornerRadius="1"
-                                Background="{DynamicResource AppAccentFg}"
-                                IsVisible="{Binding IsSettingsActive}"
-                                Margin="8,0"/>
-					</StackPanel>
-
 				</StackPanel>
 
 				<!-- Status + Account -->
@@ -158,6 +152,20 @@
                                        VerticalAlignment="Center"/>
 						</StackPanel>
 					</Border>
+
+					<!-- Paramètres : un réglage, pas un espace de travail, donc à part des onglets.
+					     Un second clic (ou Échap) ramène à l'espace de travail d'où l'on venait. -->
+					<Button Classes="settings-gear"
+                            Classes.active="{Binding IsSettingsActive}"
+                            Command="{Binding ToggleSettingsCommand}"
+                            ToolTip.Tip="Paramètres">
+						<Viewbox Width="18" Height="18">
+							<Canvas Width="24" Height="24">
+								<Path Data="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"
+                                      StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>
+							</Canvas>
+						</Viewbox>
+					</Button>
 
 				</StackPanel>
 
