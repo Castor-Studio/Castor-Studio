@@ -45,6 +45,49 @@ public partial class ScenesViewModel : ViewModelBase
     [ObservableProperty] private string _sceneIoStatus = "";
     [ObservableProperty] private string _sourceOperationStatus = "";
 
+    // Sources as listed on screen: SelectedScene.Sources sorted and filtered for reading. The
+    // scene's collection itself is never reordered, so the composition order stays intact.
+    [ObservableProperty] private IReadOnlyList<SourceItemViewModel> _displayedSources = [];
+    [ObservableProperty] private SourceListSort _sourceSort = SourceListSort.SceneOrder;
+    [ObservableProperty] private SourceListFilter _sourceFilter = SourceListFilter.All;
+    private SceneItemViewModel? _observedSourcesScene;
+
+    public IReadOnlyList<SourceListOption> SourceSortOptions { get; } =
+    [
+        SourceListOption.ForSort("Ordre de la scène", SourceListSort.SceneOrder),
+        SourceListOption.ForSort("Nom (A → Z)", SourceListSort.NameAscending),
+        SourceListOption.ForSort("Nom (Z → A)", SourceListSort.NameDescending),
+        SourceListOption.ForSort("Type", SourceListSort.Kind)
+    ];
+
+    public IReadOnlyList<SourceListOption> SourceFilterOptions { get; } =
+    [
+        SourceListOption.ForFilter("Toutes", SourceListFilter.All),
+        SourceListOption.ForFilter("Vidéo", SourceListFilter.Video),
+        SourceListOption.ForFilter("Audio", SourceListFilter.Audio),
+        SourceListOption.ForFilter("Média", SourceListFilter.Media)
+    ];
+
+    public bool IsSourceListCustomized => SourceSort != SourceListSort.SceneOrder || SourceFilter != SourceListFilter.All;
+
+    public string SourceListSummary
+    {
+        get
+        {
+            if (SelectedScene == null) return "";
+            var total = SelectedScene.Sources.Count;
+            return SourceFilter == SourceListFilter.All
+                ? $"{total}"
+                : $"{DisplayedSources.Count} sur {total}";
+        }
+    }
+
+    public string SourceListPlaceholder => SelectedScene == null || DisplayedSources.Count > 0
+        ? ""
+        : SelectedScene.Sources.Count == 0
+            ? "Aucune source. Ajoutez-en une avec +."
+            : "Aucune source de ce type.";
+
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
     [ObservableProperty] private int _baseCanvasWidth = 1920;
@@ -87,6 +130,7 @@ public partial class ScenesViewModel : ViewModelBase
         BaseCanvasWidth = baseResolution.Width;
         BaseCanvasHeight = baseResolution.Height;
         SelectedScene = workspace.ActiveScene;
+        RefreshDisplayedSources();
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         if (_settingsService != null)
             _settingsService.SettingsSaved += OnSettingsSaved;
@@ -109,6 +153,45 @@ public partial class ScenesViewModel : ViewModelBase
         if (oldValue != null) oldValue.IsSelected = false;
         if (newValue != null) newValue.IsSelected = true;
         OnPropertyChanged(nameof(PreviewPlaceholderText));
+        ObserveSources(newValue);
+    }
+
+    // Follows the selected scene's sources so the displayed list stays current when a source
+    // is added, removed or moved in the scene.
+    private void ObserveSources(SceneItemViewModel? scene)
+    {
+        if (_observedSourcesScene != null)
+            _observedSourcesScene.Sources.CollectionChanged -= OnSelectedSceneSourcesChanged;
+        _observedSourcesScene = scene;
+        if (scene != null)
+            scene.Sources.CollectionChanged += OnSelectedSceneSourcesChanged;
+        RefreshDisplayedSources();
+    }
+
+    private void OnSelectedSceneSourcesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        RefreshDisplayedSources();
+
+    partial void OnSourceSortChanged(SourceListSort value) => RefreshDisplayedSources();
+
+    partial void OnSourceFilterChanged(SourceListFilter value) => RefreshDisplayedSources();
+
+    private void RefreshDisplayedSources()
+    {
+        DisplayedSources = SelectedScene == null
+            ? []
+            : SourceListView.Apply(SelectedScene.Sources, SourceSort, SourceFilter);
+        foreach (var option in SourceSortOptions) option.IsSelected = option.Sort == SourceSort;
+        foreach (var option in SourceFilterOptions) option.IsSelected = option.Filter == SourceFilter;
+        OnPropertyChanged(nameof(IsSourceListCustomized));
+        OnPropertyChanged(nameof(SourceListSummary));
+        OnPropertyChanged(nameof(SourceListPlaceholder));
+    }
+
+    [RelayCommand]
+    private void ApplySourceListOption(SourceListOption option)
+    {
+        if (option.Sort is { } sort) SourceSort = sort;
+        if (option.Filter is { } filter) SourceFilter = filter;
     }
 
     private void OnSettingsSaved(object? sender, EventArgs e)
@@ -459,7 +542,8 @@ public partial class ScenesViewModel : ViewModelBase
             Color = "#5b8def",
             Origin = SourceOrigin.HardwareVideo,
             OriginLabel = option.Label,
-            OriginPath = option.Id
+            OriginPath = option.Id,
+            VideoCaptureKind = option.Type
         };
         AddSource(scene, definition, new SourceAddRequest.Video(definition.Id, definition.Name, option));
     }
@@ -473,7 +557,8 @@ public partial class ScenesViewModel : ViewModelBase
             Color = "#f87171",
             Origin = SourceOrigin.HardwareAudio,
             OriginLabel = option.Label,
-            OriginPath = option.Id
+            OriginPath = option.Id,
+            AudioCaptureKind = option.Type
         };
         AddSource(scene, definition, new SourceAddRequest.Audio(definition.Id, definition.Name, option));
     }

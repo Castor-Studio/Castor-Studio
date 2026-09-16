@@ -357,6 +357,56 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Single(sourceRuntime.AddedRequests);
     }
 
+    [Fact]
+    public void Sorting_the_displayed_sources_never_reorders_the_scene()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        workspace.AddSource(scene, new SourceDefinition { Name = "Zoom", Kind = SourceKind.Video });
+        workspace.AddSource(scene, new SourceDefinition { Name = "Audio", Kind = SourceKind.Audio });
+        workspace.AddSource(scene, new SourceDefinition { Name = "Media", Kind = SourceKind.Media });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+
+        Assert.False(viewModel.IsSourceListCustomized);
+        viewModel.SourceSort = SourceListSort.NameAscending;
+
+        Assert.Equal(["Audio", "Media", "Zoom"], viewModel.DisplayedSources.Select(source => source.Name));
+        Assert.Equal(["Zoom", "Audio", "Media"], scene.Sources.Select(source => source.Name));
+        Assert.True(viewModel.IsSourceListCustomized);
+    }
+
+    [Fact]
+    public void Displayed_sources_follow_the_filter_and_scene_changes()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+        Assert.True(viewModel.SourceSortOptions[0].IsSelected);
+
+        var audioOption = viewModel.SourceFilterOptions.Single(option => option.Filter == SourceListFilter.Audio);
+        viewModel.ApplySourceListOptionCommand.Execute(audioOption);
+
+        Assert.Empty(viewModel.DisplayedSources);
+        Assert.Equal("0 sur 1", viewModel.SourceListSummary);
+        Assert.Equal("Aucune source de ce type.", viewModel.SourceListPlaceholder);
+        Assert.True(audioOption.IsSelected);
+        Assert.False(viewModel.SourceFilterOptions[0].IsSelected);
+
+        workspace.AddSource(scene, new SourceDefinition { Name = "Micro", Kind = SourceKind.Audio });
+
+        Assert.Equal(["Micro"], viewModel.DisplayedSources.Select(source => source.Name));
+        Assert.Equal("1 sur 2", viewModel.SourceListSummary);
+        Assert.Equal("", viewModel.SourceListPlaceholder);
+
+        var other = workspace.CreateScene("Autre");
+        workspace.SelectScene(other);
+        workspace.AddSource(scene, new SourceDefinition { Name = "Micro 2", Kind = SourceKind.Audio });
+
+        Assert.Empty(viewModel.DisplayedSources);
+        Assert.Equal("Aucune source. Ajoutez-en une avec +.", viewModel.SourceListPlaceholder);
+    }
+
     private static SceneItemViewModel CreateScene(ScenesViewModel viewModel, string name)
     {
         viewModel.NewSceneName = name;
