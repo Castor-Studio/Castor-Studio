@@ -64,6 +64,14 @@ public partial class MainViewModel : ViewModelBase
         _desktop = desktop;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
 
+        // The go-live panel's "Connecter un compte": straight to the accounts section. Leaving
+        // Settings then returns to the Studio, where the panel shows the connected account.
+        _studioViewModel.AccountSettingsRequested += (_, _) =>
+        {
+            ShowSettings();
+            _settingsViewModel.ShowAccounts();
+        };
+
         PanelMenu =
         [
             .. _studioDockViewModel.Panels.Select(panel =>

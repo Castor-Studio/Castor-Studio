@@ -64,6 +64,31 @@ public partial class StudioViewModel : ViewModelBase
     [ObservableProperty] private string _streamTimerText = "00:00:00";
     [ObservableProperty] private bool _isStreamingTransition;
     [ObservableProperty] private string _connectedAccountLabel = "Compte Twitch non connecté";
+
+    // Without a connected account the live cannot start, so the go-live panel says so up front:
+    // DÉMARRER is disabled with the reason, and the account area turns into a way to connect one.
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StartStreamingCommand))]
+    [NotifyPropertyChangedFor(nameof(StartStreamingBlockedReason), nameof(DestinationLabel))]
+    private bool _isAccountConnected;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DestinationLabel))]
+    private string _connectedAccountName = "";
+
+    public string StartStreamingBlockedReason =>
+        IsAccountConnected ? "" : "Connectez un compte Twitch pour lancer le live.";
+
+    // Filled in with the account as soon as one is connected, including after a round trip to
+    // Settings > Comptes from the panel.
+    public string DestinationLabel => IsAccountConnected ? $"Twitch · {ConnectedAccountName}" : "Twitch";
+
+    // The shell answers by opening Settings on the accounts section (MainViewModel).
+    public event EventHandler? AccountSettingsRequested;
+
+    [RelayCommand]
+    private void OpenAccountSettings() => AccountSettingsRequested?.Invoke(this, EventArgs.Empty);
+
     [ObservableProperty] private string _recordError = "";
     [ObservableProperty] private string _streamError = "";
     [ObservableProperty] private string _outputInfoText = "";
@@ -123,7 +148,7 @@ public partial class StudioViewModel : ViewModelBase
         BaseCanvasHeight = baseResolution.Height;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsAccountConnected))]
     private async Task StartStreaming(CancellationToken cancellationToken)
     {
         StreamError = "";
@@ -149,7 +174,7 @@ public partial class StudioViewModel : ViewModelBase
         var provider = GetConnectedTwitchProvider();
         if (provider == null)
         {
-            StreamError = "Compte Twitch déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
+            StreamError = AccountDisconnectedError;
             RefreshProviderState();
             return;
         }
@@ -364,6 +389,8 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(SceneBarStatusBrush));
     }
 
+    private const string AccountDisconnectedError = "Compte Twitch déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
+
     private ProviderSettings? GetConnectedTwitchProvider()
     {
         var provider = _providerStore.Get("twitch");
@@ -378,6 +405,11 @@ public partial class StudioViewModel : ViewModelBase
         ConnectedAccountLabel = provider == null
             ? "Compte Twitch non connecté"
             : $"Connecté en tant que {provider.UserName}";
+        ConnectedAccountName = provider?.UserName ?? "";
+        IsAccountConnected = provider != null;
+
+        // An account error left from an earlier attempt no longer applies once one is connected.
+        if (provider != null && StreamError == AccountDisconnectedError) StreamError = "";
     }
 
     private void StartSessionTimerIfNeeded()
