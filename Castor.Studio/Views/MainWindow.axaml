@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:CastorApplication.ViewModels.Shell"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
         x:Class="CastorApplication.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Castor Studio"
@@ -10,13 +11,32 @@
         Width="1280" Height="800"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="32"
         Icon="/Assets/castor.png">
 
-	<Grid RowDefinitions="Auto,48,*">
+	<!-- Maximized, Windows pushes the frame past the screen edges: OffScreenMargin pulls the
+	     content back so the title bar is not cut off at the top. -->
+	<Grid RowDefinitions="32,48,*" Margin="{Binding $parent[Window].OffScreenMargin}">
 
-		<!-- ═══ BARRE DE MENUS ═══ -->
-		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
-			<Menu Background="Transparent" Padding="6,0">
+		<!-- ═══ BARRE DE TITRE + MENUS ═══
+		     The menu lives in the title bar, Visual Studio style, instead of a row of its own
+		     under the Windows one. The bar background is the drag area (move, double-click to
+		     maximize); the menu is marked as user content so its clicks reach it. Avalonia draws
+		     the icon + window title on the left and the minimize / maximize / close buttons on
+		     the right over this bar: the margins keep the menu clear of both. -->
+		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar">
+			<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="100,0,140,0">
+			<Menu Background="Transparent" Padding="2,0" VerticalAlignment="Center"
+                  chrome:WindowDecorationProperties.ElementRole="User">
+				<!-- Compact top-level entries so they fit the 32px bar, as in a native title bar. -->
+				<Menu.Styles>
+					<Style Selector="Menu > MenuItem">
+						<Setter Property="FontSize" Value="13"/>
+						<Setter Property="Padding" Value="8,5"/>
+					</Style>
+				</Menu.Styles>
 				<MenuItem Header="_Fichier">
 					<MenuItem Header="_Importer des scènes…" Command="{Binding ImportScenesCommand}"/>
 					<MenuItem Header="_Exporter des scènes…" Command="{Binding ExportScenesCommand}"/>
@@ -47,6 +67,7 @@
 					</MenuItem>
 				</MenuItem>
 			</Menu>
+			</StackPanel>
 		</Border>
 
 		<!-- ═══ NAVBAR ═══ -->
