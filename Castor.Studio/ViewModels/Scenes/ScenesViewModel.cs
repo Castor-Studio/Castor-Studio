@@ -24,6 +24,7 @@ public partial class ScenesViewModel : ViewModelBase
     private readonly IAddSourceDialogViewModelFactory _dialogFactory;
     private readonly IAddSourceDialogService _dialogService;
     private readonly SettingsService? _settingsService;
+    private readonly VideoCanvasResolutionResolver _resolutionResolver;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
@@ -69,7 +70,8 @@ public partial class ScenesViewModel : ViewModelBase
         ISceneCollectionService sceneCollectionService,
         IAddSourceDialogViewModelFactory dialogFactory,
         IAddSourceDialogService dialogService,
-        SettingsService? settingsService = null)
+        SettingsService? settingsService = null,
+        VideoCanvasResolutionResolver? resolutionResolver = null)
     {
         _workspace = workspace;
         _runtime = runtime;
@@ -81,10 +83,9 @@ public partial class ScenesViewModel : ViewModelBase
         _dialogFactory = dialogFactory;
         _dialogService = dialogService;
         _settingsService = settingsService;
+        _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
         Composition = new SceneCompositionViewModel(sourceRuntime);
-        var baseResolution = VideoResolution.BaseFromIndex(settingsService?.Load().SelectedBaseResolutionIndex ?? 1);
-        BaseCanvasWidth = baseResolution.Width;
-        BaseCanvasHeight = baseResolution.Height;
+        ApplyBaseCanvasResolution(settingsService?.Load() ?? new ApplicationSettings());
         SelectedScene = workspace.ActiveScene;
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         if (_settingsService != null)
@@ -126,9 +127,14 @@ public partial class ScenesViewModel : ViewModelBase
         var settings = _settingsService?.Load();
         if (settings == null) return;
 
-        var baseResolution = VideoResolution.BaseFromIndex(settings.SelectedBaseResolutionIndex);
-        BaseCanvasWidth = baseResolution.Width;
-        BaseCanvasHeight = baseResolution.Height;
+        ApplyBaseCanvasResolution(settings);
+    }
+
+    private void ApplyBaseCanvasResolution(ApplicationSettings settings)
+    {
+        var resolution = _resolutionResolver.Resolve(settings);
+        BaseCanvasWidth = resolution.Width;
+        BaseCanvasHeight = resolution.Height;
     }
 
     // The workspace owns the global scene selection. Keep this page's selection projection

@@ -1,3 +1,4 @@
+using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services.Studio;
 using LibObs;
@@ -118,6 +119,17 @@ public sealed class LibObsSceneRuntimeTests
         Assert.Equal(1440u, settings.BaseHeight);
         Assert.Equal(2560u, settings.OutputWidth);
         Assert.Equal(1440u, settings.OutputHeight);
+    }
+
+    [Fact]
+    public void Preview_video_settings_forward_the_resolved_canvas_to_libobs()
+    {
+        var settings = LibObsSceneRuntime.CreatePreviewVideoSettings(
+            new ApplicationSettings(),
+            new VideoCanvasResolution(3440, 1440));
+
+        Assert.Equal(3440u, settings.BaseWidth);
+        Assert.Equal(1440u, settings.BaseHeight);
     }
 
     [Fact]

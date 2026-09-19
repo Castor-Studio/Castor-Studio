@@ -24,6 +24,7 @@ public partial class StudioViewModel : ViewModelBase
     private readonly IStreamingRuntime _streamingRuntime;
     private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
+    private readonly VideoCanvasResolutionResolver _resolutionResolver;
     private readonly DispatcherTimer _sessionTimer;
     private DateTime? _sessionStartUtc;
 
@@ -82,7 +83,8 @@ public partial class StudioViewModel : ViewModelBase
         IRecordingRuntime recordingRuntime,
         IStreamingRuntime streamingRuntime,
         IProviderStore providerStore,
-        SettingsService settingsService)
+        SettingsService settingsService,
+        VideoCanvasResolutionResolver? resolutionResolver = null)
     {
         _workspace = workspace;
         _runtime = runtime;
@@ -91,10 +93,12 @@ public partial class StudioViewModel : ViewModelBase
         _streamingRuntime = streamingRuntime;
         _providerStore = providerStore;
         _settingsService = settingsService;
+        _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
         _recordingRuntime.StateChanged += OnRecordingRuntimeStateChanged;
         _streamingRuntime.StreamingStateChanged += OnStreamingRuntimeStateChanged;
         _providerStore.Changed += OnProviderStoreChanged;
+        _settingsService.SettingsSaved += OnSettingsSaved;
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
         RefreshProviderState();
@@ -118,9 +122,9 @@ public partial class StudioViewModel : ViewModelBase
 
     private void RefreshBaseCanvasSize()
     {
-        var baseResolution = BaseResolutionFromIndex(_settingsService.Load().SelectedBaseResolutionIndex);
-        BaseCanvasWidth = baseResolution.Width;
-        BaseCanvasHeight = baseResolution.Height;
+        var resolution = _resolutionResolver.Resolve(_settingsService.Load());
+        BaseCanvasWidth = resolution.Width;
+        BaseCanvasHeight = resolution.Height;
     }
 
     [RelayCommand]
@@ -237,7 +241,7 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         RecordingOutputDirectory = Path.GetDirectoryName(path) ?? "";
-        var (baseWidth, baseHeight) = BaseResolutionFromIndex(settings.SelectedBaseResolutionIndex);
+        var baseResolution = _resolutionResolver.Resolve(settings);
         var (width, height) = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
         var result = await _recordingRuntime.StartRecordingAsync(new RecordingRequest(
             scene.Id,
@@ -247,8 +251,8 @@ public partial class StudioViewModel : ViewModelBase
             AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
             AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
             AudioChannelsFromIndex(settings.SelectedChannelsIndex),
-            baseWidth,
-            baseHeight,
+            baseResolution.Width,
+            baseResolution.Height,
             width,
             height,
             container), cancellationToken);
@@ -403,8 +407,6 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     private static int FpsFromIndex(int index) => index switch { 0 => 60, 2 => 25, _ => 30 };
-    private static (int Width, int Height) BaseResolutionFromIndex(int index) =>
-        VideoResolution.BaseFromIndex(index);
     private static (int Width, int Height) OutputResolutionFromIndex(int index) =>
         VideoResolution.OutputFromIndex(index);
     private static int AudioSampleRateFromIndex(int index) => index == 1 ? 44_100 : 48_000;
