@@ -6,6 +6,8 @@ public sealed class ApplicationSettings
     public bool ShowDockTitles { get; set; } = true;
 
     public int SelectedBaseResolutionIndex { get; set; } = 1;
+    public int? BaseCanvasWidth { get; set; }
+    public int? BaseCanvasHeight { get; set; }
     public int SelectedOutputResolutionIndex { get; set; }
     public int SelectedFpsIndex { get; set; }
     public double VideoBitrate { get; set; } = 6000;

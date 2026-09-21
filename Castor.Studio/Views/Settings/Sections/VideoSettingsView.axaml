@@ -21,13 +21,9 @@
                 <ComboBox Grid.Column="1"
                           MaxWidth="260"
                           HorizontalAlignment="Left"
-                          SelectedIndex="{Binding SelectedBaseResolutionIndex}">
-
-                    <ComboBoxItem Content="3840x2160 (4K)"/>
-                    <ComboBoxItem Content="1920x1080 (Full HD)"/>
-                    <ComboBoxItem Content="1280x720 (HD)"/>
-                    <ComboBoxItem Content="2560x1440 (2K)"/>
-
+                          ItemsSource="{Binding BaseResolutionOptions}"
+                          SelectedItem="{Binding SelectedBaseResolution}"
+                          DisplayMemberBinding="{Binding Label}">
                 </ComboBox>
 
             </Grid>

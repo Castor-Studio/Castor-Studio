@@ -7,6 +7,7 @@ using CastorApplication.Services.Auth.Providers.Twitch;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Config;
 using CastorApplication.Services.Dialogs;
+using CastorApplication.Services.Platform;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Multicam;
@@ -33,6 +34,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAuthService, AuthService>();
         services.AddSingleton<ProviderRegistry>();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<IPrimaryMonitorResolutionProvider, WindowsPrimaryMonitorResolutionProvider>();
+        services.AddSingleton<VideoCanvasResolutionResolver>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
         services.AddSingleton<IDockChromeService, AvaloniaDockChromeService>();
@@ -41,7 +44,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
 
         services.AddSingleton(provider =>
-            new LibObsSceneRuntime(provider.GetRequiredService<SettingsService>()
+            new LibObsSceneRuntime(
+                provider.GetRequiredService<SettingsService>(),
+                provider.GetRequiredService<VideoCanvasResolutionResolver>()
         ));
 
         services.AddSingleton<ISceneRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
@@ -62,7 +67,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<StudioWorkspaceViewModel>();
 
         services.AddSingleton<GeneralSettingsViewModel>();
-        services.AddSingleton<VideoSettingsViewModel>();
+        services.AddSingleton<VideoSettingsViewModel>(provider =>
+            new VideoSettingsViewModel(provider.GetRequiredService<VideoCanvasResolutionResolver>()));
         services.AddSingleton<AudioSettingsViewModel>();
         services.AddSingleton<StreamingSettingsViewModel>();
         services.AddSingleton<OutputSettingsViewModel>();
@@ -76,7 +82,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IRecordingRuntime>(),
             provider.GetRequiredService<IStreamingRuntime>(),
             provider.GetRequiredService<IProviderStore>(),
-            provider.GetRequiredService<SettingsService>()
+            provider.GetRequiredService<SettingsService>(),
+            provider.GetRequiredService<VideoCanvasResolutionResolver>()
         ));
 
         services.AddSingleton(provider => new ScenesViewModel(
@@ -90,7 +97,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IAddSourceDialogViewModelFactory>(),
             provider.GetRequiredService<IAddSourceDialogService>(),
             provider.GetRequiredService<ISceneTransferDialogService>(),
-            provider.GetRequiredService<SettingsService>()
+            provider.GetRequiredService<SettingsService>(),
+            provider.GetRequiredService<VideoCanvasResolutionResolver>()
         ));
 
         services.AddSingleton(provider => new MulticamViewModel(

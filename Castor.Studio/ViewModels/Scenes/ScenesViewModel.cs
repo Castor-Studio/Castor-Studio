@@ -25,6 +25,7 @@ public partial class ScenesViewModel : ViewModelBase
     private readonly IAddSourceDialogService _dialogService;
     private readonly ISceneTransferDialogService _transferDialogService;
     private readonly SettingsService? _settingsService;
+    private readonly VideoCanvasResolutionResolver _resolutionResolver;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
@@ -93,6 +94,12 @@ public partial class ScenesViewModel : ViewModelBase
 
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
+    /// <summary>
+    /// La composition de la scène sélectionnée, relue dans le moteur. C'est elle qui décide
+    /// des cadres que le moteur trace sur l'aperçu de cette page.
+    /// </summary>
+    public SceneCompositionViewModel Composition { get; }
+
     [ObservableProperty] private int _baseCanvasWidth = 1920;
     [ObservableProperty] private int _baseCanvasHeight = 1080;
 
@@ -118,7 +125,8 @@ public partial class ScenesViewModel : ViewModelBase
         IAddSourceDialogViewModelFactory dialogFactory,
         IAddSourceDialogService dialogService,
         ISceneTransferDialogService transferDialogService,
-        SettingsService? settingsService = null)
+        SettingsService? settingsService = null,
+        VideoCanvasResolutionResolver? resolutionResolver = null)
     {
         _transferDialogService = transferDialogService;
         _workspace = workspace;
@@ -131,9 +139,9 @@ public partial class ScenesViewModel : ViewModelBase
         _dialogFactory = dialogFactory;
         _dialogService = dialogService;
         _settingsService = settingsService;
-        var baseResolution = VideoResolution.BaseFromIndex(settingsService?.Load().SelectedBaseResolutionIndex ?? 1);
-        BaseCanvasWidth = baseResolution.Width;
-        BaseCanvasHeight = baseResolution.Height;
+        _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
+        Composition = new SceneCompositionViewModel(sourceRuntime);
+        ApplyBaseCanvasResolution(settingsService?.Load() ?? new ApplicationSettings());
         SelectedScene = workspace.ActiveScene;
         RefreshDisplayedSources();
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
@@ -156,7 +164,18 @@ public partial class ScenesViewModel : ViewModelBase
     partial void OnSelectedSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
     {
         if (oldValue != null) oldValue.IsSelected = false;
-        if (newValue != null) newValue.IsSelected = true;
+        // Les cadres repartent de la composition que le moteur détient pour cette scène :
+        // une scène rouverte se redessine sur ce qui est réellement rendu, pas sur un
+        // souvenir.
+        Composition.ShowScene(newValue);
+        if (newValue != null)
+        {
+            newValue.IsSelected = true;
+            // Afficher une scène, c'est relire son empilement dans le moteur : l'ordre survit
+            // ainsi à un rechargement sans qu'on l'ait mémorisé de notre côté.
+            SourceOperationStatus = SyncSourceOrder(newValue);
+        }
+
         OnPropertyChanged(nameof(PreviewPlaceholderText));
         ObserveSources(newValue);
     }
@@ -209,9 +228,14 @@ public partial class ScenesViewModel : ViewModelBase
         var settings = _settingsService?.Load();
         if (settings == null) return;
 
-        var baseResolution = VideoResolution.BaseFromIndex(settings.SelectedBaseResolutionIndex);
-        BaseCanvasWidth = baseResolution.Width;
-        BaseCanvasHeight = baseResolution.Height;
+        ApplyBaseCanvasResolution(settings);
+    }
+
+    private void ApplyBaseCanvasResolution(ApplicationSettings settings)
+    {
+        var resolution = _resolutionResolver.Resolve(settings);
+        BaseCanvasWidth = resolution.Width;
+        BaseCanvasHeight = resolution.Height;
     }
 
     // The workspace owns the global scene selection. Keep this page's selection projection
@@ -552,7 +576,113 @@ public partial class ScenesViewModel : ViewModelBase
         }
 
         scene.Sources.Remove(source);
-        SourceOperationStatus = "";
+        SourceOperationStatus = SyncSourceOrder(scene);
+    }
+
+    // ── Empilement des sources (z-order) ─────────────────────────────────────
+    //
+    // L'ordre appartient au moteur. Chaque geste lui est transmis, puis la liste affichée est
+    // réalignée sur ce qu'il renvoie : aucun ordre local n'est entretenu ici, donc aucun ne
+    // peut diverger. Rang 0 = premier plan.
+
+    [RelayCommand(CanExecute = nameof(CanRaiseSource))]
+    private void RaiseSource(SourceItemViewModel source) => MoveSourceBy(source, -1);
+
+    private bool CanRaiseSource(SourceItemViewModel? source) =>
+        source != null && SelectedScene != null && SelectedScene.Sources.IndexOf(source) > 0;
+
+    [RelayCommand(CanExecute = nameof(CanLowerSource))]
+    private void LowerSource(SourceItemViewModel source) => MoveSourceBy(source, 1);
+
+    private bool CanLowerSource(SourceItemViewModel? source)
+    {
+        var scene = SelectedScene;
+        if (source == null || scene == null) return false;
+
+        var index = scene.Sources.IndexOf(source);
+        return index >= 0 && index < scene.Sources.Count - 1;
+    }
+
+    /// <summary>
+    /// Lâcher <paramref name="moved"/> sur <paramref name="target"/> lui donne le rang de la
+    /// cible. Laisse la vue traiter un drop sans qu'elle ait à calculer un rang elle-même.
+    /// </summary>
+    internal void MoveSourceHere(SourceItemViewModel moved, SourceItemViewModel target)
+    {
+        var scene = SelectedScene;
+        if (scene == null || ReferenceEquals(moved, target)) return;
+
+        var targetIndex = scene.Sources.IndexOf(target);
+        if (targetIndex < 0) return;
+
+        MoveSourceTo(scene, moved, targetIndex);
+    }
+
+    private void MoveSourceBy(SourceItemViewModel source, int offset)
+    {
+        var scene = SelectedScene;
+        if (scene == null) return;
+
+        var index = scene.Sources.IndexOf(source);
+        if (index < 0) return;
+
+        MoveSourceTo(scene, source, index + offset);
+    }
+
+    private void MoveSourceTo(SceneItemViewModel scene, SourceItemViewModel source, int layerIndex)
+    {
+        if (layerIndex < 0 || layerIndex >= scene.Sources.Count) return;
+        if (scene.Sources.IndexOf(source) == layerIndex) return;
+
+        var result = _sourceRuntime.MoveSource(scene.Id, source.Id, layerIndex);
+        // Réussite ou refus, on se recale sur le moteur : un refus doit remettre la liste
+        // telle qu'elle est réellement rendue, pas telle qu'on l'espérait.
+        var syncFailure = SyncSourceOrder(scene);
+        SourceOperationStatus = result.IsSuccess ? syncFailure : result.Message;
+    }
+
+    /// <summary>
+    /// Réaligne la liste affichée sur l'ordre que le moteur détient, et rend son message
+    /// d'échec s'il n'a pas pu le donner — sans quoi un déplacement accepté par le moteur
+    /// mais illisible ensuite laisserait la liste figée sans rien signaler.
+    /// </summary>
+    private string SyncSourceOrder(SceneItemViewModel scene)
+    {
+        var order = _sourceRuntime.GetSourceOrder(scene.Id);
+        if (order.IsSuccess)
+        {
+            // On réordonne seulement : ajouts et suppressions ont leurs propres chemins.
+            var target = 0;
+            foreach (var sourceId in order.SourceIds)
+            {
+                var current = IndexOfSource(scene, sourceId);
+                if (current < 0) continue;
+                if (current != target) scene.Sources.Move(current, target);
+                target++;
+            }
+        }
+
+        // Les extrémités de la pile bougent avec l'ordre, les boutons doivent suivre.
+        RaiseSourceCommand.NotifyCanExecuteChanged();
+        LowerSourceCommand.NotifyCanExecuteChanged();
+
+        // Tout geste sur les sources passe par ici : la composition se recale dans la
+        // foulée, sans attendre la prochaine relecture périodique de l'aperçu.
+        Composition.Refresh();
+
+        // Un moteur globalement indisponible est déjà annoncé par l'aperçu ; seul un refus
+        // propre à cette scène mérite d'être écrit sous la liste.
+        return order.Status == StudioRuntimeStatus.Failure ? order.Message : "";
+    }
+
+    private static int IndexOfSource(SceneItemViewModel scene, Guid sourceId)
+    {
+        for (var index = 0; index < scene.Sources.Count; index++)
+        {
+            if (scene.Sources[index].Id == sourceId) return index;
+        }
+
+        return -1;
     }
 
     [RelayCommand]
@@ -686,7 +816,9 @@ public partial class ScenesViewModel : ViewModelBase
 
         definition.Name = result.EffectiveName;
         _workspace.AddSource(scene, definition);
-        SourceOperationStatus = "";
+        // Le moteur empile la nouvelle source au premier plan : on relit plutôt que de
+        // supposer où elle a atterri.
+        SourceOperationStatus = SyncSourceOrder(scene);
     }
 
     private static List<SourceDefinition> NormalizeImportedSources(

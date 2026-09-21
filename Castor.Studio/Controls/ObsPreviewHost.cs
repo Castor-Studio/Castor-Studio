@@ -18,6 +18,13 @@ public sealed class ObsPreviewHost : NativeControlHost
     public static readonly StyledProperty<IScenePreviewRuntime?> RuntimeProperty =
         AvaloniaProperty.Register<ObsPreviewHost, IScenePreviewRuntime?>(nameof(Runtime));
 
+    /// <summary>
+    /// Set it to have the engine outline every composed source on the picture. Left unset,
+    /// the preview shows the picture alone - which is what an on-air view wants.
+    /// </summary>
+    public static readonly StyledProperty<SceneCompositionViewModel?> CompositionProperty =
+        AvaloniaProperty.Register<ObsPreviewHost, SceneCompositionViewModel?>(nameof(Composition));
+
     public static readonly DirectProperty<ObsPreviewHost, bool> IsPreviewVisibleProperty =
         AvaloniaProperty.RegisterDirect<ObsPreviewHost, bool>(nameof(IsPreviewVisible), host => host.IsPreviewVisible);
 
@@ -27,6 +34,7 @@ public sealed class ObsPreviewHost : NativeControlHost
     public static readonly DirectProperty<ObsPreviewHost, string> ErrorMessageProperty =
         AvaloniaProperty.RegisterDirect<ObsPreviewHost, string>(nameof(ErrorMessage), host => host.ErrorMessage);
 
+    private readonly DispatcherTimer _compositionTimer;
     private CancellationTokenSource? _refreshCancellation;
     private IScenePreviewRuntime? _observedRuntime;
     private Guid? _runningSceneId;
@@ -49,6 +57,12 @@ public sealed class ObsPreviewHost : NativeControlHost
         set => SetValue(RuntimeProperty, value);
     }
 
+    public SceneCompositionViewModel? Composition
+    {
+        get => GetValue(CompositionProperty);
+        set => SetValue(CompositionProperty, value);
+    }
+
     public bool IsPreviewVisible
     {
         get => _isPreviewVisible;
@@ -69,16 +83,27 @@ public sealed class ObsPreviewHost : NativeControlHost
 
     public ObsPreviewHost()
     {
+        // Nothing tells the interface that a transform moved engine-side, so the outlines
+        // are read again on a fixed beat - often enough for the lag not to show, rarely
+        // enough not to weigh on the rendering.
+        _compositionTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(250)
+        };
+        _compositionTimer.Tick += (_, _) => RefreshComposition();
+
         AttachedToVisualTree += (_, _) =>
         {
             _isAttached = true;
             ObserveRuntime(Runtime);
+            UpdateCompositionTimer();
             RefreshPreview();
         };
         DetachedFromVisualTree += (_, _) =>
         {
             _isAttached = false;
             ObserveRuntime(null);
+            _compositionTimer.Stop();
             StopRunningPreview();
         };
         SizeChanged += (_, _) => ResizeRunningPreview();
@@ -184,6 +209,31 @@ public sealed class ObsPreviewHost : NativeControlHost
         {
             ResizeRunningPreview();
         }
+        else if (change.Property == CompositionProperty)
+        {
+            UpdateCompositionTimer();
+            RefreshComposition();
+        }
+    }
+
+    private void UpdateCompositionTimer()
+    {
+        if (_isAttached && Composition != null) _compositionTimer.Start();
+        else _compositionTimer.Stop();
+    }
+
+    // The interface reads the composition, the engine draws it: a native surface cannot be
+    // drawn over, so the outlines are handed back to it and painted in the same frame as
+    // the picture.
+    private void RefreshComposition()
+    {
+        var composition = Composition;
+        var runtime = Runtime;
+        if (composition == null || runtime == null || _runningSceneId == null || _nativeHandle == IntPtr.Zero)
+            return;
+
+        composition.Refresh();
+        runtime.SetCompositionOutlines(_nativeHandle, composition.Sources);
     }
 
     private void ObserveRuntime(IScenePreviewRuntime? runtime)
@@ -240,6 +290,9 @@ public sealed class ObsPreviewHost : NativeControlHost
                 _runningSceneId = scene.Id;
                 ErrorMessage = "";
                 UpdateVisibility(true);
+                // A fresh session starts with no outline: give it this scene's before its
+                // first frame, rather than showing a bare picture until the next beat.
+                RefreshComposition();
             }
             else
             {

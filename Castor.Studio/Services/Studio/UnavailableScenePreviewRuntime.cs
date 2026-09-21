@@ -28,6 +28,10 @@ internal sealed class UnavailableScenePreviewRuntime : IScenePreviewRuntime
     {
     }
 
+    public void SetCompositionOutlines(IntPtr windowHandle, IReadOnlyList<SourceTransform> sources)
+    {
+    }
+
     public Task<StudioRuntimeResult> StopPreviewAsync(IntPtr windowHandle, Guid sceneId, CancellationToken cancellationToken) =>
         Task.FromResult(StudioRuntimeResult.Success());
 }

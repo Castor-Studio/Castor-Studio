@@ -107,5 +107,10 @@ public sealed class AddSourceDialogViewModelTests
         public SourceRuntimeResult SetMediaLoop(Guid sceneId, Guid sourceId, bool loop) => SourceRuntimeResult.Success();
         public SourceRuntimeResult RenameSource(Guid sceneId, Guid sourceId, string requestedName) =>
             SourceRuntimeResult.Success(requestedName);
+        public SourceOrderResult GetSourceOrder(Guid sceneId) => SourceOrderResult.Success([]);
+        public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex) => SourceRuntimeResult.Success();
+
+        public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
+            SceneCompositionResult.Success(SceneComposition.Empty);
     }
 }

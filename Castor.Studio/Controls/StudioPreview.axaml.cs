@@ -16,6 +16,13 @@ public partial class StudioPreview : UserControl
     public static readonly StyledProperty<IScenePreviewRuntime?> PreviewRuntimeProperty =
         AvaloniaProperty.Register<StudioPreview, IScenePreviewRuntime?>(nameof(PreviewRuntime));
 
+    /// <summary>
+    /// Set it to have the engine outline every composed source on the picture. Left unset,
+    /// the preview shows the picture alone.
+    /// </summary>
+    public static readonly StyledProperty<SceneCompositionViewModel?> CompositionProperty =
+        AvaloniaProperty.Register<StudioPreview, SceneCompositionViewModel?>(nameof(Composition));
+
     public static readonly StyledProperty<int> BaseCanvasWidthProperty =
         AvaloniaProperty.Register<StudioPreview, int>(nameof(BaseCanvasWidth), 1920);
 
@@ -51,6 +58,12 @@ public partial class StudioPreview : UserControl
     {
         get => GetValue(PreviewRuntimeProperty);
         set => SetValue(PreviewRuntimeProperty, value);
+    }
+
+    public SceneCompositionViewModel? Composition
+    {
+        get => GetValue(CompositionProperty);
+        set => SetValue(CompositionProperty, value);
     }
 
     public int BaseCanvasWidth
