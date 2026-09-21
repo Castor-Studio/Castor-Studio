@@ -172,9 +172,10 @@
 			</Grid>
 		</Border>
 
-		<!-- Page content. The margin keeps every page off the window edges; the bars above stay
-		     full width, as headers should. -->
-		<ContentControl Grid.Row="2" Content="{Binding CurrentPage}" Margin="12"/>
+		<!-- Page content, edge to edge: a page owns the whole area under the bars, so its own
+		     chrome (sidebars, separators) meets the window edges. Only the dock workspaces
+		     inset themselves, so their panels keep reading as floating panes. -->
+		<ContentControl Grid.Row="2" Content="{Binding CurrentPage}"/>
 
 	</Grid>
 </Window>
