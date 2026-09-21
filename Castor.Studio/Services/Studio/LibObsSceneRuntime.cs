@@ -48,6 +48,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private readonly Dictionary<Guid, Dictionary<Guid, NativeSource>> _sources = [];
     private readonly Dictionary<IntPtr, PreviewSession> _previewSessions = [];
     private readonly SettingsService? _settingsService;
+    private readonly VideoCanvasResolutionResolver _resolutionResolver;
     private ObsOutput? _recordingOutput;
     private ObsEncoder? _recordingVideoEncoder;
     private ObsEncoder? _recordingAudioEncoder;
@@ -85,13 +86,17 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
     public event EventHandler? PreviewResetRequested;
 
-    public LibObsSceneRuntime(SettingsService? settingsService = null)
+    public LibObsSceneRuntime(
+        SettingsService? settingsService = null,
+        VideoCanvasResolutionResolver? resolutionResolver = null)
     {
         _settingsService = settingsService;
+        _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
         try
         {
             Obs.Startup();
-            _videoSettings = CreatePreviewVideoSettings(settingsService?.Load() ?? new ApplicationSettings());
+            var settings = settingsService?.Load() ?? new ApplicationSettings();
+            _videoSettings = CreatePreviewVideoSettings(settings, _resolutionResolver.Resolve(settings));
             Obs.ResetVideo(_videoSettings);
             Obs.ResetAudio(new ObsAudioSettings());
             Obs.LoadModules().EnsureSuccess();
@@ -442,7 +447,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     private void ApplyVideoSettingsCore(ApplicationSettings settings)
     {
-        var next = CreatePreviewVideoSettings(settings);
+        var next = CreatePreviewVideoSettings(settings, _resolutionResolver.Resolve(settings));
         if (AreSameVideoSettings(_videoSettings, next))
         {
             _pendingVideoSettings = null;
@@ -467,9 +472,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         PreviewResetRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private static ObsVideoSettings CreatePreviewVideoSettings(ApplicationSettings settings)
+    internal static ObsVideoSettings CreatePreviewVideoSettings(
+        ApplicationSettings settings,
+        VideoCanvasResolution baseResolution)
     {
-        var (baseWidth, baseHeight) = VideoResolution.BaseFromIndex(settings.SelectedBaseResolutionIndex);
         var (outputWidth, outputHeight) = VideoResolution.OutputFromIndex(settings.SelectedOutputResolutionIndex);
         var fps = settings.SelectedFpsIndex switch
         {
@@ -481,8 +487,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         return new ObsVideoSettings
         {
             FpsNumerator = (uint)fps,
-            BaseWidth = (uint)baseWidth,
-            BaseHeight = (uint)baseHeight,
+            BaseWidth = (uint)baseResolution.Width,
+            BaseHeight = (uint)baseResolution.Height,
             OutputWidth = (uint)outputWidth,
             OutputHeight = (uint)outputHeight,
         };
