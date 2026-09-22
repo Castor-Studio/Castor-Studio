@@ -542,7 +542,7 @@ public sealed class ScenesViewModelRuntimeTests
         {
         }
 
-        public void SetCompositionOutlines(IntPtr windowHandle, IReadOnlyList<SourceTransform> sources)
+        public void SetCompositionOverlay(IntPtr windowHandle, CompositionOverlay overlay)
         {
         }
 

@@ -18,12 +18,19 @@ public partial class SceneCompositionViewModel : ViewModelBase
 {
     private readonly ISourceRuntime _sourceRuntime;
     private SceneItemViewModel? _scene;
+    private Guid? _selectedSourceId;
 
     /// <summary>
     /// Les sources que le moteur compose, dans l'ordre du dessin : de l'arrière-plan vers le
     /// premier plan. C'est son empilement, parcouru dans le sens où il peint.
     /// </summary>
     public IReadOnlyList<SourceTransform> Sources { get; private set; } = [];
+
+    /// <summary>Ce que le moteur doit tracer par-dessus son image, sélection comprise.</summary>
+    public CompositionOverlay Overlay { get; private set; } = CompositionOverlay.Empty;
+
+    /// <summary>La source choisie, telle que le moteur la compose à cet instant.</summary>
+    public SourceTransform? Selected => Overlay.Selected;
 
     [ObservableProperty] private string _status = "";
 
@@ -33,8 +40,43 @@ public partial class SceneCompositionViewModel : ViewModelBase
     internal void ShowScene(SceneItemViewModel? scene)
     {
         _scene = scene;
-        Sources = [];
+        // Changer de scène, c'est changer de sources : garder le choix précédent ferait
+        // rouvrir la suivante avec une sélection qui n'est plus à elle.
+        _selectedSourceId = null;
+        Publish([]);
         Refresh();
+    }
+
+    /// <summary>
+    /// Choisit la source visée à ce point du canvas, ou aucune si le point ne tombe sur
+    /// aucune. Le choix se porte sur celle qui est devant : c'est celle que l'opérateur
+    /// voit à cet endroit.
+    /// </summary>
+    public void SelectAt(double canvasX, double canvasY)
+    {
+        // Sources va de l'arrière-plan vers le premier plan : on la remonte pour rencontrer
+        // d'abord ce qui est dessus.
+        for (var index = Sources.Count - 1; index >= 0; index--)
+        {
+            var source = Sources[index];
+            if (canvasX < source.X || canvasX > source.X + source.Width) continue;
+            if (canvasY < source.Y || canvasY > source.Y + source.Height) continue;
+
+            _selectedSourceId = source.SourceId;
+            Publish(Sources);
+            return;
+        }
+
+        ClearSelection();
+    }
+
+    /// <summary>Ne choisit plus aucune source : l'overlay ne montre que les cadres.</summary>
+    public void ClearSelection()
+    {
+        if (_selectedSourceId == null) return;
+
+        _selectedSourceId = null;
+        Publish(Sources);
     }
 
     /// <summary>
@@ -47,7 +89,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         var scene = _scene;
         if (scene == null)
         {
-            Sources = [];
+            Publish([]);
             Status = "";
             return;
         }
@@ -57,7 +99,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         {
             // Un moteur globalement indisponible est déjà annoncé par l'aperçu : ici, il n'y
             // a simplement rien de composé.
-            Sources = [];
+            Publish([]);
             Status = "";
             return;
         }
@@ -71,7 +113,31 @@ public partial class SceneCompositionViewModel : ViewModelBase
         }
 
         Status = "";
-        Sources = Drawable(result.Composition.Sources);
+        Publish(Drawable(result.Composition.Sources));
+    }
+
+    // La sélection est retenue par identifiant, jamais par rectangle : c'est ce qui la fait
+    // suivre la source quand le moteur la déplace, et ce qui la laisse tomber d'elle-même
+    // quand la source cesse d'être composée — retirée, masquée, ou scène changée.
+    private void Publish(IReadOnlyList<SourceTransform> sources)
+    {
+        Sources = sources;
+
+        var selected = Find(sources, _selectedSourceId);
+        if (selected == null) _selectedSourceId = null;
+        Overlay = new CompositionOverlay(sources, selected);
+    }
+
+    private static SourceTransform? Find(IReadOnlyList<SourceTransform> sources, Guid? sourceId)
+    {
+        if (sourceId == null) return null;
+
+        foreach (var source in sources)
+        {
+            if (source.SourceId == sourceId) return source;
+        }
+
+        return null;
     }
 
     // Le moteur rend sa pile du premier plan vers l'arrière-plan ; elle est parcourue à

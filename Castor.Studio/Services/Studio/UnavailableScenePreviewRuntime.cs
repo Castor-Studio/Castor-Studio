@@ -28,7 +28,7 @@ internal sealed class UnavailableScenePreviewRuntime : IScenePreviewRuntime
     {
     }
 
-    public void SetCompositionOutlines(IntPtr windowHandle, IReadOnlyList<SourceTransform> sources)
+    public void SetCompositionOverlay(IntPtr windowHandle, CompositionOverlay overlay)
     {
     }
 

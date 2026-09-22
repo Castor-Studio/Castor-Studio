@@ -34,6 +34,22 @@ public sealed record SourceTransform(
     bool IsVisible);
 
 /// <summary>
+/// Ce que le moteur doit tracer par-dessus son image : le cadre de chaque source composée
+/// et, pour celle que l'opérateur a choisie, ses points d'accroche.
+/// </summary>
+/// <remarks>
+/// Cadres et sélection voyagent ensemble : le thread graphique les relit à chaque image, et
+/// deux champs échangés séparément lui donneraient une sélection qui ne correspond plus aux
+/// cadres qu'elle accompagne.
+/// </remarks>
+public sealed record CompositionOverlay(
+    IReadOnlyList<SourceTransform> Sources,
+    SourceTransform? Selected)
+{
+    public static CompositionOverlay Empty { get; } = new([], null);
+}
+
+/// <summary>
 /// Composition d'une scène lue d'un seul tenant : la taille du canvas du moteur et la
 /// transformation de chaque source, du premier plan vers l'arrière-plan.
 /// </summary>
