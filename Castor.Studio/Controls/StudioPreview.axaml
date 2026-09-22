@@ -4,7 +4,10 @@
              x:Class="CastorApplication.Controls.StudioPreview"
              x:Name="PreviewRoot"
              x:DataType="controls:StudioPreview">
-    <Panel Background="Black">
+    <!-- Le clic ne peut pas atterrir sur la surface native : elle se déclare transparente
+         aux tests de survol, et l'hôte ne teste pas le survol. Il tombe donc ici, sur le
+         fond, qui le ramène dans le repère du canvas. -->
+    <Panel Background="Black" PointerPressed="OnPicturePointerPressed">
         <controls:ObsPreviewHost x:Name="NativePreview"
                                  IsHitTestVisible="False"
                                  Scene="{Binding #PreviewRoot.Scene}"
