@@ -24,6 +24,8 @@ public sealed class SettingsService
 
     public event EventHandler? SettingsSaved;
 
+    public bool HasPersistedSettings => File.Exists(_settingsFilePath);
+
     public ApplicationSettings Load()
     {
         try
