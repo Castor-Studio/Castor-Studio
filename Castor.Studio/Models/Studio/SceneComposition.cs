@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace CastorApplication.Models.Studio;
 
 /// <summary>
@@ -34,6 +36,38 @@ public sealed record SourceTransform(
     bool IsVisible);
 
 /// <summary>
+/// La couleur d'une source, celle de sa pastille dans la liste, prête pour le moteur.
+/// </summary>
+public readonly record struct OverlayTint(float Red, float Green, float Blue)
+{
+    public static OverlayTint Default { get; } = new(0.357f, 0.553f, 0.937f);
+
+    /// <summary>
+    /// Lit une couleur « #rrggbb ». Une couleur illisible rend la couleur par défaut : un
+    /// cadre sans couleur exacte reste plus utile qu'une source sans cadre.
+    /// </summary>
+    public static OverlayTint Parse(string? hex)
+    {
+        if (hex == null) return Default;
+
+        var value = hex.AsSpan().TrimStart('#');
+        if (value.Length != 6) return Default;
+
+        return byte.TryParse(value[..2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var red) &&
+               byte.TryParse(value[2..4], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var green) &&
+               byte.TryParse(value[4..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var blue)
+            ? new OverlayTint(red / 255f, green / 255f, blue / 255f)
+            : Default;
+    }
+}
+
+/// <summary>
+/// Une source à tracer : le rectangle que le moteur lui donne, et la couleur sous laquelle
+/// l'interface la nomme ailleurs.
+/// </summary>
+public sealed record OverlaySource(SourceTransform Transform, OverlayTint Tint);
+
+/// <summary>
 /// Ce que le moteur doit tracer par-dessus son image : le cadre de chaque source composée
 /// et, pour celle que l'opérateur a choisie, ses points d'accroche.
 /// </summary>
@@ -43,8 +77,8 @@ public sealed record SourceTransform(
 /// cadres qu'elle accompagne.
 /// </remarks>
 public sealed record CompositionOverlay(
-    IReadOnlyList<SourceTransform> Sources,
-    SourceTransform? Selected)
+    IReadOnlyList<OverlaySource> Sources,
+    OverlaySource? Selected)
 {
     public static CompositionOverlay Empty { get; } = new([], null);
 }

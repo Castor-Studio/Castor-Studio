@@ -28,12 +28,11 @@ internal static class ObsPreviewGraphics
     // obs_base_effect : l'effet « solid » est le quatrième de l'énumération de libobs.
     private const int ObsEffectSolid = 3;
 
-    // Les couleurs de l'application, reprises telles quelles de Styles/Colors.axaml : c'est
-    // déjà la langue de la sélection ailleurs dans l'interface — l'accent pour ce qui est
-    // choisi, le gris calme pour le reste. Les valeurs du thème sombre valent dans les deux
-    // thèmes : la zone d'aperçu est noire en clair comme en sombre.
+    // Le cadre d'une source porte la couleur de sa pastille dans la liste : sur une
+    // composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Ce qui
+    // reste vient de Styles/Colors.axaml, dans les valeurs du thème sombre : la zone
+    // d'aperçu est noire en clair comme en sombre.
     private static readonly Vec4 Chosen = new(0.357f, 0.553f, 0.937f, 1f);     // AppAccentFg
-    private static readonly Vec4 Idle = new(0.533f, 0.533f, 0.627f, 1f);       // AppFg3
     private static readonly Vec4 HandleCore = new(0.918f, 0.918f, 0.941f, 1f); // AppFg1
     private static readonly Vec4 Shadow = new(0.043f, 0.043f, 0.071f, 1f);     // AppBg
 
@@ -211,42 +210,33 @@ internal static class ObsPreviewGraphics
 
             var chosen = overlay.Selected;
 
-            // L'ombre ne porte que sur ce qui compte, le cadre choisi et ses poignées : un
-            // liseré sombre de part et d'autre d'un filet de un pixel n'en ferait qu'une
-            // bouillie de trois.
-            if (chosen != null)
-            {
-                SetColor(colorParameter, Shadow);
-                while (GsEffectLoop(effect, "Solid"))
-                {
-                    FillAllGrown(Edges(chosen, metrics.ChosenThickness), metrics.Shadow);
-                    FillAllGrown(Handles(chosen, metrics.Handle), metrics.Shadow);
-                }
-            }
-
-            // Les sources qu'on ne tient pas : un filet, de la couleur que prend partout
-            // ailleurs dans l'interface ce qui n'est pas sélectionné.
-            SetColor(colorParameter, Idle);
+            // L'ombre passe sous tout l'overlay, d'un pixel de chaque côté. Un cœur coloré
+            // posé sur un liseré sombre se lit sur n'importe quelle image ; le même trait
+            // seul disparaît dès que l'image prend sa valeur.
+            SetColor(colorParameter, Shadow);
             while (GsEffectLoop(effect, "Solid"))
             {
                 foreach (var source in overlay.Sources)
-                {
-                    if (chosen != null && source.SourceId == chosen.SourceId) continue;
+                    FillAllGrown(Edges(source, Thickness(source, chosen, metrics)), metrics.Shadow);
 
-                    FillAll(Edges(source, metrics.IdleThickness));
-                }
+                if (chosen != null) FillAllGrown(Handles(chosen, metrics.Handle), metrics.Shadow);
+            }
+
+            // Un cadre par couleur : celle de la source, celle que porte déjà sa pastille
+            // dans la liste. C'est l'identité, elle ne dit pas l'état.
+            foreach (var source in overlay.Sources)
+            {
+                SetColor(colorParameter, ToVec4(source.Tint));
+                while (GsEffectLoop(effect, "Solid"))
+                    FillAll(Edges(source, Thickness(source, chosen, metrics)));
             }
 
             if (chosen == null) return;
 
-            // La source choisie prend l'accent, comme la scène sélectionnée dans sa liste.
-            // Seule l'épaisseur change en plus de la couleur : la forme, elle, ne bouge pas.
+            // L'état, lui, tient au poids du trait et à ces poignées, qui prennent l'accent
+            // de la sélection comme partout ailleurs dans l'interface.
             SetColor(colorParameter, Chosen);
-            while (GsEffectLoop(effect, "Solid"))
-            {
-                FillAll(Edges(chosen, metrics.ChosenThickness));
-                FillAll(Handles(chosen, metrics.Handle));
-            }
+            while (GsEffectLoop(effect, "Solid")) FillAll(Handles(chosen, metrics.Handle));
 
             SetColor(colorParameter, HandleCore);
             while (GsEffectLoop(effect, "Solid")) FillAll(Handles(chosen, metrics.HandleCore));
@@ -257,11 +247,24 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    private static IReadOnlyList<PreviewFillRect> Edges(SourceTransform source, float thickness) =>
-        BoxEdges(source.X, source.Y, source.Width, source.Height, thickness);
+    private static float Thickness(OverlaySource source, OverlaySource? chosen, OverlayMetrics metrics) =>
+        chosen != null && source.Transform.SourceId == chosen.Transform.SourceId
+            ? metrics.ChosenThickness
+            : metrics.IdleThickness;
 
-    private static IReadOnlyList<PreviewFillRect> Handles(SourceTransform source, float size) =>
-        HandleRects(source.X, source.Y, source.Width, source.Height, size);
+    private static IReadOnlyList<PreviewFillRect> Edges(OverlaySource source, float thickness) =>
+        BoxEdges(
+            source.Transform.X, source.Transform.Y,
+            source.Transform.Width, source.Transform.Height,
+            thickness);
+
+    private static IReadOnlyList<PreviewFillRect> Handles(OverlaySource source, float size) =>
+        HandleRects(
+            source.Transform.X, source.Transform.Y,
+            source.Transform.Width, source.Transform.Height,
+            size);
+
+    private static Vec4 ToVec4(OverlayTint tint) => new(tint.Red, tint.Green, tint.Blue, 1f);
 
     private static void SetColor(IntPtr parameter, Vec4 color) => GsEffectSetVec4(parameter, ref color);
 
