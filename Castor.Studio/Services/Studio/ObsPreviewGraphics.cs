@@ -11,18 +11,15 @@ internal readonly record struct PreviewFillRect(float X, float Y, float Width, f
 
 /// <summary>
 /// Les tailles de l'overlay, en pixels du canvas, pour l'image en cours. Elles sont pensées
-/// en pixels de l'écran puis converties : une marque se vise à la souris, elle ne suit pas
+/// en pixels de l'écran puis converties : une poignée se vise à la souris, elle ne suit pas
 /// l'échelle à laquelle le canvas est réduit dans le panneau.
 /// </summary>
 internal readonly record struct OverlayMetrics(
-    float Dash,
-    float DashThickness,
     float IdleThickness,
-    float IdleArm,
-    float MarkThickness,
-    float MarkArm,
-    float MarkBar,
-    float Backing);
+    float ChosenThickness,
+    float Handle,
+    float HandleCore,
+    float Shadow);
 
 internal static class ObsPreviewGraphics
 {
@@ -31,11 +28,14 @@ internal static class ObsPreviewGraphics
     // obs_base_effect : l'effet « solid » est le quatrième de l'énumération de libobs.
     private const int ObsEffectSolid = 3;
 
-    // L'overlay est achromatique. Dans cette application la couleur porte un état — le rouge
-    // du direct et de l'enregistrement, le bleu de la sélection dans les listes. La
-    // géométrie n'emprunte pas ce vocabulaire : elle ne dit pas un état, elle dit une forme.
-    private static readonly Vec4 Ink = new(0.910f, 0.918f, 0.949f, 1f);
-    private static readonly Vec4 InkShadow = new(0.043f, 0.043f, 0.071f, 1f);
+    // Les couleurs de l'application, reprises telles quelles de Styles/Colors.axaml : c'est
+    // déjà la langue de la sélection ailleurs dans l'interface — l'accent pour ce qui est
+    // choisi, le gris calme pour le reste. Les valeurs du thème sombre valent dans les deux
+    // thèmes : la zone d'aperçu est noire en clair comme en sombre.
+    private static readonly Vec4 Chosen = new(0.357f, 0.553f, 0.937f, 1f);     // AppAccentFg
+    private static readonly Vec4 Idle = new(0.533f, 0.533f, 0.627f, 1f);       // AppFg3
+    private static readonly Vec4 HandleCore = new(0.918f, 0.918f, 0.941f, 1f); // AppFg1
+    private static readonly Vec4 Shadow = new(0.043f, 0.043f, 0.071f, 1f);     // AppBg
 
     // Un symbole graphique absent ne doit pas emporter le thread de rendu de libobs : au
     // premier échec on renonce à l'overlay pour de bon, l'image, elle, continue.
@@ -71,14 +71,11 @@ internal static class ObsPreviewGraphics
     }
 
     internal static OverlayMetrics MetricsFor(int viewportWidth, uint canvasWidth) => new(
-        Dash: ToCanvasPixels(9f, viewportWidth, canvasWidth, minimum: 3f),
-        DashThickness: ToCanvasPixels(2f, viewportWidth, canvasWidth, minimum: 1f),
-        IdleThickness: ToCanvasPixels(1.5f, viewportWidth, canvasWidth, minimum: 1f),
-        IdleArm: ToCanvasPixels(10f, viewportWidth, canvasWidth, minimum: 3f),
-        MarkThickness: ToCanvasPixels(3f, viewportWidth, canvasWidth, minimum: 1f),
-        MarkArm: ToCanvasPixels(14f, viewportWidth, canvasWidth, minimum: 4f),
-        MarkBar: ToCanvasPixels(20f, viewportWidth, canvasWidth, minimum: 6f),
-        Backing: ToCanvasPixels(1.5f, viewportWidth, canvasWidth, minimum: 1f));
+        IdleThickness: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f),
+        ChosenThickness: ToCanvasPixels(2f, viewportWidth, canvasWidth, minimum: 1f),
+        Handle: ToCanvasPixels(10f, viewportWidth, canvasWidth, minimum: 4f),
+        HandleCore: ToCanvasPixels(5f, viewportWidth, canvasWidth, minimum: 2f),
+        Shadow: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f));
 
     private static float ToCanvasPixels(float devicePixels, int viewportWidth, uint canvasWidth, float minimum)
     {
@@ -88,23 +85,18 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Le cadre de la source choisie, découpé en dents contiguës tout autour. Une dent sur
-    /// deux est peinte en sombre : c'est ce qui rend le cadre lisible sur n'importe quelle
-    /// image, là où un trait d'une seule couleur disparaît dès que l'image a la même valeur.
+    /// Les quatre bords d'un cadre, tracés <em>à l'intérieur</em> du rectangle de la source :
+    /// un cadre posé à cheval sur le bord ferait paraître la source plus grande qu'elle
+    /// n'est, alors que c'est justement sa taille réelle qu'il montre.
     /// </summary>
-    /// <remarks>
-    /// Les dents sont rendues dans l'ordre du parcours, haut, droite, bas, gauche. Le tracé
-    /// alterne les couleurs par leur rang.
-    /// </remarks>
-    internal static IReadOnlyList<PreviewFillRect> DashedFrame(
+    internal static IReadOnlyList<PreviewFillRect> BoxEdges(
         double x,
         double y,
         double width,
         double height,
-        float thickness,
-        float dash)
+        float thickness)
     {
-        if (width <= 0 || height <= 0 || thickness <= 0 || dash <= 0) return [];
+        if (width <= 0 || height <= 0 || thickness <= 0) return [];
 
         var left = (float)x;
         var top = (float)y;
@@ -116,110 +108,57 @@ internal static class ObsPreviewGraphics
         if (boxWidth <= thickness * 2 || boxHeight <= thickness * 2)
             return [new PreviewFillRect(left, top, boxWidth, boxHeight)];
 
-        var innerTop = top + thickness;
         var innerHeight = boxHeight - thickness * 2;
-        var teeth = new List<PreviewFillRect>();
-
-        AppendTeeth(teeth, left, top, boxWidth, thickness, dash, horizontal: true);
-        AppendTeeth(teeth, left + boxWidth - thickness, innerTop, innerHeight, thickness, dash, horizontal: false);
-        AppendTeeth(teeth, left, top + boxHeight - thickness, boxWidth, thickness, dash, horizontal: true);
-        AppendTeeth(teeth, left, innerTop, innerHeight, thickness, dash, horizontal: false);
-        return teeth;
-    }
-
-    private static void AppendTeeth(
-        List<PreviewFillRect> into,
-        float x,
-        float y,
-        float length,
-        float thickness,
-        float dash,
-        bool horizontal)
-    {
-        for (var offset = 0f; offset < length; offset += dash)
-        {
-            var size = Math.Min(dash, length - offset);
-            into.Add(horizontal
-                ? new PreviewFillRect(x + offset, y, size, thickness)
-                : new PreviewFillRect(x, y + offset, thickness, size));
-        }
-    }
-
-    /// <summary>
-    /// Les quatre équerres d'angle d'une source, deux branches chacune, tracées vers
-    /// l'intérieur. Sur une source non choisie elles remplacent le cadre : marquer chaque
-    /// source d'un cadre entier poserait un quadrillage sur l'image, qui est le sujet.
-    /// </summary>
-    /// <remarks>Rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche.</remarks>
-    internal static IReadOnlyList<PreviewFillRect> CornerMarks(
-        double x,
-        double y,
-        double width,
-        double height,
-        float thickness,
-        float arm)
-    {
-        if (width <= 0 || height <= 0 || thickness <= 0 || arm <= 0) return [];
-
-        var left = (float)x;
-        var top = (float)y;
-        var boxWidth = (float)width;
-        var boxHeight = (float)height;
-        var shortest = Math.Min(boxWidth, boxHeight);
-
-        // Sur une petite source, quatre équerres pleine longueur se rejoindraient et
-        // redessineraient le cadre qu'elles remplacent.
-        var line = Math.Min(thickness, shortest / 2f);
-        var branch = Math.Min(arm, shortest / 3f);
-        var right = left + boxWidth;
-        var bottom = top + boxHeight;
-
         return
         [
-            new PreviewFillRect(left, top, branch, line),
-            new PreviewFillRect(left, top, line, branch),
-            new PreviewFillRect(right - branch, top, branch, line),
-            new PreviewFillRect(right - line, top, line, branch),
-            new PreviewFillRect(right - branch, bottom - line, branch, line),
-            new PreviewFillRect(right - line, bottom - branch, line, branch),
-            new PreviewFillRect(left, bottom - line, branch, line),
-            new PreviewFillRect(left, bottom - branch, line, branch)
+            new PreviewFillRect(left, top, boxWidth, thickness),
+            new PreviewFillRect(left, top + boxHeight - thickness, boxWidth, thickness),
+            new PreviewFillRect(left, top + thickness, thickness, innerHeight),
+            new PreviewFillRect(left + boxWidth - thickness, top + thickness, thickness, innerHeight)
         ];
     }
 
     /// <summary>
-    /// Les quatre barres au milieu des côtés de la source choisie. Une barre couchée sur son
-    /// bord dit le geste qu'elle attend, là où un carré posé au même endroit ne dit rien.
+    /// Les huit poignées d'une source : quatre aux angles, quatre au milieu des côtés.
+    /// Chacune est centrée sur son point, donc à cheval sur le bord — c'est ce qui la rend
+    /// saisissable des deux côtés du trait, et ce qui la laisse visible sur une source
+    /// collée au bord du canvas.
     /// </summary>
-    /// <remarks>Rendues dans l'ordre haut, droite, bas, gauche.</remarks>
-    internal static IReadOnlyList<PreviewFillRect> EdgeMarks(
+    /// <remarks>
+    /// Rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche : c'est
+    /// l'ordre dont le geste d'étirement se servira pour savoir quel bord il tire.
+    /// </remarks>
+    internal static IReadOnlyList<PreviewFillRect> HandleRects(
         double x,
         double y,
         double width,
         double height,
-        float thickness,
-        float bar)
+        float size)
     {
-        if (width <= 0 || height <= 0 || thickness <= 0 || bar <= 0) return [];
+        if (width <= 0 || height <= 0 || size <= 0) return [];
 
         var left = (float)x;
         var top = (float)y;
-        var boxWidth = (float)width;
-        var boxHeight = (float)height;
-        var line = Math.Min(thickness, Math.Min(boxWidth, boxHeight) / 2f);
-        var horizontal = Math.Min(bar, boxWidth / 2f);
-        var vertical = Math.Min(bar, boxHeight / 2f);
-        var middleX = left + boxWidth / 2f - horizontal / 2f;
-        var middleY = top + boxHeight / 2f - vertical / 2f;
+        var right = (float)(x + width);
+        var bottom = (float)(y + height);
+        var middleX = (float)(x + width / 2);
+        var middleY = (float)(y + height / 2);
 
         return
         [
-            new PreviewFillRect(middleX, top, horizontal, line),
-            new PreviewFillRect(left + boxWidth - line, middleY, line, vertical),
-            new PreviewFillRect(middleX, top + boxHeight - line, horizontal, line),
-            new PreviewFillRect(left, middleY, line, vertical)
+            Handle(left, top, size),
+            Handle(middleX, top, size),
+            Handle(right, top, size),
+            Handle(right, middleY, size),
+            Handle(right, bottom, size),
+            Handle(middleX, bottom, size),
+            Handle(left, bottom, size),
+            Handle(left, middleY, size)
         ];
     }
+
+    private static PreviewFillRect Handle(float centerX, float centerY, float size) =>
+        new(centerX - size / 2f, centerY - size / 2f, size, size);
 
     /// <summary>
     /// Peint la scène puis, par-dessus, l'overlay de composition. Tout passe par la même
@@ -270,29 +209,47 @@ internal static class ObsPreviewGraphics
             var colorParameter = GsEffectGetParamByName(effect, "color");
             if (colorParameter == IntPtr.Zero) return;
 
-            var selected = overlay.Selected;
-            if (selected != null)
+            var chosen = overlay.Selected;
+
+            // L'ombre ne porte que sur ce qui compte, le cadre choisi et ses poignées : un
+            // liseré sombre de part et d'autre d'un filet de un pixel n'en ferait qu'une
+            // bouillie de trois.
+            if (chosen != null)
             {
-                var teeth = DashedFrame(
-                    selected.X, selected.Y, selected.Width, selected.Height,
-                    metrics.DashThickness, metrics.Dash);
-
-                SetColor(colorParameter, InkShadow);
-                while (GsEffectLoop(effect, "Solid")) FillEveryOther(teeth, first: 1);
-
-                SetColor(colorParameter, Ink);
-                while (GsEffectLoop(effect, "Solid")) FillEveryOther(teeth, first: 0);
+                SetColor(colorParameter, Shadow);
+                while (GsEffectLoop(effect, "Solid"))
+                {
+                    FillAllGrown(Edges(chosen, metrics.ChosenThickness), metrics.Shadow);
+                    FillAllGrown(Handles(chosen, metrics.Handle), metrics.Shadow);
+                }
             }
 
-            var marks = Marks(overlay, metrics);
+            // Les sources qu'on ne tient pas : un filet, de la couleur que prend partout
+            // ailleurs dans l'interface ce qui n'est pas sélectionné.
+            SetColor(colorParameter, Idle);
+            while (GsEffectLoop(effect, "Solid"))
+            {
+                foreach (var source in overlay.Sources)
+                {
+                    if (chosen != null && source.SourceId == chosen.SourceId) continue;
 
-            // Le fond sombre passe avant les marques : c'est ce qui les détache d'une image
-            // claire, où une marque claire seule se perdrait.
-            SetColor(colorParameter, InkShadow);
-            while (GsEffectLoop(effect, "Solid")) FillAllGrown(marks, metrics.Backing);
+                    FillAll(Edges(source, metrics.IdleThickness));
+                }
+            }
 
-            SetColor(colorParameter, Ink);
-            while (GsEffectLoop(effect, "Solid")) FillAll(marks);
+            if (chosen == null) return;
+
+            // La source choisie prend l'accent, comme la scène sélectionnée dans sa liste.
+            // Seule l'épaisseur change en plus de la couleur : la forme, elle, ne bouge pas.
+            SetColor(colorParameter, Chosen);
+            while (GsEffectLoop(effect, "Solid"))
+            {
+                FillAll(Edges(chosen, metrics.ChosenThickness));
+                FillAll(Handles(chosen, metrics.Handle));
+            }
+
+            SetColor(colorParameter, HandleCore);
+            while (GsEffectLoop(effect, "Solid")) FillAll(Handles(chosen, metrics.HandleCore));
         }
         catch (Exception)
         {
@@ -300,29 +257,11 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    // Une source choisie porte ses équerres et ses barres ; les autres, leurs seules équerres
-    // d'angle. La différence se voit d'un coup d'œil, sans avoir à lire une couleur.
-    private static List<PreviewFillRect> Marks(CompositionOverlay overlay, OverlayMetrics metrics)
-    {
-        var marks = new List<PreviewFillRect>();
-        foreach (var source in overlay.Sources)
-        {
-            var chosen = overlay.Selected != null && source.SourceId == overlay.Selected.SourceId;
-            marks.AddRange(CornerMarks(
-                source.X, source.Y, source.Width, source.Height,
-                chosen ? metrics.MarkThickness : metrics.IdleThickness,
-                chosen ? metrics.MarkArm : metrics.IdleArm));
+    private static IReadOnlyList<PreviewFillRect> Edges(SourceTransform source, float thickness) =>
+        BoxEdges(source.X, source.Y, source.Width, source.Height, thickness);
 
-            if (chosen)
-            {
-                marks.AddRange(EdgeMarks(
-                    source.X, source.Y, source.Width, source.Height,
-                    metrics.MarkThickness, metrics.MarkBar));
-            }
-        }
-
-        return marks;
-    }
+    private static IReadOnlyList<PreviewFillRect> Handles(SourceTransform source, float size) =>
+        HandleRects(source.X, source.Y, source.Width, source.Height, size);
 
     private static void SetColor(IntPtr parameter, Vec4 color) => GsEffectSetVec4(parameter, ref color);
 
@@ -341,11 +280,6 @@ internal static class ObsPreviewGraphics
                 rect.Width + amount * 2,
                 rect.Height + amount * 2));
         }
-    }
-
-    private static void FillEveryOther(IReadOnlyList<PreviewFillRect> rects, int first)
-    {
-        for (var index = first; index < rects.Count; index += 2) Fill(rects[index]);
     }
 
     // Un quad unitaire mis à la place et à la taille voulues : c'est ainsi que libobs peint
