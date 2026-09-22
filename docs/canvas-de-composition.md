@@ -37,13 +37,50 @@ tombent donc sur Avalonia derrière, et les transformations lues ici donnent le 
    le sens du dessin — de l'arrière-plan vers le premier plan. Une source masquée, ou sans
    image comme une source audio, n'a pas de cadre.
 4. `ObsPreviewHost` rend cette liste au moteur pour sa propre surface
-   (`IScenePreviewRuntime.SetCompositionOutlines`). `ObsPreviewGraphics` la peint après la
+   (`IScenePreviewRuntime.SetCompositionOverlay`). `ObsPreviewGraphics` le peint après la
    scène, dans le repère du canvas.
 
-Les cadres sont tracés **vers l'intérieur** du rectangle de la source, et leur épaisseur est
-convertie en pixels du canvas pour rester constante à l'écran : un cadre à cheval sur le bord
-ferait paraître la source plus grande qu'elle n'est, alors que c'est justement sa taille
-réelle qu'il montre.
+## Le vocabulaire de l'overlay
+
+Tout est tracé **vers l'intérieur** du rectangle de la source : un trait posé à cheval sur le
+bord ferait paraître la source plus grande qu'elle n'est, alors que c'est justement sa taille
+réelle qu'il montre. Et toutes les tailles sont pensées en pixels de l'écran puis converties
+en pixels du canvas : une marque se vise à la souris, elle ne suit pas l'échelle à laquelle le
+canvas est réduit dans le panneau.
+
+L'overlay est **achromatique** — une encre claire sur une ombre sombre. Dans cette
+application la couleur porte un état : le rouge du direct et de l'enregistrement, le bleu de
+la sélection dans les listes. La géométrie n'emprunte pas ce vocabulaire, elle ne dit pas un
+état mais une forme. Chaque marque est posée sur un fond sombre légèrement plus large, sans
+quoi elle se perdrait sur une image claire.
+
+- **Source composée** : quatre équerres d'angle, fines. Pas de cadre entier — marquer chaque
+  source d'un cadre poserait un quadrillage sur l'image, qui est le sujet.
+- **Source choisie** : un cadre découpé en dents contiguës, une sur deux en sombre. C'est ce
+  qui le rend lisible sur n'importe quelle image, là où un trait d'une seule couleur
+  disparaît dès que l'image a la même valeur.
+- **Ses points d'accroche** : équerres plus franches aux angles, barres couchées au milieu
+  des côtés. La forme dit le geste attendu — un L tire un coin, une barre tire un bord.
+
+## Choisir une source
+
+Un clic sur l'image choisit la source visée : celle qui est devant, puisque c'est celle que
+l'opérateur voit à cet endroit. Cliquer à côté de toute source, ou en dehors de l'image, ne
+choisit plus rien.
+
+Le clic ne peut pas atterrir sur la surface native : elle se déclare transparente aux tests
+de survol et l'hôte ne teste pas le survol. Il tombe donc sur le fond de `StudioPreview`, qui
+le ramène dans le repère du canvas — un simple rapport de tailles, écrit à un seul endroit,
+et qui est le changement de repère du moteur pris à l'envers.
+
+La sélection est retenue **par identifiant**, jamais par rectangle : elle suit la source
+quand le moteur la déplace, et tombe d'elle-même quand la source cesse d'être composée —
+retirée, masquée, ou scène changée. Montrer des points d'accroche sur une source que le
+moteur ne compose plus laisserait saisir ce qui n'est pas là.
+
+Le geste lui-même — étirer, déplacer — viendra avec l'écriture des transformations côté
+moteur. Les marques sont déjà rendues dans le sens des aiguilles d'une montre depuis le coin
+haut-gauche : c'est l'ordre dont il se servira pour savoir quel bord il tire.
 
 ## Rester en phase avec le moteur
 
