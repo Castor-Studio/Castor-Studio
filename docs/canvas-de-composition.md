@@ -42,25 +42,29 @@ tombent donc sur Avalonia derrière, et les transformations lues ici donnent le 
 
 ## Le vocabulaire de l'overlay
 
+L'overlay parle la langue du reste de l'interface. Ses couleurs sont celles de
+`Styles/Colors.axaml`, reprises telles quelles : l'accent `AppAccentFg` pour ce qui est
+choisi, le gris `AppFg3` pour le reste — exactement la distinction que font déjà les lignes
+de la liste des scènes. Les valeurs du thème sombre valent dans les deux thèmes, la zone
+d'aperçu étant noire en clair comme en sombre.
+
+- **Source composée** : un filet de 1 px en `AppFg3`.
+- **Source choisie** : le même cadre en `AppAccentFg`, épaissi à 2 px. Seule la couleur et le
+  poids changent ; la forme, elle, ne bouge pas.
+- **Ses poignées** : huit carrés d'accent à cœur clair (`AppFg1`), quatre aux angles, quatre
+  au milieu des côtés, centrés sur leur point donc à cheval sur le bord — c'est ce qui les
+  rend saisissables des deux côtés du trait, et visibles sur une source collée au bord du
+  canvas.
+
+Le cadre choisi et ses poignées portent une ombre de 1 px, sans quoi ils disparaîtraient sur
+une image claire. Les filets gris n'en ont pas : un liseré sombre de part et d'autre d'un
+trait de 1 px n'en ferait qu'une bouillie de trois.
+
 Tout est tracé **vers l'intérieur** du rectangle de la source : un trait posé à cheval sur le
 bord ferait paraître la source plus grande qu'elle n'est, alors que c'est justement sa taille
 réelle qu'il montre. Et toutes les tailles sont pensées en pixels de l'écran puis converties
-en pixels du canvas : une marque se vise à la souris, elle ne suit pas l'échelle à laquelle le
-canvas est réduit dans le panneau.
-
-L'overlay est **achromatique** — une encre claire sur une ombre sombre. Dans cette
-application la couleur porte un état : le rouge du direct et de l'enregistrement, le bleu de
-la sélection dans les listes. La géométrie n'emprunte pas ce vocabulaire, elle ne dit pas un
-état mais une forme. Chaque marque est posée sur un fond sombre légèrement plus large, sans
-quoi elle se perdrait sur une image claire.
-
-- **Source composée** : quatre équerres d'angle, fines. Pas de cadre entier — marquer chaque
-  source d'un cadre poserait un quadrillage sur l'image, qui est le sujet.
-- **Source choisie** : un cadre découpé en dents contiguës, une sur deux en sombre. C'est ce
-  qui le rend lisible sur n'importe quelle image, là où un trait d'une seule couleur
-  disparaît dès que l'image a la même valeur.
-- **Ses points d'accroche** : équerres plus franches aux angles, barres couchées au milieu
-  des côtés. La forme dit le geste attendu — un L tire un coin, une barre tire un bord.
+en pixels du canvas : une poignée se vise à la souris, elle ne suit pas l'échelle à laquelle
+le canvas est réduit dans le panneau.
 
 ## Choisir une source
 
@@ -79,7 +83,7 @@ retirée, masquée, ou scène changée. Montrer des points d'accroche sur une so
 moteur ne compose plus laisserait saisir ce qui n'est pas là.
 
 Le geste lui-même — étirer, déplacer — viendra avec l'écriture des transformations côté
-moteur. Les marques sont déjà rendues dans le sens des aiguilles d'une montre depuis le coin
+moteur. Les poignées sont déjà rendues dans le sens des aiguilles d'une montre depuis le coin
 haut-gauche : c'est l'ordre dont il se servira pour savoir quel bord il tire.
 
 ## Rester en phase avec le moteur
