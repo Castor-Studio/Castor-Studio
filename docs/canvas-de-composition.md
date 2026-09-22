@@ -42,23 +42,24 @@ tombent donc sur Avalonia derrière, et les transformations lues ici donnent le 
 
 ## Le vocabulaire de l'overlay
 
-L'overlay parle la langue du reste de l'interface. Ses couleurs sont celles de
-`Styles/Colors.axaml`, reprises telles quelles : l'accent `AppAccentFg` pour ce qui est
-choisi, le gris `AppFg3` pour le reste — exactement la distinction que font déjà les lignes
-de la liste des scènes. Les valeurs du thème sombre valent dans les deux thèmes, la zone
-d'aperçu étant noire en clair comme en sombre.
+L'overlay reprend la répartition que fait déjà la liste des sources, où la pastille garde sa
+couleur pendant que le texte passe à l'accent : **la couleur dit l'identité, le poids et les
+poignées disent l'état**.
 
-- **Source composée** : un filet de 1 px en `AppFg3`.
-- **Source choisie** : le même cadre en `AppAccentFg`, épaissi à 2 px. Seule la couleur et le
-  poids changent ; la forme, elle, ne bouge pas.
-- **Ses poignées** : huit carrés d'accent à cœur clair (`AppFg1`), quatre aux angles, quatre
+- **Source composée** : un filet de 1 px, de la couleur de sa pastille dans la liste. Sur une
+  composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Une couleur
+  illisible rend l'accent par défaut : un cadre sans couleur exacte reste plus utile qu'une
+  source sans cadre.
+- **Source choisie** : le même cadre, dans la même couleur, épaissi à 2 px.
+- **Ses poignées** : huit carrés en `AppAccentFg` à cœur `AppFg1`, quatre aux angles, quatre
   au milieu des côtés, centrés sur leur point donc à cheval sur le bord — c'est ce qui les
   rend saisissables des deux côtés du trait, et visibles sur une source collée au bord du
   canvas.
 
-Le cadre choisi et ses poignées portent une ombre de 1 px, sans quoi ils disparaîtraient sur
-une image claire. Les filets gris n'en ont pas : un liseré sombre de part et d'autre d'un
-trait de 1 px n'en ferait qu'une bouillie de trois.
+Tout l'overlay porte une ombre `AppBg` de 1 px de chaque côté. Un cœur coloré posé sur un
+liseré sombre se lit sur n'importe quelle image ; le même trait seul disparaît dès que
+l'image prend sa valeur. Les valeurs du thème sombre valent dans les deux thèmes, la zone
+d'aperçu étant noire en clair comme en sombre.
 
 Tout est tracé **vers l'intérieur** du rectangle de la source : un trait posé à cheval sur le
 bord ferait paraître la source plus grande qu'elle n'est, alors que c'est justement sa taille
