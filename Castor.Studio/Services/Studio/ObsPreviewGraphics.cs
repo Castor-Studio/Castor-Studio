@@ -9,6 +9,18 @@ internal readonly record struct PreviewViewport(int X, int Y, int Width, int Hei
 /// <summary>Un rectangle plein à peindre, dans les coordonnées du canvas du moteur.</summary>
 internal readonly record struct PreviewFillRect(float X, float Y, float Width, float Height);
 
+/// <summary>
+/// Les tailles de l'overlay, en pixels du canvas, pour l'image en cours. Elles sont pensées
+/// en pixels de l'écran puis converties : une poignée se vise à la souris, elle ne suit pas
+/// l'échelle à laquelle le canvas est réduit dans le panneau.
+/// </summary>
+internal readonly record struct OverlayMetrics(
+    float IdleThickness,
+    float ChosenThickness,
+    float Handle,
+    float HandleCore,
+    float Shadow);
+
 internal static class ObsPreviewGraphics
 {
     private const string ObsLibrary = "obs";
@@ -16,15 +28,16 @@ internal static class ObsPreviewGraphics
     // obs_base_effect : l'effet « solid » est le quatrième de l'énumération de libobs.
     private const int ObsEffectSolid = 3;
 
-    // Épaisseur visée pour le trait des cadres, en pixels de l'écran. Elle est convertie en
-    // pixels du canvas au moment du tracé : un cadre doit rester lisible que le panneau soit
-    // large ou étroit, sans jamais déborder du rectangle qu'il entoure.
-    private const float OutlineDeviceThickness = 2f;
-
-    private static readonly Vec4 OutlineColor = new(0.357f, 0.553f, 0.937f, 1f);
+    // Le cadre d'une source porte la couleur de sa pastille dans la liste : sur une
+    // composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Ce qui
+    // reste vient de Styles/Colors.axaml, dans les valeurs du thème sombre : la zone
+    // d'aperçu est noire en clair comme en sombre.
+    private static readonly Vec4 Chosen = new(0.357f, 0.553f, 0.937f, 1f);     // AppAccentFg
+    private static readonly Vec4 HandleCore = new(0.918f, 0.918f, 0.941f, 1f); // AppFg1
+    private static readonly Vec4 Shadow = new(0.043f, 0.043f, 0.071f, 1f);     // AppBg
 
     // Un symbole graphique absent ne doit pas emporter le thread de rendu de libobs : au
-    // premier échec on renonce aux cadres pour de bon, l'image, elle, continue.
+    // premier échec on renonce à l'overlay pour de bon, l'image, elle, continue.
     private static volatile bool _outlinesUnavailable;
 
     internal static PreviewViewport CalculateViewport(
@@ -56,15 +69,18 @@ internal static class ObsPreviewGraphics
         return new PreviewViewport(x, y, width, height);
     }
 
-    /// <summary>
-    /// Épaisseur de trait, en pixels du canvas, pour qu'un cadre fasse la même épaisseur à
-    /// l'écran quelle que soit la taille à laquelle le canvas y est réduit.
-    /// </summary>
-    internal static float OutlineThickness(int viewportWidth, uint canvasWidth)
-    {
-        if (viewportWidth <= 0 || canvasWidth == 0) return OutlineDeviceThickness;
+    internal static OverlayMetrics MetricsFor(int viewportWidth, uint canvasWidth) => new(
+        IdleThickness: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f),
+        ChosenThickness: ToCanvasPixels(2f, viewportWidth, canvasWidth, minimum: 1f),
+        Handle: ToCanvasPixels(10f, viewportWidth, canvasWidth, minimum: 4f),
+        HandleCore: ToCanvasPixels(5f, viewportWidth, canvasWidth, minimum: 2f),
+        Shadow: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f));
 
-        return Math.Max(1f, OutlineDeviceThickness * canvasWidth / viewportWidth);
+    private static float ToCanvasPixels(float devicePixels, int viewportWidth, uint canvasWidth, float minimum)
+    {
+        if (viewportWidth <= 0 || canvasWidth == 0) return devicePixels;
+
+        return Math.Max(minimum, devicePixels * canvasWidth / viewportWidth);
     }
 
     /// <summary>
@@ -102,16 +118,58 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Peint la scène puis, par-dessus, le cadre de chaque source composée. Les deux passent
-    /// par la même projection : les cadres tombent exactement sur l'image, au pixel près et
-    /// à la même image que le moteur.
+    /// Les huit poignées d'une source : quatre aux angles, quatre au milieu des côtés.
+    /// Chacune est centrée sur son point, donc à cheval sur le bord — c'est ce qui la rend
+    /// saisissable des deux côtés du trait, et ce qui la laisse visible sur une source
+    /// collée au bord du canvas.
+    /// </summary>
+    /// <remarks>
+    /// Rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche : c'est
+    /// l'ordre dont le geste d'étirement se servira pour savoir quel bord il tire.
+    /// </remarks>
+    internal static IReadOnlyList<PreviewFillRect> HandleRects(
+        double x,
+        double y,
+        double width,
+        double height,
+        float size)
+    {
+        if (width <= 0 || height <= 0 || size <= 0) return [];
+
+        var left = (float)x;
+        var top = (float)y;
+        var right = (float)(x + width);
+        var bottom = (float)(y + height);
+        var middleX = (float)(x + width / 2);
+        var middleY = (float)(y + height / 2);
+
+        return
+        [
+            Handle(left, top, size),
+            Handle(middleX, top, size),
+            Handle(right, top, size),
+            Handle(right, middleY, size),
+            Handle(right, bottom, size),
+            Handle(middleX, bottom, size),
+            Handle(left, bottom, size),
+            Handle(left, middleY, size)
+        ];
+    }
+
+    private static PreviewFillRect Handle(float centerX, float centerY, float size) =>
+        new(centerX - size / 2f, centerY - size / 2f, size, size);
+
+    /// <summary>
+    /// Peint la scène puis, par-dessus, l'overlay de composition. Tout passe par la même
+    /// projection : l'overlay tombe exactement sur l'image, au pixel près et à la même image
+    /// que le moteur.
     /// </summary>
     internal static void RenderScene(
         ObsDisplayFrame frame,
         ObsSource sceneSource,
         uint canvasWidth,
         uint canvasHeight,
-        IReadOnlyList<SourceTransform> outlines)
+        CompositionOverlay overlay)
     {
         var viewport = CalculateViewport(frame.Width, frame.Height, canvasWidth, canvasHeight);
         if (viewport.Width == 0 || viewport.Height == 0) return;
@@ -125,7 +183,7 @@ internal static class ObsPreviewGraphics
                 GsOrtho(0, canvasWidth, 0, canvasHeight, -100, 100);
                 GsSetViewport(viewport.X, viewport.Y, viewport.Width, viewport.Height);
                 frame.Render(sceneSource);
-                DrawOutlines(outlines, OutlineThickness(viewport.Width, canvasWidth));
+                DrawOverlay(overlay, MetricsFor(viewport.Width, canvasWidth));
             }
             finally
             {
@@ -138,9 +196,9 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    private static void DrawOutlines(IReadOnlyList<SourceTransform> outlines, float thickness)
+    private static void DrawOverlay(CompositionOverlay overlay, OverlayMetrics metrics)
     {
-        if (outlines.Count == 0 || _outlinesUnavailable) return;
+        if (_outlinesUnavailable || overlay.Sources.Count == 0) return;
 
         try
         {
@@ -150,20 +208,80 @@ internal static class ObsPreviewGraphics
             var colorParameter = GsEffectGetParamByName(effect, "color");
             if (colorParameter == IntPtr.Zero) return;
 
-            var color = OutlineColor;
-            GsEffectSetVec4(colorParameter, ref color);
+            var chosen = overlay.Selected;
+
+            // L'ombre passe sous tout l'overlay, d'un pixel de chaque côté. Un cœur coloré
+            // posé sur un liseré sombre se lit sur n'importe quelle image ; le même trait
+            // seul disparaît dès que l'image prend sa valeur.
+            SetColor(colorParameter, Shadow);
             while (GsEffectLoop(effect, "Solid"))
             {
-                foreach (var source in outlines)
-                {
-                    foreach (var edge in BoxEdges(source.X, source.Y, source.Width, source.Height, thickness))
-                        Fill(edge);
-                }
+                foreach (var source in overlay.Sources)
+                    FillAllGrown(Edges(source, Thickness(source, chosen, metrics)), metrics.Shadow);
+
+                if (chosen != null) FillAllGrown(Handles(chosen, metrics.Handle), metrics.Shadow);
             }
+
+            // Un cadre par couleur : celle de la source, celle que porte déjà sa pastille
+            // dans la liste. C'est l'identité, elle ne dit pas l'état.
+            foreach (var source in overlay.Sources)
+            {
+                SetColor(colorParameter, ToVec4(source.Tint));
+                while (GsEffectLoop(effect, "Solid"))
+                    FillAll(Edges(source, Thickness(source, chosen, metrics)));
+            }
+
+            if (chosen == null) return;
+
+            // L'état, lui, tient au poids du trait et à ces poignées, qui prennent l'accent
+            // de la sélection comme partout ailleurs dans l'interface.
+            SetColor(colorParameter, Chosen);
+            while (GsEffectLoop(effect, "Solid")) FillAll(Handles(chosen, metrics.Handle));
+
+            SetColor(colorParameter, HandleCore);
+            while (GsEffectLoop(effect, "Solid")) FillAll(Handles(chosen, metrics.HandleCore));
         }
         catch (Exception)
         {
             _outlinesUnavailable = true;
+        }
+    }
+
+    private static float Thickness(OverlaySource source, OverlaySource? chosen, OverlayMetrics metrics) =>
+        chosen != null && source.Transform.SourceId == chosen.Transform.SourceId
+            ? metrics.ChosenThickness
+            : metrics.IdleThickness;
+
+    private static IReadOnlyList<PreviewFillRect> Edges(OverlaySource source, float thickness) =>
+        BoxEdges(
+            source.Transform.X, source.Transform.Y,
+            source.Transform.Width, source.Transform.Height,
+            thickness);
+
+    private static IReadOnlyList<PreviewFillRect> Handles(OverlaySource source, float size) =>
+        HandleRects(
+            source.Transform.X, source.Transform.Y,
+            source.Transform.Width, source.Transform.Height,
+            size);
+
+    private static Vec4 ToVec4(OverlayTint tint) => new(tint.Red, tint.Green, tint.Blue, 1f);
+
+    private static void SetColor(IntPtr parameter, Vec4 color) => GsEffectSetVec4(parameter, ref color);
+
+    private static void FillAll(IReadOnlyList<PreviewFillRect> rects)
+    {
+        foreach (var rect in rects) Fill(rect);
+    }
+
+    private static void FillAllGrown(IReadOnlyList<PreviewFillRect> rects, float amount)
+    {
+        foreach (var rect in rects)
+        {
+            Fill(new PreviewFillRect(
+                rect.X - amount,
+                rect.Y - amount,
+                rect.Width + amount * 2,
+                rect.Height + amount * 2));
         }
     }
 

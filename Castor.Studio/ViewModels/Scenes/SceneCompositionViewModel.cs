@@ -18,12 +18,17 @@ public partial class SceneCompositionViewModel : ViewModelBase
 {
     private readonly ISourceRuntime _sourceRuntime;
     private SceneItemViewModel? _scene;
+    private Guid? _selectedSourceId;
 
     /// <summary>
-    /// Les sources que le moteur compose, dans l'ordre du dessin : de l'arrière-plan vers le
-    /// premier plan. C'est son empilement, parcouru dans le sens où il peint.
+    /// Ce que le moteur doit tracer par-dessus son image : les sources qu'il compose, dans
+    /// l'ordre du dessin — de l'arrière-plan vers le premier plan —, et celle qui est
+    /// choisie. Chacune porte la couleur sous laquelle la liste des sources la nomme.
     /// </summary>
-    public IReadOnlyList<SourceTransform> Sources { get; private set; } = [];
+    public CompositionOverlay Overlay { get; private set; } = CompositionOverlay.Empty;
+
+    /// <summary>La source choisie, telle que le moteur la compose à cet instant.</summary>
+    public SourceTransform? Selected => Overlay.Selected?.Transform;
 
     [ObservableProperty] private string _status = "";
 
@@ -33,8 +38,44 @@ public partial class SceneCompositionViewModel : ViewModelBase
     internal void ShowScene(SceneItemViewModel? scene)
     {
         _scene = scene;
-        Sources = [];
+        // Changer de scène, c'est changer de sources : garder le choix précédent ferait
+        // rouvrir la suivante avec une sélection qui n'est plus à elle.
+        _selectedSourceId = null;
+        Publish([]);
         Refresh();
+    }
+
+    /// <summary>
+    /// Choisit la source visée à ce point du canvas, ou aucune si le point ne tombe sur
+    /// aucune. Le choix se porte sur celle qui est devant : c'est celle que l'opérateur
+    /// voit à cet endroit.
+    /// </summary>
+    public void SelectAt(double canvasX, double canvasY)
+    {
+        // La liste va de l'arrière-plan vers le premier plan : on la remonte pour rencontrer
+        // d'abord ce qui est dessus.
+        var sources = Overlay.Sources;
+        for (var index = sources.Count - 1; index >= 0; index--)
+        {
+            var source = sources[index].Transform;
+            if (canvasX < source.X || canvasX > source.X + source.Width) continue;
+            if (canvasY < source.Y || canvasY > source.Y + source.Height) continue;
+
+            _selectedSourceId = source.SourceId;
+            Publish(sources);
+            return;
+        }
+
+        ClearSelection();
+    }
+
+    /// <summary>Ne choisit plus aucune source : l'overlay ne montre que les cadres.</summary>
+    public void ClearSelection()
+    {
+        if (_selectedSourceId == null) return;
+
+        _selectedSourceId = null;
+        Publish(Overlay.Sources);
     }
 
     /// <summary>
@@ -47,7 +88,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         var scene = _scene;
         if (scene == null)
         {
-            Sources = [];
+            Publish([]);
             Status = "";
             return;
         }
@@ -57,7 +98,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         {
             // Un moteur globalement indisponible est déjà annoncé par l'aperçu : ici, il n'y
             // a simplement rien de composé.
-            Sources = [];
+            Publish([]);
             Status = "";
             return;
         }
@@ -71,16 +112,41 @@ public partial class SceneCompositionViewModel : ViewModelBase
         }
 
         Status = "";
-        Sources = Drawable(result.Composition.Sources);
+        Publish(Drawable(scene, result.Composition.Sources));
+    }
+
+    // La sélection est retenue par identifiant, jamais par rectangle : c'est ce qui la fait
+    // suivre la source quand le moteur la déplace, et ce qui la laisse tomber d'elle-même
+    // quand la source cesse d'être composée — retirée, masquée, ou scène changée.
+    private void Publish(IReadOnlyList<OverlaySource> sources)
+    {
+        var selected = Find(sources, _selectedSourceId);
+        if (selected == null) _selectedSourceId = null;
+        Overlay = new CompositionOverlay(sources, selected);
+    }
+
+    private static OverlaySource? Find(IReadOnlyList<OverlaySource> sources, Guid? sourceId)
+    {
+        if (sourceId == null) return null;
+
+        foreach (var source in sources)
+        {
+            if (source.Transform.SourceId == sourceId) return source;
+        }
+
+        return null;
     }
 
     // Le moteur rend sa pile du premier plan vers l'arrière-plan ; elle est parcourue à
-    // l'envers parce qu'on peint de l'arrière vers l'avant. Une nouvelle liste à chaque
-    // lecture : celle-ci est relue image par image par le thread graphique du moteur, elle
-    // ne doit plus changer une fois donnée.
-    private static IReadOnlyList<SourceTransform> Drawable(IReadOnlyList<SourceTransform> transforms)
+    // l'envers parce qu'on peint de l'arrière vers l'avant. Chaque source repart avec la
+    // couleur que la liste lui donne : sur une composition qui se chevauche, c'est ce qui
+    // dit quel cadre est quelle ligne. Une nouvelle liste à chaque lecture, puisque le
+    // thread graphique du moteur relit image par image celle qu'on lui a donnée.
+    private static IReadOnlyList<OverlaySource> Drawable(
+        SceneItemViewModel scene,
+        IReadOnlyList<SourceTransform> transforms)
     {
-        var drawable = new List<SourceTransform>(transforms.Count);
+        var drawable = new List<OverlaySource>(transforms.Count);
         for (var index = transforms.Count - 1; index >= 0; index--)
         {
             var transform = transforms[index];
@@ -88,9 +154,19 @@ public partial class SceneCompositionViewModel : ViewModelBase
             // source audio — n'a aucun cadre à montrer.
             if (!transform.IsVisible || transform.Width <= 0 || transform.Height <= 0) continue;
 
-            drawable.Add(transform);
+            drawable.Add(new OverlaySource(transform, TintOf(scene, transform.SourceId)));
         }
 
         return drawable;
+    }
+
+    private static OverlayTint TintOf(SceneItemViewModel scene, Guid sourceId)
+    {
+        foreach (var source in scene.Sources)
+        {
+            if (source.Id == sourceId) return OverlayTint.Parse(source.Color);
+        }
+
+        return OverlayTint.Default;
     }
 }

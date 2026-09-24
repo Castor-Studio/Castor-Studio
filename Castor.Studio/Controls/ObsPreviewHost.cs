@@ -223,9 +223,10 @@ public sealed class ObsPreviewHost : NativeControlHost
     }
 
     // The interface reads the composition, the engine draws it: a native surface cannot be
-    // drawn over, so the outlines are handed back to it and painted in the same frame as
-    // the picture.
-    private void RefreshComposition()
+    // drawn over, so the overlay is handed back to it and painted in the same frame as the
+    // picture. Also called on a click, so a selection shows at once rather than on the
+    // next beat.
+    internal void RefreshComposition()
     {
         var composition = Composition;
         var runtime = Runtime;
@@ -233,7 +234,7 @@ public sealed class ObsPreviewHost : NativeControlHost
             return;
 
         composition.Refresh();
-        runtime.SetCompositionOutlines(_nativeHandle, composition.Sources);
+        runtime.SetCompositionOverlay(_nativeHandle, composition.Overlay);
     }
 
     private void ObserveRuntime(IScenePreviewRuntime? runtime)

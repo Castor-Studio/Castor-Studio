@@ -37,13 +37,55 @@ tombent donc sur Avalonia derrière, et les transformations lues ici donnent le 
    le sens du dessin — de l'arrière-plan vers le premier plan. Une source masquée, ou sans
    image comme une source audio, n'a pas de cadre.
 4. `ObsPreviewHost` rend cette liste au moteur pour sa propre surface
-   (`IScenePreviewRuntime.SetCompositionOutlines`). `ObsPreviewGraphics` la peint après la
+   (`IScenePreviewRuntime.SetCompositionOverlay`). `ObsPreviewGraphics` le peint après la
    scène, dans le repère du canvas.
 
-Les cadres sont tracés **vers l'intérieur** du rectangle de la source, et leur épaisseur est
-convertie en pixels du canvas pour rester constante à l'écran : un cadre à cheval sur le bord
-ferait paraître la source plus grande qu'elle n'est, alors que c'est justement sa taille
-réelle qu'il montre.
+## Le vocabulaire de l'overlay
+
+L'overlay reprend la répartition que fait déjà la liste des sources, où la pastille garde sa
+couleur pendant que le texte passe à l'accent : **la couleur dit l'identité, le poids et les
+poignées disent l'état**.
+
+- **Source composée** : un filet de 1 px, de la couleur de sa pastille dans la liste. Sur une
+  composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Une couleur
+  illisible rend l'accent par défaut : un cadre sans couleur exacte reste plus utile qu'une
+  source sans cadre.
+- **Source choisie** : le même cadre, dans la même couleur, épaissi à 2 px.
+- **Ses poignées** : huit carrés en `AppAccentFg` à cœur `AppFg1`, quatre aux angles, quatre
+  au milieu des côtés, centrés sur leur point donc à cheval sur le bord — c'est ce qui les
+  rend saisissables des deux côtés du trait, et visibles sur une source collée au bord du
+  canvas.
+
+Tout l'overlay porte une ombre `AppBg` de 1 px de chaque côté. Un cœur coloré posé sur un
+liseré sombre se lit sur n'importe quelle image ; le même trait seul disparaît dès que
+l'image prend sa valeur. Les valeurs du thème sombre valent dans les deux thèmes, la zone
+d'aperçu étant noire en clair comme en sombre.
+
+Tout est tracé **vers l'intérieur** du rectangle de la source : un trait posé à cheval sur le
+bord ferait paraître la source plus grande qu'elle n'est, alors que c'est justement sa taille
+réelle qu'il montre. Et toutes les tailles sont pensées en pixels de l'écran puis converties
+en pixels du canvas : une poignée se vise à la souris, elle ne suit pas l'échelle à laquelle
+le canvas est réduit dans le panneau.
+
+## Choisir une source
+
+Un clic sur l'image choisit la source visée : celle qui est devant, puisque c'est celle que
+l'opérateur voit à cet endroit. Cliquer à côté de toute source, ou en dehors de l'image, ne
+choisit plus rien.
+
+Le clic ne peut pas atterrir sur la surface native : elle se déclare transparente aux tests
+de survol et l'hôte ne teste pas le survol. Il tombe donc sur le fond de `StudioPreview`, qui
+le ramène dans le repère du canvas — un simple rapport de tailles, écrit à un seul endroit,
+et qui est le changement de repère du moteur pris à l'envers.
+
+La sélection est retenue **par identifiant**, jamais par rectangle : elle suit la source
+quand le moteur la déplace, et tombe d'elle-même quand la source cesse d'être composée —
+retirée, masquée, ou scène changée. Montrer des points d'accroche sur une source que le
+moteur ne compose plus laisserait saisir ce qui n'est pas là.
+
+Le geste lui-même — étirer, déplacer — viendra avec l'écriture des transformations côté
+moteur. Les poignées sont déjà rendues dans le sens des aiguilles d'une montre depuis le coin
+haut-gauche : c'est l'ordre dont il se servira pour savoir quel bord il tire.
 
 ## Rester en phase avec le moteur
 

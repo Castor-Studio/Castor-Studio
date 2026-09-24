@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Scenes;
 
@@ -88,6 +89,39 @@ public partial class StudioPreview : UserControl
                 UpdatePreviewViewport();
         };
         UpdatePreviewViewport();
+    }
+
+    /// <summary>
+    /// Ramène le clic dans le repère du canvas et laisse la composition choisir la source
+    /// visée. Sans composition, la vue ne fait que montrer : un clic n'y sélectionne rien.
+    /// </summary>
+    private void OnPicturePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var composition = Composition;
+        if (composition == null) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+        var picture = NativePreview.Bounds;
+        if (picture.Width <= 0 || picture.Height <= 0 || BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0) return;
+
+        var point = e.GetPosition(this);
+        if (picture.Contains(point))
+        {
+            // L'image occupe exactement le rectangle de la surface native : un point de
+            // l'écran s'y ramène par le seul rapport des deux tailles. C'est le changement
+            // de repère du moteur, pris à l'envers, et le seul endroit où il est écrit.
+            composition.SelectAt(
+                (point.X - picture.X) * BaseCanvasWidth / picture.Width,
+                (point.Y - picture.Y) * BaseCanvasHeight / picture.Height);
+        }
+        else
+        {
+            // Cliquer à côté de l'image, c'est ne viser aucune source.
+            composition.ClearSelection();
+        }
+
+        NativePreview.RefreshComposition();
+        e.Handled = true;
     }
 
     private void UpdatePreviewViewport()

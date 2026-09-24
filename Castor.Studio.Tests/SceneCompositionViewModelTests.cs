@@ -25,9 +25,9 @@ public sealed class SceneCompositionViewModelTests
         // sens du dessin.
         Assert.Equal(
             [Id(scene, "Fond"), Id(scene, "Caméra"), Id(scene, "Overlay")],
-            composition.Sources.Select(source => source.SourceId));
+            composition.Overlay.Sources.Select(source => source.Transform.SourceId));
 
-        var camera = composition.Sources[1];
+        var camera = composition.Overlay.Sources[1].Transform;
         Assert.Equal((960d, 60d, 640d, 360d), (camera.X, camera.Y, camera.Width, camera.Height));
         Assert.Equal(new SourceCrop(40, 0, 40, 0), camera.Crop);
     }
@@ -44,7 +44,7 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime);
         composition.ShowScene(scene);
         Assert.Equal([Id(scene, "Fond"), Id(scene, "Overlay")],
-            composition.Sources.Select(source => source.SourceId));
+            composition.Overlay.Sources.Select(source => source.Transform.SourceId));
 
         // Le moteur remonte le fond devant : la composition doit suivre, pas conserver son
         // ordre.
@@ -54,7 +54,7 @@ public sealed class SceneCompositionViewModelTests
         composition.Refresh();
 
         Assert.Equal([Id(scene, "Overlay"), Id(scene, "Fond")],
-            composition.Sources.Select(source => source.SourceId));
+            composition.Overlay.Sources.Select(source => source.Transform.SourceId));
     }
 
     [Fact]
@@ -66,17 +66,17 @@ public sealed class SceneCompositionViewModelTests
 
         var composition = new SceneCompositionViewModel(runtime);
         composition.ShowScene(scene);
-        Assert.Equal(1920d, composition.Sources[0].Width);
+        Assert.Equal(1920d, composition.Overlay.Sources[0].Transform.Width);
 
         // La transformation change du côté du moteur, sans que l'interface en soit prévenue.
         runtime.Compose(scene, Transform(scene, "Caméra", x: 320, y: 180, width: 1280, height: 720));
 
         composition.ShowScene(null);
-        Assert.Empty(composition.Sources);
+        Assert.Empty(composition.Overlay.Sources);
 
         composition.ShowScene(scene);
-        var source = Assert.Single(composition.Sources);
-        Assert.Equal((320d, 180d, 1280d, 720d), (source.X, source.Y, source.Width, source.Height));
+        var source = Assert.Single(composition.Overlay.Sources);
+        Assert.Equal((320d, 180d, 1280d, 720d), (source.Transform.X, source.Transform.Y, source.Transform.Width, source.Transform.Height));
     }
 
     [Fact]
@@ -88,16 +88,16 @@ public sealed class SceneCompositionViewModelTests
 
         var composition = new SceneCompositionViewModel(runtime);
         composition.ShowScene(scene);
-        var handedOver = composition.Sources;
+        var handedOver = composition.Overlay.Sources;
 
         runtime.Compose(scene, Transform(scene, "Caméra", x: 200, y: 120, width: 640, height: 360));
         composition.Refresh();
 
         // Le thread graphique du moteur relit la liste qu'on lui a donnée image par image :
         // la modifier sous lui la ferait lire pendant qu'elle change.
-        Assert.NotSame(handedOver, composition.Sources);
-        Assert.Equal(0d, Assert.Single(handedOver).X);
-        Assert.Equal(200d, Assert.Single(composition.Sources).X);
+        Assert.NotSame(handedOver, composition.Overlay.Sources);
+        Assert.Equal(0d, Assert.Single(handedOver).Transform.X);
+        Assert.Equal(200d, Assert.Single(composition.Overlay.Sources).Transform.X);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime);
         composition.ShowScene(scene);
 
-        Assert.Equal(Id(scene, "Caméra"), Assert.Single(composition.Sources).SourceId);
+        Assert.Equal(Id(scene, "Caméra"), Assert.Single(composition.Overlay.Sources).Transform.SourceId);
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public sealed class SceneCompositionViewModelTests
         composition.Refresh();
 
         // Un incident passager ne doit pas effacer les cadres, mais il doit se dire.
-        Assert.Single(composition.Sources);
+        Assert.Single(composition.Overlay.Sources);
         Assert.Equal("composition illisible", composition.Status);
     }
 
@@ -149,8 +149,129 @@ public sealed class SceneCompositionViewModelTests
         composition.Refresh();
 
         // L'indisponibilité du moteur est déjà annoncée par l'aperçu.
-        Assert.Empty(composition.Sources);
+        Assert.Empty(composition.Overlay.Sources);
         Assert.Equal("", composition.Status);
+    }
+
+    [Fact]
+    public void Each_source_carries_the_colour_the_list_gives_it()
+    {
+        var scene = SceneWith("Fond", "Caméra");
+        scene.Sources[0].Color = "#34d399";
+        scene.Sources[1].Color = "pas une couleur";
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360),
+            Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080));
+
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+
+        // Sur une composition qui se chevauche, la couleur dit quel cadre est quelle ligne.
+        Assert.Equal(new OverlayTint(0x34 / 255f, 0xd3 / 255f, 0x99 / 255f), composition.Overlay.Sources[0].Tint);
+
+        // Une couleur illisible ne laisse pas une source sans cadre.
+        Assert.Equal(OverlayTint.Default, composition.Overlay.Sources[1].Tint);
+    }
+
+    [Fact]
+    public void Clicking_where_two_sources_overlap_takes_the_one_in_front()
+    {
+        var scene = SceneWith("Fond", "Overlay");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Overlay", x: 100, y: 100, width: 800, height: 600),
+            Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080));
+
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        Assert.Null(composition.Selected);
+
+        // Dans le recouvrement : c'est l'overlay que l'opérateur voit à cet endroit.
+        composition.SelectAt(400, 300);
+        Assert.Equal(Id(scene, "Overlay"), composition.Selected?.SourceId);
+        Assert.Same(composition.Selected, composition.Overlay.Selected?.Transform);
+
+        // Hors de l'overlay mais sur le fond.
+        composition.SelectAt(1500, 900);
+        Assert.Equal(Id(scene, "Fond"), composition.Selected?.SourceId);
+    }
+
+    [Fact]
+    public void Clicking_beside_every_source_takes_none()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 200, height: 200));
+
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+
+        composition.SelectAt(150, 150);
+        Assert.NotNull(composition.Selected);
+
+        composition.SelectAt(1000, 150);
+        // Le cadre de la source reste : seuls ses points d'accroche s'en vont.
+        Assert.Null(composition.Overlay.Selected);
+        Assert.Single(composition.Overlay.Sources);
+    }
+
+    [Fact]
+    public void The_selection_follows_the_source_the_engine_moves()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        composition.SelectAt(10, 10);
+
+        // La sélection est tenue par identifiant : elle suit la source, elle ne reste pas
+        // sur le rectangle où elle a été prise.
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 500, y: 400, width: 640, height: 360));
+        composition.Refresh();
+
+        Assert.Equal(Id(scene, "Caméra"), composition.Selected?.SourceId);
+        Assert.Equal((500d, 400d), (composition.Selected!.X, composition.Selected.Y));
+    }
+
+    [Fact]
+    public void A_source_that_stops_being_composed_drops_the_selection()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        composition.SelectAt(10, 10);
+
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360, isVisible: false));
+        composition.Refresh();
+
+        // Plus de cadre, donc plus de points d'accroche : les montrer sur une source que le
+        // moteur ne compose plus laisserait saisir ce qui n'est pas là.
+        Assert.Null(composition.Selected);
+        Assert.Empty(composition.Overlay.Sources);
+    }
+
+    [Fact]
+    public void Opening_another_scene_drops_the_selection()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        composition.SelectAt(10, 10);
+        Assert.NotNull(composition.Selected);
+
+        composition.ShowScene(null);
+        composition.ShowScene(scene);
+
+        Assert.Null(composition.Selected);
     }
 
     private static SceneItemViewModel SceneWith(params string[] sourceNames) =>
