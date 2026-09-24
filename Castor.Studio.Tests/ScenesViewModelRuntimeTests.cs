@@ -873,6 +873,9 @@ public sealed class ScenesViewModelRuntimeTests
         public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
             SceneCompositionResult.Success(new SceneComposition(1920, 1080, []));
 
+        public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement) =>
+            SourceTransformResult.Failure("Aucune source composée.");
+
         public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
         {
             RequestedLayerIndexes.Add(layerIndex);

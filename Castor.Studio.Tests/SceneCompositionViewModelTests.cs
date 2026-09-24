@@ -342,5 +342,8 @@ public sealed class SceneCompositionViewModelTests
         public SourceRuntimeResult SetMediaLoop(Guid scene, Guid source, bool loop) => SourceRuntimeResult.Success();
         public SourceOrderResult GetSourceOrder(Guid scene) => SourceOrderResult.Success([]);
         public SourceRuntimeResult MoveSource(Guid scene, Guid source, int layerIndex) => SourceRuntimeResult.Success();
+
+        public SourceTransformResult SetSourceTransform(Guid scene, Guid source, SourcePlacement placement) =>
+            SourceTransformResult.Failure("Écriture non simulée.");
     }
 }
