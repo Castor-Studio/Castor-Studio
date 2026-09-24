@@ -227,6 +227,41 @@ public sealed class StudioStreamingViewModelTests
         }
     }
 
+    [Fact]
+    public async Task Without_an_account_start_is_disabled_with_its_reason_and_the_panel_leads_to_the_accounts()
+    {
+        var fixture = CreateFixture(null);
+        try
+        {
+            var viewModel = fixture.ViewModel;
+            Assert.False(viewModel.IsAccountConnected);
+            Assert.False(viewModel.StartStreamingCommand.CanExecute(null));
+            Assert.Equal("Connectez un compte Twitch pour lancer le live.", viewModel.StartStreamingBlockedReason);
+            Assert.Equal("Twitch", viewModel.DestinationLabel);
+
+            var requested = 0;
+            viewModel.AccountSettingsRequested += (_, _) => requested++;
+            viewModel.OpenAccountSettingsCommand.Execute(null);
+            Assert.Equal(1, requested);
+
+            // An earlier failed attempt left the account error behind.
+            await viewModel.StartStreamingCommand.ExecuteAsync(null);
+            Assert.Contains("Compte Twitch déconnecté", viewModel.StreamError);
+
+            // Back from Settings with an account connected.
+            fixture.ProviderStore.Save(ConnectedProvider());
+
+            Assert.True(viewModel.StartStreamingCommand.CanExecute(null));
+            Assert.Equal("", viewModel.StartStreamingBlockedReason);
+            Assert.Equal("Twitch · Castor", viewModel.DestinationLabel);
+            Assert.Equal("", viewModel.StreamError);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     private static ProviderSettings ConnectedProvider() => new()
     {
         ProviderId = "twitch",

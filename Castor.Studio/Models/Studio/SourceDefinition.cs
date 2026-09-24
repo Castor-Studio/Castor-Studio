@@ -10,6 +10,11 @@ public sealed class SourceDefinition
     public SourceOrigin Origin { get; set; }
     public string OriginLabel { get; set; } = "";
     public string OriginPath { get; set; } = "";
+
+    // What a hardware source captures, for its icon and label. Null for file sources and for
+    // sources saved before these were recorded.
+    public VideoCaptureKind? VideoCaptureKind { get; set; }
+    public AudioCaptureKind? AudioCaptureKind { get; set; }
 }
 
 public sealed record CaptureSourceOption(

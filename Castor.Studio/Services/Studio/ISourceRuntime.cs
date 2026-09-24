@@ -79,6 +79,7 @@ internal interface ISourceRuntime
     SourceRuntimeResult AddSource(Guid sceneId, SourceAddRequest request);
     SourceRuntimeResult RemoveSource(Guid sceneId, Guid sourceId);
     SourceRuntimeResult SetMediaLoop(Guid sceneId, Guid sourceId, bool loop);
+    SourceRuntimeResult RenameSource(Guid sceneId, Guid sourceId, string requestedName);
 
     /// <summary>
     /// Ordre d'empilement que le moteur détient pour cette scène, du premier plan vers

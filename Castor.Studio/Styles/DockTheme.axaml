@@ -164,9 +164,6 @@
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
-            <!-- Round the top of document tabs (the Preview tab) to match the app's rounded chrome. -->
-            <CornerRadius x:Key="DockDocumentTabItemCornerRadius">5,5,0,0</CornerRadius>
-
         </ResourceDictionary>
     </Styles.Resources>
 
@@ -192,34 +189,13 @@
         <Setter Property="Source" Value="{DynamicResource CastorDockTargetCenter}"/>
     </Style>
 
-    <!-- A detached panel is framed by its own bar rather than by the Windows title bar: the bar
-         carries the panel's name, and dragging it moves the window - which is also how the panel
-         is brought back into the main window. Dock does this on its own for a tool window holding
-         a single panel; the preview is a document, so it needs the matching flag. -->
-    <Style Selector="HostWindow">
-        <Setter Property="DocumentChromeControlsWholeWindow" Value="True"/>
-    </Style>
-
-    <!-- Dock drops the frame itself for a tool window, but the rule it ships for a document one
-         hangs off a ":documentwindow" pseudo class that nothing ever sets, so the preview would
-         keep its frame. Same treatment, off the pseudo class that is actually set. -->
-    <Style Selector="HostWindow:documentchromecontrolswindow">
-        <Setter Property="ExtendClientAreaToDecorationsHint" Value="True"/>
-        <Setter Property="ExtendClientAreaTitleBarHeightHint" Value="0"/>
-        <Setter Property="WindowDecorations" Value="BorderOnly"/>
-    </Style>
-
     <!-- One rounded card per pane. Tool panes: the title/icons bar (ToolChromeControl's
          header) rounds its top corners and each pane's own root Border rounds the bottom
          ones (see the pane views - CornerRadius on the dock's DeferredContentPresenter
          didn't reliably render); nothing rounds at the seam, so bar + content read as a
-         single block. Document panes (Preview): the tab strip sits on top, so the content
-         Border rounds the bottom. -->
+         single block. -->
     <Style Selector="ToolChromeControl /template/ Border#PART_Border">
         <Setter Property="CornerRadius" Value="8,8,0,0"/>
-    </Style>
-    <Style Selector="DocumentControl /template/ Border#PART_Border">
-        <Setter Property="CornerRadius" Value="0,0,8,8"/>
     </Style>
 
     <!-- Dock draws two extra strokes around tool pane content that poke past those
@@ -264,6 +240,16 @@
          Uniform keeps them legible until they're replaced with the app's own icon set. -->
     <Style Selector="ToolChromeControl /template/ Path">
         <Setter Property="Stretch" Value="Uniform"/>
+    </Style>
+
+    <!-- A detached preview filling its screen (StudioHostWindow): the bare picture, with neither
+         the panel bar nor the card's rounded border. -->
+    <Style Selector="HostWindow.fullscreen ToolChromeControl /template/ Border#PART_Border">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+    <Style Selector="HostWindow.fullscreen Border.preview-card">
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="BorderThickness" Value="0"/>
     </Style>
 
 </Styles>

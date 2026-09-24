@@ -23,20 +23,74 @@ public partial class ScenesViewModel : ViewModelBase
     private readonly ISceneCollectionService _sceneCollectionService;
     private readonly IAddSourceDialogViewModelFactory _dialogFactory;
     private readonly IAddSourceDialogService _dialogService;
+    private readonly ISceneTransferDialogService _transferDialogService;
     private readonly SettingsService? _settingsService;
     private readonly VideoCanvasResolutionResolver _resolutionResolver;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
     [ObservableProperty] private SceneItemViewModel? _selectedScene;
-    [ObservableProperty] private string _newSceneName = "";
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CreateSceneCommand))]
+    private string _newSceneName = "";
+    [ObservableProperty] private string _createSceneError = "";
     [ObservableProperty] private bool _isSelectionModeActive;
     [ObservableProperty] private string _deleteSceneError = "";
-    [ObservableProperty] private SceneItemViewModel? _sceneBeingRenamed;
-    [ObservableProperty] private string _renameSceneName = "";
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmRenameSceneCommand))]
+    private SceneItemViewModel? _sceneBeingRenamed;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmRenameSceneCommand))]
+    private string _renameSceneName = "";
+    [ObservableProperty] private string _renameSceneError = "";
     [ObservableProperty] private SceneItemViewModel? _sceneBeingColored;
     [ObservableProperty] private string _sceneIoStatus = "";
     [ObservableProperty] private string _sourceOperationStatus = "";
+
+    // Sources as listed on screen: SelectedScene.Sources sorted and filtered for reading. The
+    // scene's collection itself is never reordered, so the composition order stays intact.
+    [ObservableProperty] private IReadOnlyList<SourceItemViewModel> _displayedSources = [];
+    [ObservableProperty] private SourceListSort _sourceSort = SourceListSort.SceneOrder;
+    [ObservableProperty] private SourceListFilter _sourceFilter = SourceListFilter.All;
+    private SceneItemViewModel? _observedSourcesScene;
+    [ObservableProperty] private SourceItemViewModel? _sourceBeingRenamed;
+    [ObservableProperty] private string _renameSourceName = "";
+
+    public IReadOnlyList<SourceListOption> SourceSortOptions { get; } =
+    [
+        SourceListOption.ForSort("Ordre de la scène", SourceListSort.SceneOrder),
+        SourceListOption.ForSort("Nom (A → Z)", SourceListSort.NameAscending),
+        SourceListOption.ForSort("Nom (Z → A)", SourceListSort.NameDescending),
+        SourceListOption.ForSort("Type", SourceListSort.Kind)
+    ];
+
+    public IReadOnlyList<SourceListOption> SourceFilterOptions { get; } =
+    [
+        SourceListOption.ForFilter("Toutes", SourceListFilter.All),
+        SourceListOption.ForFilter("Vidéo", SourceListFilter.Video),
+        SourceListOption.ForFilter("Audio", SourceListFilter.Audio),
+        SourceListOption.ForFilter("Média", SourceListFilter.Media)
+    ];
+
+    public bool IsSourceListCustomized => SourceSort != SourceListSort.SceneOrder || SourceFilter != SourceListFilter.All;
+
+    public string SourceListSummary
+    {
+        get
+        {
+            if (SelectedScene == null) return "";
+            var total = SelectedScene.Sources.Count;
+            return SourceFilter == SourceListFilter.All
+                ? $"{total}"
+                : $"{DisplayedSources.Count} sur {total}";
+        }
+    }
+
+    public string SourceListPlaceholder => SelectedScene == null || DisplayedSources.Count > 0
+        ? ""
+        : SelectedScene.Sources.Count == 0
+            ? "Aucune source. Ajoutez-en une avec +."
+            : "Aucune source de ce type.";
 
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
@@ -70,9 +124,11 @@ public partial class ScenesViewModel : ViewModelBase
         ISceneCollectionService sceneCollectionService,
         IAddSourceDialogViewModelFactory dialogFactory,
         IAddSourceDialogService dialogService,
+        ISceneTransferDialogService transferDialogService,
         SettingsService? settingsService = null,
         VideoCanvasResolutionResolver? resolutionResolver = null)
     {
+        _transferDialogService = transferDialogService;
         _workspace = workspace;
         _runtime = runtime;
         _previewRuntime = previewRuntime;
@@ -87,6 +143,7 @@ public partial class ScenesViewModel : ViewModelBase
         Composition = new SceneCompositionViewModel(sourceRuntime);
         ApplyBaseCanvasResolution(settingsService?.Load() ?? new ApplicationSettings());
         SelectedScene = workspace.ActiveScene;
+        RefreshDisplayedSources();
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         if (_settingsService != null)
             _settingsService.SettingsSaved += OnSettingsSaved;
@@ -120,6 +177,50 @@ public partial class ScenesViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(PreviewPlaceholderText));
+        ObserveSources(newValue);
+    }
+
+    // Follows the selected scene's sources so the displayed list stays current when a source
+    // is added, removed or moved in the scene.
+    private void ObserveSources(SceneItemViewModel? scene)
+    {
+        EndSourceRename();
+        if (_observedSourcesScene != null)
+            _observedSourcesScene.Sources.CollectionChanged -= OnSelectedSceneSourcesChanged;
+        _observedSourcesScene = scene;
+        if (scene != null)
+            scene.Sources.CollectionChanged += OnSelectedSceneSourcesChanged;
+        RefreshDisplayedSources();
+    }
+
+    private void OnSelectedSceneSourcesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (SourceBeingRenamed != null && _observedSourcesScene?.Sources.Contains(SourceBeingRenamed) != true)
+            EndSourceRename();
+        RefreshDisplayedSources();
+    }
+
+    partial void OnSourceSortChanged(SourceListSort value) => RefreshDisplayedSources();
+
+    partial void OnSourceFilterChanged(SourceListFilter value) => RefreshDisplayedSources();
+
+    private void RefreshDisplayedSources()
+    {
+        DisplayedSources = SelectedScene == null
+            ? []
+            : SourceListView.Apply(SelectedScene.Sources, SourceSort, SourceFilter);
+        foreach (var option in SourceSortOptions) option.IsSelected = option.Sort == SourceSort;
+        foreach (var option in SourceFilterOptions) option.IsSelected = option.Filter == SourceFilter;
+        OnPropertyChanged(nameof(IsSourceListCustomized));
+        OnPropertyChanged(nameof(SourceListSummary));
+        OnPropertyChanged(nameof(SourceListPlaceholder));
+    }
+
+    [RelayCommand]
+    private void ApplySourceListOption(SourceListOption option)
+    {
+        if (option.Sort is { } sort) SourceSort = sort;
+        if (option.Filter is { } filter) SourceFilter = filter;
     }
 
     private void OnSettingsSaved(object? sender, EventArgs e)
@@ -147,16 +248,21 @@ public partial class ScenesViewModel : ViewModelBase
         SelectedScene = _workspace.ActiveScene;
     }
 
-    [RelayCommand]
+    // Typing again clears the previous failure; the flyout reads a non-empty error as "keep open".
+    partial void OnNewSceneNameChanged(string value) => CreateSceneError = "";
+
+    private bool CanCreateScene() => !string.IsNullOrWhiteSpace(NewSceneName);
+
+    [RelayCommand(CanExecute = nameof(CanCreateScene))]
     private void CreateScene()
     {
-        if (string.IsNullOrWhiteSpace(NewSceneName)) return;
+        if (!CanCreateScene()) return;
 
         var definition = new SceneDefinition { Name = NewSceneName.Trim() };
         var result = _sceneRuntime.CreateScene(definition.Id, definition.Name);
         if (!result.IsSuccess)
         {
-            SceneIoStatus = result.Message;
+            CreateSceneError = result.Message;
             return;
         }
 
@@ -165,7 +271,6 @@ public partial class ScenesViewModel : ViewModelBase
         var scene = _workspace.AddScene(definition);
         SelectScene(scene);
         NewSceneName = "";
-        SceneIoStatus = "";
     }
 
     [RelayCommand]
@@ -232,9 +337,13 @@ public partial class ScenesViewModel : ViewModelBase
     {
         SceneBeingRenamed = scene;
         RenameSceneName = scene.Name;
+        RenameSceneError = "";
     }
 
-    [RelayCommand]
+    private bool CanConfirmRenameScene() =>
+        SceneBeingRenamed != null && !string.IsNullOrWhiteSpace(RenameSceneName);
+
+    [RelayCommand(CanExecute = nameof(CanConfirmRenameScene))]
     private void ConfirmRenameScene()
     {
         if (SceneBeingRenamed == null || string.IsNullOrWhiteSpace(RenameSceneName)) return;
@@ -242,13 +351,13 @@ public partial class ScenesViewModel : ViewModelBase
         var result = _sceneRuntime.RenameScene(SceneBeingRenamed.Id, RenameSceneName);
         if (!result.IsSuccess)
         {
-            SceneIoStatus = result.Message;
+            RenameSceneError = result.Message;
             return;
         }
 
         SceneBeingRenamed.Name = result.EffectiveName;
         SceneBeingRenamed = null;
-        SceneIoStatus = "";
+        RenameSceneError = "";
     }
 
     [RelayCommand]
@@ -281,23 +390,30 @@ public partial class ScenesViewModel : ViewModelBase
         }
     }
 
+    // The scenes are chosen first, in a dialog that pre-checks the current selection (every scene
+    // when nothing is selected) and counts what will be written; the file comes after. Cancelling
+    // either step writes nothing.
     [RelayCommand]
     private async Task ExportScenes(CancellationToken cancellationToken)
     {
-        var selected = GetSelectedScenes();
-        var scenes = selected.Count > 0 ? selected : Scenes.ToList();
-        if (scenes.Count == 0)
+        if (Scenes.Count == 0)
         {
             SceneIoStatus = "Aucune scène à exporter.";
             return;
         }
 
+        var dialog = SceneTransferDialogViewModel.ForExport(Scenes);
+        if (!await _transferDialogService.ShowAsync(dialog)) return;
+
+        var scenes = dialog.CheckedItems.Select(item => item.Definition).ToArray();
+        if (scenes.Length == 0) return;
+
         var path = await _filePickerService.PickSceneExportFileAsync();
         if (path == null) return;
         try
         {
-            await _sceneCollectionService.SaveAsync(path, scenes.Select(scene => scene.ToDefinition()).ToArray(), cancellationToken);
-            SceneIoStatus = $"{scenes.Count} scène(s) exportée(s).";
+            await _sceneCollectionService.SaveAsync(path, scenes, cancellationToken);
+            SceneIoStatus = $"{scenes.Length} scène(s) exportée(s).";
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -305,20 +421,64 @@ public partial class ScenesViewModel : ViewModelBase
         }
     }
 
+    // One or more files, then a dialog listing every scene they hold, all checked, with name and
+    // identity collisions flagged. Only what is still checked when the dialog is confirmed is
+    // written; cancelling it writes nothing.
     [RelayCommand]
     private async Task ImportScenes(CancellationToken cancellationToken)
     {
-        var path = await _filePickerService.PickSceneImportFileAsync();
-        if (path == null) return;
+        var paths = await _filePickerService.PickSceneImportFilesAsync();
+        if (paths.Count == 0) return;
+
+        var found = new List<SceneTransferItem>();
+        var fileErrors = new List<string>();
+        foreach (var path in paths)
+        {
+            try
+            {
+                var scenes = await _sceneCollectionService.LoadAsync(path, cancellationToken);
+                var origin = paths.Count > 1 ? Path.GetFileName(path) : "";
+                found.AddRange(scenes.Select(scene => new SceneTransferItem(scene, origin)));
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                fileErrors.Add($"{Path.GetFileName(path)} : {exception.Message}");
+            }
+        }
+
+        if (found.Count == 0)
+        {
+            SceneIoStatus = fileErrors.Count == 0
+                ? "Aucune scène trouvée dans ce fichier."
+                : $"Import impossible : {string.Join(" | ", fileErrors)}";
+            return;
+        }
+
+        var dialog = SceneTransferDialogViewModel.ForImport(Scenes, found, fileErrors);
+        if (!await _transferDialogService.ShowAsync(dialog)) return;
+
+        // The same scene twice (already in the project, or twice in the import) comes in as a copy:
+        // the engine refuses a second scene with an identity it already holds.
+        var takenIds = Scenes.Select(scene => scene.Id).ToHashSet();
+        var imported = new List<SceneDefinition>();
+        foreach (var item in dialog.CheckedItems)
+        {
+            var definition = item.Definition;
+            if (!takenIds.Add(definition.Id))
+            {
+                definition.Id = Guid.NewGuid();
+                takenIds.Add(definition.Id);
+            }
+            imported.Add(definition);
+        }
+
+        ImportDefinitions(imported);
+    }
+
+    private void ImportDefinitions(IReadOnlyList<SceneDefinition> imported)
+    {
         try
         {
-            var imported = await _sceneCollectionService.LoadAsync(path, cancellationToken);
-            if (imported.Count == 0)
-            {
-                SceneIoStatus = "Aucune scène trouvée dans ce fichier.";
-                return;
-            }
-
             var skipped = 0;
             var failed = 0;
             var sourceFailures = 0;
@@ -526,6 +686,57 @@ public partial class ScenesViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void BeginRenameSource(SourceItemViewModel source)
+    {
+        if (SelectedScene?.Sources.Contains(source) != true) return;
+        if (SourceBeingRenamed != null) SourceBeingRenamed.IsRenaming = false;
+
+        RenameSourceName = source.Name;
+        SourceBeingRenamed = source;
+        source.IsRenaming = true;
+    }
+
+    // Enter and leaving the field both confirm. An empty or unchanged name just ends the
+    // edit; a refused one keeps the field open with the reason under the list.
+    [RelayCommand]
+    private void ConfirmRenameSource()
+    {
+        var source = SourceBeingRenamed;
+        var scene = SelectedScene;
+        if (source == null) return;
+
+        var requested = RenameSourceName.Trim();
+        if (scene == null || requested.Length == 0 || requested == source.Name)
+        {
+            EndSourceRename();
+            return;
+        }
+
+        var result = _sourceRuntime.RenameSource(scene.Id, source.Id, requested);
+        if (!result.IsSuccess)
+        {
+            SourceOperationStatus = result.Message;
+            return;
+        }
+
+        source.Name = string.IsNullOrWhiteSpace(result.EffectiveName) ? requested : result.EffectiveName;
+        SourceOperationStatus = "";
+        EndSourceRename();
+        // A name sort has to place the renamed source again.
+        RefreshDisplayedSources();
+    }
+
+    [RelayCommand]
+    private void CancelRenameSource() => EndSourceRename();
+
+    private void EndSourceRename()
+    {
+        if (SourceBeingRenamed != null) SourceBeingRenamed.IsRenaming = false;
+        SourceBeingRenamed = null;
+        RenameSourceName = "";
+    }
+
+    [RelayCommand]
     private void ToggleMediaLoop(SourceItemViewModel source)
     {
         var scene = SelectedScene;
@@ -573,7 +784,8 @@ public partial class ScenesViewModel : ViewModelBase
             Color = "#5b8def",
             Origin = SourceOrigin.HardwareVideo,
             OriginLabel = option.Label,
-            OriginPath = option.Id
+            OriginPath = option.Id,
+            VideoCaptureKind = option.Type
         };
         AddSource(scene, definition, new SourceAddRequest.Video(definition.Id, definition.Name, option));
     }
@@ -587,7 +799,8 @@ public partial class ScenesViewModel : ViewModelBase
             Color = "#f87171",
             Origin = SourceOrigin.HardwareAudio,
             OriginLabel = option.Label,
-            OriginPath = option.Id
+            OriginPath = option.Id,
+            AudioCaptureKind = option.Type
         };
         AddSource(scene, definition, new SourceAddRequest.Audio(definition.Id, definition.Name, option));
     }

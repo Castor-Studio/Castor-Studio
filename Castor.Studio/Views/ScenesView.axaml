@@ -69,24 +69,26 @@
                             VerticalAlignment="Center" Cursor="Hand">
 						<Button.Flyout>
 							<Flyout Placement="Right">
-								<StackPanel Width="260" Spacing="12" Margin="4">
+								<StackPanel Width="260" Spacing="12" Margin="4"
+                                            controls:FlyoutActions.Error="{Binding CreateSceneError}">
 									<TextBlock Text="NOUVELLE SCÈNE"
                                                FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 									<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 									<StackPanel Spacing="4">
 										<TextBlock Text="Nom de la scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-										<TextBox Text="{Binding NewSceneName}"
+										<TextBox Text="{Binding NewSceneName, UpdateSourceTrigger=PropertyChanged}"
 											PlaceholderText="Ex: Match Live"
 											Background="{DynamicResource AppSurface2}"
 											BorderBrush="{DynamicResource AppBorder2}"
-											Foreground="{DynamicResource AppFg2}">
-											<TextBox.KeyBindings>
-												<KeyBinding Gesture="Enter" Command="{Binding CreateSceneCommand}"/>
-											</TextBox.KeyBindings>
-										</TextBox>
+											Foreground="{DynamicResource AppFg2}"
+											controls:FlyoutActions.EnterCommand="{Binding CreateSceneCommand}"/>
 									</StackPanel>
+									<TextBlock Text="{Binding CreateSceneError}"
+                                               IsVisible="{Binding CreateSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                               Foreground="{StaticResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
 									<Button Content="CRÉER LA SCÈNE"
                                             Command="{Binding CreateSceneCommand}"
+                                            controls:FlyoutActions.CloseOnSuccess="True"
                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                             Height="36" Background="#5b8def" Foreground="#eaeaf0"
                                             BorderThickness="0" CornerRadius="6"
@@ -137,32 +139,37 @@
 						</Button.Flyout>
 					</Button>
 
-					<Button Classes="scene-toolbar-item">
+					<!-- Direct actions, not a "Fichier" submenu: the menu bar owns the only "Fichier". -->
+					<Button Classes="scene-toolbar-item"
+                            Command="{Binding ImportScenesCommand}"
+                            ToolTip.Tip="Choisir les scènes à importer depuis un ou plusieurs fichiers">
 						<Grid ColumnDefinitions="20, *, Auto">
 							<Viewbox Grid.Column="0" Width="16" Height="16"
                                      HorizontalAlignment="Center" VerticalAlignment="Center">
 								<Canvas Width="24" Height="24">
-									<Path Data="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2"
+									<Path Data="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2M7 11l5 5l5 -5M12 4v12"
                                           Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
                                           StrokeLineCap="Round" StrokeJoin="Round"/>
 								</Canvas>
 							</Viewbox>
-							<TextBlock Grid.Column="1" Text="Fichier" Margin="6,0,0,0" VerticalAlignment="Center"/>
-							<TextBlock Grid.Column="2" Text="›" Foreground="{DynamicResource AppFg5}"/>
+							<TextBlock Grid.Column="1" Text="Importer…" Margin="6,0,0,0" VerticalAlignment="Center"/>
 						</Grid>
-						<Button.Flyout>
-							<Flyout Placement="RightEdgeAlignedTop">
-								<StackPanel Width="180" Spacing="2" Margin="4">
-									<TextBlock Text="IMPORT / EXPORT"
-                                               FontSize="10" FontWeight="Bold"
-                                               Foreground="{DynamicResource AppFg4}" Margin="10,2,0,4"/>
-									<Button Classes="scene-menu-item" Content="Exporter"
-                                            Command="{Binding ExportScenesCommand}"/>
-									<Button Classes="scene-menu-item" Content="Importer..."
-                                            Command="{Binding ImportScenesCommand}"/>
-								</StackPanel>
-							</Flyout>
-						</Button.Flyout>
+					</Button>
+
+					<Button Classes="scene-toolbar-item"
+                            Command="{Binding ExportScenesCommand}"
+                            ToolTip.Tip="Choisir les scènes à exporter">
+						<Grid ColumnDefinitions="20, *, Auto">
+							<Viewbox Grid.Column="0" Width="16" Height="16"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+								<Canvas Width="24" Height="24">
+									<Path Data="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2M7 9l5 -5l5 5M12 4v12"
+                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+								</Canvas>
+							</Viewbox>
+							<TextBlock Grid.Column="1" Text="Exporter…" Margin="6,0,0,0" VerticalAlignment="Center"/>
+						</Grid>
 					</Button>
 
 					<ToggleButton Classes="scene-toolbar-item"
@@ -321,20 +328,22 @@
                                                             CommandParameter="{Binding}">
 														<Button.Flyout>
 															<Flyout Placement="Right">
-																<StackPanel Width="220" Spacing="10" Margin="4">
+																<StackPanel Width="220" Spacing="10" Margin="4"
+                                                                                controls:FlyoutActions.Error="{Binding #ScenesRoot.DataContext.RenameSceneError}">
 																	<TextBlock Text="RENOMMER LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 																	<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 																	<TextBox Text="{Binding #ScenesRoot.DataContext.RenameSceneName, UpdateSourceTrigger=PropertyChanged}"
 																		Background="{DynamicResource AppSurface2}"
 																		BorderBrush="{DynamicResource AppBorder2}"
-																		Foreground="{DynamicResource AppFg2}">
-																		<TextBox.KeyBindings>
-																			<KeyBinding Gesture="Enter" Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"/>
-																		</TextBox.KeyBindings>
-																	</TextBox>
+																		Foreground="{DynamicResource AppFg2}"
+																		controls:FlyoutActions.EnterCommand="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"/>
+																	<TextBlock Text="{Binding #ScenesRoot.DataContext.RenameSceneError}"
+                                                                               IsVisible="{Binding #ScenesRoot.DataContext.RenameSceneError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                                               Foreground="{StaticResource StatusErrorBrush}" FontSize="10" TextWrapping="Wrap"/>
 																	<Button Content="RENOMMER"
                                                                             Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSceneCommand}"
+                                                                            controls:FlyoutActions.CloseOnSuccess="True"
                                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                                             Height="32" Background="#5b8def" Foreground="#eaeaf0"
                                                                             BorderThickness="0" CornerRadius="6"
@@ -365,6 +374,7 @@
                                                                                         Background="{Binding}"
                                                                                         BorderThickness="1" BorderBrush="{DynamicResource AppBorder2}"
                                                                                         Padding="0" Cursor="Hand"
+                                                                                        controls:FlyoutActions.CloseOnSuccess="True"
                                                                                         Command="{Binding #ScenesRoot.DataContext.AssignSceneColorCommand}"
                                                                                         CommandParameter="{Binding}"/>
 																			</DataTemplate>
@@ -380,7 +390,8 @@
 													<Button Classes="scene-menu-item danger" Content="Supprimer">
 														<Button.Flyout>
 															<Flyout Placement="Right">
-																<StackPanel Width="200" Spacing="10" Margin="4">
+																<StackPanel Width="200" Spacing="10" Margin="4"
+                                                                                controls:FlyoutActions.Error="{Binding #ScenesRoot.DataContext.DeleteSceneError}">
 																	<TextBlock Text="SUPPRIMER LA SCÈNE"
                                                                                FontSize="12" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 																	<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
@@ -392,6 +403,7 @@
                                                                                Foreground="{StaticResource StatusErrorBrush}" FontSize="10" TextWrapping="Wrap"/>
 																	<Button Content="SUPPRIMER"
                                                                             Command="{Binding #ScenesRoot.DataContext.DeleteSceneCommand}"
+                                                                            controls:FlyoutActions.CloseOnSuccess="True"
                                                                             CommandParameter="{Binding}"
                                                                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                                                             Height="32" Background="{StaticResource StatusErrorBrush}" Foreground="#eaeaf0"
@@ -446,16 +458,103 @@
 			<Border Grid.Row="2" Background="{DynamicResource AppSurface}" CornerRadius="8" Padding="14">
 				<Grid RowDefinitions="Auto, 10, *, Auto">
 
-					<Grid Grid.Row="0" ColumnDefinitions="*, Auto">
+					<Grid Grid.Row="0" ColumnDefinitions="*, Auto, Auto">
 						<StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
-							<TextBlock Text="SOURCES DE LA SCÈNE"
-                                       FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"/>
+							<StackPanel Orientation="Horizontal" Spacing="8">
+								<TextBlock Text="SOURCES"
+                                       FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AppFg4}"
+                                       VerticalAlignment="Center"/>
+								<Border Background="{DynamicResource AppSurface2}" CornerRadius="8" Padding="6,1"
+                                    IsVisible="{Binding SourceListSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                    VerticalAlignment="Center">
+									<TextBlock Text="{Binding SourceListSummary}"
+                                           FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AppFg4}"/>
+								</Border>
+							</StackPanel>
 							<TextBlock Text="Premier plan en haut, arrière-plan en bas"
-                                       FontSize="9" Foreground="{DynamicResource AppFg5}"/>
+                                       FontSize="9" Foreground="{DynamicResource AppFg5}"
+                                       IsVisible="{Binding !IsSourceListCustomized}"/>
 						</StackPanel>
 
+						<!-- Trier / filtrer : ne change que l'affichage, jamais l'ordre de composition.
+						     Même flyout que « Trier » sur les scènes ; teinté quand un tri ou un filtre
+						     est actif, pour qu'une liste incomplète ne passe pas inaperçue. -->
+						<Button Grid.Column="1" Margin="0,0,6,0"
+                                BorderThickness="0" Padding="8,5" CornerRadius="5" Cursor="Hand"
+                                Background="Transparent"
+                                Classes.customized="{Binding IsSourceListCustomized}"
+                                ToolTip.Tip="Trier et filtrer les sources">
+							<Button.Styles>
+								<Style Selector="Button.customized">
+									<Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+								</Style>
+							</Button.Styles>
+							<StackPanel Orientation="Horizontal" Spacing="5">
+								<Viewbox Width="14" Height="14" VerticalAlignment="Center">
+									<Canvas Width="24" Height="24">
+										<Path Data="M3 9l4 -4l4 4m-4 -4v14"
+                                              Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                              StrokeLineCap="Round" StrokeJoin="Round"/>
+										<Path Data="M21 15l-4 4l-4 -4m4 4v-14"
+                                              Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                              StrokeLineCap="Round" StrokeJoin="Round"/>
+									</Canvas>
+								</Viewbox>
+								<TextBlock Text="Trier" FontSize="11" Foreground="{DynamicResource AppFg3}" VerticalAlignment="Center"/>
+							</StackPanel>
+							<Button.Flyout>
+								<Flyout Placement="TopEdgeAlignedRight">
+									<StackPanel Width="200" Spacing="2" Margin="4">
+										<TextBlock Text="TRIER PAR"
+                                                   FontSize="10" FontWeight="Bold"
+                                                   Foreground="{DynamicResource AppFg4}" Margin="10,2,0,4"/>
+										<ItemsControl ItemsSource="{Binding SourceSortOptions}">
+											<ItemsControl.ItemTemplate>
+												<DataTemplate x:DataType="m:SourceListOption">
+													<Button Classes="scene-menu-item"
+                                                            Command="{Binding #ScenesRoot.DataContext.ApplySourceListOptionCommand}"
+                                                            CommandParameter="{Binding}">
+														<Grid ColumnDefinitions="*, Auto">
+															<TextBlock Text="{Binding Label}"/>
+															<TextBlock Grid.Column="1" Text="✓" Foreground="#5b8def"
+                                                                       IsVisible="{Binding IsSelected}"/>
+														</Grid>
+													</Button>
+												</DataTemplate>
+											</ItemsControl.ItemTemplate>
+										</ItemsControl>
+
+										<Rectangle Height="1" Fill="{DynamicResource AppBorder2}" Margin="4,4"/>
+
+										<TextBlock Text="AFFICHER"
+                                                   FontSize="10" FontWeight="Bold"
+                                                   Foreground="{DynamicResource AppFg4}" Margin="10,2,0,4"/>
+										<ItemsControl ItemsSource="{Binding SourceFilterOptions}">
+											<ItemsControl.ItemTemplate>
+												<DataTemplate x:DataType="m:SourceListOption">
+													<Button Classes="scene-menu-item"
+                                                            Command="{Binding #ScenesRoot.DataContext.ApplySourceListOptionCommand}"
+                                                            CommandParameter="{Binding}">
+														<Grid ColumnDefinitions="*, Auto">
+															<TextBlock Text="{Binding Label}"/>
+															<TextBlock Grid.Column="1" Text="✓" Foreground="#5b8def"
+                                                                       IsVisible="{Binding IsSelected}"/>
+														</Grid>
+													</Button>
+												</DataTemplate>
+											</ItemsControl.ItemTemplate>
+										</ItemsControl>
+
+										<TextBlock Text="N'affecte que la liste : l'ordre des calques de la scène ne change pas."
+                                                   TextWrapping="Wrap" FontSize="10"
+                                                   Foreground="{DynamicResource AppFg5}" Margin="10,6,6,2"/>
+									</StackPanel>
+								</Flyout>
+							</Button.Flyout>
+						</Button>
+
 						<!-- Ouvre le dialogue « Ajouter une source » -->
-						<Button Grid.Column="1"
+						<Button Grid.Column="2"
                                 Content="+"
                                 Command="{Binding OpenAddSourceCommand}"
                                 Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
@@ -467,15 +566,20 @@
 					<Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
 
 					<!-- Dynamic source list, empilée du premier plan vers l'arrière-plan -->
+					<TextBlock Grid.Row="2" Text="{Binding SourceListPlaceholder}"
+                               IsVisible="{Binding SourceListPlaceholder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Foreground="{DynamicResource AppFg5}" FontSize="11"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
 					<ScrollViewer Grid.Row="2">
-						<ItemsControl ItemsSource="{Binding SelectedScene.Sources}">
+						<ItemsControl ItemsSource="{Binding DisplayedSources}">
 							<ItemsControl.ItemTemplate>
 								<DataTemplate x:DataType="m:SourceItemViewModel">
 									<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2"
                                             DragDrop.AllowDrop="True"
                                             DragDrop.DragOver="OnSourceDragOver"
                                             DragDrop.Drop="OnSourceDrop">
-										<Grid ColumnDefinitions="18, 12, *, Auto, Auto, Auto, Auto, Auto">
+										<Grid ColumnDefinitions="18, 16, *, Auto, Auto, Auto, Auto, Auto">
 											<Border Grid.Column="0" Background="Transparent" Cursor="SizeAll"
                                                     PointerPressed="OnSourceHandlePointerPressed"
                                                     ToolTip.Tip="Glisser pour changer le plan de cette source">
@@ -483,11 +587,39 @@
                                                            Foreground="{DynamicResource AppFg5}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
 											</Border>
-											<Ellipse Grid.Column="1" Width="7" Height="7"
-                                                     Fill="{Binding Color}" VerticalAlignment="Center"/>
+											<!-- Icône du type de source, dans la couleur de la source -->
+											<Viewbox Grid.Column="1" Width="16" Height="16" VerticalAlignment="Center">
+												<Canvas Width="24" Height="24">
+													<Path Data="{Binding IconPath}"
+                                                          Stroke="{Binding Color}" StrokeThickness="2"
+                                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+												</Canvas>
+											</Viewbox>
+											<!-- Double-clic sur le nom : renommage en place. Entrée ou sortie du champ
+											     valide, Échap annule. -->
 											<TextBlock Grid.Column="2" Text="{Binding Name}"
+                                                       IsVisible="{Binding !IsRenaming}"
+                                                       Background="Transparent"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="Double-cliquez pour renommer"
+                                                       DoubleTapped="OnSourceNameDoubleTapped"
                                                        Foreground="{DynamicResource AppFg2}" FontSize="12"
                                                        Margin="8,0" VerticalAlignment="Center"/>
+											<TextBox Grid.Column="2"
+                                                     IsVisible="{Binding IsRenaming}"
+                                                     Text="{Binding #ScenesRoot.DataContext.RenameSourceName, UpdateSourceTrigger=PropertyChanged}"
+                                                     PropertyChanged="OnSourceRenameBoxPropertyChanged"
+                                                     LostFocus="OnSourceRenameBoxLostFocus"
+                                                     FontSize="12" Padding="6,2" MinHeight="0"
+                                                     Margin="4,0" VerticalAlignment="Center"
+                                                     Background="{DynamicResource AppSurface}"
+                                                     BorderBrush="{DynamicResource AppAccentFg}"
+                                                     Foreground="{DynamicResource AppFg1}">
+												<TextBox.KeyBindings>
+													<KeyBinding Gesture="Enter" Command="{Binding #ScenesRoot.DataContext.ConfirmRenameSourceCommand}"/>
+													<KeyBinding Gesture="Escape" Command="{Binding #ScenesRoot.DataContext.CancelRenameSourceCommand}"/>
+												</TextBox.KeyBindings>
+											</TextBox>
 											<TextBlock Grid.Column="3" Text="{Binding Type}"
                                                        Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                        VerticalAlignment="Center" Margin="0,0,4,0"/>

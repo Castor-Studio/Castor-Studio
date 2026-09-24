@@ -5,6 +5,10 @@
              x:Class="CastorApplication.Views.Studio.PreviewPaneView"
              x:DataType="vm:StudioViewModel">
 
+	<!-- Same card as the other panels: the dock bar rounds the top, this border the bottom.
+	     In a fullscreen window the card flattens to the bare picture (Styles/DockTheme.axaml). -->
+	<Border Classes="preview-card" Background="Black" CornerRadius="0,0,8,8" ClipToBounds="True"
+	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 	<Panel Background="Black">
 
 		<controls:StudioPreview Scene="{Binding ActiveScene}"
@@ -33,5 +37,6 @@
                        MaxWidth="380" HorizontalAlignment="Center"/>
 		</StackPanel>
 	</Panel>
+	</Border>
 
 </UserControl>

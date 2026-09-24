@@ -105,6 +105,10 @@ public partial class SettingsViewModel : ViewModelBase
         Load();
     }
 
+    // Opens the accounts section, for callers that send the operator to connect one.
+    public void ShowAccounts() =>
+        CurrentSection = Sections.FirstOrDefault(section => section.ViewModel is AccountsSettingsViewModel)?.ViewModel ?? CurrentSection;
+
     [RelayCommand]
     public async Task SelectSectionAsync(SettingsSectionItem item)
     {

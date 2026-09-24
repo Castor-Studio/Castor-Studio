@@ -64,6 +64,14 @@ public partial class MainViewModel : ViewModelBase
         _desktop = desktop;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
 
+        // The go-live panel's "Connecter un compte": straight to the accounts section. Leaving
+        // Settings then returns to the Studio, where the panel shows the connected account.
+        _studioViewModel.AccountSettingsRequested += (_, _) =>
+        {
+            ShowSettings();
+            _settingsViewModel.ShowAccounts();
+        };
+
         PanelMenu =
         [
             .. _studioDockViewModel.Panels.Select(panel =>
@@ -102,6 +110,47 @@ public partial class MainViewModel : ViewModelBase
         CurrentPageKind = MainPageKind.Settings;
     }
 
+    // Settings is configuration, not a place to work in: leaving it goes back to the workspace
+    // the operator came from, whatever opened it (the gear, the menu bar).
+    private MainPageKind _lastWorkspace = MainPageKind.Studio;
+
+    // The top bar gear: opens Settings, or closes it when it is already open.
+    [RelayCommand]
+    private void ToggleSettings()
+    {
+        if (IsSettingsActive) CloseSettings();
+        else ShowSettings();
+    }
+
+    [RelayCommand(CanExecute = nameof(IsSettingsActive))]
+    private void CloseSettings()
+    {
+        if (!IsSettingsActive) return;
+
+        switch (_lastWorkspace)
+        {
+            case MainPageKind.Multicam: ShowMulticam(); break;
+            case MainPageKind.Scenes: ShowScenes(); break;
+            default: ShowStudio(); break;
+        }
+    }
+
+    // Menu bar entries for the Scenes page's import/export: the logic stays in ScenesViewModel.
+    // The Scenes page is shown first so the imported scenes and the result message are visible.
+    [RelayCommand]
+    private Task ImportScenes()
+    {
+        ShowScenes();
+        return _scenesViewModel.ImportScenesCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
+    private Task ExportScenes()
+    {
+        ShowScenes();
+        return _scenesViewModel.ExportScenesCommand.ExecuteAsync(null);
+    }
+
     [RelayCommand]
     private void Quit() => _desktop.Shutdown();
 
@@ -134,6 +183,9 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnCurrentPageKindChanged(MainPageKind value)
     {
+        if (value != MainPageKind.Settings) _lastWorkspace = value;
+        CloseSettingsCommand.NotifyCanExecuteChanged();
+
         OnPropertyChanged(nameof(IsStudioActive));
         OnPropertyChanged(nameof(IsMulticamActive));
         OnPropertyChanged(nameof(IsScenesActive));

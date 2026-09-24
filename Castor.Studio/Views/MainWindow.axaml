@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:CastorApplication.ViewModels.Shell"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
         x:Class="CastorApplication.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="Castor Studio"
@@ -10,14 +11,40 @@
         Width="1280" Height="800"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="32"
         Icon="/Assets/castor.png">
 
-	<Grid RowDefinitions="Auto,48,*">
+	<Window.KeyBindings>
+		<KeyBinding Gesture="Escape" Command="{Binding CloseSettingsCommand}"/>
+	</Window.KeyBindings>
 
-		<!-- ═══ BARRE DE MENUS ═══ -->
-		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
-			<Menu Background="Transparent" Padding="6,0">
+	<!-- Maximized, Windows pushes the frame past the screen edges: OffScreenMargin pulls the
+	     content back so the title bar is not cut off at the top. -->
+	<Grid RowDefinitions="32,48,*" Margin="{Binding $parent[Window].OffScreenMargin}">
+
+		<!-- ═══ BARRE DE TITRE + MENUS ═══
+		     The menu lives in the title bar, Visual Studio style, instead of a row of its own
+		     under the Windows one. The bar background is the drag area (move, double-click to
+		     maximize); the menu is marked as user content so its clicks reach it. Avalonia draws
+		     the icon + window title on the left and the minimize / maximize / close buttons on
+		     the right over this bar: the margins keep the menu clear of both. -->
+		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar">
+			<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="100,0,140,0">
+			<Menu Background="Transparent" Padding="2,0" VerticalAlignment="Center"
+                  chrome:WindowDecorationProperties.ElementRole="User">
+				<!-- Compact top-level entries so they fit the 32px bar, as in a native title bar. -->
+				<Menu.Styles>
+					<Style Selector="Menu > MenuItem">
+						<Setter Property="FontSize" Value="13"/>
+						<Setter Property="Padding" Value="8,5"/>
+					</Style>
+				</Menu.Styles>
 				<MenuItem Header="_Fichier">
+					<MenuItem Header="_Importer des scènes…" Command="{Binding ImportScenesCommand}"/>
+					<MenuItem Header="_Exporter des scènes…" Command="{Binding ExportScenesCommand}"/>
+					<Separator/>
 					<MenuItem Header="_Paramètres" Command="{Binding ShowSettingsCommand}"/>
 					<Separator/>
 					<MenuItem Header="_Quitter" Command="{Binding QuitCommand}"/>
@@ -44,6 +71,7 @@
 					</MenuItem>
 				</MenuItem>
 			</Menu>
+			</StackPanel>
 		</Border>
 
 		<!-- ═══ NAVBAR ═══ -->
@@ -99,16 +127,6 @@
                                 Margin="8,0"/>
 					</StackPanel>
 
-					<!-- PARAMETRES -->
-					<StackPanel Orientation="Vertical">
-						<Button Classes="nav" Content="PARAMÈTRES"
-                                Command="{Binding ShowSettingsCommand}"/>
-						<Border Height="2" CornerRadius="1"
-                                Background="{DynamicResource AppAccentFg}"
-                                IsVisible="{Binding IsSettingsActive}"
-                                Margin="8,0"/>
-					</StackPanel>
-
 				</StackPanel>
 
 				<!-- Status + Account -->
@@ -135,14 +153,29 @@
 						</StackPanel>
 					</Border>
 
+					<!-- Paramètres : un réglage, pas un espace de travail, donc à part des onglets.
+					     Un second clic (ou Échap) ramène à l'espace de travail d'où l'on venait. -->
+					<Button Classes="settings-gear"
+                            Classes.active="{Binding IsSettingsActive}"
+                            Command="{Binding ToggleSettingsCommand}"
+                            ToolTip.Tip="Paramètres">
+						<Viewbox Width="18" Height="18">
+							<Canvas Width="24" Height="24">
+								<Path Data="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"
+                                      StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>
+							</Canvas>
+						</Viewbox>
+					</Button>
+
 				</StackPanel>
 
 			</Grid>
 		</Border>
 
-		<!-- Page content. The margin keeps every page off the window edges; the bars above stay
-		     full width, as headers should. -->
-		<ContentControl Grid.Row="2" Content="{Binding CurrentPage}" Margin="12"/>
+		<!-- Page content, edge to edge: a page owns the whole area under the bars, so its own
+		     chrome (sidebars, separators) meets the window edges. Only the dock workspaces
+		     inset themselves, so their panels keep reading as floating panes. -->
+		<ContentControl Grid.Row="2" Content="{Binding CurrentPage}"/>
 
 	</Grid>
 </Window>

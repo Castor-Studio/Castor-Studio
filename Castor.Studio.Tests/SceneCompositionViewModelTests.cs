@@ -217,6 +217,7 @@ public sealed class SceneCompositionViewModelTests
             SourceRuntimeResult.Success(request.RequestedName);
 
         public SourceRuntimeResult RemoveSource(Guid scene, Guid source) => SourceRuntimeResult.Success();
+        public SourceRuntimeResult RenameSource(Guid scene, Guid source, string requestedName) => SourceRuntimeResult.Success(requestedName);
         public SourceRuntimeResult SetMediaLoop(Guid scene, Guid source, bool loop) => SourceRuntimeResult.Success();
         public SourceOrderResult GetSourceOrder(Guid scene) => SourceOrderResult.Success([]);
         public SourceRuntimeResult MoveSource(Guid scene, Guid source, int layerIndex) => SourceRuntimeResult.Success();

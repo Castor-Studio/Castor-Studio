@@ -30,7 +30,7 @@
              own (marker) type instead of its Context to pick the right pane view. -->
         <DataTemplate DataType="{x:Type docking:MulticamAiTool}"><mcViews:MulticamAiBarView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:MulticamDisplayTool}"><mcViews:MulticamDisplayView DataContext="{Binding Context}"/></DataTemplate>
-        <DataTemplate DataType="{x:Type docking:PreviewDocument}"><studioViews:PreviewPaneView DataContext="{Binding Context}"/></DataTemplate>
+        <DataTemplate DataType="{x:Type docking:PreviewTool}"><studioViews:PreviewPaneView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:SceneSelectorTool}"><studioViews:SceneSelectorPaneView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:StatusTool}"><studioViews:StatusPaneView DataContext="{Binding Context}"/></DataTemplate>
         <DataTemplate DataType="{x:Type docking:StreamControlsTool}"><studioViews:StreamControlsPaneView DataContext="{Binding Context}"/></DataTemplate>
@@ -54,6 +54,7 @@
                  window without dragging it, so it is worth reading in the app's language. -->
             <!-- Added by Castor to both panel menus (Styles/DockMenus.axaml). -->
             <x:String x:Key="CastorDockReturnHomeString">_Rattacher</x:String>
+            <x:String x:Key="CastorPreviewFullscreenString">_Plein écran</x:String>
 
             <x:String x:Key="ToolChromeControlFloatString">_Détacher</x:String>
             <x:String x:Key="ToolChromeControlDockString">_Ancrer</x:String>
@@ -67,10 +68,6 @@
             <x:String x:Key="ToolTabStripItemAutoHideString">_Masquer automatiquement</x:String>
             <x:String x:Key="ToolTabStripItemDockAsDocumentString">Ancrer comme onglet</x:String>
             <x:String x:Key="ToolTabStripItemCloseString">_Fermer</x:String>
-
-            <x:String x:Key="DocumentTabStripItemFloatString">_Détacher</x:String>
-            <x:String x:Key="DocumentTabStripItemFloatAllString">Tout détacher</x:String>
-            <x:String x:Key="DocumentTabStripItemCloseString">_Fermer</x:String>
 
             <!-- Badge that follows the pointer while a panel is being dragged. -->
             <x:String x:Key="DragPreviewControlDockString">Ancrer</x:String>

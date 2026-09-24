@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -154,25 +156,25 @@ public sealed class AvaloniaFilePickerService : IFilePickerService
         return path;
     }
 
-    public async Task<string?> PickSceneImportFileAsync()
+    public async Task<IReadOnlyList<string>> PickSceneImportFilesAsync()
     {
         if (Application.Current?.ApplicationLifetime
             is not IClassicDesktopStyleApplicationLifetime desktop)
-            return null;
+            return [];
 
         var topLevel = TopLevel.GetTopLevel(desktop.MainWindow);
-        if (topLevel == null) return null;
+        if (topLevel == null) return [];
 
         var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = "Importer des scènes",
-            AllowMultiple = false,
+            AllowMultiple = true,
             FileTypeFilter =
             [
                 new FilePickerFileType("Scènes Castor (JSON)") { Patterns = ["*.json"] },
             ]
         });
 
-        return files.Count > 0 ? files[0].Path.LocalPath : null;
+        return files.Select(file => file.Path.LocalPath).ToList();
     }
 }

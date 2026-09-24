@@ -8,7 +8,9 @@
 
 	<Grid Background="{DynamicResource AppBg}">
 
-		<Grid RowDefinitions="Auto, *" Margin="16">
+		<!-- Même inset que l'espace ancrable du Studio : la page porte elle-même sa marge,
+		     la coquille ne l'applique plus. -->
+		<Grid RowDefinitions="Auto, *" Margin="12">
 			<Border Grid.Row="0"
                     IsVisible="{Binding AiError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                     Background="#3b1219" BorderBrush="#7f1d1d" BorderThickness="1"
