@@ -143,7 +143,11 @@ internal sealed class UnavailableIndependentSceneOutputRuntime : IIndependentSce
     public bool IsAvailable => false;
     public string UnavailableMessage =>
         "Les sorties RTMP IA indépendantes nécessitent une extension LibObs auxiliaire.";
-    public event EventHandler<IndependentSceneOutputStateChangedEventArgs>? StateChanged;
+    public event EventHandler<IndependentSceneOutputStateChangedEventArgs>? StateChanged
+    {
+        add { }
+        remove { }
+    }
     public Task StartAsync(SceneDefinition scene, string pushUrl, CancellationToken cancellationToken) =>
         Task.FromException(new InvalidOperationException(UnavailableMessage));
     public Task StopAsync(Guid sceneId, CancellationToken cancellationToken) => Task.CompletedTask;

@@ -103,8 +103,16 @@ public sealed class MulticamAiSessionTests
         public string? ModuleName { get; private set; }
 
         public event EventHandler<AiSceneSwitchEvent>? SceneSwitchSuggested;
-        public event EventHandler<AiSessionStatusEvent>? SessionStatusChanged;
-        public event EventHandler<AiServerErrorEvent>? ServerErrorReceived;
+        public event EventHandler<AiSessionStatusEvent>? SessionStatusChanged
+        {
+            add { }
+            remove { }
+        }
+        public event EventHandler<AiServerErrorEvent>? ServerErrorReceived
+        {
+            add { }
+            remove { }
+        }
 
         public Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<SceneDefinition> scenes,
             CancellationToken cancellationToken)

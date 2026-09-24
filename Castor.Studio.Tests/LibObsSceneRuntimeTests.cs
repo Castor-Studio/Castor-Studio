@@ -206,6 +206,56 @@ public sealed class LibObsSceneRuntimeTests
     }
 
     [Fact]
+    public void Native_runtime_writes_a_transform_and_keeps_it_whole_when_refused()
+    {
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-transform-{Guid.NewGuid():N}.wav");
+        WriteSilentWave(mediaPath);
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var sceneId = Guid.NewGuid();
+            var sourceId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(sceneId, "Transform test").IsSuccess);
+            Assert.True(runtime.AddSource(sceneId,
+                new SourceAddRequest.Media(sourceId, "Silence", mediaPath, true)).IsSuccess);
+
+            var written = runtime.SetSourceTransform(sceneId, sourceId,
+                new SourcePlacement(320, 180, 0.5, 0.75, SourceCrop.None));
+            Assert.True(written.IsSuccess, written.Message);
+            Assert.Equal(new SourcePlacement(320, 180, 0.5, 0.75, SourceCrop.None), written.Transform!.Placement);
+
+            // Ce qui est écrit, c'est ce que le moteur rend à la lecture suivante.
+            var read = runtime.GetSceneComposition(sceneId);
+            Assert.True(read.IsSuccess, read.Message);
+            Assert.Equal(written.Transform.Placement, Assert.Single(read.Composition.Sources).Placement);
+
+            // Un placement refusé ne laisse rien derrière lui.
+            Assert.False(runtime.SetSourceTransform(sceneId, sourceId,
+                new SourcePlacement(0, 0, 0, 1, SourceCrop.None)).IsSuccess);
+            Assert.False(runtime.SetSourceTransform(sceneId, sourceId,
+                new SourcePlacement(double.NaN, 0, 1, 1, SourceCrop.None)).IsSuccess);
+            Assert.False(runtime.SetSourceTransform(sceneId, sourceId,
+                new SourcePlacement(0, 0, 1, 1, new SourceCrop(-1, 0, 0, 0))).IsSuccess);
+            Assert.False(runtime.SetSourceTransform(sceneId, Guid.NewGuid(),
+                new SourcePlacement(0, 0, 1, 1, SourceCrop.None)).IsSuccess);
+
+            var after = runtime.GetSceneComposition(sceneId);
+            Assert.Equal(written.Transform.Placement, Assert.Single(after.Composition.Sources).Placement);
+
+            Assert.True(runtime.RemoveSource(sceneId, sourceId).IsSuccess);
+            Assert.True(runtime.RemoveScene(sceneId).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            File.Delete(mediaPath);
+        }
+
+        Assert.False(Obs.IsInitialized);
+    }
+
+    [Fact]
     public async Task Native_runtime_adds_and_removes_a_monitor_source()
     {
         if (!OperatingSystem.IsWindows()) return;

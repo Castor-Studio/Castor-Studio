@@ -10,9 +10,21 @@ internal sealed class UnavailableAiAnalysisClient : IAiAnalysisClient, IDisposab
     public string? SessionId => null;
     public IReadOnlySet<Guid> ActiveSceneIds => new HashSet<Guid>();
 
-    public event EventHandler<AiSceneSwitchEvent>? SceneSwitchSuggested;
-    public event EventHandler<AiSessionStatusEvent>? SessionStatusChanged;
-    public event EventHandler<AiServerErrorEvent>? ServerErrorReceived;
+    public event EventHandler<AiSceneSwitchEvent>? SceneSwitchSuggested
+    {
+        add { }
+        remove { }
+    }
+    public event EventHandler<AiSessionStatusEvent>? SessionStatusChanged
+    {
+        add { }
+        remove { }
+    }
+    public event EventHandler<AiServerErrorEvent>? ServerErrorReceived
+    {
+        add { }
+        remove { }
+    }
 
     public Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<SceneDefinition> scenes,
         CancellationToken cancellationToken) => Unavailable();
