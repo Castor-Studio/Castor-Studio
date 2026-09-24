@@ -3,7 +3,7 @@
 Dans la page Scènes, l'aperçu montre l'image composée par le moteur **et**, par-dessus, le
 cadre de chaque source composée, à la place et à la taille que le moteur lui donne. C'est ce
 couple image + cadres qui forme le canvas de composition : la surface sur laquelle
-s'appuiera la manipulation directe des sources.
+s'appuie la manipulation directe des sources — déplacer, étirer, rogner.
 
 ## La règle
 
@@ -11,6 +11,10 @@ s'appuiera la manipulation directe des sources.
 échelle, rognage et empilement appartiennent au moteur. Une valeur recopiée ici finirait par
 décrire autre chose que ce qui est réellement rendu — c'est déjà la règle de l'empilement
 (voir `ISourceRuntime.GetSourceOrder`), le canvas ne fait que l'étendre à la géométrie.
+
+Un geste n'y fait pas exception : il **propose** un placement, le moteur l'écrit ou le
+refuse, et c'est sa réponse qui reste à l'écran. La seule chose montrée avant lui est le
+cadre de la source saisie, le temps qu'il confirme.
 
 ## Pourquoi le moteur dessine, et pas Avalonia
 
@@ -20,7 +24,7 @@ quel que soit l'ordre des éléments. Les cadres sont donc tracés par le moteur
 la même image et la même projection que la scène — ils tombent sur l'image au pixel près,
 sans décalage possible entre les deux.
 
-C'est aussi ce qui rendra la manipulation possible : la fenêtre native est déjà transparente
+C'est aussi ce qui rend la manipulation possible : la fenêtre native est transparente
 aux clics ([`ObsPreviewHost`](../Castor.Studio/Controls/ObsPreviewHost.cs)), les gestes
 tombent donc sur Avalonia derrière, et les transformations lues ici donnent le hit-testing.
 
@@ -83,16 +87,81 @@ quand le moteur la déplace, et tombe d'elle-même quand la source cesse d'être
 retirée, masquée, ou scène changée. Montrer des points d'accroche sur une source que le
 moteur ne compose plus laisserait saisir ce qui n'est pas là.
 
-Le geste lui-même — étirer, déplacer — viendra avec l'écriture des transformations côté
-moteur. Les poignées sont déjà rendues dans le sens des aiguilles d'une montre depuis le coin
-haut-gauche : c'est l'ordre dont il se servira pour savoir quel bord il tire.
+## Manipuler une source
+
+| Geste | Où | Ce qui est écrit |
+| --- | --- | --- |
+| Déplacer | glisser une source | la position |
+| Étirer | glisser une poignée de la source choisie | l'échelle (et la position, pour un bord haut ou gauche) |
+| Rogner | **Alt** + glisser une poignée | le rognage (et la position, pour un bord haut ou gauche) |
+| Annuler | **Échap** pendant le geste | le placement d'avant le geste |
+
+- Appuyer sur une source la choisit et la saisit d'un même geste : pas besoin de cliquer une
+  première fois pour la sélectionner.
+- Les poignées passent avant les sources : elles sont peintes par-dessus tous les cadres, une
+  poignée visible se saisit même quand une autre source est devant à cet endroit.
+- Un angle garde les proportions ; **Maj** les libère. Un côté n'étire que son axe.
+- La poignée tirée emmène son ou ses bords, le bord opposé reste en place. Au rognage, l'image
+  reste immobile sous le bord qui avance : on découvre ou on cache, on ne décale rien.
+- Une source ne se réduit pas sous 8 pixels du canvas — ses poignées se recouvriraient — ni
+  ne se retourne. Un rognage ne descend pas sous zéro et laisse toujours un pixel de la source.
+- Au survol, le curseur annonce ce qu'un clic saisirait : déplacement sur une source, flèche
+  orientée sur une poignée.
+
+Les poignées sont rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche,
+et `CompositionHandle` suit le même ordre. Leur zone de prise est pensée en pixels de l'écran,
+un peu plus large que le carré peint, puis convertie dans le repère du canvas.
+
+### Un geste recalculé depuis son origine
+
+`CompositionGeometry` calcule le placement demandé à partir de la transformation lue **au
+début** du geste et du déplacement total du pointeur. Rien n'est cumulé mouvement après
+mouvement : un geste ne dérive pas, quel que soit le nombre de mouvements, et un rognage en
+pixels entiers de la source ne perd rien aux arrondis.
+
+### Écrire dans le moteur
+
+`ISourceRuntime.SetSourceTransform(sceneId, sourceId, placement)` écrit position, échelle et
+rognage d'un seul tenant, sous le verrou du runtime, et rend la transformation que le moteur
+compose ensuite. Il refuse avant d'approcher le moteur un nombre non fini, une échelle nulle
+ou négative, un rognage négatif ou qui ne laisserait rien de la source. Si libobs échoue au
+milieu des trois écritures, l'ancien placement est rendu tel quel : jamais un mélange des
+deux.
+
+Le pointeur bouge bien plus souvent que le moteur ne compose. Pendant un geste :
+
+- le cadre suit **chaque** mouvement, sans attendre le moteur — c'est ce qui le garde collé
+  au pointeur ;
+- le moteur reçoit **au plus une écriture toutes les 16 ms** (une image à 60 i/s). La
+  première part tout de suite ; une demande qui arrive plus tôt attend ;
+- une minuterie de `StudioPreview`, à la même cadence, écrit la demande en attente quand le
+  pointeur s'arrête, et le relâcher écrit la dernière ;
+- la relecture périodique de l'aperçu ne ramène pas le cadre en arrière : elle rend les
+  autres sources telles que le moteur les détient, et la source saisie là où le geste la
+  demande.
+
+Au relâcher, la composition est relue : ce qui reste à l'écran est ce que le moteur a
+confirmé, pas ce qui a été demandé.
+
+### Un refus, et rien ne diverge
+
+Une écriture refusée arrête le geste là. La source reprend dans le moteur le placement
+qu'elle avait au début du geste, la composition est relue, et le refus s'écrit sous la liste
+des sources. Si le moteur refuse même ce retour, l'écran ne suit ni la demande ni le retour :
+il montre ce que le moteur détient réellement. Dans tous les cas, ce qui est à l'écran après
+un refus est une lecture du moteur.
+
+Échap, une capture perdue (Alt+Tab, une fenêtre qui passe devant) ou la vue qui disparaît
+en plein geste mènent au même retour : sans relâcher, rien ne dit où l'opérateur voulait
+finir.
 
 ## Rester en phase avec le moteur
 
 Rien ne prévient l'interface qu'une transformation a changé du côté du moteur. La composition
 est donc relue :
 
-- à chaque geste sur les sources (ajout, retrait, déplacement), via `SyncSourceOrder` ;
+- à chaque geste sur la liste des sources (ajout, retrait, déplacement), via `SyncSourceOrder` ;
+- à la fin de chaque geste sur le canvas (relâcher, annulation, refus) ;
 - à chaque sélection de scène, y compris une scène rouverte ou rechargée ;
 - toutes les 250 ms tant que l'aperçu tourne, à la cadence de `ObsPreviewHost`.
 
@@ -124,3 +193,12 @@ avec la même pastille de couleur, et l'image reste ce qu'elle est.
 libobs connaît des *bounds* : un cadre qui contraint la taille rendue d'une source. Le
 binding LibObs ne les expose pas (`obs_sceneitem_get_bounds` n'est pas lié). Le jour où ils
 le seront, ils changeront `Width` et `Height` dans `ReadTransform`, et rien ailleurs.
+
+C'est pourquoi l'étirement écrit l'**échelle** : sans bounds, c'est la seule grandeur qui
+fixe la taille rendue. Le binding n'expose pas non plus l'alignement d'un item ; le calcul
+des gestes suppose celui que libobs donne par défaut, la position désignant le coin
+haut-gauche de la source.
+
+Les transformations vivent dans le moteur le temps de la session : une scène rouverte les
+retrouve telles qu'écrites. L'export de scènes (`SceneCollectionService`) n'emporte encore
+que les sources, pas leur placement.
