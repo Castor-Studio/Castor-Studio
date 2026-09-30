@@ -63,7 +63,11 @@ public sealed class AiSceneStreamRuntimeTests
         public Guid? FailingSceneId { get; init; }
         public List<(Guid SceneId, string Url)> Started { get; } = [];
         public List<Guid> Stopped { get; } = [];
-        public event EventHandler<IndependentSceneOutputStateChangedEventArgs>? StateChanged;
+        public event EventHandler<IndependentSceneOutputStateChangedEventArgs>? StateChanged
+        {
+            add { }
+            remove { }
+        }
 
         public Task StartAsync(SceneDefinition scene, string pushUrl, CancellationToken cancellationToken)
         {

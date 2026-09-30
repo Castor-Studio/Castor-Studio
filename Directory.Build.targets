@@ -1,15 +1,33 @@
 <Project>
   <!-- Managed NuGet assemblies also carry normalized timestamps. Remove the
-       previous LibObs copy so MSBuild cannot keep a different package version. -->
+       previous LibObs copy so MSBuild cannot keep a different package version.
+       Only when it differs from the packaged one: deleting it on every build
+       failed whenever a running Castor Studio held it, even with nothing to
+       update. -->
   <Target Name="RemoveStaleLibObsManagedAssembly"
-          BeforeTargets="_CopyFilesMarkedCopyLocal">
+          BeforeTargets="_CopyFilesMarkedCopyLocal"
+          Condition="Exists('$(TargetDir)LibObs.dll')">
     <ItemGroup>
       <_LibObsManagedAssembly Include="@(ReferenceCopyLocalPaths)"
                               Condition="'%(Filename)%(Extension)' == 'LibObs.dll'" />
     </ItemGroup>
 
+    <GetFileHash Files="@(_LibObsManagedAssembly)" Algorithm="SHA256"
+                 Condition="'@(_LibObsManagedAssembly)' != ''">
+      <Output TaskParameter="Items" ItemName="_PackagedLibObsManagedAssembly" />
+    </GetFileHash>
+    <GetFileHash Files="$(TargetDir)LibObs.dll" Algorithm="SHA256"
+                 Condition="'@(_LibObsManagedAssembly)' != ''">
+      <Output TaskParameter="Items" ItemName="_DeployedLibObsManagedAssembly" />
+    </GetFileHash>
+
+    <PropertyGroup>
+      <_PackagedLibObsManagedAssemblyHash>@(_PackagedLibObsManagedAssembly->'%(FileHash)')</_PackagedLibObsManagedAssemblyHash>
+      <_DeployedLibObsManagedAssemblyHash>@(_DeployedLibObsManagedAssembly->'%(FileHash)')</_DeployedLibObsManagedAssemblyHash>
+    </PropertyGroup>
+
     <Delete Files="$(TargetDir)LibObs.dll"
-            Condition="'@(_LibObsManagedAssembly)' != '' and Exists('$(TargetDir)LibObs.dll')" />
+            Condition="'$(_PackagedLibObsManagedAssemblyHash)' != '' and '$(_PackagedLibObsManagedAssemblyHash)' != '$(_DeployedLibObsManagedAssemblyHash)'" />
   </Target>
 
   <!-- NuGet normalizes package timestamps, so PreserveNewest alone cannot replace

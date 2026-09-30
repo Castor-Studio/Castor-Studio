@@ -70,6 +70,23 @@ internal sealed record SceneCompositionResult(
         new(StudioRuntimeStatus.Failure, SceneComposition.Empty, message);
 }
 
+internal sealed record SourceTransformResult(
+    StudioRuntimeStatus Status,
+    SourceTransform? Transform,
+    string Message = "")
+{
+    public bool IsSuccess => Status == StudioRuntimeStatus.Success;
+
+    public static SourceTransformResult Success(SourceTransform transform) =>
+        new(StudioRuntimeStatus.Success, transform);
+
+    public static SourceTransformResult Unavailable(string message) =>
+        new(StudioRuntimeStatus.Unavailable, null, message);
+
+    public static SourceTransformResult Failure(string message) =>
+        new(StudioRuntimeStatus.Failure, null, message);
+}
+
 internal interface ISourceRuntime
 {
     bool IsAvailable { get; }
@@ -100,4 +117,15 @@ internal interface ISourceRuntime
     /// qu'un assemblage de lectures prises à des instants différents.
     /// </summary>
     SceneCompositionResult GetSceneComposition(Guid sceneId);
+
+    /// <summary>
+    /// Donne à une source ce placement — position, échelle, rognage — d'un seul tenant, et
+    /// rend la transformation que le moteur compose ensuite. C'est cette valeur confirmée, et
+    /// non celle demandée, qui décrit ce qui est rendu.
+    /// </summary>
+    /// <remarks>
+    /// Un placement refusé ne touche à rien : la source garde exactement la transformation
+    /// qu'elle avait, jamais un mélange de l'ancienne et de la nouvelle.
+    /// </remarks>
+    SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement);
 }

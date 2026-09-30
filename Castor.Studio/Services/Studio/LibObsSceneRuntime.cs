@@ -397,6 +397,76 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement)
+    {
+        if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+
+        var invalid = ValidatePlacement(placement);
+        if (invalid != null) return SourceTransformResult.Failure(invalid);
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
+
+            // Une source qui n'a pas encore d'image (une caméra qui démarre) n'a pas de
+            // taille connue : son rognage ne peut être borné que par le bas.
+            var crop = placement.Crop;
+            var sourceWidth = (int)source.Source.Width;
+            var sourceHeight = (int)source.Source.Height;
+            if ((sourceWidth > 0 && crop.Left + crop.Right >= sourceWidth) ||
+                (sourceHeight > 0 && crop.Top + crop.Bottom >= sourceHeight))
+                return SourceTransformResult.Failure("Ce rognage ne laisserait plus rien de la source.");
+
+            var item = source.Item;
+            var previousPosition = item.Position;
+            var previousScale = item.Scale;
+            var previousCrop = item.Crop;
+            try
+            {
+                item.Position = new ObsVector2((float)placement.X, (float)placement.Y);
+                item.Scale = new ObsVector2((float)placement.ScaleX, (float)placement.ScaleY);
+                item.Crop = new ObsSceneItemCrop(crop.Left, crop.Top, crop.Right, crop.Bottom);
+                return SourceTransformResult.Success(ReadTransform(sourceId, source));
+            }
+            catch (Exception exception)
+            {
+                // Trois écritures séparées côté libobs : une qui échoue au milieu laisserait
+                // la source dans un état que personne n'a demandé. On rend l'ancien, tel quel.
+                try
+                {
+                    item.Position = previousPosition;
+                    item.Scale = previousScale;
+                    item.Crop = previousCrop;
+                }
+                catch
+                {
+                }
+
+                return SourceTransformResult.Failure(
+                    $"Transformation impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    // Refusé avant d'approcher le moteur : une échelle nulle ou négative ferait disparaître
+    // ou retourner la source, un nombre non fini n'a aucun sens pour libobs.
+    private static string? ValidatePlacement(SourcePlacement placement)
+    {
+        if (!double.IsFinite(placement.X) || !double.IsFinite(placement.Y))
+            return "La position d'une source doit être un nombre fini.";
+        if (!double.IsFinite(placement.ScaleX) || !double.IsFinite(placement.ScaleY) ||
+            placement.ScaleX <= 0 || placement.ScaleY <= 0)
+            return "L'échelle d'une source doit être strictement positive.";
+
+        var crop = placement.Crop;
+        if (crop.Left < 0 || crop.Top < 0 || crop.Right < 0 || crop.Bottom < 0)
+            return "Le rognage d'une source ne peut pas être négatif.";
+
+        return null;
+    }
+
     // Le rectangle composé se déduit ici, au contact du moteur : c'est sa règle (taille de la
     // source, moins le rognage, mise à l'échelle de l'item), et elle n'a rien à faire dans
     // l'interface qui se contente ensuite de poser ce rectangle.

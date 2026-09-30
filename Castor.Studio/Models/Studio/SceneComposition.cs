@@ -33,7 +33,23 @@ public sealed record SourceTransform(
     SourceCrop Crop,
     int SourceWidth,
     int SourceHeight,
-    bool IsVisible);
+    bool IsVisible)
+{
+    /// <summary>Ce que le moteur détient de cette transformation, sans ce qu'il en déduit.</summary>
+    public SourcePlacement Placement => new(X, Y, ScaleX, ScaleY, Crop);
+}
+
+/// <summary>
+/// Placement qu'on demande au moteur pour une source : position dans le canvas, échelle et
+/// rognage. Ce sont les seules grandeurs qu'il accepte ; le rectangle composé, lui, reste
+/// sa déduction et se relit dans le <see cref="SourceTransform"/> qu'il confirme.
+/// </summary>
+public readonly record struct SourcePlacement(
+    double X,
+    double Y,
+    double ScaleX,
+    double ScaleY,
+    SourceCrop Crop);
 
 /// <summary>
 /// La couleur d'une source, celle de sa pastille dans la liste, prête pour le moteur.

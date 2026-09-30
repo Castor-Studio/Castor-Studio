@@ -155,8 +155,9 @@ public sealed class ObsPreviewHost : NativeControlHost
     /// the video area dead to clicks and drags. Extended styles do not help on a child
     /// window - WS_EX_TRANSPARENT and WS_DISABLED were both tried - so the window
     /// procedure is replaced to answer HTTRANSPARENT to hit tests, which is what tells
-    /// Windows to look behind it. The preview is display-only; revisit this if it ever
-    /// needs input of its own, such as dragging scene items.
+    /// Windows to look behind it. The surface itself never takes input: dragging a source
+    /// is handled by the Avalonia content behind it (see StudioPreview), which is exactly
+    /// where this sends the mouse.
     /// </remarks>
     private static void MakeClickThrough(IntPtr handle, ref WindowProc? proc, ref IntPtr previous)
     {
@@ -224,18 +225,27 @@ public sealed class ObsPreviewHost : NativeControlHost
 
     // The interface reads the composition, the engine draws it: a native surface cannot be
     // drawn over, so the overlay is handed back to it and painted in the same frame as the
-    // picture. Also called on a click, so a selection shows at once rather than on the
-    // next beat.
+    // picture.
     internal void RefreshComposition()
     {
-        var composition = Composition;
-        var runtime = Runtime;
-        if (composition == null || runtime == null || _runningSceneId == null || _nativeHandle == IntPtr.Zero)
-            return;
+        if (!CanShowComposition) return;
 
-        composition.Refresh();
-        runtime.SetCompositionOverlay(_nativeHandle, composition.Overlay);
+        Composition!.Refresh();
+        ShowComposition();
     }
+
+    // Hands the engine the overlay as it stands, without reading the composition again:
+    // what a click or a gesture calls, so the outline follows the pointer at once rather
+    // than on the next beat, and without one engine read per mouse move.
+    internal void ShowComposition()
+    {
+        if (!CanShowComposition) return;
+
+        Runtime!.SetCompositionOverlay(_nativeHandle, Composition!.Overlay);
+    }
+
+    private bool CanShowComposition =>
+        Composition != null && Runtime != null && _runningSceneId != null && _nativeHandle != IntPtr.Zero;
 
     private void ObserveRuntime(IScenePreviewRuntime? runtime)
     {

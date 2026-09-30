@@ -112,5 +112,8 @@ public sealed class AddSourceDialogViewModelTests
 
         public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
             SceneCompositionResult.Success(SceneComposition.Empty);
+
+        public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement) =>
+            SourceTransformResult.Failure("Aucune source à transformer.");
     }
 }
