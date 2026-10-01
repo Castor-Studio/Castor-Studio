@@ -20,9 +20,9 @@ public readonly record struct SourceCrop(int Left, int Top, int Right, int Botto
 /// défaut de libobs.
 /// </summary>
 /// <remarks>
-/// libobs connaît aussi des « bounds » (un cadre qui contraint la taille rendue). Le binding
-/// LibObs ne les expose pas encore ; quand ils arriveront, ils changeront le rectangle rendu
-/// ici même, et rien dans l'interface.
+/// libobs connaît aussi des « bounds » (un cadre qui contraint la taille rendue). L'interface
+/// ne les pose pas ; s'il fallait les lire, ils changeraient le rectangle rendu ici même, et
+/// rien dans l'interface.
 /// </remarks>
 public sealed record SourceTransform(
     Guid SourceId,
