@@ -269,7 +269,7 @@ internal static class ObsPreviewGraphics
                 GsOrtho(0, canvasWidth, 0, canvasHeight, -100, 100);
                 GsSetViewport(viewport.X, viewport.Y, viewport.Width, viewport.Height);
                 frame.Render(sceneSource);
-                DrawOverlay(overlay, MetricsFor(viewport.Width, canvasWidth));
+                DrawOverlay(overlay, MetricsFor(viewport.Width, canvasWidth), canvasWidth, canvasHeight);
             }
             finally
             {
@@ -282,7 +282,11 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    private static void DrawOverlay(CompositionOverlay overlay, OverlayMetrics metrics)
+    private static void DrawOverlay(
+        CompositionOverlay overlay,
+        OverlayMetrics metrics,
+        uint canvasWidth,
+        uint canvasHeight)
     {
         if (_outlinesUnavailable || overlay.Sources.Count == 0) return;
 
@@ -296,6 +300,7 @@ internal static class ObsPreviewGraphics
 
             var chosen = overlay.Selected;
             var cropping = overlay.IsCropping && chosen != null;
+            var guides = GuideRects(overlay.Guides ?? [], canvasWidth, canvasHeight, metrics.IdleThickness);
 
             // L'ombre passe sous tout l'overlay, d'un pixel de chaque côté. Un cœur coloré
             // posé sur un liseré sombre se lit sur n'importe quelle image ; le même trait
@@ -304,7 +309,9 @@ internal static class ObsPreviewGraphics
             while (GsEffectLoop(effect, "Solid"))
             {
                 foreach (var source in overlay.Sources)
-                    FillAllGrown(source.Transform, Edges(source, Thickness(source, chosen, metrics)), metrics.Shadow);
+                    FillAllGrown(source.Transform, Edges(source, Thickness(source, overlay, metrics)), metrics.Shadow);
+
+                FillAllGrown(CanvasFrame, guides, metrics.Shadow);
 
                 if (chosen == null) continue;
 
@@ -327,9 +334,17 @@ internal static class ObsPreviewGraphics
                 SetColor(colorParameter, ToVec4(source.Tint));
                 while (GsEffectLoop(effect, "Solid"))
                 {
-                    FillAll(source.Transform, Edges(source, Thickness(source, chosen, metrics)));
+                    FillAll(source.Transform, Edges(source, Thickness(source, overlay, metrics)));
                     if (cropping && source == chosen) FillAll(source.Transform, Uncropped(source, metrics));
                 }
+            }
+
+            // Les guides ne sont à aucune source : ils prennent la couleur neutre de l'outil,
+            // jamais celle d'une pastille qu'on pourrait confondre avec un cadre.
+            if (guides.Count > 0)
+            {
+                SetColor(colorParameter, HandleCore);
+                while (GsEffectLoop(effect, "Solid")) FillAll(CanvasFrame, guides);
             }
 
             if (chosen == null) return;
@@ -355,10 +370,43 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    private static float Thickness(OverlaySource source, OverlaySource? chosen, OverlayMetrics metrics) =>
-        chosen != null && source.Transform.SourceId == chosen.Transform.SourceId
+    /// <summary>
+    /// Les guides d'alignement, chacun d'un bord à l'autre du canvas et centré sur sa ligne :
+    /// c'est la ligne elle-même que la source vient de toucher.
+    /// </summary>
+    internal static IReadOnlyList<PreviewFillRect> GuideRects(
+        IReadOnlyList<CompositionGuide> guides,
+        uint canvasWidth,
+        uint canvasHeight,
+        float thickness)
+    {
+        if (guides.Count == 0 || canvasWidth == 0 || canvasHeight == 0 || thickness <= 0) return [];
+
+        var rects = new List<PreviewFillRect>(guides.Count);
+        foreach (var guide in guides)
+        {
+            var position = (float)guide.Position - thickness / 2f;
+            rects.Add(guide.IsVertical
+                ? new PreviewFillRect(position, 0, thickness, canvasHeight)
+                : new PreviewFillRect(0, position, canvasWidth, thickness));
+        }
+
+        return rects;
+    }
+
+    // Le choix et le survol se disent par le même poids : le survol annonce ce que le clic
+    // va prendre, avec le trait qu'il aura une fois pris.
+    private static float Thickness(OverlaySource source, CompositionOverlay overlay, OverlayMetrics metrics) =>
+        IsSame(source, overlay.Selected) || IsSame(source, overlay.Hovered)
             ? metrics.ChosenThickness
             : metrics.IdleThickness;
+
+    private static bool IsSame(OverlaySource source, OverlaySource? other) =>
+        other != null && source.Transform.SourceId == other.Transform.SourceId;
+
+    // Le repère du canvas lui-même, pour ce qui n'appartient à aucune source.
+    private static readonly SourceTransform CanvasFrame =
+        new(Guid.Empty, 0, 0, 0, 0, 1, 1, SourceCrop.None, 0, 0, true);
 
     // Toutes les formes se tracent dans le repère de leur source : origine en son point
     // (X, Y), axes tournés avec elle. Fill les pose ensuite dans le canvas.
@@ -380,7 +428,7 @@ internal static class ObsPreviewGraphics
             -transform.Crop.Top * transform.ScaleY,
             transform.SourceWidth * transform.ScaleX,
             transform.SourceHeight * transform.ScaleY,
-            metrics.IdleThickness,
+            metrics.ChosenThickness,
             metrics.Dash);
     }
 

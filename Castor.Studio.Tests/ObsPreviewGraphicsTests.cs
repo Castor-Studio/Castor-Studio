@@ -1,3 +1,4 @@
+using CastorApplication.Models.Studio;
 using CastorApplication.Services.Studio;
 
 namespace Castor.Studio.Tests;
@@ -135,6 +136,21 @@ public sealed class ObsPreviewGraphicsTests
         Assert.Contains(new PreviewFillRect(-100, 0, 10, 1), dashes);
         Assert.Contains(new PreviewFillRect(-80, 19, 10, 1), dashes);
         Assert.DoesNotContain(dashes, rect => rect.X > -40);
+    }
+
+    [Fact]
+    public void A_guide_crosses_the_whole_canvas_centred_on_its_line()
+    {
+        var rects = ObsPreviewGraphics.GuideRects(
+            [new CompositionGuide(IsVertical: true, 960), new CompositionGuide(IsVertical: false, 540)],
+            canvasWidth: 1920,
+            canvasHeight: 1080,
+            thickness: 2);
+
+        Assert.Equal(
+            [new PreviewFillRect(959, 0, 2, 1080), new PreviewFillRect(0, 539, 1920, 2)],
+            rects);
+        Assert.Empty(ObsPreviewGraphics.GuideRects([], 1920, 1080, 2));
     }
 
     [Fact]
