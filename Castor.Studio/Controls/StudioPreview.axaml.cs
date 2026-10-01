@@ -95,15 +95,16 @@ public partial class StudioPreview : UserControl
     // l'écran : assez pour ne pas cacher ce qu'on vise.
     private const double ReadoutOffset = 18;
 
+    // Distance, en pixels de l'écran, à laquelle une source déplacée s'accroche à un bord ou
+    // un centre : assez pour qu'on la sente, assez peu pour pouvoir passer à côté.
+    private const double SnapReach = 8;
+
     private static readonly Cursor SizeAllCursor = new(StandardCursorType.SizeAll);
-    private static readonly Cursor TopLeftCursor = new(StandardCursorType.TopLeftCorner);
-    private static readonly Cursor TopRightCursor = new(StandardCursorType.TopRightCorner);
-    private static readonly Cursor BottomRightCursor = new(StandardCursorType.BottomRightCorner);
-    private static readonly Cursor BottomLeftCursor = new(StandardCursorType.BottomLeftCorner);
-    private static readonly Cursor TopCursor = new(StandardCursorType.TopSide);
-    private static readonly Cursor BottomCursor = new(StandardCursorType.BottomSide);
-    private static readonly Cursor LeftCursor = new(StandardCursorType.LeftSide);
-    private static readonly Cursor RightCursor = new(StandardCursorType.RightSide);
+    // Les quatre axes d'étirement : ↔, ↘↖, ↕, ↗↙.
+    private static readonly Cursor HorizontalCursor = new(StandardCursorType.SizeWestEast);
+    private static readonly Cursor DescendingDiagonalCursor = new(StandardCursorType.TopLeftCorner);
+    private static readonly Cursor VerticalCursor = new(StandardCursorType.SizeNorthSouth);
+    private static readonly Cursor AscendingDiagonalCursor = new(StandardCursorType.TopRightCorner);
     private static Cursor? _rotateCursor;
 
     private readonly DispatcherTimer _flushTimer;
@@ -205,16 +206,24 @@ public partial class StudioPreview : UserControl
 
         if (!composition.IsGesturing)
         {
-            // Au survol, le curseur annonce ce qu'un clic saisirait.
-            Picture.Cursor = NativePreview.Bounds.Contains(point)
-                ? CursorFor(composition.TargetAt(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance))
+            // Au survol, le curseur annonce ce qu'un clic saisirait, et la source visée se
+            // montre au poids qu'elle aura une fois prise.
+            var onPicture = NativePreview.Bounds.Contains(point);
+            Picture.Cursor = onPicture
+                ? CursorFor(
+                    composition.TargetAt(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance),
+                    composition.Selected?.Rotation ?? 0)
                 : null;
+            if (onPicture ? composition.HoverAt(x, y) : composition.ClearHover())
+                NativePreview.ShowComposition();
             return;
         }
 
         // Maj libère les proportions d'un angle, et contraint une rotation au pas de 15°.
+        // Ctrl coupe l'aimant, pour poser une source au pixel près d'un bord.
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
-        composition.UpdateGesture(x, y, keepAspectRatio: !shift, constrainRotation: shift);
+        var snap = e.KeyModifiers.HasFlag(KeyModifiers.Control) ? 0 : SnapTolerance;
+        composition.UpdateGesture(x, y, keepAspectRatio: !shift, constrainRotation: shift, snapReach: snap);
         ShowReadout(composition, e.GetPosition(Picture));
         NativePreview.ShowComposition();
         e.Handled = true;
@@ -385,25 +394,41 @@ public partial class StudioPreview : UserControl
 
     private double RotationTolerance => TryGetCanvasScale(out var scaleX, out _) ? RotationReach * scaleX : 0;
 
+    private double SnapTolerance => TryGetCanvasScale(out var scaleX, out _) ? SnapReach * scaleX : 0;
+
+    // Le pointeur quitte l'image : plus rien n'est survolé.
+    private void OnPicturePointerExited(object? sender, PointerEventArgs e)
+    {
+        if (Composition is { } composition && composition.ClearHover()) NativePreview.ShowComposition();
+    }
+
     private static bool IsCrop(KeyModifiers modifiers) => modifiers.HasFlag(KeyModifiers.Alt);
 
     private static bool IsOverSelected(SceneCompositionViewModel composition, double x, double y) =>
         composition.Selected is { } selected && CompositionGeometry.Contains(selected, x, y);
 
-    private static Cursor? CursorFor(CompositionTarget? target) => target switch
+    private static Cursor? CursorFor(CompositionTarget? target, double rotation) => target switch
     {
         null => null,
         { Kind: CompositionGestureKind.Move } => SizeAllCursor,
         { Kind: CompositionGestureKind.Rotate } => RotateCursor,
-        { Handle: CompositionHandle.TopLeft } => TopLeftCursor,
-        { Handle: CompositionHandle.TopRight } => TopRightCursor,
-        { Handle: CompositionHandle.BottomRight } => BottomRightCursor,
-        { Handle: CompositionHandle.BottomLeft } => BottomLeftCursor,
-        { Handle: CompositionHandle.Top } => TopCursor,
-        { Handle: CompositionHandle.Bottom } => BottomCursor,
-        { Handle: CompositionHandle.Left } => LeftCursor,
-        _ => RightCursor
+        { Handle: { } handle } => PullCursor(CompositionGeometry.PullDirection(handle, rotation)),
+        _ => null
     };
+
+    // Une poignée tire dans la direction de son bord, qui tourne avec la source : le curseur
+    // suit cette direction, ramenée au plus proche des quatre axes que Windows sait dessiner.
+    private static Cursor PullCursor(double direction)
+    {
+        var axis = (int)Math.Round((direction + 360) % 180 / 45) % 4;
+        return axis switch
+        {
+            0 => HorizontalCursor,
+            1 => DescendingDiagonalCursor,
+            2 => VerticalCursor,
+            _ => AscendingDiagonalCursor
+        };
+    }
 
     // Windows n'a pas de curseur de rotation : il est dessiné une fois, une flèche en arc
     // claire sur un liseré sombre, lisible sur n'importe quelle image.

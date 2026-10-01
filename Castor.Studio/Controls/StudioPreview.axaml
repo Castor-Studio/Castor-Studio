@@ -15,7 +15,8 @@
            PointerPressed="OnPicturePointerPressed"
            PointerMoved="OnPicturePointerMoved"
            PointerReleased="OnPicturePointerReleased"
-           PointerCaptureLost="OnPicturePointerCaptureLost">
+           PointerCaptureLost="OnPicturePointerCaptureLost"
+           PointerExited="OnPicturePointerExited">
         <controls:ObsPreviewHost x:Name="NativePreview"
                                  IsHitTestVisible="False"
                                  Scene="{Binding #PreviewRoot.Scene}"
