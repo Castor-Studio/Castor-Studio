@@ -3,7 +3,6 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Settings;
@@ -36,7 +35,8 @@ public partial class MainViewModel : ViewModelBase
     public IReadOnlyList<StudioPanelEntry> PanelMenu { get; }
 
     public string GlobalStatusText => _workspace.IsStreaming ? "EN DIRECT" : _workspace.IsRecording ? "REC" : "OFFLINE";
-    public IBrush GlobalStatusBrush => SolidColorBrush.Parse(_workspace.IsStreaming || _workspace.IsRecording ? "#f87171" : "#3c3c4e");
+    // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
+    public bool IsOnAir => _workspace.IsStreaming || _workspace.IsRecording;
 
     // The scene going out, next to the status badge so it reads from every workspace. Shown,
     // not picked: the choice stays with the Studio's "Scène active" selector.
@@ -188,7 +188,7 @@ public partial class MainViewModel : ViewModelBase
 
         if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
         OnPropertyChanged(nameof(GlobalStatusText));
-        OnPropertyChanged(nameof(GlobalStatusBrush));
+        OnPropertyChanged(nameof(IsOnAir));
     }
 
     partial void OnCurrentPageKindChanged(MainPageKind value)

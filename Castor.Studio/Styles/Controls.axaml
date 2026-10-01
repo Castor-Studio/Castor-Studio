@@ -55,10 +55,10 @@
         <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
     </Style>
     <Style Selector="ToggleButton.scene-toolbar-item:checked">
-        <Setter Property="Foreground" Value="#5b8def"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
     </Style>
     <Style Selector="Button.scene-toolbar-item.danger, Button.scene-menu-item.danger">
-        <Setter Property="Foreground" Value="{StaticResource StatusErrorBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
     <Style Selector="Button.ai-mode">
         <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
@@ -77,8 +77,8 @@
     </Style>
     <Style Selector="Button.ai-active">
         <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
-        <Setter Property="Foreground" Value="#5b8def"/>
-        <Setter Property="BorderBrush" Value="#5b8def"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="14,7"/>
         <Setter Property="CornerRadius" Value="6"/>
@@ -106,7 +106,7 @@
     </Style>
     <Style Selector="ToggleButton.ai-pick:checked /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AppAccentFg}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
     </Style>
 
@@ -206,5 +206,27 @@
     </Style>
     <Style Selector="Button.platform-connect:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+    </Style>
+
+    <!-- État de session (barre du haut, panneaux Statut et Scène active) : éteint par défaut,
+         rouge à l'antenne (classe live), vert quand tout est prêt (classe ready). Des styles
+         plutôt que des couleurs calculées dans les ViewModels, pour suivre le thème. -->
+    <Style Selector="TextBlock.session-state">
+        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+    </Style>
+    <Style Selector="TextBlock.session-state.ready">
+        <Setter Property="Foreground" Value="{DynamicResource StatusOkBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.session-state.live">
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+    <Style Selector="Ellipse.session-state">
+        <Setter Property="Fill" Value="{DynamicResource AppFg4}"/>
+    </Style>
+    <Style Selector="Ellipse.session-state.ready">
+        <Setter Property="Fill" Value="{DynamicResource StatusOkBrush}"/>
+    </Style>
+    <Style Selector="Ellipse.session-state.live">
+        <Setter Property="Fill" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
 </Styles>

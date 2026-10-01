@@ -192,7 +192,7 @@
 
 						<TextBlock Grid.Row="1" Text="{Binding CatalogMessage}"
                                    IsVisible="{Binding CatalogMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                   Foreground="{StaticResource StatusErrorBrush}" FontSize="10"
+                                   Foreground="{DynamicResource StatusErrorBrush}" FontSize="10"
                                    TextWrapping="Wrap" Margin="4,8,4,0" MaxHeight="52"/>
 					</Grid>
 
@@ -215,7 +215,7 @@
 				<Button Grid.Column="4" Classes="dlg-btn" Content="Ajouter à la scène"
                         Command="{Binding ConfirmCommand}"
                         IsEnabled="{Binding CanConfirm}"
-                        Background="{DynamicResource AppAccentFg}" Foreground="#eaeaf0" BorderThickness="0"/>
+                        Background="{DynamicResource AppAccentFg}" Foreground="{DynamicResource AppOnAccentFg}" BorderThickness="0"/>
 			</Grid>
 
 		</Grid>

@@ -35,7 +35,7 @@
                     <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#1c1c28"/>
                     <SolidColorBrush x:Key="DockTabActiveBackgroundBrush" Color="#162040"/>
                     <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#5b8def"/>
-                    <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#8888a0"/>
+                    <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#b0b0c4"/>
                     <SolidColorBrush x:Key="DockTabSelectedForegroundBrush" Color="#eaeaf0"/>
                     <SolidColorBrush x:Key="DockTabActiveForegroundBrush" Color="#eaeaf0"/>
                     <SolidColorBrush x:Key="DockTabCloseHoverBackgroundBrush" Color="#36364a"/>
@@ -49,8 +49,8 @@
                     <SolidColorBrush x:Key="DockChromeButtonHoverBackgroundBrush" Color="#1c1c28"/>
                     <SolidColorBrush x:Key="DockChromeButtonPressedBackgroundBrush" Color="#36364a"/>
                     <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="#F87171"/>
-                    <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#5c5c72"/>
-                    <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#5c5c72"/>
+                    <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#9a9ab2"/>
+                    <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#9a9ab2"/>
 
                     <!-- Vector replacements for the stock drag-target PNG glyphs: a rounded
                          square (AppSurface2 fill, AppBorder stroke) with an accent bar on
@@ -93,7 +93,7 @@
                     <SolidColorBrush x:Key="DockThemeBorderLowBrush" Color="#ccccde"/>
                     <SolidColorBrush x:Key="DockThemeForegroundBrush" Color="#18182a"/>
                     <SolidColorBrush x:Key="DockThemeControlBackgroundBrush" Color="#eaeaf4"/>
-                    <SolidColorBrush x:Key="DockThemeAccentBrush" Color="#315fb8"/>
+                    <SolidColorBrush x:Key="DockThemeAccentBrush" Color="#2b56a8"/>
 
                     <SolidColorBrush x:Key="DockSurfaceWorkbenchBrush" Color="#eeeef6"/>
                     <SolidColorBrush x:Key="DockSurfaceSidebarBrush" Color="#f6f6fc"/>
@@ -107,12 +107,12 @@
                     <SolidColorBrush x:Key="DockSeparatorBrush" Color="#ccccde"/>
                     <SolidColorBrush x:Key="DockSplitterIdleBrush" Color="#ccccde"/>
                     <SolidColorBrush x:Key="DockSplitterHoverBrush" Color="#bcbcd2"/>
-                    <SolidColorBrush x:Key="DockSplitterDragBrush" Color="#315fb8"/>
+                    <SolidColorBrush x:Key="DockSplitterDragBrush" Color="#2b56a8"/>
 
                     <SolidColorBrush x:Key="DockTabHoverBackgroundBrush" Color="#e0e0f0"/>
                     <SolidColorBrush x:Key="DockTabActiveBackgroundBrush" Color="#dce8ff"/>
-                    <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#315fb8"/>
-                    <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#484888"/>
+                    <SolidColorBrush x:Key="DockTabActiveIndicatorBrush" Color="#2b56a8"/>
+                    <SolidColorBrush x:Key="DockTabForegroundBrush" Color="#3a3a66"/>
                     <SolidColorBrush x:Key="DockTabSelectedForegroundBrush" Color="#18182a"/>
                     <SolidColorBrush x:Key="DockTabActiveForegroundBrush" Color="#18182a"/>
                     <SolidColorBrush x:Key="DockTabCloseHoverBackgroundBrush" Color="#bcbcd2"/>
@@ -121,44 +121,44 @@
                     <SolidColorBrush x:Key="DockDocumentTabCloseSelectedForegroundBrush" Color="#18182a"/>
                     <SolidColorBrush x:Key="DockDocumentTabClosePointerOverForegroundBrush" Color="#18182a"/>
 
-                    <SolidColorBrush x:Key="DockTargetIndicatorBrush" Color="#315fb8"/>
+                    <SolidColorBrush x:Key="DockTargetIndicatorBrush" Color="#2b56a8"/>
 
                     <SolidColorBrush x:Key="DockChromeButtonHoverBackgroundBrush" Color="#e0e0f0"/>
                     <SolidColorBrush x:Key="DockChromeButtonPressedBackgroundBrush" Color="#bcbcd2"/>
                     <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="#F87171"/>
-                    <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#6868a0"/>
-                    <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#6868a0"/>
+                    <SolidColorBrush x:Key="DockToolChromeIconBrush" Color="#4a4a7a"/>
+                    <SolidColorBrush x:Key="DockChromeButtonForegroundBrush" Color="#4a4a7a"/>
 
                     <!-- Light-variant twins of the drop-target glyphs (AppSurface2 #eaeaf4,
-                         AppBorder #ccccde, accent #315fb8). -->
+                         AppBorder #ccccde, accent #2b56a8). -->
                     <DrawingImage x:Key="CastorDockTargetTop">
                         <DrawingGroup>
                             <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
-                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#2b56a8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
                         </DrawingGroup>
                     </DrawingImage>
                     <DrawingImage x:Key="CastorDockTargetBottom">
                         <DrawingGroup>
                             <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
-                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,25,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#2b56a8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,25,28,9" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
                         </DrawingGroup>
                     </DrawingImage>
                     <DrawingImage x:Key="CastorDockTargetLeft">
                         <DrawingGroup>
                             <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
-                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#2b56a8"><GeometryDrawing.Geometry><RectangleGeometry Rect="6,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
                         </DrawingGroup>
                     </DrawingImage>
                     <DrawingImage x:Key="CastorDockTargetRight">
                         <DrawingGroup>
                             <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
-                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="25,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#2b56a8"><GeometryDrawing.Geometry><RectangleGeometry Rect="25,6,9,28" RadiusX="2" RadiusY="2"/></GeometryDrawing.Geometry></GeometryDrawing>
                         </DrawingGroup>
                     </DrawingImage>
                     <DrawingImage x:Key="CastorDockTargetCenter">
                         <DrawingGroup>
                             <GeometryDrawing Brush="#eaeaf4"><GeometryDrawing.Pen><Pen Brush="#ccccde" Thickness="1"/></GeometryDrawing.Pen><GeometryDrawing.Geometry><RectangleGeometry Rect="1,1,38,38" RadiusX="5" RadiusY="5"/></GeometryDrawing.Geometry></GeometryDrawing>
-                            <GeometryDrawing Brush="#315fb8"><GeometryDrawing.Geometry><RectangleGeometry Rect="9,9,22,22" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry></GeometryDrawing>
+                            <GeometryDrawing Brush="#2b56a8"><GeometryDrawing.Geometry><RectangleGeometry Rect="9,9,22,22" RadiusX="3" RadiusY="3"/></GeometryDrawing.Geometry></GeometryDrawing>
                         </DrawingGroup>
                     </DrawingImage>
                 </ResourceDictionary>
