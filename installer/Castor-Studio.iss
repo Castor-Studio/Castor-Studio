@@ -6,7 +6,7 @@
 
 #define AppVersion Version
 #define AppPublisher "Castor Team"
-#define AppExeName "CastorStudio.exe"
+#define AppExeName "Castor-Studio.exe"
 
 [Setup]
 AppId={{A1B2C3D4-CASTOR-STUDIO-APP}}
