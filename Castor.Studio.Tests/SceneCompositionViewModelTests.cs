@@ -105,8 +105,8 @@ public sealed class SceneCompositionViewModelTests
     {
         var scene = SceneWith("Micro", "Masquée", "Caméra");
         var runtime = new FakeCompositionRuntime(scene.Id);
+        // Une source audio n'a aucune image, une source masquée n'est pas composée.
         runtime.Compose(scene,
-            // Une source audio n'a aucune image, une source masquée n'est pas composée.
             Transform(scene, "Micro", x: 0, y: 0, width: 0, height: 0),
             Transform(scene, "Masquée", x: 0, y: 0, width: 1920, height: 1080, isVisible: false),
             Transform(scene, "Caméra", x: 0, y: 0, width: 1920, height: 1080));
@@ -669,8 +669,10 @@ public sealed class SceneCompositionViewModelTests
     {
         var scene = SceneWith("Caméra");
         var runtime = new FakeCompositionRuntime(scene.Id);
-        runtime.Compose(scene, Transform(scene, "Caméra", x: 140, y: 100, width: 600, height: 360,
-            crop: new SourceCrop(40, 0, 0, 0)) with { SourceWidth = 640 });
+        // 640 pixels de source, 40 rognés à gauche : 600 composés, à partir de x = 140.
+        var cropped = Transform(scene, "Caméra", x: 140, y: 100, width: 600, height: 360,
+            crop: new SourceCrop(40, 0, 0, 0));
+        runtime.Compose(scene, cropped with { SourceWidth = 640 });
         var composition = new SceneCompositionViewModel(runtime, new ManualTime());
         composition.ShowScene(scene);
         composition.SelectAt(200, 200);
