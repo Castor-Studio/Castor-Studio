@@ -109,6 +109,12 @@ public partial class SettingsViewModel : ViewModelBase
     public void ShowAccounts() =>
         CurrentSection = Sections.FirstOrDefault(section => section.ViewModel is AccountsSettingsViewModel)?.ViewModel ?? CurrentSection;
 
+    // Whatever changes the section (the navigation, ShowAccounts), the navigation marks it.
+    partial void OnCurrentSectionChanged(ViewModelBase? value)
+    {
+        foreach (var section in Sections) section.IsSelected = ReferenceEquals(section.ViewModel, value);
+    }
+
     [RelayCommand]
     public async Task SelectSectionAsync(SettingsSectionItem item)
     {

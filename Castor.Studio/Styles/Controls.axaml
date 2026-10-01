@@ -166,19 +166,53 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <Style Selector="Button.settings-nav">
+    <!-- Navigation des Paramètres : normal, survol, ouverte, ouverte survolée. La barre
+         d'accent à gauche existe dans tous les états (transparente hors sélection) pour que
+         le libellé ne bouge pas quand la section s'ouvre. -->
+    <Style Selector="RadioButton.settings-nav">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="3,0,0,0"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        <Setter Property="Padding" Value="18,10"/>
+        <Setter Property="Padding" Value="15,10"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                    <!-- Repère du focus clavier, distinct du survol. -->
+                    <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFg}"
+                            BorderThickness="1" IsVisible="False"/>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
     </Style>
-    <Style Selector="Button.settings-nav:pointerover /template/ ContentPresenter">
+    <Style Selector="RadioButton.settings-nav:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+    </Style>
+    <Style Selector="RadioButton.settings-nav:checked">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="RadioButton.settings-nav:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+    </Style>
+    <Style Selector="RadioButton.settings-nav:focus-visible /template/ Border#PART_FocusRing">
+        <Setter Property="IsVisible" Value="True"/>
     </Style>
     <Style Selector="TextBlock.setting-label">
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
