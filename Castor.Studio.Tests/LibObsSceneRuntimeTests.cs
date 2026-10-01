@@ -240,6 +240,16 @@ public sealed class LibObsSceneRuntimeTests
             Assert.False(runtime.SetSourceTransform(sceneId, Guid.NewGuid(),
                 new SourcePlacement(0, 0, 1, 1, SourceCrop.None)).IsSuccess);
 
+            // LibObs 0.3.0 n'expose pas la rotation : elle est refusée, pas ignorée en silence.
+            var rotated = runtime.SetSourceTransform(sceneId, sourceId,
+                written.Transform.Placement with { Rotation = 90 });
+            Assert.False(rotated.IsSuccess);
+            Assert.Contains("rotation", rotated.Message);
+
+            // Un tour complet ne tourne rien : il passe.
+            Assert.True(runtime.SetSourceTransform(sceneId, sourceId,
+                written.Transform.Placement with { Rotation = 360 }).IsSuccess);
+
             var after = runtime.GetSceneComposition(sceneId);
             Assert.Equal(written.Transform.Placement, Assert.Single(after.Composition.Sources).Placement);
 

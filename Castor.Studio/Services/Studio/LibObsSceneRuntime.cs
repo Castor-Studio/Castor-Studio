@@ -404,6 +404,13 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         var invalid = ValidatePlacement(placement);
         if (invalid != null) return SourceTransformResult.Failure(invalid);
 
+        // Le binding LibObs 0.3.0 n'expose pas obs_sceneitem_set_rot : une source ne peut
+        // pas encore tourner. Le refus passe par le chemin ordinaire, l'interface le traite
+        // comme tout autre refus et revient à ce que le moteur détient.
+        if (Math.Abs(Math.IEEERemainder(placement.Rotation, 360)) > RotationTolerance)
+            return SourceTransformResult.Failure(
+                "La rotation des sources n'est pas encore disponible : la version de LibObs utilisée ne l'expose pas.");
+
         lock (_gate)
         {
             if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
@@ -456,6 +463,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     {
         if (!double.IsFinite(placement.X) || !double.IsFinite(placement.Y))
             return "La position d'une source doit être un nombre fini.";
+        if (!double.IsFinite(placement.Rotation))
+            return "La rotation d'une source doit être un nombre fini.";
         if (!double.IsFinite(placement.ScaleX) || !double.IsFinite(placement.ScaleY) ||
             placement.ScaleX <= 0 || placement.ScaleY <= 0)
             return "L'échelle d'une source doit être strictement positive.";
@@ -466,6 +475,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         return null;
     }
+
+    // Écart sous lequel une rotation compte pour nulle : le float de libobs ne rend pas un
+    // tour complet exactement.
+    private const double RotationTolerance = 1e-4;
 
     // Le rectangle composé se déduit ici, au contact du moteur : c'est sa règle (taille de la
     // source, moins le rognage, mise à l'échelle de l'item), et elle n'a rien à faire dans
@@ -491,7 +504,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             new SourceCrop((int)crop.Left, (int)crop.Top, (int)crop.Right, (int)crop.Bottom),
             sourceWidth,
             sourceHeight,
-            native.Item.IsVisible);
+            native.Item.IsVisible,
+            // Le binding n'expose pas obs_sceneitem_get_rot : aucune source n'est tournée tant
+            // que SetSourceTransform refuse de le faire.
+            Rotation: 0);
     }
 
     // libobs énumère ses items de l'arrière-plan vers le premier plan ; on rend l'inverse, et
