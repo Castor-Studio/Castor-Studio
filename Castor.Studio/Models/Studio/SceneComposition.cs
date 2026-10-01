@@ -89,6 +89,13 @@ public readonly record struct OverlayTint(float Red, float Green, float Blue)
 public sealed record OverlaySource(SourceTransform Transform, OverlayTint Tint);
 
 /// <summary>
+/// Une ligne d'alignement sur laquelle une source déplacée vient de s'accrocher, tracée
+/// d'un bord à l'autre du canvas : verticale à l'abscisse <see cref="Position"/>, ou
+/// horizontale à cette ordonnée.
+/// </summary>
+public readonly record struct CompositionGuide(bool IsVertical, double Position);
+
+/// <summary>
 /// Ce que le moteur doit tracer par-dessus son image : le cadre de chaque source composée
 /// et, pour celle que l'opérateur a choisie, ses points d'accroche.
 /// </summary>
@@ -97,12 +104,16 @@ public sealed record OverlaySource(SourceTransform Transform, OverlayTint Tint);
 /// deux champs échangés séparément lui donneraient une sélection qui ne correspond plus aux
 /// cadres qu'elle accompagne. <see cref="IsCropping"/> voyage avec eux pour la même raison :
 /// il dit sous quelle forme montrer la source choisie — poignées carrées pour l'étirer,
-/// équerres et contour de la source entière pour la rogner.
+/// équerres et contour de la source entière pour la rogner. <see cref="Hovered"/> est la
+/// source que le pointeur survole, montrée au poids de la sélection avant le clic ;
+/// <see cref="Guides"/>, les lignes où se pose une source en cours de déplacement.
 /// </remarks>
 public sealed record CompositionOverlay(
     IReadOnlyList<OverlaySource> Sources,
     OverlaySource? Selected,
-    bool IsCropping = false)
+    bool IsCropping = false,
+    OverlaySource? Hovered = null,
+    IReadOnlyList<CompositionGuide>? Guides = null)
 {
     public static CompositionOverlay Empty { get; } = new([], null);
 }

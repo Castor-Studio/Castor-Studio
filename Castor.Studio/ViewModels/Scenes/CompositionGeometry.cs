@@ -126,6 +126,134 @@ public static class CompositionGeometry
     public static (double X, double Y) Center(SourceTransform source) =>
         ToCanvas(source, source.Width / 2, source.Height / 2);
 
+    /// <summary>
+    /// Accroche une source qu'on déplace aux lignes qui comptent : bords et centre du
+    /// canvas, bords et centres des autres sources. Sur chaque axe, le bord ou le centre de
+    /// la source le plus proche d'une ligne, à moins de <paramref name="reach"/>, s'y pose.
+    /// </summary>
+    /// <returns>
+    /// Le placement accroché, et les lignes sur lesquelles la source tombe désormais : ce
+    /// sont elles que l'overlay trace en guides.
+    /// </returns>
+    /// <remarks>
+    /// Une source tournée s'accroche par le rectangle droit qui l'englobe : c'est ce que
+    /// l'œil aligne. Seule la position change ; un aimant ne redimensionne rien.
+    /// </remarks>
+    public static (SourcePlacement Placement, IReadOnlyList<CompositionGuide> Guides) Snap(
+        SourceTransform start,
+        SourcePlacement moved,
+        IEnumerable<SourceTransform> others,
+        double canvasWidth,
+        double canvasHeight,
+        double reach)
+    {
+        if (reach <= 0) return (moved, []);
+
+        var verticals = new List<double>();
+        var horizontals = new List<double>();
+        if (canvasWidth > 0 && canvasHeight > 0)
+        {
+            verticals.AddRange([0, canvasWidth / 2, canvasWidth]);
+            horizontals.AddRange([0, canvasHeight / 2, canvasHeight]);
+        }
+
+        foreach (var other in others)
+        {
+            if (other.SourceId == start.SourceId) continue;
+
+            var (left, top, right, bottom) = Bounds(other);
+            verticals.AddRange([left, (left + right) / 2, right]);
+            horizontals.AddRange([top, (top + bottom) / 2, bottom]);
+        }
+
+        var (minX, minY, maxX, maxY) = Bounds(Preview(start, moved));
+        double[] featuresX = [minX, (minX + maxX) / 2, maxX];
+        double[] featuresY = [minY, (minY + maxY) / 2, maxY];
+        var offsetX = Nearest(featuresX, verticals, reach);
+        var offsetY = Nearest(featuresY, horizontals, reach);
+
+        var guides = new List<CompositionGuide>();
+        if (offsetX is { } x) AddGuides(guides, isVertical: true, featuresX, x, verticals);
+        if (offsetY is { } y) AddGuides(guides, isVertical: false, featuresY, y, horizontals);
+
+        return (moved with { X = moved.X + (offsetX ?? 0), Y = moved.Y + (offsetY ?? 0) }, guides);
+    }
+
+    /// <summary>
+    /// Le rectangle droit qui englobe la source dans le canvas, rotation comprise : gauche,
+    /// haut, droite, bas.
+    /// </summary>
+    public static (double Left, double Top, double Right, double Bottom) Bounds(SourceTransform source)
+    {
+        var left = double.MaxValue;
+        var top = double.MaxValue;
+        var right = double.MinValue;
+        var bottom = double.MinValue;
+        foreach (var corner in Corners)
+        {
+            var (u, v) = HandlePoint(source, corner);
+            var (x, y) = ToCanvas(source, u, v);
+            left = Math.Min(left, x);
+            top = Math.Min(top, y);
+            right = Math.Max(right, x);
+            bottom = Math.Max(bottom, y);
+        }
+
+        return (left, top, right, bottom);
+    }
+
+    /// <summary>
+    /// La direction, en degrés dans le canvas, dans laquelle tire cette poignée : 0 vers la
+    /// droite, 90 vers le bas. Elle tourne avec la source — c'est ce qui choisit le curseur.
+    /// </summary>
+    public static double PullDirection(CompositionHandle handle, double rotation)
+    {
+        var (sideX, sideY) = Sides(handle);
+        return NormalizeDegrees(Math.Atan2(sideY, sideX) * 180 / Math.PI + rotation);
+    }
+
+    // Le plus petit déplacement qui pose un des repères de la source sur une ligne, à
+    // moins de reach ; aucun si rien n'est assez près.
+    private static double? Nearest(double[] features, List<double> lines, double reach)
+    {
+        double? best = null;
+        foreach (var feature in features)
+        {
+            foreach (var line in lines)
+            {
+                var offset = line - feature;
+                if (Math.Abs(offset) <= reach && (best == null || Math.Abs(offset) < Math.Abs(best.Value)))
+                    best = offset;
+            }
+        }
+
+        return best;
+    }
+
+    // Toutes les lignes sur lesquelles la source tombe une fois accrochée : un centre et un
+    // bord peuvent s'aligner en même temps, chacun mérite son guide.
+    private static void AddGuides(
+        List<CompositionGuide> guides,
+        bool isVertical,
+        double[] features,
+        double offset,
+        List<double> lines)
+    {
+        foreach (var line in lines)
+        {
+            if (guides.Exists(guide => guide.IsVertical == isVertical && Math.Abs(guide.Position - line) < 0.5))
+                continue;
+
+            foreach (var feature in features)
+            {
+                if (Math.Abs(feature + offset - line) >= 0.5) continue;
+
+                guides.Add(new CompositionGuide(isVertical, line));
+                break;
+            }
+        }
+    }
+
     /// <summary>La source suit le pointeur ; échelle, rognage et rotation ne bougent pas.</summary>
     public static SourcePlacement Move(SourceTransform start, double deltaX, double deltaY) =>
         start.Placement with { X = start.X + deltaX, Y = start.Y + deltaY };

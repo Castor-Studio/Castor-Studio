@@ -43,6 +43,11 @@ public partial class SceneCompositionViewModel : ViewModelBase
     // enfoncé. Les deux ne valent que pour la source choisie.
     private bool _cropMode;
     private bool _cropModifier;
+    private Guid? _hoveredSourceId;
+    // La taille du canvas à la dernière lecture : ses bords et son centre aimantent les
+    // sources qu'on déplace.
+    private int _canvasWidth;
+    private int _canvasHeight;
 
     // Un geste en cours : ce qu'il saisit, d'où il part, ce qu'il demande, et ce que le
     // moteur en a déjà écrit.
@@ -58,6 +63,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         public bool HasPendingWrite { get; set; }
         public bool HasWritten { get; set; }
         public long? LastWrite { get; set; }
+        public IReadOnlyList<CompositionGuide> Guides { get; set; } = [];
     }
 
     /// <summary>
@@ -125,6 +131,26 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (source.SourceId != _selectedSourceId) _cropMode = false;
         _selectedSourceId = source.SourceId;
         Publish(Overlay.Sources);
+    }
+
+    /// <summary>
+    /// Le pointeur survole ce point du canvas : la source qui est devant se montre au poids
+    /// de la sélection, pour dire avant le clic laquelle il prendra.
+    /// </summary>
+    /// <returns>Si la source survolée a changé, donc si l'overlay est à redonner au moteur.</returns>
+    public bool HoverAt(double canvasX, double canvasY) => SetHovered(SourceAt(canvasX, canvasY)?.SourceId);
+
+    /// <summary>Le pointeur a quitté l'image : plus aucune source n'est survolée.</summary>
+    /// <returns>Si une source était survolée.</returns>
+    public bool ClearHover() => SetHovered(null);
+
+    private bool SetHovered(Guid? sourceId)
+    {
+        if (_hoveredSourceId == sourceId) return false;
+
+        _hoveredSourceId = sourceId;
+        Publish(Overlay.Sources);
+        return true;
     }
 
     /// <summary>Ne choisit plus aucune source : l'overlay ne montre que les cadres.</summary>
@@ -229,7 +255,16 @@ public partial class SceneCompositionViewModel : ViewModelBase
     /// <param name="constrainRotation">
     /// Si une rotation avance par pas de <see cref="CompositionGeometry.RotationStep"/>°.
     /// </param>
-    public void UpdateGesture(double canvasX, double canvasY, bool keepAspectRatio, bool constrainRotation = false)
+    /// <param name="snapReach">
+    /// Distance, en pixels du canvas, à laquelle une source déplacée s'accroche aux bords et
+    /// centres du canvas et des autres sources ; 0 pour ne rien aimanter.
+    /// </param>
+    public void UpdateGesture(
+        double canvasX,
+        double canvasY,
+        bool keepAspectRatio,
+        bool constrainRotation = false,
+        double snapReach = 0)
     {
         var gesture = _gesture;
         if (gesture == null) return;
@@ -246,6 +281,18 @@ public partial class SceneCompositionViewModel : ViewModelBase
                 gesture.Start, gesture.OriginX, gesture.OriginY, canvasX, canvasY, constrainRotation),
             _ => CompositionGeometry.Move(gesture.Start, deltaX, deltaY)
         };
+
+        if (gesture.Kind == CompositionGestureKind.Move)
+        {
+            (requested, gesture.Guides) = CompositionGeometry.Snap(
+                gesture.Start,
+                requested,
+                Overlay.Sources.Select(source => source.Transform),
+                _canvasWidth,
+                _canvasHeight,
+                snapReach);
+        }
+
         if (requested == gesture.Requested) return;
 
         gesture.Requested = requested;
@@ -418,6 +465,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
         }
 
         Status = "";
+        _canvasWidth = result.Composition.CanvasWidth;
+        _canvasHeight = result.Composition.CanvasHeight;
         Publish(Drawable(scene, result.Composition.Sources));
     }
 
@@ -490,7 +539,18 @@ public partial class SceneCompositionViewModel : ViewModelBase
             _cropMode = false;
         }
 
-        Overlay = new CompositionOverlay(sources, selected, selected != null && (_cropMode || _cropModifier));
+        // Le survol se tait pendant un geste, et sur la source déjà choisie : elle porte déjà
+        // ce poids.
+        var hovered = _gesture == null && _hoveredSourceId != _selectedSourceId
+            ? Find(sources, _hoveredSourceId)
+            : null;
+
+        Overlay = new CompositionOverlay(
+            sources,
+            selected,
+            selected != null && (_cropMode || _cropModifier),
+            hovered,
+            _gesture?.Guides ?? []);
     }
 
     // Pendant un geste, la source saisie est montrée là où il la demande, sans attendre

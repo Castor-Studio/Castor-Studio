@@ -682,8 +682,78 @@ public sealed class SceneCompositionViewModelTests
         Assert.Equal((100d, 640d), (whole.X, whole.Width));
     }
 
+    [Fact]
+    public void A_dragged_source_snaps_to_the_centre_and_shows_its_guides_until_released()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        // Centrée dans le canvas 1920×1080, la caméra a son origine en (640, 360) ; le
+        // pointeur l'amène à 5 pixels près.
+        composition.BeginGesture(10, 10, HandleTolerance, crop: false);
+        composition.UpdateGesture(645, 365, keepAspectRatio: true, snapReach: SnapReach);
+
+        Assert.Equal((640d, 360d), (composition.Selected!.X, composition.Selected.Y));
+        Assert.Contains(new CompositionGuide(IsVertical: true, 960), composition.Overlay.Guides!);
+        Assert.Contains(new CompositionGuide(IsVertical: false, 540), composition.Overlay.Guides!);
+
+        composition.EndGesture();
+        Assert.Equal((640d, 360d), (runtime.TransformOf(Id(scene, "Caméra")).X, runtime.TransformOf(Id(scene, "Caméra")).Y));
+        Assert.Empty(composition.Overlay.Guides!);
+    }
+
+    [Fact]
+    public void Without_a_snapping_reach_the_source_goes_exactly_where_the_pointer_puts_it()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        composition.BeginGesture(10, 10, HandleTolerance, crop: false);
+        composition.UpdateGesture(645, 365, keepAspectRatio: true);
+
+        Assert.Equal((635d, 355d), (composition.Selected!.X, composition.Selected.Y));
+        Assert.Empty(composition.Overlay.Guides!);
+    }
+
+    [Fact]
+    public void The_hovered_source_is_shown_until_the_pointer_leaves_or_a_gesture_starts()
+    {
+        var scene = SceneWith("Fond", "Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360),
+            Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        Assert.True(composition.HoverAt(200, 200));
+        Assert.Equal(Id(scene, "Caméra"), composition.Overlay.Hovered?.Transform.SourceId);
+        // Le même survol ne redonne rien au moteur.
+        Assert.False(composition.HoverAt(210, 210));
+
+        // Pendant un geste, rien d'autre que la source saisie ne compte.
+        composition.BeginGesture(1500, 900, HandleTolerance, crop: false);
+        Assert.Null(composition.Overlay.Hovered);
+        composition.EndGesture();
+
+        // La source choisie porte déjà ce poids : elle ne se montre pas en survol.
+        composition.HoverAt(1500, 900);
+        Assert.Null(composition.Overlay.Hovered);
+
+        composition.HoverAt(200, 200);
+        Assert.True(composition.ClearHover());
+        Assert.Null(composition.Overlay.Hovered);
+    }
+
     private const double HandleTolerance = 6;
     private const double RotationReach = 24;
+    private const double SnapReach = 10;
 
     private static SceneItemViewModel SceneWith(params string[] sourceNames) =>
         new(new SceneDefinition

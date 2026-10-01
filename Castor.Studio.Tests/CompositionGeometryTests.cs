@@ -194,6 +194,59 @@ public sealed class CompositionGeometryTests
     }
 
     [Fact]
+    public void A_source_dragged_near_the_centre_of_the_canvas_lands_on_it()
+    {
+        // HalfSize fait 960×540 : centré dans un canvas 1920×1080, son origine est en (480, 270).
+        var moved = CompositionGeometry.Move(HalfSize, 385, 216);
+        var (placement, guides) = CompositionGeometry.Snap(HalfSize, moved, [], 1920, 1080, reach: 10);
+
+        Assert.Equal((480d, 270d), (placement.X, placement.Y));
+        Assert.Contains(new CompositionGuide(IsVertical: true, 960), guides);
+        Assert.Contains(new CompositionGuide(IsVertical: false, 540), guides);
+    }
+
+    [Fact]
+    public void A_source_lines_up_with_the_edges_of_another()
+    {
+        var other = HalfSize with { SourceId = Guid.NewGuid(), X = 1200, Y = 700, Width = 400, Height = 300 };
+        // Le bord droit de HalfSize (1060) arrive à 6 pixels du bord gauche de l'autre (1200).
+        var moved = CompositionGeometry.Move(HalfSize, 134, 0);
+        var (placement, guides) = CompositionGeometry.Snap(HalfSize, moved, [other], 0, 0, reach: 10);
+
+        Assert.Equal(240d, placement.X);
+        Assert.Equal(new CompositionGuide(IsVertical: true, 1200), Assert.Single(guides));
+    }
+
+    [Fact]
+    public void Nothing_close_enough_leaves_the_source_where_the_pointer_put_it()
+    {
+        var moved = CompositionGeometry.Move(HalfSize, 37, 23);
+        var (placement, guides) = CompositionGeometry.Snap(HalfSize, moved, [], 1920, 1080, reach: 10);
+
+        Assert.Equal(moved, placement);
+        Assert.Empty(guides);
+    }
+
+    [Fact]
+    public void A_turned_source_snaps_by_the_box_that_holds_it()
+    {
+        var (left, top, right, bottom) = CompositionGeometry.Bounds(QuarterTurn);
+
+        Assert.Equal(-440, left, 6);
+        Assert.Equal(50, top, 6);
+        Assert.Equal(100, right, 6);
+        Assert.Equal(1010, bottom, 6);
+    }
+
+    [Fact]
+    public void A_handle_pulls_in_the_direction_its_source_is_turned()
+    {
+        Assert.Equal(0, CompositionGeometry.PullDirection(CompositionHandle.Right, 0), 6);
+        Assert.Equal(90, CompositionGeometry.PullDirection(CompositionHandle.Right, 90), 6);
+        Assert.Equal(135, CompositionGeometry.PullDirection(CompositionHandle.BottomRight, 90), 6);
+    }
+
+    [Fact]
     public void A_handle_is_found_on_either_side_of_the_edge_and_corners_win()
     {
         Assert.Equal(CompositionHandle.TopLeft, CompositionGeometry.HandleAt(HalfSize, 96, 54, tolerance: 6));
