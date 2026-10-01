@@ -178,12 +178,13 @@ pixels entiers de la source ne perd rien aux arrondis.
 
 ### Écrire dans le moteur
 
-`ISourceRuntime.SetSourceTransform(sceneId, sourceId, placement)` écrit position, échelle et
-rognage d'un seul tenant, sous le verrou du runtime, et rend la transformation que le moteur
-compose ensuite. Il refuse avant d'approcher le moteur un nombre non fini, une échelle nulle
-ou négative, un rognage négatif ou qui ne laisserait rien de la source. Si libobs échoue au
-milieu des trois écritures, l'ancien placement est rendu tel quel : jamais un mélange des
-deux.
+`ISourceRuntime.SetSourceTransform(sceneId, sourceId, placement)` écrit position, échelle,
+rotation et rognage d'un seul tenant, sous le verrou du runtime, et rend la transformation
+que le moteur compose ensuite. Position, échelle et rotation partent d'un bloc
+(`ObsSceneItem.ApplyTransform`), le rognage suit : libobs le tient à part. Il refuse avant
+d'approcher le moteur un nombre non fini, une échelle nulle ou négative, un rognage négatif
+ou qui ne laisserait rien de la source. Si libobs échoue entre ses deux écritures, l'ancien
+placement est rendu tel quel : jamais un mélange des deux.
 
 Le pointeur bouge bien plus souvent que le moteur ne compose. Pendant un geste :
 
@@ -245,23 +246,18 @@ la propriété `Composition` sur `StudioPreview` — non renseignée, aucun cadr
 Les noms des sources ne sont pas écrits sur l'image : ils sont dans la liste sous l'aperçu,
 avec la même pastille de couleur, et l'image reste ce qu'elle est.
 
-## Ce que le moteur n'expose pas encore
+## Ce que l'interface ne pilote pas encore
 
-**La rotation.** LibObs 0.3.0 ne lie ni `obs_sceneitem_set_rot` ni `obs_sceneitem_get_rot`.
-L'interface est prête — geste, menu, tracé tourné, bulle —, mais `SetSourceTransform` refuse
-toute rotation non nulle avec un message qui le dit, et `ReadTransform` rend 0. Le refus suit
-le chemin ordinaire : le geste s'arrête dès la première écriture, rien ne tourne, ni à l'écran
-ni dans le moteur. Quand la version de LibObs qui les expose sera publiée, ces deux endroits
-de `LibObsSceneRuntime` changeront, et rien ailleurs.
+Depuis LibObs 0.4.0, le binding expose tout ce qu'un item sait faire : rotation, alignement,
+*bounds* — un cadre qui contraint la taille rendue — et l'écriture d'un bloc de position,
+échelle et rotation (`ObsSceneItem.ApplyTransform`). L'interface n'en pilote qu'une part :
 
-libobs connaît des *bounds* : un cadre qui contraint la taille rendue d'une source. Le
-binding LibObs ne les expose pas (`obs_sceneitem_get_bounds` n'est pas lié). Le jour où ils
-le seront, ils changeront `Width` et `Height` dans `ReadTransform`, et rien ailleurs.
-
-C'est pourquoi l'étirement écrit l'**échelle** : sans bounds, c'est la seule grandeur qui
-fixe la taille rendue. Le binding n'expose pas non plus l'alignement d'un item ; le calcul
-des gestes suppose celui que libobs donne par défaut, la position désignant le coin
-haut-gauche de la source.
+- **L'alignement** reste celui que libobs donne par défaut, la position désignant le coin
+  haut-gauche de la source. Le calcul des gestes le suppose, et `SetSourceTransform` le garde
+  tel qu'il est.
+- **Les bounds** ne sont pas posés : l'étirement écrit l'**échelle**. Une source dont les
+  bounds seraient posés ailleurs aurait un rectangle rendu que `ReadTransform` ne déduit pas
+  encore ; c'est là, et nulle part ailleurs, qu'il faudrait les lire.
 
 Les transformations vivent dans le moteur le temps de la session : une scène rouverte les
 retrouve telles qu'écrites. L'export de scènes (`SceneCollectionService`) n'emporte encore
