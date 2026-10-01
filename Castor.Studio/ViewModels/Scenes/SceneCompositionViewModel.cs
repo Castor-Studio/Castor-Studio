@@ -39,6 +39,10 @@ public partial class SceneCompositionViewModel : ViewModelBase
     private SceneItemViewModel? _scene;
     private Guid? _selectedSourceId;
     private Gesture? _gesture;
+    // Le mode rognage tenu (double-clic, menu) et celui que donne Alt tant qu'il est
+    // enfoncé. Les deux ne valent que pour la source choisie.
+    private bool _cropMode;
+    private bool _cropModifier;
 
     // Un geste en cours : ce qu'il saisit, d'où il part, ce qu'il demande, et ce que le
     // moteur en a déjà écrit.
@@ -69,6 +73,17 @@ public partial class SceneCompositionViewModel : ViewModelBase
     /// <summary>Si un geste est en cours sur une source.</summary>
     public bool IsGesturing => _gesture != null;
 
+    /// <summary>Si une source est choisie : c'est sur elle que portent menu et poignées.</summary>
+    public bool HasSelection => Overlay.Selected != null;
+
+    /// <summary>Si le mode rognage est tenu sur la source choisie, Alt mis à part.</summary>
+    public bool IsCropMode => _cropMode && HasSelection;
+
+    /// <summary>
+    /// Si la source choisie se montre et se saisit en rognage : mode tenu, ou Alt enfoncé.
+    /// </summary>
+    public bool IsCropping => Overlay.IsCropping;
+
     [ObservableProperty] private string _status = "";
 
     internal SceneCompositionViewModel(ISourceRuntime sourceRuntime, TimeProvider? time = null)
@@ -87,6 +102,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         // Changer de scène, c'est changer de sources : garder le choix précédent ferait
         // rouvrir la suivante avec une sélection qui n'est plus à elle.
         _selectedSourceId = null;
+        _cropMode = false;
         Publish([]);
         Refresh();
     }
@@ -105,6 +121,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
             return;
         }
 
+        // Le rognage se fait sur une source : en choisir une autre le termine.
+        if (source.SourceId != _selectedSourceId) _cropMode = false;
         _selectedSourceId = source.SourceId;
         Publish(Overlay.Sources);
     }
@@ -115,22 +133,41 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (_selectedSourceId == null) return;
 
         _selectedSourceId = null;
+        _cropMode = false;
         Publish(Overlay.Sources);
     }
 
     /// <summary>
     /// Ce qu'un geste commencé à ce point saisirait : une poignée de la source choisie, à
-    /// <paramref name="handleTolerance"/> près, sinon la source qui est devant. Les poignées
-    /// passent avant tout : elles sont peintes par-dessus les autres cadres.
+    /// <paramref name="handleTolerance"/> près ; sinon, hors de la source mais à moins de
+    /// <paramref name="rotationReach"/> d'un de ses coins, sa rotation ; sinon la source qui
+    /// est devant. Les poignées passent avant tout : elles sont peintes par-dessus les
+    /// autres cadres.
     /// </summary>
-    public CompositionTarget? TargetAt(double canvasX, double canvasY, double handleTolerance, bool crop)
+    /// <param name="crop">Si Alt est enfoncé : les poignées rognent au lieu d'étirer.</param>
+    public CompositionTarget? TargetAt(
+        double canvasX,
+        double canvasY,
+        double handleTolerance,
+        bool crop,
+        double rotationReach = 0)
     {
         var selected = Selected;
         if (selected != null)
         {
+            var cropping = crop || _cropMode;
             var handle = CompositionGeometry.HandleAt(selected, canvasX, canvasY, handleTolerance);
             if (handle != null)
-                return new CompositionTarget(crop ? CompositionGestureKind.Crop : CompositionGestureKind.Resize, handle);
+            {
+                return new CompositionTarget(
+                    cropping ? CompositionGestureKind.Crop : CompositionGestureKind.Resize, handle);
+            }
+
+            // En rognage, la source ne tourne pas : les équerres sont seules à se saisir.
+            var corner = cropping || rotationReach <= 0
+                ? null
+                : CompositionGeometry.RotationCornerAt(selected, canvasX, canvasY, rotationReach);
+            if (corner != null) return new CompositionTarget(CompositionGestureKind.Rotate, corner);
         }
 
         return SourceAt(canvasX, canvasY) != null
@@ -140,16 +177,22 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
     /// <summary>
     /// Commence un geste à ce point du canvas. Sur une poignée de la source choisie, il
-    /// l'étire — ou la rogne quand <paramref name="crop"/> est demandé. Sur une source, il
-    /// la choisit et la déplace. À côté de toute source, il ne choisit plus rien.
+    /// l'étire — ou la rogne, en mode rognage ou quand <paramref name="crop"/> est demandé.
+    /// Juste hors d'un de ses coins, il la fait tourner. Sur une source, il la choisit et la
+    /// déplace. À côté de toute source, il ne choisit plus rien.
     /// </summary>
     /// <returns>Ce que le geste a saisi, ou rien.</returns>
-    public CompositionTarget? BeginGesture(double canvasX, double canvasY, double handleTolerance, bool crop)
+    public CompositionTarget? BeginGesture(
+        double canvasX,
+        double canvasY,
+        double handleTolerance,
+        bool crop,
+        double rotationReach = 0)
     {
         FinishGesture(reconcile: false);
 
         var scene = _scene;
-        var target = TargetAt(canvasX, canvasY, handleTolerance, crop);
+        var target = TargetAt(canvasX, canvasY, handleTolerance, crop, rotationReach);
         if (scene == null || target == null)
         {
             ClearSelection();
@@ -160,6 +203,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
             ? SourceAt(canvasX, canvasY)!
             : Selected!;
 
+        // Saisir une autre source, c'est quitter le rognage de la précédente.
+        if (start.SourceId != _selectedSourceId) _cropMode = false;
         _selectedSourceId = start.SourceId;
         _gesture = new Gesture
         {
@@ -181,7 +226,10 @@ public partial class SceneCompositionViewModel : ViewModelBase
     /// demande restant en attente de <see cref="FlushGesture"/> ou de la fin du geste.
     /// </summary>
     /// <param name="keepAspectRatio">Si un angle garde les proportions de la source.</param>
-    public void UpdateGesture(double canvasX, double canvasY, bool keepAspectRatio)
+    /// <param name="constrainRotation">
+    /// Si une rotation avance par pas de <see cref="CompositionGeometry.RotationStep"/>°.
+    /// </param>
+    public void UpdateGesture(double canvasX, double canvasY, bool keepAspectRatio, bool constrainRotation = false)
     {
         var gesture = _gesture;
         if (gesture == null) return;
@@ -194,6 +242,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
                 gesture.Start, gesture.Handle!.Value, deltaX, deltaY, keepAspectRatio),
             CompositionGestureKind.Crop => CompositionGeometry.Crop(
                 gesture.Start, gesture.Handle!.Value, deltaX, deltaY),
+            CompositionGestureKind.Rotate => CompositionGeometry.Rotate(
+                gesture.Start, gesture.OriginX, gesture.OriginY, canvasX, canvasY, constrainRotation),
             _ => CompositionGeometry.Move(gesture.Start, deltaX, deltaY)
         };
         if (requested == gesture.Requested) return;
@@ -238,6 +288,100 @@ public partial class SceneCompositionViewModel : ViewModelBase
         var restored = Restore(gesture);
         Refresh();
         if (!restored.IsSuccess) Status = restored.Message;
+    }
+
+    /// <summary>
+    /// Ce que le geste en cours écrit, en clair, pour la bulle qui suit le pointeur : la
+    /// position, la taille, le rognage ou l'angle. Vide hors geste.
+    /// </summary>
+    public string GestureReadout
+    {
+        get
+        {
+            var gesture = _gesture;
+            if (gesture == null) return "";
+
+            var shown = CompositionGeometry.Preview(gesture.Start, gesture.Requested);
+            var crop = shown.Crop;
+            return gesture.Kind switch
+            {
+                CompositionGestureKind.Resize => $"{shown.Width:0} × {shown.Height:0}",
+                CompositionGestureKind.Crop =>
+                    $"Gauche {crop.Left} · Haut {crop.Top} · Droite {crop.Right} · Bas {crop.Bottom}",
+                CompositionGestureKind.Rotate => $"{shown.Rotation:0.#}°",
+                _ => $"X {shown.X:0} · Y {shown.Y:0}"
+            };
+        }
+    }
+
+    /// <summary>
+    /// Tient le mode rognage sur la source choisie : ses poignées rognent jusqu'à ce qu'on
+    /// en sorte. Sans source choisie, il n'y a rien à rogner.
+    /// </summary>
+    public void EnterCropMode()
+    {
+        if (!HasSelection || _cropMode) return;
+
+        _cropMode = true;
+        Publish(Overlay.Sources);
+    }
+
+    /// <summary>Quitte le mode rognage : les poignées étirent de nouveau.</summary>
+    public void ExitCropMode()
+    {
+        if (!_cropMode) return;
+
+        _cropMode = false;
+        Publish(Overlay.Sources);
+    }
+
+    /// <summary>Entre en mode rognage, ou en sort s'il est déjà tenu.</summary>
+    public void ToggleCropMode()
+    {
+        if (_cropMode) ExitCropMode();
+        else EnterCropMode();
+    }
+
+    /// <summary>
+    /// Alt enfoncé ou relâché : tant qu'il l'est, la source choisie se montre et se saisit
+    /// en rognage, sans que le mode reste après.
+    /// </summary>
+    public void SetCropModifier(bool held)
+    {
+        if (_cropModifier == held) return;
+
+        _cropModifier = held;
+        Publish(Overlay.Sources);
+    }
+
+    /// <summary>La source choisie tourne de <paramref name="degrees"/> autour de son centre.</summary>
+    public void RotateSelected(double degrees)
+    {
+        if (Selected is { } selected) Apply(selected, CompositionGeometry.RotateBy(selected, degrees));
+    }
+
+    /// <summary>La source choisie se redresse, autour de son centre.</summary>
+    public void ResetSelectedRotation()
+    {
+        if (Selected is { } selected) Apply(selected, CompositionGeometry.RotateBy(selected, -selected.Rotation));
+    }
+
+    /// <summary>La source choisie reprend sa taille entière, ce qui était visible restant en place.</summary>
+    public void ResetSelectedCrop()
+    {
+        if (Selected is { } selected) Apply(selected, CompositionGeometry.ResetCrop(selected));
+    }
+
+    // Une commande d'un seul coup (menu) : une écriture, puis la relecture du moteur. Un
+    // refus laisse ce que le moteur détient et se dit, comme pour un geste.
+    private void Apply(SourceTransform selected, SourcePlacement placement)
+    {
+        var scene = _scene;
+        if (scene == null || _gesture != null) return;
+
+        var result = _sourceRuntime.SetSourceTransform(scene.Id, selected.SourceId, placement);
+        Refresh();
+        if (!result.IsSuccess) Status = result.Message;
     }
 
     /// <summary>
@@ -340,8 +484,13 @@ public partial class SceneCompositionViewModel : ViewModelBase
     {
         sources = WithGesture(sources);
         var selected = Find(sources, _selectedSourceId);
-        if (selected == null) _selectedSourceId = null;
-        Overlay = new CompositionOverlay(sources, selected);
+        if (selected == null)
+        {
+            _selectedSourceId = null;
+            _cropMode = false;
+        }
+
+        Overlay = new CompositionOverlay(sources, selected, selected != null && (_cropMode || _cropModifier));
     }
 
     // Pendant un geste, la source saisie est montrée là où il la demande, sans attendre
