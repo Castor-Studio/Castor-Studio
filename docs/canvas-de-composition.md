@@ -59,6 +59,15 @@ poignées disent l'état**.
   au milieu des côtés, centrés sur leur point donc à cheval sur le bord — c'est ce qui les
   rend saisissables des deux côtés du trait, et visibles sur une source collée au bord du
   canvas.
+- **En rognage** : les carrés cèdent la place à des équerres aux angles et à des barres au
+  milieu des côtés, en `AppAccentFg`, posées à l'intérieur du bord. Le contour de la source
+  **entière**, partie rognée comprise, s'ajoute en pointillé, dans la couleur de la source :
+  on voit ce qu'on cache et ce qu'on peut encore rendre. Une autre forme, parce que le même
+  geste n'y fait pas la même chose : on ne tire plus la source, on en retire des bords.
+
+Une source tournée est tracée tournée : cadre, poignées, équerres et pointillé sont posés
+dans le repère de la source — son point, puis sa rotation —, exactement comme libobs compose
+l'item.
 
 Tout l'overlay porte une ombre `AppBg` de 1 px de chaque côté. Un cœur coloré posé sur un
 liseré sombre se lit sur n'importe quelle image ; le même trait seul disparaît dès que
@@ -93,8 +102,13 @@ moteur ne compose plus laisserait saisir ce qui n'est pas là.
 | --- | --- | --- |
 | Déplacer | glisser une source | la position |
 | Étirer | glisser une poignée de la source choisie | l'échelle (et la position, pour un bord haut ou gauche) |
-| Rogner | **Alt** + glisser une poignée | le rognage (et la position, pour un bord haut ou gauche) |
+| Rogner | glisser une poignée en mode rognage, ou **Alt** enfoncé | le rognage (et la position, pour un bord haut ou gauche) |
+| Tourner | glisser juste hors d'un coin de la source choisie | la rotation et la position, autour du centre |
 | Annuler | **Échap** pendant le geste | le placement d'avant le geste |
+
+Un clic droit sur une source la choisit et ouvre son menu : rogner ou terminer le rognage,
+réinitialiser le rognage, pivoter de 90° à droite ou à gauche, de 180°, réinitialiser la
+rotation. Ces commandes passent par le moteur comme un geste, et un refus s'y traite de même.
 
 - Appuyer sur une source la choisit et la saisit d'un même geste : pas besoin de cliquer une
   première fois pour la sélectionner.
@@ -106,11 +120,42 @@ moteur ne compose plus laisserait saisir ce qui n'est pas là.
 - Une source ne se réduit pas sous 8 pixels du canvas — ses poignées se recouvriraient — ni
   ne se retourne. Un rognage ne descend pas sous zéro et laisse toujours un pixel de la source.
 - Au survol, le curseur annonce ce qu'un clic saisirait : déplacement sur une source, flèche
-  orientée sur une poignée.
+  orientée sur une poignée, flèche en arc hors d'un coin. Windows n'ayant pas de curseur de
+  rotation, celui-ci est dessiné une fois, au premier survol.
+- Pendant le geste, une bulle près du pointeur dit ce qui est écrit : la position, la taille,
+  le rognage de chaque côté, ou l'angle. C'est une fenêtre à elle (`Popup` hors de la couche
+  de la page) : c'est ce qui la laisse passer au-dessus de la surface native.
 
 Les poignées sont rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche,
 et `CompositionHandle` suit le même ordre. Leur zone de prise est pensée en pixels de l'écran,
-un peu plus large que le carré peint, puis convertie dans le repère du canvas.
+un peu plus large que le carré peint, puis convertie dans le repère du canvas. La zone de
+rotation aussi : 24 px hors de chaque coin, rien n'y est peint.
+
+### Le mode rognage
+
+Le rognage se tient sur la source choisie, et seulement sur elle.
+
+- **Y entrer** : double-clic sur la source choisie, « Rogner » dans son menu, ou **Alt**
+  enfoncé — ce dernier ne dure que le temps de la touche.
+- **En sortir** : **Échap** (hors geste), **Entrée**, un nouveau double-clic, « Terminer le
+  rognage » dans le menu, ou choisir autre chose — une autre source, aucune source, une autre
+  scène. Le mode tombe aussi de lui-même avec la source, quand elle cesse d'être composée.
+
+En rognage, les poignées rognent et les coins ne tournent pas : seules les équerres se
+saisissent, l'intérieur de la source la déplace toujours. Le mode tient d'un geste à l'autre,
+pour rogner plusieurs bords à la suite.
+
+### Tourner
+
+Une source tourne autour de son **centre**, comme on l'attend. libobs, lui, la fait tourner
+autour de son point d'alignement — le coin haut-gauche. L'alignement n'est pas changé :
+`CompositionGeometry` recalcule la position pour que le centre ne bouge pas, toujours depuis
+la transformation du début du geste. **Maj** ramène l'angle au pas de 15°.
+
+Une source tournée s'étire et se rogne le long de **ses** bords : le déplacement du pointeur
+est ramené dans le repère de la source avant d'être appliqué, puis le coin d'origine revient
+dans le canvas par la même rotation. Le clic, lui aussi, se teste dans ce repère : une source
+tournée se saisit là où elle est dessinée.
 
 ### Un geste recalculé depuis son origine
 
@@ -189,6 +234,13 @@ Les noms des sources ne sont pas écrits sur l'image : ils sont dans la liste so
 avec la même pastille de couleur, et l'image reste ce qu'elle est.
 
 ## Ce que le moteur n'expose pas encore
+
+**La rotation.** LibObs 0.3.0 ne lie ni `obs_sceneitem_set_rot` ni `obs_sceneitem_get_rot`.
+L'interface est prête — geste, menu, tracé tourné, bulle —, mais `SetSourceTransform` refuse
+toute rotation non nulle avec un message qui le dit, et `ReadTransform` rend 0. Le refus suit
+le chemin ordinaire : le geste s'arrête dès la première écriture, rien ne tourne, ni à l'écran
+ni dans le moteur. Quand la version de LibObs qui les expose sera publiée, ces deux endroits
+de `LibObsSceneRuntime` changeront, et rien ailleurs.
 
 libobs connaît des *bounds* : un cadre qui contraint la taille rendue d'une source. Le
 binding LibObs ne les expose pas (`obs_sceneitem_get_bounds` n'est pas lié). Le jour où ils
