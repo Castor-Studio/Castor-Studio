@@ -55,15 +55,21 @@ poignées disent l'état**.
   illisible rend l'accent par défaut : un cadre sans couleur exacte reste plus utile qu'une
   source sans cadre.
 - **Source choisie** : le même cadre, dans la même couleur, épaissi à 2 px.
+- **Source survolée** : le même poids que la source choisie, sans poignées. Le survol annonce
+  ce que le clic va prendre, avec le trait qu'il aura une fois pris ; il se tait pendant un
+  geste et sur la source déjà choisie.
 - **Ses poignées** : huit carrés en `AppAccentFg` à cœur `AppFg1`, quatre aux angles, quatre
   au milieu des côtés, centrés sur leur point donc à cheval sur le bord — c'est ce qui les
   rend saisissables des deux côtés du trait, et visibles sur une source collée au bord du
   canvas.
 - **En rognage** : les carrés cèdent la place à des équerres aux angles et à des barres au
   milieu des côtés, en `AppAccentFg`, posées à l'intérieur du bord. Le contour de la source
-  **entière**, partie rognée comprise, s'ajoute en pointillé, dans la couleur de la source :
-  on voit ce qu'on cache et ce qu'on peut encore rendre. Une autre forme, parce que le même
-  geste n'y fait pas la même chose : on ne tire plus la source, on en retire des bords.
+  **entière**, partie rognée comprise, s'ajoute en pointillé de 2 px, dans la couleur de la
+  source : on voit ce qu'on cache et ce qu'on peut encore rendre. Une autre forme, parce que le
+  même geste n'y fait pas la même chose : on ne tire plus la source, on en retire des bords.
+- **Guides** : pendant un déplacement, une ligne de 1 px en `AppFg1` traverse le canvas là où
+  la source vient de s'accrocher. Neutre, parce qu'un guide n'est à aucune source : dans la
+  couleur d'une pastille, on le prendrait pour un cadre.
 
 Une source tournée est tracée tournée : cadre, poignées, équerres et pointillé sont posés
 dans le repère de la source — son point, puis sa rotation —, exactement comme libobs compose
@@ -119,9 +125,15 @@ rotation. Ces commandes passent par le moteur comme un geste, et un refus s'y tr
   reste immobile sous le bord qui avance : on découvre ou on cache, on ne décale rien.
 - Une source ne se réduit pas sous 8 pixels du canvas — ses poignées se recouvriraient — ni
   ne se retourne. Un rognage ne descend pas sous zéro et laisse toujours un pixel de la source.
+- Une source déplacée s'**accroche** aux bords et au centre du canvas, et aux bords et
+  centres des autres sources, dès qu'un de ses bords ou son centre en passe à moins de 8 px
+  de l'écran. Une source tournée s'accroche par le rectangle droit qui l'englobe : c'est ce
+  que l'œil aligne. **Ctrl** coupe l'aimant, pour poser une source au pixel près d'un bord.
 - Au survol, le curseur annonce ce qu'un clic saisirait : déplacement sur une source, flèche
-  orientée sur une poignée, flèche en arc hors d'un coin. Windows n'ayant pas de curseur de
-  rotation, celui-ci est dessiné une fois, au premier survol.
+  sur une poignée, flèche en arc hors d'un coin. La flèche suit la direction dans laquelle la
+  poignée tire, rotation comprise, ramenée au plus proche des quatre axes que Windows sait
+  dessiner. Windows n'ayant pas de curseur de rotation, celui-là est dessiné une fois, au
+  premier survol.
 - Pendant le geste, une bulle près du pointeur dit ce qui est écrit : la position, la taille,
   le rognage de chaque côté, ou l'angle. C'est une fenêtre à elle (`Popup` hors de la couche
   de la page) : c'est ce qui la laisse passer au-dessus de la surface native.
