@@ -113,6 +113,18 @@ active : y sélectionner une scène ne fait que choisir celle qu'on édite et pr
 ne pas perturber ce qui est en cours de diffusion. Le choix de la scène active reste au
 sélecteur « Scène active » de la page Studio.
 
+### Enregistrer et passer en direct
+
+La scène active est rappelée dans la barre du haut, à côté du badge OFFLINE / REC /
+EN DIRECT, quel que soit l'espace de travail affiché : c'est elle qui part à
+l'enregistrement comme au live.
+
+`ENREGISTRER` démarre l'enregistrement d'un clic, sans panneau intermédiaire. Le dossier de
+sortie se règle dans Paramètres et se rappelle au survol du bouton ; si le démarrage échoue
+(pas de source vidéo, live en cours, dossier inaccessible), le message s'affiche dans une
+bulle au-dessus des boutons. `LANCER LE LIVE` garde une étape de confirmation, réduite à la
+destination et au compte connecté.
+
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
 fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
 des fichiers MP4, MKV ou WebM depuis la scène active dans le dossier configuré.
