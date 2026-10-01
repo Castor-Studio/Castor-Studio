@@ -142,8 +142,13 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     // Keeps the native preview's aspect ratio correct when the base resolution changes,
-    // same as ScenesViewModel's own OnSettingsSaved.
-    private void OnSettingsSaved(object? sender, EventArgs e) => RefreshBaseCanvasSize();
+    // same as ScenesViewModel's own OnSettingsSaved. The output info follows too, so the
+    // ENREGISTRER tooltip names the new folder even from a panel detached beside Settings.
+    private void OnSettingsSaved(object? sender, EventArgs e)
+    {
+        RefreshBaseCanvasSize();
+        RefreshOutputInfo();
+    }
 
     private void RefreshBaseCanvasSize()
     {

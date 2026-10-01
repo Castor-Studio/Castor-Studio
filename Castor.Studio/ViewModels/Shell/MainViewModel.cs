@@ -38,6 +38,10 @@ public partial class MainViewModel : ViewModelBase
     public string GlobalStatusText => _workspace.IsStreaming ? "EN DIRECT" : _workspace.IsRecording ? "REC" : "OFFLINE";
     public IBrush GlobalStatusBrush => SolidColorBrush.Parse(_workspace.IsStreaming || _workspace.IsRecording ? "#f87171" : "#3c3c4e");
 
+    // The scene going out, next to the status badge so it reads from every workspace. Shown,
+    // not picked: the choice stays with the Studio's "Scène active" selector.
+    public SceneItemViewModel? ActiveScene => _workspace.ActiveScene;
+
     [ObservableProperty] private ViewModelBase? _currentPage;
     [ObservableProperty] private MainPageKind _currentPageKind;
 
@@ -176,6 +180,12 @@ public partial class MainViewModel : ViewModelBase
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(StudioWorkspaceViewModel.ActiveScene))
+        {
+            OnPropertyChanged(nameof(ActiveScene));
+            return;
+        }
+
         if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
         OnPropertyChanged(nameof(GlobalStatusText));
         OnPropertyChanged(nameof(GlobalStatusBrush));
