@@ -5,7 +5,8 @@
              x:Name="PreviewRoot"
              x:DataType="controls:StudioPreview"
              Focusable="True"
-             KeyDown="OnPictureKeyDown">
+             KeyDown="OnPictureKeyDown"
+             KeyUp="OnPictureKeyUp">
     <!-- Le pointeur ne peut pas atterrir sur la surface native : elle se déclare
          transparente aux tests de survol, et l'hôte ne teste pas le survol. Il tombe donc
          ici, sur le fond, qui le ramène dans le repère du canvas. -->
@@ -48,5 +49,25 @@
             <TextBlock Text="{Binding #PreviewRoot.Scene.Name}"
                        Foreground="{DynamicResource AppFg3}" FontSize="12" FontWeight="SemiBold"/>
         </Border>
+
+        <!-- Ce que le geste en cours écrit, près du pointeur. Une fenêtre à elle, et non une
+             couche de la page : c'est ce qui la laisse passer au-dessus de la surface native. -->
+        <Popup x:Name="Readout"
+               PlacementTarget="{Binding #Picture}"
+               Placement="AnchorAndGravity"
+               PlacementAnchor="TopLeft"
+               PlacementGravity="BottomRight"
+               ShouldUseOverlayLayer="False"
+               TakesFocusFromNativeControl="False"
+               IsLightDismissEnabled="False"
+               IsHitTestVisible="False">
+            <Border Padding="8,4" CornerRadius="5"
+                    Background="{DynamicResource AppNavBadgeBg}"
+                    BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
+                <TextBlock x:Name="ReadoutText"
+                           Foreground="{DynamicResource AppFg1}"
+                           FontSize="12" FontWeight="SemiBold"/>
+            </Border>
+        </Popup>
     </Panel>
 </UserControl>
