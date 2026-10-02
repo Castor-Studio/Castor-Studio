@@ -9,7 +9,12 @@ namespace CastorApplication.Services.Config
     {
         public AppConfig Config { get; }
 
-        public JsonConfigService(string path = "config.json")
+        public JsonConfigService()
+            : this(Path.Combine(AppContext.BaseDirectory, "config.json"))
+        {
+        }
+
+        public JsonConfigService(string path)
         {
             var json = File.ReadAllText(path);
             Config = JsonConvert.DeserializeObject<AppConfig>(json)
