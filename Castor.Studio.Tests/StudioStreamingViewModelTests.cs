@@ -71,7 +71,7 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.Null(fixture.StreamingRuntime.Request);
             Assert.False(fixture.Workspace.IsStreaming);
-            Assert.Contains("Compte Twitch déconnecté", fixture.ViewModel.StreamError);
+            Assert.Contains("Compte Twitch déconnecté", fixture.ViewModel.StreamError.Text);
         }
         finally
         {
@@ -90,7 +90,7 @@ public sealed class StudioStreamingViewModelTests
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
             Assert.False(fixture.Workspace.IsStreaming);
-            Assert.Equal("Connexion refusée", fixture.ViewModel.StreamError);
+            Assert.Equal("Connexion refusée", fixture.ViewModel.StreamError.Text);
         }
         finally
         {
@@ -110,7 +110,7 @@ public sealed class StudioStreamingViewModelTests
             await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
 
             Assert.True(fixture.Workspace.IsStreaming);
-            Assert.Equal("Arrêt impossible", fixture.ViewModel.StreamError);
+            Assert.Equal("Arrêt impossible", fixture.ViewModel.StreamError.Text);
 
             fixture.StreamingRuntime.StopResult = StudioRuntimeResult.Success();
             await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
@@ -136,7 +136,7 @@ public sealed class StudioStreamingViewModelTests
             fixture.Workspace.SelectScene(second);
 
             Assert.Equal([second.Id], fixture.StreamingRuntime.SwitchedScenes);
-            Assert.Equal("", fixture.ViewModel.StreamError);
+            Assert.Equal("", fixture.ViewModel.StreamError.Text);
         }
         finally
         {
@@ -157,7 +157,7 @@ public sealed class StudioStreamingViewModelTests
 
             fixture.Workspace.SelectScene(second);
 
-            Assert.Equal("scène refusée", fixture.ViewModel.StreamError);
+            Assert.Equal("scène refusée", fixture.ViewModel.StreamError.Text);
         }
         finally
         {
@@ -176,7 +176,7 @@ public sealed class StudioStreamingViewModelTests
             fixture.StreamingRuntime.RaiseState(false, "Connexion Twitch interrompue");
 
             Assert.False(fixture.Workspace.IsStreaming);
-            Assert.Equal("Connexion Twitch interrompue", fixture.ViewModel.StreamError);
+            Assert.Equal("Connexion Twitch interrompue", fixture.ViewModel.StreamError.Text);
         }
         finally
         {
@@ -194,14 +194,14 @@ public sealed class StudioStreamingViewModelTests
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
             Assert.Null(fixture.StreamingRuntime.Request);
-            Assert.Contains("Arrêtez l'enregistrement", fixture.ViewModel.StreamError);
+            Assert.Contains("Arrêtez l'enregistrement", fixture.ViewModel.StreamError.Text);
 
             fixture.Workspace.SetRecordingState(false);
             fixture.Workspace.SetStreamingState(true);
             await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
 
             Assert.Null(fixture.RecordingRuntime.Request);
-            Assert.Contains("Arrêtez le live", fixture.ViewModel.RecordError);
+            Assert.Contains("Arrêtez le live", fixture.ViewModel.RecordError.Text);
         }
         finally
         {
@@ -246,7 +246,7 @@ public sealed class StudioStreamingViewModelTests
 
             // An earlier failed attempt left the account error behind.
             await viewModel.StartStreamingCommand.ExecuteAsync(null);
-            Assert.Contains("Compte Twitch déconnecté", viewModel.StreamError);
+            Assert.Contains("Compte Twitch déconnecté", viewModel.StreamError.Text);
 
             // Back from Settings with an account connected.
             fixture.ProviderStore.Save(ConnectedProvider());
@@ -254,7 +254,7 @@ public sealed class StudioStreamingViewModelTests
             Assert.True(viewModel.StartStreamingCommand.CanExecute(null));
             Assert.Equal("", viewModel.StartStreamingBlockedReason);
             Assert.Equal("Twitch · Castor", viewModel.DestinationLabel);
-            Assert.Equal("", viewModel.StreamError);
+            Assert.Equal("", viewModel.StreamError.Text);
         }
         finally
         {

@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
@@ -89,8 +90,10 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private void OpenAccountSettings() => AccountSettingsRequested?.Invoke(this, EventArgs.Empty);
 
-    [ObservableProperty] private string _recordError = "";
-    [ObservableProperty] private string _streamError = "";
+    // Errors only: they stay until dismissed (closing their flyout) or until the scene or the
+    // page changes, so a failure from an earlier attempt is not shown as a current one.
+    public StatusMessage RecordError { get; }
+    public StatusMessage StreamError { get; }
     [ObservableProperty] private string _outputInfoText = "";
     [ObservableProperty] private string _recordingOutputDirectory = "";
 
@@ -107,8 +110,12 @@ public partial class StudioViewModel : ViewModelBase
         IStreamingRuntime streamingRuntime,
         IProviderStore providerStore,
         SettingsService settingsService,
-        VideoCanvasResolutionResolver? resolutionResolver = null)
+        VideoCanvasResolutionResolver? resolutionResolver = null,
+        StatusMessageService? messages = null)
     {
+        messages ??= new StatusMessageService();
+        RecordError = messages.Create();
+        StreamError = messages.Create();
         _workspace = workspace;
         _runtime = runtime;
         _previewRuntime = previewRuntime;
@@ -158,30 +165,30 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(IsAccountConnected))]
     private async Task StartStreaming(CancellationToken cancellationToken)
     {
-        StreamError = "";
+        StreamError.Clear();
         if (!_streamingRuntime.IsAvailable)
         {
-            StreamError = _streamingRuntime.UnavailableMessage;
+            StreamError.ShowError(_streamingRuntime.UnavailableMessage);
             return;
         }
 
         if (IsRecording)
         {
-            StreamError = "Arrêtez l'enregistrement avant de lancer le live.";
+            StreamError.ShowError("Arrêtez l'enregistrement avant de lancer le live.");
             return;
         }
 
         var scene = ActiveScene;
         if (scene == null || !StudioWorkspaceViewModel.HasVideoSource(scene))
         {
-            StreamError = "Aucune source vidéo dans la scène active.";
+            StreamError.ShowError("Aucune source vidéo dans la scène active.");
             return;
         }
 
         var provider = GetConnectedTwitchProvider();
         if (provider == null)
         {
-            StreamError = AccountDisconnectedError;
+            StreamError.ShowError(AccountDisconnectedError);
             RefreshProviderState();
             return;
         }
@@ -200,7 +207,7 @@ public partial class StudioViewModel : ViewModelBase
                 AudioChannelsFromIndex(settings.SelectedChannelsIndex)), cancellationToken);
             if (!result.IsSuccess)
             {
-                StreamError = result.Message;
+                StreamError.ShowError(result.Message);
                 return;
             }
 
@@ -221,7 +228,7 @@ public partial class StudioViewModel : ViewModelBase
             var result = await _streamingRuntime.StopStreamingAsync(cancellationToken);
             if (!result.IsSuccess)
             {
-                StreamError = result.Message;
+                StreamError.ShowError(result.Message);
                 return;
             }
             _workspace.SetStreamingState(false);
@@ -235,23 +242,23 @@ public partial class StudioViewModel : ViewModelBase
     [RelayCommand]
     private async Task StartRecording(CancellationToken cancellationToken)
     {
-        RecordError = "";
+        RecordError.Clear();
         if (IsStreaming)
         {
-            RecordError = "Arrêtez le live avant de démarrer l'enregistrement.";
+            RecordError.ShowError("Arrêtez le live avant de démarrer l'enregistrement.");
             return;
         }
 
         if (!_recordingRuntime.IsAvailable)
         {
-            RecordError = _recordingRuntime.UnavailableMessage;
+            RecordError.ShowError(_recordingRuntime.UnavailableMessage);
             return;
         }
 
         var scene = ActiveScene;
         if (scene == null || !StudioWorkspaceViewModel.HasVideoSource(scene))
         {
-            RecordError = "Aucune source vidéo dans la scène active.";
+            RecordError.ShowError("Aucune source vidéo dans la scène active.");
             return;
         }
 
@@ -264,7 +271,7 @@ public partial class StudioViewModel : ViewModelBase
         }
         catch (Exception exception)
         {
-            RecordError = exception.Message;
+            RecordError.ShowError(exception.Message);
             return;
         }
 
@@ -286,7 +293,7 @@ public partial class StudioViewModel : ViewModelBase
             container), cancellationToken);
         if (!result.IsSuccess)
         {
-            RecordError = result.Message;
+            RecordError.ShowError(result.Message);
             return;
         }
 
@@ -299,7 +306,7 @@ public partial class StudioViewModel : ViewModelBase
         var result = await _recordingRuntime.StopRecordingAsync(cancellationToken);
         if (!result.IsSuccess)
         {
-            RecordError = result.Message;
+            RecordError.ShowError(result.Message);
             return;
         }
         _workspace.SetRecordingState(false);
@@ -310,7 +317,7 @@ public partial class StudioViewModel : ViewModelBase
         void ApplyState()
         {
             _workspace.SetRecordingState(e.IsRecording);
-            if (!string.IsNullOrWhiteSpace(e.Message)) RecordError = e.Message;
+            if (!string.IsNullOrWhiteSpace(e.Message)) RecordError.ShowError(e.Message);
         }
 
         if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
@@ -322,7 +329,7 @@ public partial class StudioViewModel : ViewModelBase
         void ApplyState()
         {
             _workspace.SetStreamingState(e.IsStreaming);
-            if (!string.IsNullOrWhiteSpace(e.Message)) StreamError = e.Message;
+            if (!string.IsNullOrWhiteSpace(e.Message)) StreamError.ShowError(e.Message);
         }
 
         if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
@@ -348,7 +355,7 @@ public partial class StudioViewModel : ViewModelBase
         if (scene == null) return;
 
         var result = _recordingRuntime.SwitchRecordingScene(scene.Id);
-        if (!result.IsSuccess) RecordError = result.Message;
+        if (!result.IsSuccess) RecordError.ShowError(result.Message);
     }
 
     private void ApplyActiveSceneToStreaming()
@@ -359,7 +366,7 @@ public partial class StudioViewModel : ViewModelBase
         if (scene == null) return;
 
         var result = _streamingRuntime.SwitchStreamingScene(scene.Id);
-        if (!result.IsSuccess) StreamError = result.Message;
+        if (!result.IsSuccess) StreamError.ShowError(result.Message);
     }
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -368,6 +375,9 @@ public partial class StudioViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(ActiveScene));
             NotifyPreviewChanged();
+            // Whatever went wrong was about the previous scene; a failed switch reports again.
+            RecordError.Clear();
+            StreamError.Clear();
             ApplyActiveSceneToRecording();
             ApplyActiveSceneToStreaming();
         }
@@ -414,7 +424,7 @@ public partial class StudioViewModel : ViewModelBase
         IsAccountConnected = provider != null;
 
         // An account error left from an earlier attempt no longer applies once one is connected.
-        if (provider != null && StreamError == AccountDisconnectedError) StreamError = "";
+        if (provider != null && StreamError.Text == AccountDisconnectedError) StreamError.Clear();
     }
 
     private void StartSessionTimerIfNeeded()
