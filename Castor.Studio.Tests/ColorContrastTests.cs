@@ -34,6 +34,8 @@ public sealed class ColorContrastTests
         ("AppOnStatusFg", "StatusOkBrush", Text),
         ("AppOnStatusFg", "StatusErrorBrush", Text),
         ("AppOnAccentFg", "AppAccentFg", Text),
+        // The ✕ of an error MessageBar under the pointer.
+        ("AppFg1", "AppErrorBorder", Text),
     ];
 
     public static TheoryData<string> Themes => new() { "Dark", "Light" };

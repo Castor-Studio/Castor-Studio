@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:CastorApplication.Controls"
              xmlns:vm="using:CastorApplication.ViewModels.Multicam"
              x:Class="CastorApplication.Views.Multicam.MulticamAiBarView"
              x:DataType="vm:MulticamViewModel">
@@ -87,9 +88,7 @@
 		</Border>
 		<TextBlock Text="Opération en cours..." IsVisible="{Binding IsAiBusy}"
 				   FontSize="11" Foreground="{DynamicResource AppFg4}"/>
-		<TextBlock Text="{Binding AiError}"
-				   IsVisible="{Binding AiError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-				   FontSize="11" Foreground="{DynamicResource StatusErrorBrush}" TextWrapping="Wrap"/>
+		<controls:MessageBar Text="{Binding AiError}"/>
 	</StackPanel>
 	</Border>
 </UserControl>

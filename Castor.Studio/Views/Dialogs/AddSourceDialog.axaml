@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:CastorApplication.Controls"
         xmlns:vm="using:CastorApplication.ViewModels.Scenes"
         x:Class="CastorApplication.Views.Dialogs.AddSourceDialog"
         x:Name="DialogRoot"
@@ -190,13 +191,10 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
 						</Panel>
 
-						<Grid Grid.Row="1" ColumnDefinitions="*, Auto" Margin="4,8,0,0"
-                              IsVisible="{Binding CatalogMessage.HasText}">
-							<TextBlock Text="{Binding CatalogMessage.Text}" MaxHeight="52"
-                                       Classes="status-message" Classes.error="{Binding CatalogMessage.IsError}"/>
-							<Button Grid.Column="1" Classes="message-dismiss"
-                                    Command="{Binding CatalogMessage.DismissCommand}"/>
-						</Grid>
+						<controls:MessageBar Grid.Row="1" Margin="0,8,0,0"
+                                             Text="{Binding CatalogMessage.Text}"
+                                             IsError="{Binding CatalogMessage.IsError}"
+                                             DismissCommand="{Binding CatalogMessage.DismissCommand}"/>
 					</Grid>
 
 				</Grid>
