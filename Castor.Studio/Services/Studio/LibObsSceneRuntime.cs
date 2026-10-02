@@ -420,24 +420,29 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 return SourceTransformResult.Failure("Ce rognage ne laisserait plus rien de la source.");
 
             var item = source.Item;
-            var previousPosition = item.Position;
-            var previousScale = item.Scale;
+            var previousTransform = item.Transform;
             var previousCrop = item.Crop;
             try
             {
-                item.Position = new ObsVector2((float)placement.X, (float)placement.Y);
-                item.Scale = new ObsVector2((float)placement.ScaleX, (float)placement.ScaleY);
+                // Position, échelle et rotation partent d'un bloc (obs_sceneitem_set_info2) ;
+                // alignement et bounds restent ceux que l'item a déjà. Le rognage, lui, n'en
+                // fait pas partie dans libobs : il suit.
+                item.ApplyTransform(previousTransform with
+                {
+                    Position = new ObsVector2((float)placement.X, (float)placement.Y),
+                    Scale = new ObsVector2((float)placement.ScaleX, (float)placement.ScaleY),
+                    RotationDegrees = (float)placement.Rotation
+                });
                 item.Crop = new ObsSceneItemCrop(crop.Left, crop.Top, crop.Right, crop.Bottom);
                 return SourceTransformResult.Success(ReadTransform(sourceId, source));
             }
             catch (Exception exception)
             {
-                // Trois écritures séparées côté libobs : une qui échoue au milieu laisserait
-                // la source dans un état que personne n'a demandé. On rend l'ancien, tel quel.
+                // Deux écritures côté libobs : une qui échoue après l'autre laisserait la
+                // source dans un état que personne n'a demandé. On rend l'ancien, tel quel.
                 try
                 {
-                    item.Position = previousPosition;
-                    item.Scale = previousScale;
+                    item.ApplyTransform(previousTransform);
                     item.Crop = previousCrop;
                 }
                 catch
@@ -456,6 +461,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     {
         if (!double.IsFinite(placement.X) || !double.IsFinite(placement.Y))
             return "La position d'une source doit être un nombre fini.";
+        if (!double.IsFinite(placement.Rotation))
+            return "La rotation d'une source doit être un nombre fini.";
         if (!double.IsFinite(placement.ScaleX) || !double.IsFinite(placement.ScaleY) ||
             placement.ScaleX <= 0 || placement.ScaleY <= 0)
             return "L'échelle d'une source doit être strictement positive.";
@@ -491,7 +498,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             new SourceCrop((int)crop.Left, (int)crop.Top, (int)crop.Right, (int)crop.Bottom),
             sourceWidth,
             sourceHeight,
-            native.Item.IsVisible);
+            native.Item.IsVisible,
+            native.Item.RotationDegrees);
     }
 
     // libobs énumère ses items de l'arrière-plan vers le premier plan ; on rend l'inverse, et
@@ -1165,7 +1173,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         try
         {
             output = ObsOutput.Create(FfmpegOutputId, "castor-record-output", settings);
-            LibObsOutputInterop.SetAudioMixers(output, 1);
+            // Une sortie ffmpeg brute ne crée ses pistes audio que pour les mixes demandés.
+            output.Mixers = 1;
             return new(output, null, null);
         }
         catch

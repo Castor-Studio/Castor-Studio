@@ -5,9 +5,9 @@ using LibObs;
 namespace CastorApplication.Services.Ai;
 
 /// <summary>
-/// Creates one encoded RTMP output per scene using an independent libobs view.
-/// The managed LibObs package does not wrap obs_view_add2, so the small ABI bridge
-/// lives in LibObsOutputInterop and leaves the main program output untouched.
+/// Creates one encoded RTMP output per scene using an independent libobs view: its own
+/// video mix (<see cref="ObsView.Add"/>) feeds the encoder, which leaves the main program
+/// output untouched.
 /// </summary>
 internal sealed class LibObsIndependentSceneOutputRuntime : IIndependentSceneOutputRuntime
 {
@@ -64,7 +64,6 @@ internal sealed class LibObsIndependentSceneOutputRuntime : IIndependentSceneOut
             AuxiliaryOutput? resources = null;
             ObsSource? source = null;
             ObsView? view = null;
-            var viewAdded = false;
             ObsService? service = null;
             ObsEncoder? videoEncoder = null;
             ObsEncoder? audioEncoder = null;
@@ -80,16 +79,15 @@ internal sealed class LibObsIndependentSceneOutputRuntime : IIndependentSceneOut
                 view.SetSource(0, source);
                 var videoInfo = Obs.VideoInfo
                     ?? throw new InvalidOperationException("La vidéo LibObs n'est pas active.");
-                var video = LibObsOutputInterop.AddView(view, videoInfo);
-                if (video == 0)
-                    throw new InvalidOperationException("LibObs n'a pas pu créer le mix vidéo indépendant.");
-                viewAdded = true;
+                // Un mix vidéo à part, rendu à chaque image comme la sortie principale ; le
+                // détruire avec la vue le retire de la boucle de rendu.
+                var video = view.Add(videoInfo);
 
                 service = CreateService(scene.Id, pushUrl);
                 videoEncoder = CreateVideoEncoder(scene.Id);
                 audioEncoder = CreateAudioEncoder(scene.Id);
-                LibObsOutputInterop.SetEncoderVideo(videoEncoder, video);
-                LibObsOutputInterop.SetEncoderAudio(audioEncoder, LibObsOutputInterop.GetMainAudio());
+                videoEncoder.SetVideo(video);
+                audioEncoder.SetAudio(Obs.GetAudio());
 
                 using var outputSettings = new ObsData();
                 output = ObsOutput.Create(
@@ -155,7 +153,6 @@ internal sealed class LibObsIndependentSceneOutputRuntime : IIndependentSceneOut
                     try { audioEncoder?.Dispose(); } catch { }
                     try { videoEncoder?.Dispose(); } catch { }
                     try { service?.Dispose(); } catch { }
-                    try { if (viewAdded) LibObsOutputInterop.RemoveView(view); } catch { }
                     try { view.Dispose(); } catch { }
                 }
             }
@@ -273,7 +270,6 @@ internal sealed class LibObsIndependentSceneOutputRuntime : IIndependentSceneOut
         try { resources.AudioEncoder.Dispose(); } catch { }
         try { resources.VideoEncoder.Dispose(); } catch { }
         try { resources.Service.Dispose(); } catch { }
-        try { LibObsOutputInterop.RemoveView(resources.View); } catch { }
         try { resources.View.Dispose(); } catch { }
     }
 }

@@ -105,8 +105,8 @@ public sealed class SceneCompositionViewModelTests
     {
         var scene = SceneWith("Micro", "Masquée", "Caméra");
         var runtime = new FakeCompositionRuntime(scene.Id);
+        // Une source audio n'a aucune image, une source masquée n'est pas composée.
         runtime.Compose(scene,
-            // Une source audio n'a aucune image, une source masquée n'est pas composée.
             Transform(scene, "Micro", x: 0, y: 0, width: 0, height: 0),
             Transform(scene, "Masquée", x: 0, y: 0, width: 1920, height: 1080, isVisible: false),
             Transform(scene, "Caméra", x: 0, y: 0, width: 1920, height: 1080));
@@ -509,7 +509,253 @@ public sealed class SceneCompositionViewModelTests
         Assert.Empty(runtime.Writes);
     }
 
+    [Fact]
+    public void Pulling_just_outside_a_corner_turns_the_source_around_its_centre()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        // Juste au-delà du coin bas-droit (740, 460), hors de la source et de sa poignée.
+        var target = composition.BeginGesture(752, 472, HandleTolerance, crop: false, rotationReach: RotationReach);
+        Assert.Equal(new CompositionTarget(CompositionGestureKind.Rotate, CompositionHandle.BottomRight), target);
+
+        // Le centre est en (420, 280) : passer du coin bas-droit au coin bas-gauche, symétrique,
+        // fait un peu plus d'un quart de tour ; Maj le ramène au pas de 15°.
+        composition.UpdateGesture(88, 472, keepAspectRatio: true, constrainRotation: true);
+        Assert.Equal("120°", composition.GestureReadout);
+        composition.EndGesture();
+
+        var turned = runtime.TransformOf(Id(scene, "Caméra"));
+        Assert.Equal(120, turned.Rotation, 6);
+        var (centreX, centreY) = CompositionGeometry.Center(turned);
+        Assert.Equal(420, centreX, 6);
+        Assert.Equal(280, centreY, 6);
+    }
+
+    [Fact]
+    public void An_engine_that_cannot_turn_sources_leaves_them_straight_and_says_so()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id)
+        {
+            // Ce que fait LibObs 0.3.0, qui n'expose pas la rotation.
+            Rejection = placement => placement.Rotation != 0 ? "rotation indisponible" : null
+        };
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        composition.BeginGesture(752, 472, HandleTolerance, crop: false, rotationReach: RotationReach);
+        composition.UpdateGesture(700, 520, keepAspectRatio: true);
+
+        // La première écriture est refusée : le geste s'arrête, rien n'a tourné, à l'écran
+        // comme dans le moteur.
+        Assert.False(composition.IsGesturing);
+        Assert.Equal(0d, composition.Selected!.Rotation);
+        Assert.Equal("rotation indisponible", composition.Status);
+
+        composition.RotateSelected(90);
+        Assert.Equal(0d, runtime.TransformOf(Id(scene, "Caméra")).Rotation);
+        Assert.Equal("rotation indisponible", composition.Status);
+    }
+
+    [Fact]
+    public void Quarter_turns_from_the_menu_go_through_the_engine()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        composition.RotateSelected(90);
+        composition.RotateSelected(90);
+        Assert.Equal(180, runtime.TransformOf(Id(scene, "Caméra")).Rotation, 6);
+        Assert.Equal(180, composition.Selected!.Rotation, 6);
+
+        composition.ResetSelectedRotation();
+        Assert.Equal(0, runtime.TransformOf(Id(scene, "Caméra")).Rotation, 6);
+        Assert.Equal((100, 100), (Math.Round(composition.Selected.X), Math.Round(composition.Selected.Y)));
+    }
+
+    [Fact]
+    public void In_crop_mode_the_handles_crop_and_the_corners_no_longer_turn()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        // Rien à rogner tant qu'aucune source n'est choisie.
+        composition.EnterCropMode();
+        Assert.False(composition.IsCropping);
+
+        composition.SelectAt(200, 200);
+        composition.EnterCropMode();
+        Assert.True(composition.IsCropping);
+        Assert.True(composition.Overlay.IsCropping);
+
+        Assert.Equal(new CompositionTarget(CompositionGestureKind.Crop, CompositionHandle.Left),
+            composition.TargetAt(100, 280, HandleTolerance, crop: false, rotationReach: RotationReach));
+        Assert.Equal(new CompositionTarget(CompositionGestureKind.Move, null),
+            composition.TargetAt(300, 300, HandleTolerance, crop: false, rotationReach: RotationReach));
+        Assert.Null(composition.TargetAt(752, 472, HandleTolerance, crop: false, rotationReach: RotationReach));
+
+        composition.BeginGesture(100, 280, HandleTolerance, crop: false, rotationReach: RotationReach);
+        composition.UpdateGesture(140, 280, keepAspectRatio: true);
+        Assert.Equal("Gauche 40 · Haut 0 · Droite 0 · Bas 0", composition.GestureReadout);
+        composition.EndGesture();
+
+        // Le mode tient d'un geste à l'autre.
+        Assert.True(composition.IsCropMode);
+        Assert.Equal(new SourceCrop(40, 0, 0, 0), runtime.TransformOf(Id(scene, "Caméra")).Crop);
+
+        composition.ExitCropMode();
+        Assert.False(composition.IsCropping);
+    }
+
+    [Fact]
+    public void Choosing_another_source_or_none_ends_the_crop_mode()
+    {
+        var scene = SceneWith("Fond", "Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360),
+            Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        composition.SelectAt(200, 200);
+        composition.EnterCropMode();
+        composition.BeginGesture(1500, 900, HandleTolerance, crop: false);
+        composition.EndGesture();
+        Assert.Equal(Id(scene, "Fond"), composition.Selected?.SourceId);
+        Assert.False(composition.IsCropMode);
+
+        composition.SelectAt(200, 200);
+        composition.ToggleCropMode();
+        Assert.True(composition.IsCropMode);
+        composition.ClearSelection();
+        Assert.False(composition.IsCropMode);
+    }
+
+    [Fact]
+    public void Holding_alt_shows_the_crop_look_only_while_it_is_held()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        composition.SetCropModifier(true);
+        Assert.True(composition.Overlay.IsCropping);
+        Assert.False(composition.IsCropMode);
+
+        composition.SetCropModifier(false);
+        Assert.False(composition.Overlay.IsCropping);
+    }
+
+    [Fact]
+    public void Resetting_the_crop_from_the_menu_gives_the_whole_source_back_in_place()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        // 640 pixels de source, 40 rognés à gauche : 600 composés, à partir de x = 140.
+        var cropped = Transform(scene, "Caméra", x: 140, y: 100, width: 600, height: 360,
+            crop: new SourceCrop(40, 0, 0, 0));
+        runtime.Compose(scene, cropped with { SourceWidth = 640 });
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        composition.ResetSelectedCrop();
+
+        var whole = runtime.TransformOf(Id(scene, "Caméra"));
+        Assert.Equal(SourceCrop.None, whole.Crop);
+        Assert.Equal((100d, 640d), (whole.X, whole.Width));
+    }
+
+    [Fact]
+    public void A_dragged_source_snaps_to_the_centre_and_shows_its_guides_until_released()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        // Centrée dans le canvas 1920×1080, la caméra a son origine en (640, 360) ; le
+        // pointeur l'amène à 5 pixels près.
+        composition.BeginGesture(10, 10, HandleTolerance, crop: false);
+        composition.UpdateGesture(645, 365, keepAspectRatio: true, snapReach: SnapReach);
+
+        Assert.Equal((640d, 360d), (composition.Selected!.X, composition.Selected.Y));
+        Assert.Contains(new CompositionGuide(IsVertical: true, 960), composition.Overlay.Guides!);
+        Assert.Contains(new CompositionGuide(IsVertical: false, 540), composition.Overlay.Guides!);
+
+        composition.EndGesture();
+        Assert.Equal((640d, 360d), (runtime.TransformOf(Id(scene, "Caméra")).X, runtime.TransformOf(Id(scene, "Caméra")).Y));
+        Assert.Empty(composition.Overlay.Guides!);
+    }
+
+    [Fact]
+    public void Without_a_snapping_reach_the_source_goes_exactly_where_the_pointer_puts_it()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        composition.BeginGesture(10, 10, HandleTolerance, crop: false);
+        composition.UpdateGesture(645, 365, keepAspectRatio: true);
+
+        Assert.Equal((635d, 355d), (composition.Selected!.X, composition.Selected.Y));
+        Assert.Empty(composition.Overlay.Guides!);
+    }
+
+    [Fact]
+    public void The_hovered_source_is_shown_until_the_pointer_leaves_or_a_gesture_starts()
+    {
+        var scene = SceneWith("Fond", "Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360),
+            Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        Assert.True(composition.HoverAt(200, 200));
+        Assert.Equal(Id(scene, "Caméra"), composition.Overlay.Hovered?.Transform.SourceId);
+        // Le même survol ne redonne rien au moteur.
+        Assert.False(composition.HoverAt(210, 210));
+
+        // Pendant un geste, rien d'autre que la source saisie ne compte.
+        composition.BeginGesture(1500, 900, HandleTolerance, crop: false);
+        Assert.Null(composition.Overlay.Hovered);
+        composition.EndGesture();
+
+        // La source choisie porte déjà ce poids : elle ne se montre pas en survol.
+        composition.HoverAt(1500, 900);
+        Assert.Null(composition.Overlay.Hovered);
+
+        composition.HoverAt(200, 200);
+        Assert.True(composition.ClearHover());
+        Assert.Null(composition.Overlay.Hovered);
+    }
+
     private const double HandleTolerance = 6;
+    private const double RotationReach = 24;
+    private const double SnapReach = 10;
 
     private static SceneItemViewModel SceneWith(params string[] sourceNames) =>
         new(new SceneDefinition
@@ -606,7 +852,8 @@ public sealed class SceneCompositionViewModelTests
                 Height = (current.SourceHeight - placement.Crop.Top - placement.Crop.Bottom) * placement.ScaleY,
                 ScaleX = placement.ScaleX,
                 ScaleY = placement.ScaleY,
-                Crop = placement.Crop
+                Crop = placement.Crop,
+                Rotation = placement.Rotation
             };
             _composition = _composition with
             {

@@ -1,3 +1,4 @@
+using CastorApplication.Models.Studio;
 using CastorApplication.Services.Studio;
 
 namespace Castor.Studio.Tests;
@@ -97,6 +98,59 @@ public sealed class ObsPreviewGraphicsTests
         // bleue, la seule couleur ne suffirait pas à le distinguer.
         Assert.True(metrics.ChosenThickness > metrics.IdleThickness);
         Assert.True(metrics.HandleCore < metrics.Handle);
+    }
+
+    [Fact]
+    public void Crop_brackets_sit_inside_the_source_at_its_corners_and_middles()
+    {
+        var brackets = ObsPreviewGraphics.CropBrackets(width: 640, height: 360, arm: 16, thickness: 4);
+
+        // Quatre équerres de deux traits, quatre barres d'un trait.
+        Assert.Equal(12, brackets.Count);
+        Assert.All(brackets, rect =>
+        {
+            Assert.InRange(rect.X, 0, 640);
+            Assert.InRange(rect.X + rect.Width, 0, 640);
+            Assert.InRange(rect.Y, 0, 360);
+            Assert.InRange(rect.Y + rect.Height, 0, 360);
+        });
+        Assert.Contains(new PreviewFillRect(0, 0, 16, 4), brackets);
+        Assert.Contains(new PreviewFillRect(636, 172, 4, 16), brackets);
+    }
+
+    [Fact]
+    public void Crop_brackets_never_cross_on_a_small_source()
+    {
+        var brackets = ObsPreviewGraphics.CropBrackets(width: 30, height: 30, arm: 16, thickness: 4);
+
+        Assert.All(brackets, rect => Assert.True(Math.Max(rect.Width, rect.Height) <= 10));
+    }
+
+    [Fact]
+    public void A_dashed_outline_alternates_dashes_and_gaps_around_the_whole_box()
+    {
+        var dashes = ObsPreviewGraphics.DashedEdges(x: -100, y: 0, width: 60, height: 20, thickness: 1, dash: 10);
+
+        // Trois tirets par grand côté, un par petit côté, chacun en double.
+        Assert.Equal(3 * 2 + 1 * 2, dashes.Count);
+        Assert.Contains(new PreviewFillRect(-100, 0, 10, 1), dashes);
+        Assert.Contains(new PreviewFillRect(-80, 19, 10, 1), dashes);
+        Assert.DoesNotContain(dashes, rect => rect.X > -40);
+    }
+
+    [Fact]
+    public void A_guide_crosses_the_whole_canvas_centred_on_its_line()
+    {
+        var rects = ObsPreviewGraphics.GuideRects(
+            [new CompositionGuide(IsVertical: true, 960), new CompositionGuide(IsVertical: false, 540)],
+            canvasWidth: 1920,
+            canvasHeight: 1080,
+            thickness: 2);
+
+        Assert.Equal(
+            [new PreviewFillRect(959, 0, 2, 1080), new PreviewFillRect(0, 539, 1920, 2)],
+            rects);
+        Assert.Empty(ObsPreviewGraphics.GuideRects([], 1920, 1080, 2));
     }
 
     [Fact]

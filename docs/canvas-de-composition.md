@@ -55,10 +55,25 @@ poignées disent l'état**.
   illisible rend l'accent par défaut : un cadre sans couleur exacte reste plus utile qu'une
   source sans cadre.
 - **Source choisie** : le même cadre, dans la même couleur, épaissi à 2 px.
+- **Source survolée** : le même poids que la source choisie, sans poignées. Le survol annonce
+  ce que le clic va prendre, avec le trait qu'il aura une fois pris ; il se tait pendant un
+  geste et sur la source déjà choisie.
 - **Ses poignées** : huit carrés en `AppAccentFg` à cœur `AppFg1`, quatre aux angles, quatre
   au milieu des côtés, centrés sur leur point donc à cheval sur le bord — c'est ce qui les
   rend saisissables des deux côtés du trait, et visibles sur une source collée au bord du
   canvas.
+- **En rognage** : les carrés cèdent la place à des équerres aux angles et à des barres au
+  milieu des côtés, en `AppAccentFg`, posées à l'intérieur du bord. Le contour de la source
+  **entière**, partie rognée comprise, s'ajoute en pointillé de 2 px, dans la couleur de la
+  source : on voit ce qu'on cache et ce qu'on peut encore rendre. Une autre forme, parce que le
+  même geste n'y fait pas la même chose : on ne tire plus la source, on en retire des bords.
+- **Guides** : pendant un déplacement, une ligne de 1 px en `AppFg1` traverse le canvas là où
+  la source vient de s'accrocher. Neutre, parce qu'un guide n'est à aucune source : dans la
+  couleur d'une pastille, on le prendrait pour un cadre.
+
+Une source tournée est tracée tournée : cadre, poignées, équerres et pointillé sont posés
+dans le repère de la source — son point, puis sa rotation —, exactement comme libobs compose
+l'item.
 
 Tout l'overlay porte une ombre `AppBg` de 1 px de chaque côté. Un cœur coloré posé sur un
 liseré sombre se lit sur n'importe quelle image ; le même trait seul disparaît dès que
@@ -93,8 +108,13 @@ moteur ne compose plus laisserait saisir ce qui n'est pas là.
 | --- | --- | --- |
 | Déplacer | glisser une source | la position |
 | Étirer | glisser une poignée de la source choisie | l'échelle (et la position, pour un bord haut ou gauche) |
-| Rogner | **Alt** + glisser une poignée | le rognage (et la position, pour un bord haut ou gauche) |
+| Rogner | glisser une poignée en mode rognage, ou **Alt** enfoncé | le rognage (et la position, pour un bord haut ou gauche) |
+| Tourner | glisser juste hors d'un coin de la source choisie | la rotation et la position, autour du centre |
 | Annuler | **Échap** pendant le geste | le placement d'avant le geste |
+
+Un clic droit sur une source la choisit et ouvre son menu : rogner ou terminer le rognage,
+réinitialiser le rognage, pivoter de 90° à droite ou à gauche, de 180°, réinitialiser la
+rotation. Ces commandes passent par le moteur comme un geste, et un refus s'y traite de même.
 
 - Appuyer sur une source la choisit et la saisit d'un même geste : pas besoin de cliquer une
   première fois pour la sélectionner.
@@ -105,12 +125,49 @@ moteur ne compose plus laisserait saisir ce qui n'est pas là.
   reste immobile sous le bord qui avance : on découvre ou on cache, on ne décale rien.
 - Une source ne se réduit pas sous 8 pixels du canvas — ses poignées se recouvriraient — ni
   ne se retourne. Un rognage ne descend pas sous zéro et laisse toujours un pixel de la source.
+- Une source déplacée s'**accroche** aux bords et au centre du canvas, et aux bords et
+  centres des autres sources, dès qu'un de ses bords ou son centre en passe à moins de 8 px
+  de l'écran. Une source tournée s'accroche par le rectangle droit qui l'englobe : c'est ce
+  que l'œil aligne. **Ctrl** coupe l'aimant, pour poser une source au pixel près d'un bord.
 - Au survol, le curseur annonce ce qu'un clic saisirait : déplacement sur une source, flèche
-  orientée sur une poignée.
+  sur une poignée, flèche en arc hors d'un coin. La flèche suit la direction dans laquelle la
+  poignée tire, rotation comprise, ramenée au plus proche des quatre axes que Windows sait
+  dessiner. Windows n'ayant pas de curseur de rotation, celui-là est dessiné une fois, au
+  premier survol.
+- Pendant le geste, une bulle près du pointeur dit ce qui est écrit : la position, la taille,
+  le rognage de chaque côté, ou l'angle. C'est une fenêtre à elle (`Popup` hors de la couche
+  de la page) : c'est ce qui la laisse passer au-dessus de la surface native.
 
 Les poignées sont rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche,
 et `CompositionHandle` suit le même ordre. Leur zone de prise est pensée en pixels de l'écran,
-un peu plus large que le carré peint, puis convertie dans le repère du canvas.
+un peu plus large que le carré peint, puis convertie dans le repère du canvas. La zone de
+rotation aussi : 24 px hors de chaque coin, rien n'y est peint.
+
+### Le mode rognage
+
+Le rognage se tient sur la source choisie, et seulement sur elle.
+
+- **Y entrer** : double-clic sur la source choisie, « Rogner » dans son menu, ou **Alt**
+  enfoncé — ce dernier ne dure que le temps de la touche.
+- **En sortir** : **Échap** (hors geste), **Entrée**, un nouveau double-clic, « Terminer le
+  rognage » dans le menu, ou choisir autre chose — une autre source, aucune source, une autre
+  scène. Le mode tombe aussi de lui-même avec la source, quand elle cesse d'être composée.
+
+En rognage, les poignées rognent et les coins ne tournent pas : seules les équerres se
+saisissent, l'intérieur de la source la déplace toujours. Le mode tient d'un geste à l'autre,
+pour rogner plusieurs bords à la suite.
+
+### Tourner
+
+Une source tourne autour de son **centre**, comme on l'attend. libobs, lui, la fait tourner
+autour de son point d'alignement — le coin haut-gauche. L'alignement n'est pas changé :
+`CompositionGeometry` recalcule la position pour que le centre ne bouge pas, toujours depuis
+la transformation du début du geste. **Maj** ramène l'angle au pas de 15°.
+
+Une source tournée s'étire et se rogne le long de **ses** bords : le déplacement du pointeur
+est ramené dans le repère de la source avant d'être appliqué, puis le coin d'origine revient
+dans le canvas par la même rotation. Le clic, lui aussi, se teste dans ce repère : une source
+tournée se saisit là où elle est dessinée.
 
 ### Un geste recalculé depuis son origine
 
@@ -121,12 +178,13 @@ pixels entiers de la source ne perd rien aux arrondis.
 
 ### Écrire dans le moteur
 
-`ISourceRuntime.SetSourceTransform(sceneId, sourceId, placement)` écrit position, échelle et
-rognage d'un seul tenant, sous le verrou du runtime, et rend la transformation que le moteur
-compose ensuite. Il refuse avant d'approcher le moteur un nombre non fini, une échelle nulle
-ou négative, un rognage négatif ou qui ne laisserait rien de la source. Si libobs échoue au
-milieu des trois écritures, l'ancien placement est rendu tel quel : jamais un mélange des
-deux.
+`ISourceRuntime.SetSourceTransform(sceneId, sourceId, placement)` écrit position, échelle,
+rotation et rognage d'un seul tenant, sous le verrou du runtime, et rend la transformation
+que le moteur compose ensuite. Position, échelle et rotation partent d'un bloc
+(`ObsSceneItem.ApplyTransform`), le rognage suit : libobs le tient à part. Il refuse avant
+d'approcher le moteur un nombre non fini, une échelle nulle ou négative, un rognage négatif
+ou qui ne laisserait rien de la source. Si libobs échoue entre ses deux écritures, l'ancien
+placement est rendu tel quel : jamais un mélange des deux.
 
 Le pointeur bouge bien plus souvent que le moteur ne compose. Pendant un geste :
 
@@ -188,16 +246,18 @@ la propriété `Composition` sur `StudioPreview` — non renseignée, aucun cadr
 Les noms des sources ne sont pas écrits sur l'image : ils sont dans la liste sous l'aperçu,
 avec la même pastille de couleur, et l'image reste ce qu'elle est.
 
-## Ce que le moteur n'expose pas encore
+## Ce que l'interface ne pilote pas encore
 
-libobs connaît des *bounds* : un cadre qui contraint la taille rendue d'une source. Le
-binding LibObs ne les expose pas (`obs_sceneitem_get_bounds` n'est pas lié). Le jour où ils
-le seront, ils changeront `Width` et `Height` dans `ReadTransform`, et rien ailleurs.
+Depuis LibObs 0.4.0, le binding expose tout ce qu'un item sait faire : rotation, alignement,
+*bounds* — un cadre qui contraint la taille rendue — et l'écriture d'un bloc de position,
+échelle et rotation (`ObsSceneItem.ApplyTransform`). L'interface n'en pilote qu'une part :
 
-C'est pourquoi l'étirement écrit l'**échelle** : sans bounds, c'est la seule grandeur qui
-fixe la taille rendue. Le binding n'expose pas non plus l'alignement d'un item ; le calcul
-des gestes suppose celui que libobs donne par défaut, la position désignant le coin
-haut-gauche de la source.
+- **L'alignement** reste celui que libobs donne par défaut, la position désignant le coin
+  haut-gauche de la source. Le calcul des gestes le suppose, et `SetSourceTransform` le garde
+  tel qu'il est.
+- **Les bounds** ne sont pas posés : l'étirement écrit l'**échelle**. Une source dont les
+  bounds seraient posés ailleurs aurait un rectangle rendu que `ReadTransform` ne déduit pas
+  encore ; c'est là, et nulle part ailleurs, qu'il faudrait les lire.
 
 Les transformations vivent dans le moteur le temps de la session : une scène rouverte les
 retrouve telles qu'écrites. L'export de scènes (`SceneCollectionService`) n'emporte encore
