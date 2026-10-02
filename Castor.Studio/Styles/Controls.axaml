@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:CastorApplication.Controls">
     <Style Selector=":is(Button)">
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
@@ -9,6 +10,65 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
         <Setter Property="Padding" Value="12"/>
+    </Style>
+    <!-- MessageBar (Controls/MessageBar.cs): every status and error line of the app. Neutral
+         for a confirmation, red for an error; the text is a live region, so a screen reader
+         reads it when it appears without moving focus (at once for an error). The ✕ is 24 × 24
+         to stay an easy target next to small text, and named, since the glyph alone reads as
+         "multiplication"; it sits on the first line of a wrapped message. -->
+    <Style Selector="controls|MessageBar">
+        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="Padding" Value="10,7"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <Grid ColumnDefinitions="*, Auto">
+                        <TextBlock Name="PART_Text" Text="{TemplateBinding Text}"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   TextWrapping="Wrap" VerticalAlignment="Center"
+                                   AutomationProperties.LiveSetting="Polite"/>
+                        <Button Name="PART_Dismiss" Grid.Column="1"
+                                Command="{TemplateBinding DismissCommand}"
+                                Content="✕" FontSize="10"
+                                Foreground="{TemplateBinding Foreground}"
+                                Background="Transparent" BorderThickness="0"
+                                MinWidth="24" MinHeight="24" Padding="0" CornerRadius="4"
+                                Margin="6,-5,-6,-5" VerticalAlignment="Top"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                Cursor="Hand" IsVisible="False"
+                                ToolTip.Tip="Masquer le message"
+                                AutomationProperties.Name="Masquer le message"/>
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="controls|MessageBar:dismissable /template/ Button#PART_Dismiss">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+    <Style Selector="controls|MessageBar /template/ Button#PART_Dismiss:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+    </Style>
+    <Style Selector="controls|MessageBar:error">
+        <Setter Property="Background" Value="{DynamicResource AppErrorBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppErrorBorder}"/>
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+    <Style Selector="controls|MessageBar:error /template/ TextBlock#PART_Text">
+        <Setter Property="AutomationProperties.LiveSetting" Value="Assertive"/>
+    </Style>
+    <Style Selector="controls|MessageBar:error /template/ Button#PART_Dismiss:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppErrorBorder}"/>
     </Style>
     <Style Selector="Button.ctrl-btn">
         <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>

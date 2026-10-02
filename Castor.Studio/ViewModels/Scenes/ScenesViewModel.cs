@@ -29,7 +29,10 @@ public partial class ScenesViewModel : ViewModelBase
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
-    [ObservableProperty] private SceneItemViewModel? _selectedScene;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(OpenAddSourceCommand))]
+    [NotifyPropertyChangedFor(nameof(AddSourceToolTip))]
+    private SceneItemViewModel? _selectedScene;
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateSceneCommand))]
     private string _newSceneName = "";
@@ -44,7 +47,9 @@ public partial class ScenesViewModel : ViewModelBase
     private string _renameSceneName = "";
     [ObservableProperty] private string _renameSceneError = "";
     [ObservableProperty] private SceneItemViewModel? _sceneBeingColored;
-    [ObservableProperty] private string _sceneIoStatus = "";
+    // Import/export outcome: a confirmation fades, a failure stays until dismissed, and either
+    // goes away when another scene is selected or the page changes.
+    public StatusMessage SceneIoStatus { get; }
     [ObservableProperty] private string _sourceOperationStatus = "";
 
     // Sources as listed on screen: SelectedScene.Sources sorted and filtered for reading. The
@@ -86,11 +91,21 @@ public partial class ScenesViewModel : ViewModelBase
         }
     }
 
-    public string SourceListPlaceholder => SelectedScene == null || DisplayedSources.Count > 0
-        ? ""
-        : SelectedScene.Sources.Count == 0
-            ? "Aucune source. Ajoutez-en une avec +."
-            : "Aucune source de ce type.";
+    // Without a scene there is nowhere to put a source: the list says what to do first, and
+    // the source + stays disabled with the same reason on hover.
+    public string SourceListPlaceholder => SelectedScene == null
+        ? Scenes.Count == 0
+            ? "Aucune scène. Créez-en une avec + dans la colonne Scènes."
+            : "Sélectionnez une scène pour voir ses sources."
+        : DisplayedSources.Count > 0
+            ? ""
+            : SelectedScene.Sources.Count == 0
+                ? "Aucune source. Ajoutez-en une avec +."
+                : "Aucune source de ce type.";
+
+    public string AddSourceToolTip => SelectedScene == null
+        ? "Créez ou sélectionnez d'abord une scène"
+        : "Ajouter une source";
 
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
@@ -126,8 +141,10 @@ public partial class ScenesViewModel : ViewModelBase
         IAddSourceDialogService dialogService,
         ISceneTransferDialogService transferDialogService,
         SettingsService? settingsService = null,
-        VideoCanvasResolutionResolver? resolutionResolver = null)
+        VideoCanvasResolutionResolver? resolutionResolver = null,
+        StatusMessageService? messages = null)
     {
+        SceneIoStatus = (messages ?? new StatusMessageService()).Create();
         _transferDialogService = transferDialogService;
         _workspace = workspace;
         _runtime = runtime;
@@ -164,6 +181,7 @@ public partial class ScenesViewModel : ViewModelBase
     partial void OnSelectedSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
     {
         if (oldValue != null) oldValue.IsSelected = false;
+        SceneIoStatus.Clear();
         // Les cadres repartent de la composition que le moteur détient pour cette scène :
         // une scène rouverte se redessine sur ce qui est réellement rendu, pas sur un
         // souvenir.
@@ -330,7 +348,7 @@ public partial class ScenesViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void StartSelectedFileScenesTogether() => SceneIoStatus = _runtime.UnavailableMessage;
+    private void StartSelectedFileScenesTogether() => SceneIoStatus.ShowError(_runtime.UnavailableMessage);
 
     [RelayCommand]
     private void BeginRenameScene(SceneItemViewModel scene)
@@ -398,7 +416,7 @@ public partial class ScenesViewModel : ViewModelBase
     {
         if (Scenes.Count == 0)
         {
-            SceneIoStatus = "Aucune scène à exporter.";
+            SceneIoStatus.ShowInfo("Aucune scène à exporter.");
             return;
         }
 
@@ -413,11 +431,11 @@ public partial class ScenesViewModel : ViewModelBase
         try
         {
             await _sceneCollectionService.SaveAsync(path, scenes, cancellationToken);
-            SceneIoStatus = $"{scenes.Length} scène(s) exportée(s).";
+            SceneIoStatus.ShowInfo($"{scenes.Length} scène(s) exportée(s).");
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            SceneIoStatus = $"Export impossible : {exception.Message}";
+            SceneIoStatus.ShowError($"Export impossible : {exception.Message}");
         }
     }
 
@@ -448,9 +466,8 @@ public partial class ScenesViewModel : ViewModelBase
 
         if (found.Count == 0)
         {
-            SceneIoStatus = fileErrors.Count == 0
-                ? "Aucune scène trouvée dans ce fichier."
-                : $"Import impossible : {string.Join(" | ", fileErrors)}";
+            if (fileErrors.Count == 0) SceneIoStatus.ShowInfo("Aucune scène trouvée dans ce fichier.");
+            else SceneIoStatus.ShowError($"Import impossible : {string.Join(" | ", fileErrors)}");
             return;
         }
 
@@ -521,13 +538,13 @@ public partial class ScenesViewModel : ViewModelBase
             if (skipped > 0) details.Add($"{skipped} source(s) non prise(s) en charge ignorée(s)");
             if (failed > 0) details.Add($"{failed} scène(s) refusée(s) ({firstFailure})");
             if (sourceFailures > 0) details.Add($"{sourceFailures} source(s) média refusée(s) ({firstSourceFailure})");
-            SceneIoStatus = details.Count == 0
-                ? $"{importedCount} scène(s) importée(s)."
-                : $"{importedCount} scène(s) importée(s), {string.Join(", ", details)}.";
+            // Anything left behind has to be read before it goes away: it stays like an error.
+            if (details.Count == 0) SceneIoStatus.ShowInfo($"{importedCount} scène(s) importée(s).");
+            else SceneIoStatus.ShowError($"{importedCount} scène(s) importée(s), {string.Join(", ", details)}.");
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            SceneIoStatus = $"Import impossible : {exception.Message}";
+            SceneIoStatus.ShowError($"Import impossible : {exception.Message}");
         }
     }
 
@@ -537,7 +554,9 @@ public partial class ScenesViewModel : ViewModelBase
         foreach (var scene in GetSelectedScenes()) scene.Color = color;
     }
 
-    [RelayCommand]
+    private bool HasSelectedScene() => SelectedScene != null;
+
+    [RelayCommand(CanExecute = nameof(HasSelectedScene))]
     private async Task OpenAddSource()
     {
         if (SelectedScene == null) return;

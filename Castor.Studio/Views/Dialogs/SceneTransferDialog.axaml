@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:CastorApplication.Controls"
         xmlns:vm="using:CastorApplication.ViewModels.Scenes"
         x:Class="CastorApplication.Views.Dialogs.SceneTransferDialog"
         x:Name="DialogRoot"
@@ -58,12 +59,7 @@
 
 			<!-- ── Tout cocher + fichiers illisibles ── -->
 			<StackPanel Grid.Row="2" Margin="16,10,16,4" Spacing="8">
-				<Border IsVisible="{Binding HasFileErrors}"
-                        Background="{DynamicResource AppErrorBg}" CornerRadius="5" Padding="10,7"
-                        BorderBrush="{DynamicResource AppErrorBorder}" BorderThickness="1">
-					<TextBlock Text="{Binding FileErrorsText}"
-                               Foreground="{DynamicResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
-				</Border>
+				<controls:MessageBar Text="{Binding FileErrorsText}"/>
 				<CheckBox IsChecked="{Binding AreAllChecked, Mode=OneWay}"
                           Command="{Binding ToggleAllCommand}"
                           Content="Tout cocher"

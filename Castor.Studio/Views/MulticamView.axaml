@@ -11,13 +11,7 @@
 		<!-- Même inset que l'espace ancrable du Studio : la page porte elle-même sa marge,
 		     la coquille ne l'applique plus. -->
 		<Grid RowDefinitions="Auto, *" Margin="12">
-			<Border Grid.Row="0"
-                    IsVisible="{Binding AiError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                    Background="{DynamicResource AppErrorBg}" BorderBrush="{DynamicResource AppErrorBorder}" BorderThickness="1"
-                    CornerRadius="6" Padding="10,7" Margin="0,0,0,12">
-				<TextBlock Text="{Binding AiError}" Foreground="{DynamicResource StatusErrorBrush}"
-                           FontSize="12" TextWrapping="Wrap"/>
-			</Border>
+			<controls:MessageBar Grid.Row="0" Margin="0,0,0,12" Text="{Binding AiError}"/>
 
 			<!-- La page est un espace ancrable : soit l'affichage entier en un panneau,
 			     soit un panneau par scène. Dans les deux cas on peut le sortir. -->

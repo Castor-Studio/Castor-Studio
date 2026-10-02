@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using CastorApplication.Services;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Settings;
@@ -29,6 +30,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly SettingsViewModel _settingsViewModel;
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IClassicDesktopStyleApplicationLifetime _desktop;
+    private readonly StatusMessageService _messages;
 
     // The menu bar's "Panneaux" entries. Choosing one goes to the Studio page first, since that
     // is where the panel it brings back lives.
@@ -57,8 +59,10 @@ public partial class MainViewModel : ViewModelBase
         ScenesViewModel scenesViewModel,
         SettingsViewModel settingsViewModel,
         StudioWorkspaceViewModel workspace,
-        IClassicDesktopStyleApplicationLifetime desktop)
+        IClassicDesktopStyleApplicationLifetime desktop,
+        StatusMessageService messages)
     {
+        _messages = messages;
         _studioViewModel = studioViewModel;
         _studioDockViewModel = studioDockViewModel;
         _multicamViewModel = multicamViewModel;
@@ -195,6 +199,8 @@ public partial class MainViewModel : ViewModelBase
     {
         if (value != MainPageKind.Settings) _lastWorkspace = value;
         CloseSettingsCommand.NotifyCanExecuteChanged();
+        // A message belongs to the page it was shown on: coming back must not find it there.
+        _messages.ClearAll();
 
         OnPropertyChanged(nameof(IsStudioActive));
         OnPropertyChanged(nameof(IsMulticamActive));

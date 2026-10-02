@@ -144,7 +144,7 @@ public sealed class StudioRecordingViewModelTests
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
             Assert.False(workspace.IsRecording);
-            Assert.Equal("échec output", viewModel.RecordError);
+            Assert.Equal("échec output", viewModel.RecordError.Text);
         }
         finally
         {
@@ -178,7 +178,7 @@ public sealed class StudioRecordingViewModelTests
             recordingRuntime.RaiseState(false, "Disque plein");
 
             Assert.False(workspace.IsRecording);
-            Assert.Equal("Disque plein", viewModel.RecordError);
+            Assert.Equal("Disque plein", viewModel.RecordError.Text);
         }
         finally
         {
@@ -218,7 +218,7 @@ public sealed class StudioRecordingViewModelTests
             viewModel.ActiveScene = second;
 
             Assert.Equal([second.Id], recordingRuntime.SwitchedScenes);
-            Assert.Equal("", viewModel.RecordError);
+            Assert.Equal("", viewModel.RecordError.Text);
         }
         finally
         {
@@ -247,7 +247,7 @@ public sealed class StudioRecordingViewModelTests
             recordingRuntime.SwitchResult = StudioRuntimeResult.Failure("scène refusée");
             viewModel.ActiveScene = second;
 
-            Assert.Equal("scène refusée", viewModel.RecordError);
+            Assert.Equal("scène refusée", viewModel.RecordError.Text);
         }
         finally
         {
