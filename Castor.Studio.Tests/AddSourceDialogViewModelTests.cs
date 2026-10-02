@@ -88,7 +88,7 @@ public sealed class AddSourceDialogViewModelTests
         await viewModel.Refresh(CancellationToken.None);
 
         Assert.Single(viewModel.VisibleItems);
-        Assert.Contains("caméras", viewModel.CatalogMessage);
+        Assert.Contains("caméras", viewModel.CatalogMessage.Text);
     }
 
     private sealed class FakeSourceRuntime : ISourceRuntime

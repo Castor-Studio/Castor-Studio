@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services;
 using CastorApplication.Services.Studio;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -84,15 +85,17 @@ public partial class AddSourceDialogViewModel : ViewModelBase
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _isRefreshing;
     [ObservableProperty] private AddSourceItem? _selectedItem;
-    [ObservableProperty] private string _catalogMessage = "";
+    // What the last refresh could not list. It stays until dismissed or the next refresh.
+    public StatusMessage CatalogMessage { get; }
 
     public bool IsListCategory => true;
     public bool CanConfirm => _runtime.IsAvailable && SelectedItem != null;
 
     public event Action<AddSourceResult?>? CloseRequested;
 
-    internal AddSourceDialogViewModel(ISourceRuntime runtime, SceneItemViewModel? scene)
+    internal AddSourceDialogViewModel(ISourceRuntime runtime, SceneItemViewModel? scene, StatusMessageService? messages = null)
     {
+        CatalogMessage = (messages ?? new StatusMessageService()).Create();
         _runtime = runtime;
         _scene = scene;
         Categories =
@@ -137,7 +140,7 @@ public partial class AddSourceDialogViewModel : ViewModelBase
     {
         if (IsRefreshing) return;
         IsRefreshing = true;
-        CatalogMessage = "";
+        CatalogMessage.Clear();
         try
         {
             var catalog = await _runtime.EnumerateSourcesAsync(cancellationToken);
@@ -150,7 +153,7 @@ public partial class AddSourceDialogViewModel : ViewModelBase
             foreach (var category in Categories.Where(category => category.HasCount))
                 category.Count = ItemsFor(category.Kind).Count;
 
-            CatalogMessage = catalog.Message;
+            CatalogMessage.ShowError(catalog.Message);
             RebuildVisibleItems();
         }
         catch (OperationCanceledException)
@@ -158,7 +161,7 @@ public partial class AddSourceDialogViewModel : ViewModelBase
         }
         catch (Exception exception)
         {
-            CatalogMessage = $"Actualisation impossible : {exception.Message}";
+            CatalogMessage.ShowError($"Actualisation impossible : {exception.Message}");
         }
         finally
         {
