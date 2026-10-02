@@ -194,10 +194,13 @@
 
 				</StackPanel>
 
-				<TextBlock Grid.Row="2" Text="{Binding SceneIoStatus}"
-                           IsVisible="{Binding SceneIoStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                           Foreground="{DynamicResource AppFg3}" FontSize="10" TextWrapping="Wrap"
-                           Margin="14,0,14,8"/>
+				<Grid Grid.Row="2" ColumnDefinitions="*, Auto" Margin="14,0,8,8"
+                      IsVisible="{Binding SceneIoStatus.HasText}">
+					<TextBlock Text="{Binding SceneIoStatus.Text}"
+                               Classes="status-message" Classes.error="{Binding SceneIoStatus.IsError}"/>
+					<Button Grid.Column="1" Classes="message-dismiss"
+                            Command="{Binding SceneIoStatus.DismissCommand}"/>
+				</Grid>
 
 				<!-- Bulk actions bar -->
 				<StackPanel Grid.Row="3" Margin="8,6" Spacing="1"

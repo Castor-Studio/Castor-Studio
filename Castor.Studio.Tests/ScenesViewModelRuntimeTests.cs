@@ -249,7 +249,20 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Equal("Importée 2", scene.Name);
         Assert.Single(scene.Sources);
         Assert.Equal("Fichier", scene.Sources[0].Name);
-        Assert.Contains("1 scène(s) refusée(s)", viewModel.SceneIoStatus);
+        Assert.Contains("1 scène(s) refusée(s)", viewModel.SceneIoStatus.Text);
+        Assert.True(viewModel.SceneIoStatus.IsError);
+    }
+
+    [Fact]
+    public async Task Import_outcome_is_cleared_when_another_scene_is_selected()
+    {
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [new SceneDefinition { Name = "Importée" }]);
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+        Assert.True(viewModel.SceneIoStatus.HasText);
+
+        CreateScene(viewModel, "Autre");
+
+        Assert.False(viewModel.SceneIoStatus.HasText);
     }
 
     [Fact]
