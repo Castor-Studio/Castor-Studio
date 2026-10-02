@@ -6,7 +6,10 @@ namespace CastorApplication.Services.Studio;
 
 internal readonly record struct PreviewViewport(int X, int Y, int Width, int Height);
 
-/// <summary>Un rectangle plein à peindre, dans les coordonnées du canvas du moteur.</summary>
+/// <summary>
+/// Un rectangle plein à peindre, dans le repère d'une source : origine en son point (X, Y),
+/// axes tournés avec elle.
+/// </summary>
 internal readonly record struct PreviewFillRect(float X, float Y, float Width, float Height);
 
 /// <summary>
@@ -19,7 +22,10 @@ internal readonly record struct OverlayMetrics(
     float ChosenThickness,
     float Handle,
     float HandleCore,
-    float Shadow);
+    float Shadow,
+    float CropArm,
+    float CropThickness,
+    float Dash);
 
 internal static class ObsPreviewGraphics
 {
@@ -74,7 +80,10 @@ internal static class ObsPreviewGraphics
         ChosenThickness: ToCanvasPixels(2f, viewportWidth, canvasWidth, minimum: 1f),
         Handle: ToCanvasPixels(10f, viewportWidth, canvasWidth, minimum: 4f),
         HandleCore: ToCanvasPixels(5f, viewportWidth, canvasWidth, minimum: 2f),
-        Shadow: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f));
+        Shadow: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f),
+        CropArm: ToCanvasPixels(16f, viewportWidth, canvasWidth, minimum: 6f),
+        CropThickness: ToCanvasPixels(4f, viewportWidth, canvasWidth, minimum: 2f),
+        Dash: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f));
 
     private static float ToCanvasPixels(float devicePixels, int viewportWidth, uint canvasWidth, float minimum)
     {
@@ -160,6 +169,83 @@ internal static class ObsPreviewGraphics
         new(centerX - size / 2f, centerY - size / 2f, size, size);
 
     /// <summary>
+    /// Les poignées du rognage : une équerre à chaque angle, une barre au milieu de chaque
+    /// côté, posées <em>à l'intérieur</em> du bord. Une autre forme que les carrés de
+    /// l'étirement, parce que le même geste n'y fait pas la même chose : on ne tire plus la
+    /// source, on en retire des bords.
+    /// </summary>
+    /// <remarks>
+    /// Huit poignées dans le même ordre que <see cref="HandleRects"/> — chacune en un ou deux
+    /// rectangles —, sur un rectangle d'origine (0, 0).
+    /// </remarks>
+    internal static IReadOnlyList<PreviewFillRect> CropBrackets(
+        double width,
+        double height,
+        float arm,
+        float thickness)
+    {
+        if (width <= 0 || height <= 0 || arm <= 0 || thickness <= 0) return [];
+
+        var right = (float)width;
+        var bottom = (float)height;
+        // Une source plus petite que deux équerres garde des bras qui ne se croisent pas.
+        var armX = Math.Min(arm, right / 3f);
+        var armY = Math.Min(arm, bottom / 3f);
+        var middleX = right / 2f;
+        var middleY = bottom / 2f;
+
+        return
+        [
+            new(0, 0, armX, thickness), new(0, 0, thickness, armY),
+            new(middleX - armX / 2f, 0, armX, thickness),
+            new(right - armX, 0, armX, thickness), new(right - thickness, 0, thickness, armY),
+            new(right - thickness, middleY - armY / 2f, thickness, armY),
+            new(right - armX, bottom - thickness, armX, thickness), new(right - thickness, bottom - armY, thickness, armY),
+            new(middleX - armX / 2f, bottom - thickness, armX, thickness),
+            new(0, bottom - thickness, armX, thickness), new(0, bottom - armY, thickness, armY),
+            new(0, middleY - armY / 2f, thickness, armY)
+        ];
+    }
+
+    /// <summary>
+    /// Le contour pointillé d'un rectangle : des tirets de <paramref name="dash"/> séparés
+    /// d'autant, tracés vers l'intérieur comme le cadre plein. Sert à montrer la source
+    /// entière, partie rognée comprise, pendant qu'on la rogne.
+    /// </summary>
+    internal static IReadOnlyList<PreviewFillRect> DashedEdges(
+        double x,
+        double y,
+        double width,
+        double height,
+        float thickness,
+        float dash)
+    {
+        if (width <= 0 || height <= 0 || thickness <= 0 || dash <= 0) return [];
+
+        var rects = new List<PreviewFillRect>();
+        var left = (float)x;
+        var top = (float)y;
+        var boxWidth = (float)width;
+        var boxHeight = (float)height;
+
+        for (var offset = 0f; offset < boxWidth; offset += dash * 2)
+        {
+            var length = Math.Min(dash, boxWidth - offset);
+            rects.Add(new PreviewFillRect(left + offset, top, length, thickness));
+            rects.Add(new PreviewFillRect(left + offset, top + boxHeight - thickness, length, thickness));
+        }
+
+        for (var offset = 0f; offset < boxHeight; offset += dash * 2)
+        {
+            var length = Math.Min(dash, boxHeight - offset);
+            rects.Add(new PreviewFillRect(left, top + offset, thickness, length));
+            rects.Add(new PreviewFillRect(left + boxWidth - thickness, top + offset, thickness, length));
+        }
+
+        return rects;
+    }
+
+    /// <summary>
     /// Peint la scène puis, par-dessus, l'overlay de composition. Tout passe par la même
     /// projection : l'overlay tombe exactement sur l'image, au pixel près et à la même image
     /// que le moteur.
@@ -183,7 +269,7 @@ internal static class ObsPreviewGraphics
                 GsOrtho(0, canvasWidth, 0, canvasHeight, -100, 100);
                 GsSetViewport(viewport.X, viewport.Y, viewport.Width, viewport.Height);
                 frame.Render(sceneSource);
-                DrawOverlay(overlay, MetricsFor(viewport.Width, canvasWidth));
+                DrawOverlay(overlay, MetricsFor(viewport.Width, canvasWidth), canvasWidth, canvasHeight);
             }
             finally
             {
@@ -196,7 +282,11 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    private static void DrawOverlay(CompositionOverlay overlay, OverlayMetrics metrics)
+    private static void DrawOverlay(
+        CompositionOverlay overlay,
+        OverlayMetrics metrics,
+        uint canvasWidth,
+        uint canvasHeight)
     {
         if (_outlinesUnavailable || overlay.Sources.Count == 0) return;
 
@@ -209,6 +299,8 @@ internal static class ObsPreviewGraphics
             if (colorParameter == IntPtr.Zero) return;
 
             var chosen = overlay.Selected;
+            var cropping = overlay.IsCropping && chosen != null;
+            var guides = GuideRects(overlay.Guides ?? [], canvasWidth, canvasHeight, metrics.IdleThickness);
 
             // L'ombre passe sous tout l'overlay, d'un pixel de chaque côté. Un cœur coloré
             // posé sur un liseré sombre se lit sur n'importe quelle image ; le même trait
@@ -217,18 +309,42 @@ internal static class ObsPreviewGraphics
             while (GsEffectLoop(effect, "Solid"))
             {
                 foreach (var source in overlay.Sources)
-                    FillAllGrown(Edges(source, Thickness(source, chosen, metrics)), metrics.Shadow);
+                    FillAllGrown(source.Transform, Edges(source, Thickness(source, overlay, metrics)), metrics.Shadow);
 
-                if (chosen != null) FillAllGrown(Handles(chosen, metrics.Handle), metrics.Shadow);
+                FillAllGrown(CanvasFrame, guides, metrics.Shadow);
+
+                if (chosen == null) continue;
+
+                if (cropping)
+                {
+                    FillAllGrown(chosen.Transform, Uncropped(chosen, metrics), metrics.Shadow);
+                    FillAllGrown(chosen.Transform, Brackets(chosen, metrics), metrics.Shadow);
+                }
+                else
+                {
+                    FillAllGrown(chosen.Transform, Handles(chosen, metrics.Handle), metrics.Shadow);
+                }
             }
 
             // Un cadre par couleur : celle de la source, celle que porte déjà sa pastille
-            // dans la liste. C'est l'identité, elle ne dit pas l'état.
+            // dans la liste. C'est l'identité, elle ne dit pas l'état. Le contour pointillé de
+            // la source entière la garde aussi : c'est toujours la même source.
             foreach (var source in overlay.Sources)
             {
                 SetColor(colorParameter, ToVec4(source.Tint));
                 while (GsEffectLoop(effect, "Solid"))
-                    FillAll(Edges(source, Thickness(source, chosen, metrics)));
+                {
+                    FillAll(source.Transform, Edges(source, Thickness(source, overlay, metrics)));
+                    if (cropping && source == chosen) FillAll(source.Transform, Uncropped(source, metrics));
+                }
+            }
+
+            // Les guides ne sont à aucune source : ils prennent la couleur neutre de l'outil,
+            // jamais celle d'une pastille qu'on pourrait confondre avec un cadre.
+            if (guides.Count > 0)
+            {
+                SetColor(colorParameter, HandleCore);
+                while (GsEffectLoop(effect, "Solid")) FillAll(CanvasFrame, guides);
             }
 
             if (chosen == null) return;
@@ -236,10 +352,17 @@ internal static class ObsPreviewGraphics
             // L'état, lui, tient au poids du trait et à ces poignées, qui prennent l'accent
             // de la sélection comme partout ailleurs dans l'interface.
             SetColor(colorParameter, Chosen);
-            while (GsEffectLoop(effect, "Solid")) FillAll(Handles(chosen, metrics.Handle));
+            while (GsEffectLoop(effect, "Solid"))
+            {
+                FillAll(chosen.Transform, cropping
+                    ? Brackets(chosen, metrics)
+                    : Handles(chosen, metrics.Handle));
+            }
+
+            if (cropping) return;
 
             SetColor(colorParameter, HandleCore);
-            while (GsEffectLoop(effect, "Solid")) FillAll(Handles(chosen, metrics.HandleCore));
+            while (GsEffectLoop(effect, "Solid")) FillAll(chosen.Transform, Handles(chosen, metrics.HandleCore));
         }
         catch (Exception)
         {
@@ -247,37 +370,82 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    private static float Thickness(OverlaySource source, OverlaySource? chosen, OverlayMetrics metrics) =>
-        chosen != null && source.Transform.SourceId == chosen.Transform.SourceId
+    /// <summary>
+    /// Les guides d'alignement, chacun d'un bord à l'autre du canvas et centré sur sa ligne :
+    /// c'est la ligne elle-même que la source vient de toucher.
+    /// </summary>
+    internal static IReadOnlyList<PreviewFillRect> GuideRects(
+        IReadOnlyList<CompositionGuide> guides,
+        uint canvasWidth,
+        uint canvasHeight,
+        float thickness)
+    {
+        if (guides.Count == 0 || canvasWidth == 0 || canvasHeight == 0 || thickness <= 0) return [];
+
+        var rects = new List<PreviewFillRect>(guides.Count);
+        foreach (var guide in guides)
+        {
+            var position = (float)guide.Position - thickness / 2f;
+            rects.Add(guide.IsVertical
+                ? new PreviewFillRect(position, 0, thickness, canvasHeight)
+                : new PreviewFillRect(0, position, canvasWidth, thickness));
+        }
+
+        return rects;
+    }
+
+    // Le choix et le survol se disent par le même poids : le survol annonce ce que le clic
+    // va prendre, avec le trait qu'il aura une fois pris.
+    private static float Thickness(OverlaySource source, CompositionOverlay overlay, OverlayMetrics metrics) =>
+        IsSame(source, overlay.Selected) || IsSame(source, overlay.Hovered)
             ? metrics.ChosenThickness
             : metrics.IdleThickness;
 
+    private static bool IsSame(OverlaySource source, OverlaySource? other) =>
+        other != null && source.Transform.SourceId == other.Transform.SourceId;
+
+    // Le repère du canvas lui-même, pour ce qui n'appartient à aucune source.
+    private static readonly SourceTransform CanvasFrame =
+        new(Guid.Empty, 0, 0, 0, 0, 1, 1, SourceCrop.None, 0, 0, true);
+
+    // Toutes les formes se tracent dans le repère de leur source : origine en son point
+    // (X, Y), axes tournés avec elle. Fill les pose ensuite dans le canvas.
     private static IReadOnlyList<PreviewFillRect> Edges(OverlaySource source, float thickness) =>
-        BoxEdges(
-            source.Transform.X, source.Transform.Y,
-            source.Transform.Width, source.Transform.Height,
-            thickness);
+        BoxEdges(0, 0, source.Transform.Width, source.Transform.Height, thickness);
 
     private static IReadOnlyList<PreviewFillRect> Handles(OverlaySource source, float size) =>
-        HandleRects(
-            source.Transform.X, source.Transform.Y,
-            source.Transform.Width, source.Transform.Height,
-            size);
+        HandleRects(0, 0, source.Transform.Width, source.Transform.Height, size);
+
+    private static IReadOnlyList<PreviewFillRect> Brackets(OverlaySource source, OverlayMetrics metrics) =>
+        CropBrackets(source.Transform.Width, source.Transform.Height, metrics.CropArm, metrics.CropThickness);
+
+    // La source entière, rognage compris : elle déborde du cadre du côté de ce qui est rogné.
+    private static IReadOnlyList<PreviewFillRect> Uncropped(OverlaySource source, OverlayMetrics metrics)
+    {
+        var transform = source.Transform;
+        return DashedEdges(
+            -transform.Crop.Left * transform.ScaleX,
+            -transform.Crop.Top * transform.ScaleY,
+            transform.SourceWidth * transform.ScaleX,
+            transform.SourceHeight * transform.ScaleY,
+            metrics.ChosenThickness,
+            metrics.Dash);
+    }
 
     private static Vec4 ToVec4(OverlayTint tint) => new(tint.Red, tint.Green, tint.Blue, 1f);
 
     private static void SetColor(IntPtr parameter, Vec4 color) => GsEffectSetVec4(parameter, ref color);
 
-    private static void FillAll(IReadOnlyList<PreviewFillRect> rects)
+    private static void FillAll(SourceTransform frame, IReadOnlyList<PreviewFillRect> rects)
     {
-        foreach (var rect in rects) Fill(rect);
+        foreach (var rect in rects) Fill(frame, rect);
     }
 
-    private static void FillAllGrown(IReadOnlyList<PreviewFillRect> rects, float amount)
+    private static void FillAllGrown(SourceTransform frame, IReadOnlyList<PreviewFillRect> rects, float amount)
     {
         foreach (var rect in rects)
         {
-            Fill(new PreviewFillRect(
+            Fill(frame, new PreviewFillRect(
                 rect.X - amount,
                 rect.Y - amount,
                 rect.Width + amount * 2,
@@ -286,13 +454,17 @@ internal static class ObsPreviewGraphics
     }
 
     // Un quad unitaire mis à la place et à la taille voulues : c'est ainsi que libobs peint
-    // ses propres rectangles, sans avoir à construire de géométrie.
-    private static void Fill(PreviewFillRect rect)
+    // ses propres rectangles, sans avoir à construire de géométrie. Le repère de la source
+    // vient d'abord — son point, puis sa rotation —, exactement comme libobs compose l'item.
+    private static void Fill(SourceTransform frame, PreviewFillRect rect)
     {
         GsMatrixPush();
         try
         {
             GsMatrixIdentity();
+            GsMatrixTranslate3f((float)frame.X, (float)frame.Y, 0f);
+            if (frame.Rotation != 0)
+                GsMatrixRotaa4f(0f, 0f, 1f, (float)(frame.Rotation * Math.PI / 180));
             GsMatrixTranslate3f(rect.X, rect.Y, 0f);
             GsMatrixScale3f(rect.Width, rect.Height, 1f);
             GsDrawSprite(IntPtr.Zero, 0, 1, 1);
@@ -362,6 +534,9 @@ internal static class ObsPreviewGraphics
 
     [DllImport(ObsLibrary, EntryPoint = "gs_matrix_translate3f", CallingConvention = CallingConvention.Cdecl)]
     private static extern void GsMatrixTranslate3f(float x, float y, float z);
+
+    [DllImport(ObsLibrary, EntryPoint = "gs_matrix_rotaa4f", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void GsMatrixRotaa4f(float x, float y, float z, float angle);
 
     [DllImport(ObsLibrary, EntryPoint = "gs_matrix_scale3f", CallingConvention = CallingConvention.Cdecl)]
     private static extern void GsMatrixScale3f(float x, float y, float z);
