@@ -51,7 +51,7 @@
 
 				<Button Grid.Column="2" Content="ACTUALISER"
                         Command="{Binding RefreshTilesCommand}"
-                        Background="{DynamicResource AppAccentBg}" Foreground="#5b8def"
+                        Background="{DynamicResource AppAccentBg}" Foreground="{DynamicResource AppAccentFg}"
                         BorderThickness="0" Padding="12,6" CornerRadius="6"
                         FontSize="11" FontWeight="SemiBold"
                         VerticalAlignment="Center" Cursor="Hand"/>
@@ -82,14 +82,14 @@
 	<Border Grid.Row="0"
                         Background="{DynamicResource AppSurface}"
                         CornerRadius="8" Margin="0,0,0,10"
-                        BorderBrush="{StaticResource StatusErrorBrush}" BorderThickness="2">
+                        BorderBrush="{DynamicResource StatusErrorBrush}" BorderThickness="2">
 		<Grid RowDefinitions="Auto, *">
-			<Border Grid.Row="0" Background="#0B0B12" Padding="10,6" CornerRadius="7,7,0,0">
+			<Border Grid.Row="0" Background="{DynamicResource AppBg}" Padding="10,6" CornerRadius="7,7,0,0">
 				<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-					<Border Background="{StaticResource StatusErrorBrush}"
+					<Border Background="{DynamicResource StatusErrorBrush}"
                                         CornerRadius="3" Padding="6,2" VerticalAlignment="Center"
                                         IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}">
-						<TextBlock Text="LIVE" Foreground="White"
+						<TextBlock Text="LIVE" Foreground="{DynamicResource AppOnStatusFg}"
                                                FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
 					</Border>
 					<TextBlock Text="{Binding SpotlightScene.Name}"

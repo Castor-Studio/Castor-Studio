@@ -144,11 +144,26 @@
                             CornerRadius="12"
                             Padding="10,5">
 						<StackPanel Orientation="Horizontal" Spacing="6">
-							<Ellipse Width="7" Height="7" Fill="{Binding GlobalStatusBrush}" VerticalAlignment="Center"/>
+							<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" VerticalAlignment="Center"/>
 							<TextBlock Text="{Binding GlobalStatusText}"
                                        FontSize="11"
                                        FontWeight="SemiBold"
-                                       Foreground="{Binding GlobalStatusBrush}"
+                                       Classes="session-state" Classes.live="{Binding IsOnAir}"
+                                       VerticalAlignment="Center"/>
+							<!-- Scène active : ce qui part à l'enregistrement ou au live, lisible depuis
+							     n'importe quel espace de travail. Le choix reste au sélecteur du Studio. -->
+							<Rectangle Width="1" Height="12" Fill="{DynamicResource AppBorder2}" VerticalAlignment="Center"/>
+							<TextBlock Text="{Binding ActiveScene.Name}"
+                                       IsVisible="{Binding ActiveScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       MaxWidth="220" TextTrimming="CharacterEllipsis"
+                                       FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppFg1}"
+                                       VerticalAlignment="Center"
+                                       ToolTip.Tip="{Binding ActiveScene.Name, StringFormat='Scène active : {0}'}"/>
+							<TextBlock Text="Aucune scène"
+                                       IsVisible="{Binding ActiveScene, Converter={x:Static ObjectConverters.IsNull}}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource AppFg4}"
                                        VerticalAlignment="Center"/>
 						</StackPanel>
 					</Border>

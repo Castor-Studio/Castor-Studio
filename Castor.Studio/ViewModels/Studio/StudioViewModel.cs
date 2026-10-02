@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Avalonia;
-using Avalonia.Media;
 using Avalonia.Threading;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
@@ -96,10 +95,9 @@ public partial class StudioViewModel : ViewModelBase
     [ObservableProperty] private string _recordingOutputDirectory = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
-    public IBrush StreamStatusBrush => SolidColorBrush.Parse(IsStreaming ? "#f87171" : "#3c3c4e");
-    public IBrush StreamTimerBrush => SolidColorBrush.Parse(IsStreaming || IsRecording ? "#f87171" : "#3c3c4e");
     public string SceneBarStatusText => IsStreaming ? "EN DIRECT" : IsRecording ? "REC" : "Prêt";
-    public IBrush SceneBarStatusBrush => SolidColorBrush.Parse(IsStreaming || IsRecording ? "#f87171" : "#34d399");
+    // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
+    public bool IsOnAir => IsStreaming || IsRecording;
 
     internal StudioViewModel(
         StudioWorkspaceViewModel workspace,
@@ -142,8 +140,13 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     // Keeps the native preview's aspect ratio correct when the base resolution changes,
-    // same as ScenesViewModel's own OnSettingsSaved.
-    private void OnSettingsSaved(object? sender, EventArgs e) => RefreshBaseCanvasSize();
+    // same as ScenesViewModel's own OnSettingsSaved. The output info follows too, so the
+    // ENREGISTRER tooltip names the new folder even from a panel detached beside Settings.
+    private void OnSettingsSaved(object? sender, EventArgs e)
+    {
+        RefreshBaseCanvasSize();
+        RefreshOutputInfo();
+    }
 
     private void RefreshBaseCanvasSize()
     {
@@ -387,10 +390,8 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsStreaming));
         OnPropertyChanged(nameof(IsRecording));
         OnPropertyChanged(nameof(StreamStatusText));
-        OnPropertyChanged(nameof(StreamStatusBrush));
-        OnPropertyChanged(nameof(StreamTimerBrush));
+        OnPropertyChanged(nameof(IsOnAir));
         OnPropertyChanged(nameof(SceneBarStatusText));
-        OnPropertyChanged(nameof(SceneBarStatusBrush));
     }
 
     private const string AccountDisconnectedError = "Compte Twitch déconnecté. Reconnectez-vous dans Paramètres → Comptes.";

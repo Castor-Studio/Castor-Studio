@@ -13,9 +13,9 @@
 		<Grid RowDefinitions="Auto, *" Margin="12">
 			<Border Grid.Row="0"
                     IsVisible="{Binding AiError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                    Background="#3b1219" BorderBrush="#7f1d1d" BorderThickness="1"
+                    Background="{DynamicResource AppErrorBg}" BorderBrush="{DynamicResource AppErrorBorder}" BorderThickness="1"
                     CornerRadius="6" Padding="10,7" Margin="0,0,0,12">
-				<TextBlock Text="{Binding AiError}" Foreground="{StaticResource StatusErrorBrush}"
+				<TextBlock Text="{Binding AiError}" Foreground="{DynamicResource StatusErrorBrush}"
                            FontSize="12" TextWrapping="Wrap"/>
 			</Border>
 

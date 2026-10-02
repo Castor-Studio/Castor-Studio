@@ -4,28 +4,15 @@
              x:Class="CastorApplication.Views.Settings.Components.SettingsNavItem"
              x:DataType="settings:SettingsSectionItem">
 
-	<Grid>
-
-		<!-- SELECTED -->
-		<Border IsVisible="{Binding IsSelected}"
-                Background="{DynamicResource AppAccentBg2}"
-                BorderBrush="{DynamicResource AppAccentFg}"
-                BorderThickness="3,0,0,0">
-
-			<TextBlock Text="{Binding Title}"
-                       Foreground="{DynamicResource AppFg1}"
-                       FontSize="13"
-                       FontWeight="SemiBold"
-                       Margin="15,10"/>
-		</Border>
-
-		<!-- NORMAL -->
-		<Button IsVisible="{Binding !IsSelected}"
-                Classes="settings-nav"
-                Content="{Binding Title}"
-                Command="{Binding SelectCommand}"
-                CommandParameter="{Binding}" />
-
-	</Grid>
+	<!-- Un seul contrôle pour les deux états, pour que la section ouverte réagisse au
+	     survol et au clavier comme les autres (styles « settings-nav », Controls.axaml).
+	     Un RadioButton plutôt qu'un ToggleButton : cliquer la section déjà ouverte ne la
+	     décoche pas, et le groupe dit aux lecteurs d'écran qu'il n'y en a qu'une. -->
+	<RadioButton Classes="settings-nav"
+	             GroupName="SettingsNavigation"
+	             Content="{Binding Title}"
+	             IsChecked="{Binding IsSelected, Mode=OneWay}"
+	             Command="{Binding SelectCommand}"
+	             CommandParameter="{Binding}"/>
 
 </UserControl>

@@ -28,11 +28,11 @@
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="6">
 			<TextBlock Text="APERÇU"
-                       Foreground="{DynamicResource AppFg5}"
+                       Foreground="{DynamicResource VideoFgBrush}"
                        FontSize="13" FontWeight="Bold" LetterSpacing="2"
                        HorizontalAlignment="Center"/>
 			<TextBlock Text="{Binding PreviewPlaceholderText}"
-                       Foreground="{DynamicResource AppFg4}"
+                       Foreground="{DynamicResource VideoFgMutedBrush}"
                        FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
                        MaxWidth="380" HorizontalAlignment="Center"/>
 		</StackPanel>

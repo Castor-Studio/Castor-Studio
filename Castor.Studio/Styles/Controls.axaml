@@ -55,10 +55,10 @@
         <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
     </Style>
     <Style Selector="ToggleButton.scene-toolbar-item:checked">
-        <Setter Property="Foreground" Value="#5b8def"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
     </Style>
     <Style Selector="Button.scene-toolbar-item.danger, Button.scene-menu-item.danger">
-        <Setter Property="Foreground" Value="{StaticResource StatusErrorBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
     <Style Selector="Button.ai-mode">
         <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
@@ -77,8 +77,8 @@
     </Style>
     <Style Selector="Button.ai-active">
         <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
-        <Setter Property="Foreground" Value="#5b8def"/>
-        <Setter Property="BorderBrush" Value="#5b8def"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="14,7"/>
         <Setter Property="CornerRadius" Value="6"/>
@@ -106,7 +106,7 @@
     </Style>
     <Style Selector="ToggleButton.ai-pick:checked /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AppAccentFg}"/>
-        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
     </Style>
 
@@ -166,19 +166,53 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <Style Selector="Button.settings-nav">
+    <!-- Navigation des Paramètres : normal, survol, ouverte, ouverte survolée. La barre
+         d'accent à gauche existe dans tous les états (transparente hors sélection) pour que
+         le libellé ne bouge pas quand la section s'ouvre. -->
+    <Style Selector="RadioButton.settings-nav">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="3,0,0,0"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        <Setter Property="Padding" Value="18,10"/>
+        <Setter Property="Padding" Value="15,10"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                    <!-- Repère du focus clavier, distinct du survol. -->
+                    <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFg}"
+                            BorderThickness="1" IsVisible="False"/>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
     </Style>
-    <Style Selector="Button.settings-nav:pointerover /template/ ContentPresenter">
+    <Style Selector="RadioButton.settings-nav:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+    </Style>
+    <Style Selector="RadioButton.settings-nav:checked">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style Selector="RadioButton.settings-nav:checked:pointerover">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+    </Style>
+    <Style Selector="RadioButton.settings-nav:focus-visible /template/ Border#PART_FocusRing">
+        <Setter Property="IsVisible" Value="True"/>
     </Style>
     <Style Selector="TextBlock.setting-label">
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
@@ -206,5 +240,27 @@
     </Style>
     <Style Selector="Button.platform-connect:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+    </Style>
+
+    <!-- État de session (barre du haut, panneaux Statut et Scène active) : éteint par défaut,
+         rouge à l'antenne (classe live), vert quand tout est prêt (classe ready). Des styles
+         plutôt que des couleurs calculées dans les ViewModels, pour suivre le thème. -->
+    <Style Selector="TextBlock.session-state">
+        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+    </Style>
+    <Style Selector="TextBlock.session-state.ready">
+        <Setter Property="Foreground" Value="{DynamicResource StatusOkBrush}"/>
+    </Style>
+    <Style Selector="TextBlock.session-state.live">
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+    <Style Selector="Ellipse.session-state">
+        <Setter Property="Fill" Value="{DynamicResource AppFg4}"/>
+    </Style>
+    <Style Selector="Ellipse.session-state.ready">
+        <Setter Property="Fill" Value="{DynamicResource StatusOkBrush}"/>
+    </Style>
+    <Style Selector="Ellipse.session-state.live">
+        <Setter Property="Fill" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
 </Styles>

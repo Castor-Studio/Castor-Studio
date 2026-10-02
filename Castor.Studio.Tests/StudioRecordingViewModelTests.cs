@@ -255,6 +255,29 @@ public sealed class StudioRecordingViewModelTests
         }
     }
 
+    [Fact]
+    public void Saving_a_new_output_folder_updates_the_recalled_folder()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings { OutputPath = directory });
+            var viewModel = new StudioViewModel(
+                new StudioWorkspaceViewModel(), new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(),
+                new FakeRecordingRuntime(), new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
+            var newFolder = Path.Combine(directory, "Captures");
+
+            settingsService.Save(new ApplicationSettings { OutputPath = newFolder });
+
+            Assert.Equal(newFolder, viewModel.RecordingOutputDirectory);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static string CreateTemporaryDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), $"castor-viewmodel-{Guid.NewGuid():N}");

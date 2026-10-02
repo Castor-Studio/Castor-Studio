@@ -1,66 +1,110 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <SolidColorBrush x:Key="StatusOkBrush" Color="#34D399"/>
-    <SolidColorBrush x:Key="StatusWarningBrush" Color="#FBBF24"/>
-    <SolidColorBrush x:Key="StatusErrorBrush" Color="#F87171"/>
-    <SolidColorBrush x:Key="StatusInactiveBrush" Color="#6B7280"/>
-    <SolidColorBrush x:Key="StatusLiveBrush" Color="#10B981"/>
-    <SolidColorBrush x:Key="StatusRecBrush" Color="#EF4444"/>
+
+    <!-- Contrastes WCAG 2.x (luminance relative). Seuils : 4.5:1 pour un texte, 3:1 pour une
+         icône ou un contour porteur de sens. Chaque couleur de premier plan est mesurée sur
+         son fond réel ; « min » est le pire fond sur lequel elle se pose (badges, survol,
+         sélection). Castor.Studio.Tests/ColorContrastTests.cs refait la mesure : changer une
+         valeur ici sans tenir les seuils fait échouer les tests. -->
+
+    <!-- Texte posé sur l'image vidéo (aperçus, tuiles multicam) : le fond est noir dans les
+         deux thèmes, donc ces deux-là ne suivent pas le thème. -->
+    <SolidColorBrush x:Key="VideoFgBrush" Color="#c4c4d4"/>      <!-- 12.19:1 sur noir -->
+    <SolidColorBrush x:Key="VideoFgMutedBrush" Color="#9a9ab2"/> <!-- 7.64:1 sur noir -->
+    <SolidColorBrush x:Key="VideoErrorBrush" Color="#F87171"/>   <!-- 7.59:1 sur noir -->
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
+            <!-- Fonds sur lesquels se pose du texte, du plus sombre au plus clair. -->
+            <SolidColorBrush x:Key="AppSurface3" Color="#09090f"/>
             <SolidColorBrush x:Key="AppBg" Color="#0b0b12"/>
             <SolidColorBrush x:Key="AppSurface" Color="#13131c"/>
             <SolidColorBrush x:Key="AppSurface2" Color="#1c1c28"/>
-            <SolidColorBrush x:Key="AppSurface3" Color="#09090f"/>
-            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#07070d"/>
+            <SolidColorBrush x:Key="AppNavHoverBg" Color="#1c1c28"/>
+            <SolidColorBrush x:Key="AppAccentBg2" Color="#141c30"/>
+            <SolidColorBrush x:Key="AppAccentBg" Color="#162040"/>
             <SolidColorBrush x:Key="AppNavBadgeBg" Color="#24242f"/>
             <SolidColorBrush x:Key="AppBadgeBg" Color="#24242f"/>
-            <SolidColorBrush x:Key="AppNavHoverBg" Color="#1c1c28"/>
-            <SolidColorBrush x:Key="AppAccentBg" Color="#162040"/>
-            <SolidColorBrush x:Key="AppAccentBg2" Color="#141c30"/>
-            <SolidColorBrush x:Key="AppAccentFg" Color="#5b8def"/>
-            <SolidColorBrush x:Key="AppBorder" Color="#2a2a38"/>
-            <SolidColorBrush x:Key="AppBorder2" Color="#36364a"/>
-            <SolidColorBrush x:Key="AppFg1" Color="#eaeaf0"/>
-            <SolidColorBrush x:Key="AppFg2" Color="#ccccd8"/>
-            <SolidColorBrush x:Key="AppFg3" Color="#8888a0"/>
-            <SolidColorBrush x:Key="AppFg4" Color="#5c5c72"/>
-            <SolidColorBrush x:Key="AppFg5" Color="#3c3c4e"/>
-            <SolidColorBrush x:Key="AppFg6" Color="#36364a"/>
+            <!-- Fond de la zone d'édition Dock ; plus utilisé comme couleur de texte. -->
+            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#07070d"/>
+
+            <!-- Échelle de texte : sur AppSurface · min sur les fonds ci-dessus. AppFg6 rejoint
+                 AppFg5 au plancher 4.5:1 ; en dessous, un texte n'est plus lisible. -->
+            <SolidColorBrush x:Key="AppFg1" Color="#eaeaf0"/> <!-- 15.41:1 · min 12.81:1 (AppBadgeBg) -->
+            <SolidColorBrush x:Key="AppFg2" Color="#ccccd8"/> <!-- 11.60:1 · min 9.64:1 (AppBadgeBg) -->
+            <SolidColorBrush x:Key="AppFg3" Color="#b0b0c4"/> <!-- 8.66:1 · min 7.20:1 (AppBadgeBg) -->
+            <SolidColorBrush x:Key="AppFg4" Color="#9a9ab2"/> <!-- 6.72:1 · min 5.58:1 (AppBadgeBg) ; était 2.84:1 -->
+            <SolidColorBrush x:Key="AppFg5" Color="#8a8aa2"/> <!-- 5.48:1 · min 4.56:1 (AppBadgeBg) ; était 1.71:1 -->
+            <SolidColorBrush x:Key="AppFg6" Color="#8a8aa2"/> <!-- 5.48:1 · min 4.56:1 (AppBadgeBg) ; était 1.57:1 -->
+
+            <SolidColorBrush x:Key="AppAccentFg" Color="#5b8def"/>   <!-- 5.71:1 · min 4.75:1 (AppBadgeBg) -->
+            <SolidColorBrush x:Key="AppOnAccentFg" Color="#07070d"/> <!-- 6.22:1 sur AppAccentFg en fond -->
+
+            <!-- Contours et séparateurs décoratifs : la limite d'un contrôle se lit à son fond
+                 et à son libellé, pas à ce trait. Hors seuil ; leur visibilité relève de #129. -->
+            <SolidColorBrush x:Key="AppBorder" Color="#2a2a38"/>  <!-- 1.31:1 sur AppSurface -->
+            <SolidColorBrush x:Key="AppBorder2" Color="#36364a"/> <!-- 1.57:1 sur AppSurface -->
+
+            <!-- États. Mesurés sur leur fond réel, pas sur AppBg. -->
+            <SolidColorBrush x:Key="StatusOkBrush" Color="#34D399"/>      <!-- 9.60:1 · min 7.98:1 (AppBadgeBg) · 8.46:1 sur AppLiveBg -->
+            <SolidColorBrush x:Key="StatusWarningBrush" Color="#FBBF24"/> <!-- 11.06:1 · min 9.19:1 (AppBadgeBg) -->
+            <SolidColorBrush x:Key="StatusErrorBrush" Color="#F87171"/>   <!-- 6.67:1 · min 5.55:1 (AppBadgeBg) · 6.44:1 sur AppStopBg · 5.90:1 sur AppErrorBg -->
+            <SolidColorBrush x:Key="StatusRecBrush" Color="#EF4444"/>     <!-- 4.62:1 sur AppRecBg -->
+            <!-- Texte posé sur un aplat d'état (DÉMARRER, badge LIVE, suppression). -->
+            <SolidColorBrush x:Key="AppOnStatusFg" Color="#07070d"/>      <!-- 10.45:1 sur StatusOk · 7.26:1 sur StatusError -->
+
             <SolidColorBrush x:Key="AppLiveBg" Color="#0e2420"/>
             <SolidColorBrush x:Key="AppLiveBorder" Color="#142e25"/>
             <SolidColorBrush x:Key="AppStopBg" Color="#251218"/>
             <SolidColorBrush x:Key="AppStopBorder" Color="#2f1820"/>
             <SolidColorBrush x:Key="AppRecBg" Color="#2d1212"/>
             <SolidColorBrush x:Key="AppRecBorder" Color="#3d1a1a"/>
+            <SolidColorBrush x:Key="AppErrorBg" Color="#3b1219"/>
+            <SolidColorBrush x:Key="AppErrorBorder" Color="#7f1d1d"/>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="AppBg" Color="#eeeef6"/>
+            <!-- Fonds sur lesquels se pose du texte, du plus clair au plus sombre. -->
             <SolidColorBrush x:Key="AppSurface" Color="#f6f6fc"/>
+            <SolidColorBrush x:Key="AppBg" Color="#eeeef6"/>
+            <SolidColorBrush x:Key="AppAccentBg2" Color="#e2ebff"/>
             <SolidColorBrush x:Key="AppSurface2" Color="#eaeaf4"/>
             <SolidColorBrush x:Key="AppSurface3" Color="#e2e2ee"/>
-            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#d4d4e8"/>
-            <SolidColorBrush x:Key="AppNavBadgeBg" Color="#2a2a3a"/>
-            <SolidColorBrush x:Key="AppBadgeBg" Color="#dcdcee"/>
             <SolidColorBrush x:Key="AppNavHoverBg" Color="#e0e0f0"/>
             <SolidColorBrush x:Key="AppAccentBg" Color="#dce8ff"/>
-            <SolidColorBrush x:Key="AppAccentBg2" Color="#e2ebff"/>
-            <SolidColorBrush x:Key="AppAccentFg" Color="#315fb8"/>
-            <SolidColorBrush x:Key="AppBorder" Color="#ccccde"/>
-            <SolidColorBrush x:Key="AppBorder2" Color="#bcbcd2"/>
-            <SolidColorBrush x:Key="AppFg1" Color="#18182a"/>
-            <SolidColorBrush x:Key="AppFg2" Color="#282844"/>
-            <SolidColorBrush x:Key="AppFg3" Color="#484888"/>
-            <SolidColorBrush x:Key="AppFg4" Color="#6868a0"/>
-            <SolidColorBrush x:Key="AppFg5" Color="#8888b8"/>
-            <SolidColorBrush x:Key="AppFg6" Color="#a0a0c0"/>
+            <SolidColorBrush x:Key="AppBadgeBg" Color="#dcdcee"/>
+            <!-- Était #2a2a3a : un fond sombre sous un texte sombre (1.24:1 avec AppFg1). -->
+            <SolidColorBrush x:Key="AppNavBadgeBg" Color="#d6d6ea"/>
+            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#d4d4e8"/>
+
+            <SolidColorBrush x:Key="AppFg1" Color="#18182a"/> <!-- 16.22:1 · min 12.19:1 (AppNavBadgeBg) -->
+            <SolidColorBrush x:Key="AppFg2" Color="#282844"/> <!-- 13.20:1 · min 9.93:1 (AppNavBadgeBg) -->
+            <SolidColorBrush x:Key="AppFg3" Color="#3a3a66"/> <!-- 9.87:1 · min 7.42:1 (AppNavBadgeBg) -->
+            <SolidColorBrush x:Key="AppFg4" Color="#4a4a7a"/> <!-- 7.64:1 · min 5.75:1 (AppNavBadgeBg) ; était 4.79:1 -->
+            <SolidColorBrush x:Key="AppFg5" Color="#58588a"/> <!-- 6.14:1 · min 4.62:1 (AppNavBadgeBg) ; était 3.12:1 -->
+            <SolidColorBrush x:Key="AppFg6" Color="#58588a"/> <!-- 6.14:1 · min 4.62:1 (AppNavBadgeBg) ; était 2.35:1 -->
+
+            <SolidColorBrush x:Key="AppAccentFg" Color="#2b56a8"/>   <!-- 6.50:1 · min 4.89:1 (AppNavBadgeBg) -->
+            <SolidColorBrush x:Key="AppOnAccentFg" Color="#ffffff"/> <!-- 7.00:1 sur AppAccentFg en fond -->
+
+            <SolidColorBrush x:Key="AppBorder" Color="#ccccde"/>  <!-- 1.47:1 sur AppSurface, décoratif -->
+            <SolidColorBrush x:Key="AppBorder2" Color="#bcbcd2"/> <!-- 1.73:1 sur AppSurface, décoratif -->
+
+            <!-- Les teintes vives du thème sombre tombent sous 3.5:1 sur fond clair : on passe
+                 aux nuances foncées de la même famille. -->
+            <SolidColorBrush x:Key="StatusOkBrush" Color="#065f46"/>      <!-- 7.14:1 · min 5.37:1 (AppNavBadgeBg) · 6.55:1 sur AppLiveBg -->
+            <SolidColorBrush x:Key="StatusWarningBrush" Color="#92400e"/> <!-- 6.59:1 · min 4.95:1 (AppNavBadgeBg) -->
+            <SolidColorBrush x:Key="StatusErrorBrush" Color="#b91c1c"/>   <!-- 6.01:1 · min 4.52:1 (AppNavBadgeBg) · 5.50:1 sur AppStopBg · 5.51:1 sur AppErrorBg -->
+            <SolidColorBrush x:Key="StatusRecBrush" Color="#b91c1c"/>     <!-- 5.50:1 sur AppRecBg -->
+            <SolidColorBrush x:Key="AppOnStatusFg" Color="#ffffff"/>      <!-- 7.68:1 sur StatusOk · 6.47:1 sur StatusError -->
+
             <SolidColorBrush x:Key="AppLiveBg" Color="#d0f5e8"/>
             <SolidColorBrush x:Key="AppLiveBorder" Color="#6ee7b7"/>
             <SolidColorBrush x:Key="AppStopBg" Color="#fce8e8"/>
             <SolidColorBrush x:Key="AppStopBorder" Color="#f0a0a0"/>
             <SolidColorBrush x:Key="AppRecBg" Color="#fce8e8"/>
             <SolidColorBrush x:Key="AppRecBorder" Color="#f0a0a0"/>
+            <SolidColorBrush x:Key="AppErrorBg" Color="#fde8e8"/>
+            <SolidColorBrush x:Key="AppErrorBorder" Color="#f0a0a0"/>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

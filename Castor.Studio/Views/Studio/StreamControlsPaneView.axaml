@@ -34,7 +34,7 @@
                     IsVisible="{Binding !IsStreaming}"
                     IsEnabled="{Binding !IsStreamingTransition}"
                     Classes="ctrl-btn"
-                    Background="{DynamicResource AppLiveBg}" Foreground="{StaticResource StatusOkBrush}"
+                    Background="{DynamicResource AppLiveBg}" Foreground="{DynamicResource StatusOkBrush}"
                     BorderBrush="{DynamicResource AppLiveBorder}">
 				<Button.Flyout>
 					<Flyout Placement="Top">
@@ -43,14 +43,8 @@
 							<TextBlock Text="DÉMARRER LE STREAM"
                                        FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 							<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
-							<StackPanel Spacing="4">
-								<TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-								<ComboBox HorizontalAlignment="Stretch"
-                                          ItemsSource="{Binding Scenes}"
-                                          DisplayMemberBinding="{Binding Name}"
-                                          SelectedItem="{Binding ActiveScene}"
-                                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-							</StackPanel>
+							<!-- Destination et compte seulement : la scène qui part est déjà dans la barre
+							     d'état, et se choisit au sélecteur « Scène active ». -->
 							<StackPanel Spacing="4">
 								<TextBlock Text="Destination" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
 								<TextBlock Text="{Binding DestinationLabel}" Foreground="{DynamicResource AppFg1}"
@@ -81,14 +75,14 @@
                                     Command="{Binding StartStreamingCommand}"
                                     controls:FlyoutActions.CloseOnSuccess="True"
                                     Classes="flyout-start"
-                                    Background="{StaticResource StatusOkBrush}" Foreground="{DynamicResource AppVeryDarkBg}"/>
+                                    Background="{DynamicResource StatusOkBrush}" Foreground="{DynamicResource AppOnStatusFg}"/>
 							<TextBlock Text="{Binding StartStreamingBlockedReason}"
                                        IsVisible="{Binding !IsAccountConnected}"
                                        Foreground="{DynamicResource AppFg4}" FontSize="11"
                                        TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"/>
 							<TextBlock Text="{Binding StreamError}"
                                        IsVisible="{Binding StreamError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                       Foreground="{StaticResource StatusErrorBrush}" FontSize="11"
+                                       Foreground="{DynamicResource StatusErrorBrush}" FontSize="11"
                                        TextWrapping="Wrap"/>
 						</StackPanel>
 					</Flyout>
@@ -101,63 +95,46 @@
                     IsEnabled="{Binding !IsStreamingTransition}"
                     Command="{Binding StopStreamingCommand}"
                     Classes="ctrl-btn"
-                    Background="{DynamicResource AppStopBg}" Foreground="{StaticResource StatusErrorBrush}"
+                    Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
                     BorderBrush="{DynamicResource AppStopBorder}"/>
 
+			<!-- Un clic, et l'enregistrement part sur la scène active. Le dossier se règle dans
+			     Paramètres et se rappelle au survol. -->
 			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                     Content="ENREGISTRER"
                     IsVisible="{Binding !IsRecording}"
+                    Command="{Binding StartRecordingCommand}"
+                    ToolTip.Tip="{Binding RecordingOutputDirectory, StringFormat='Enregistre la scène active dans : {0}'}"
                     Classes="ctrl-btn"
-                    Background="{DynamicResource AppRecBg}" Foreground="{StaticResource StatusRecBrush}"
-                    BorderBrush="{DynamicResource AppRecBorder}">
-				<Button.Flyout>
-					<Flyout Placement="Top">
-						<StackPanel Width="280" Spacing="12" Margin="4"
-                                    controls:FlyoutActions.Error="{Binding RecordError}">
-							<TextBlock Text="DÉMARRER L'ENREGISTREMENT"
-                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
-							<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
-
-							<StackPanel Spacing="4">
-								<TextBlock Text="Scène" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-								<ComboBox HorizontalAlignment="Stretch"
-                                          ItemsSource="{Binding Scenes}"
-                                          DisplayMemberBinding="{Binding Name}"
-                                          SelectedItem="{Binding ActiveScene}"
-                                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-							</StackPanel>
-
-							<!-- Message d'erreur -->
-							<Border IsVisible="{Binding RecordError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                    Background="#3b1219" CornerRadius="5" Padding="10,7"
-                                    BorderBrush="#7f1d1d" BorderThickness="1">
-								<TextBlock Text="{Binding RecordError}"
-                                           Foreground="{StaticResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
-							</Border>
-
-							<TextBlock Text="{Binding RecordingOutputDirectory, StringFormat='Dossier : {0}'}"
-							           Foreground="{DynamicResource AppFg4}" FontSize="10"
-							           TextWrapping="Wrap"/>
-
-							<Button Content="DÉMARRER L'ENREGISTREMENT"
-                                    Command="{Binding StartRecordingCommand}"
-                                    controls:FlyoutActions.CloseOnSuccess="True"
-                                    Classes="flyout-start"
-                                    Background="{StaticResource StatusRecBrush}" Foreground="{DynamicResource AppFg1}"/>
-						</StackPanel>
-					</Flyout>
-				</Button.Flyout>
-			</Button>
+                    Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
+                    BorderBrush="{DynamicResource AppRecBorder}"/>
 
 			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                     Content="ARRÊTER"
                     IsVisible="{Binding IsRecording}"
                     Command="{Binding StopRecordingCommand}"
                     Classes="ctrl-btn"
-                    Background="{DynamicResource AppStopBg}" Foreground="{StaticResource StatusErrorBrush}"
+                    Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
                     BorderBrush="{DynamicResource AppStopBorder}"/>
 
 		</UniformGrid>
+
+		<!-- Plus de panneau avant l'enregistrement, mais un échec doit encore se voir :
+		     cette bulle s'ouvre au-dessus des boutons dès que RecordError se remplit
+		     (StreamControlsPaneView.axaml.cs). -->
+		<FlyoutBase.AttachedFlyout>
+			<Flyout Placement="Top">
+				<StackPanel Width="280" Spacing="8" Margin="4">
+					<TextBlock Text="ENREGISTREMENT"
+                               FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+					<Border Background="{DynamicResource AppErrorBg}" CornerRadius="5" Padding="10,7"
+                            BorderBrush="{DynamicResource AppErrorBorder}" BorderThickness="1">
+						<TextBlock Text="{Binding RecordError}"
+                                   Foreground="{DynamicResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
+					</Border>
+				</StackPanel>
+			</Flyout>
+		</FlyoutBase.AttachedFlyout>
 	</Border>
 
 </UserControl>

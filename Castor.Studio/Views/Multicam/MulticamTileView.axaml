@@ -20,7 +20,7 @@
         BoxShadow="0 2 10 0 #40000000">
 	<Border.Styles>
 		<Style Selector="Border.onAir">
-			<Setter Property="BorderBrush" Value="{StaticResource StatusErrorBrush}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
 			<Setter Property="BorderThickness" Value="2"/>
 		</Style>
 	</Border.Styles>
@@ -37,10 +37,10 @@
                 ToolTip.Tip="Glisser pour réordonner les scènes">
 			<Grid ColumnDefinitions="Auto, *">
 				<Border Grid.Column="0" IsVisible="{Binding IsOnAir}"
-                        Background="{StaticResource StatusErrorBrush}"
+                        Background="{DynamicResource StatusErrorBrush}"
                         CornerRadius="3" Padding="6,2" Margin="0,0,8,0"
                         VerticalAlignment="Center">
-					<TextBlock Text="LIVE" Foreground="White"
+					<TextBlock Text="LIVE" Foreground="{DynamicResource AppOnStatusFg}"
                                FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
 				</Border>
 				<TextBlock Grid.Column="1" Text="{Binding Name}"
@@ -69,10 +69,10 @@
                         HorizontalAlignment="Center" VerticalAlignment="Center">
 				<TextBlock Text="AUCUNE SOURCE" HorizontalAlignment="Center"
                            FontSize="11" FontWeight="Bold" LetterSpacing="2"
-                           Foreground="{DynamicResource AppFg5}"/>
+                           Foreground="{DynamicResource VideoFgBrush}"/>
 				<TextBlock Text="Ajoutez-en une depuis l'onglet Scènes"
                            HorizontalAlignment="Center" FontSize="11"
-                           Foreground="{DynamicResource AppFg4}"/>
+                           Foreground="{DynamicResource VideoFgMutedBrush}"/>
 			</StackPanel>
 		</Panel>
 
