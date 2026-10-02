@@ -44,6 +44,22 @@ public sealed class ScenesViewModelRuntimeTests
     }
 
     [Fact]
+    public void Adding_a_source_waits_for_a_scene_and_says_so()
+    {
+        var viewModel = CreateViewModel(new FakeSceneRuntime());
+
+        Assert.False(viewModel.OpenAddSourceCommand.CanExecute(null));
+        Assert.Contains("Créez-en une", viewModel.SourceListPlaceholder);
+        Assert.Contains("scène", viewModel.AddSourceToolTip);
+
+        CreateScene(viewModel, "Scène");
+
+        Assert.True(viewModel.OpenAddSourceCommand.CanExecute(null));
+        Assert.Equal("Ajouter une source", viewModel.AddSourceToolTip);
+        Assert.Equal("Aucune source. Ajoutez-en une avec +.", viewModel.SourceListPlaceholder);
+    }
+
+    [Fact]
     public async Task Empty_scene_has_an_active_preview_and_sources_do_not_change_its_placeholder()
     {
         var workspace = new StudioWorkspaceViewModel();

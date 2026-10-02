@@ -29,7 +29,10 @@ public partial class ScenesViewModel : ViewModelBase
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
-    [ObservableProperty] private SceneItemViewModel? _selectedScene;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(OpenAddSourceCommand))]
+    [NotifyPropertyChangedFor(nameof(AddSourceToolTip))]
+    private SceneItemViewModel? _selectedScene;
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(CreateSceneCommand))]
     private string _newSceneName = "";
@@ -88,11 +91,21 @@ public partial class ScenesViewModel : ViewModelBase
         }
     }
 
-    public string SourceListPlaceholder => SelectedScene == null || DisplayedSources.Count > 0
-        ? ""
-        : SelectedScene.Sources.Count == 0
-            ? "Aucune source. Ajoutez-en une avec +."
-            : "Aucune source de ce type.";
+    // Without a scene there is nowhere to put a source: the list says what to do first, and
+    // the source + stays disabled with the same reason on hover.
+    public string SourceListPlaceholder => SelectedScene == null
+        ? Scenes.Count == 0
+            ? "Aucune scène. Créez-en une avec + dans la colonne Scènes."
+            : "Sélectionnez une scène pour voir ses sources."
+        : DisplayedSources.Count > 0
+            ? ""
+            : SelectedScene.Sources.Count == 0
+                ? "Aucune source. Ajoutez-en une avec +."
+                : "Aucune source de ce type.";
+
+    public string AddSourceToolTip => SelectedScene == null
+        ? "Créez ou sélectionnez d'abord une scène"
+        : "Ajouter une source";
 
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
@@ -541,7 +554,9 @@ public partial class ScenesViewModel : ViewModelBase
         foreach (var scene in GetSelectedScenes()) scene.Color = color;
     }
 
-    [RelayCommand]
+    private bool HasSelectedScene() => SelectedScene != null;
+
+    [RelayCommand(CanExecute = nameof(HasSelectedScene))]
     private async Task OpenAddSource()
     {
         if (SelectedScene == null) return;
