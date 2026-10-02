@@ -55,7 +55,6 @@ public sealed partial class SceneTransferDialogViewModel : ViewModelBase
 
     // Files that could not be read, shown above the list; the others are still offered.
     public IReadOnlyList<string> FileErrors { get; }
-    public bool HasFileErrors => FileErrors.Count > 0;
     public string FileErrorsText => string.Join("\n", FileErrors);
 
     public string Title => Mode == SceneTransferMode.Import ? "IMPORTER DES SCÈNES" : "EXPORTER DES SCÈNES";

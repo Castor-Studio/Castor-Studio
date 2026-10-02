@@ -40,7 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
         services.AddSingleton<IDockChromeService, AvaloniaDockChromeService>();
         services.AddSingleton<DockLayoutService>();
-        services.AddSingleton<StatusMessageService>(_ => new StatusMessageService());
+        services.AddSingleton<StatusMessageService>();
 
         services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
 

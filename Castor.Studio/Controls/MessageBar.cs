@@ -7,8 +7,8 @@ namespace CastorApplication.Controls;
 
 // The one way a status or error line looks in the app: a tinted box, red for an error and
 // neutral for a confirmation, with a ✕ when the message can be dismissed. It hides itself
-// while Text is empty, so views bind the message and nothing else. Template and colours are
-// in Styles/Controls.axaml.
+// while Text is empty, so views bind the message and nothing else. IsError defaults to true:
+// most lines are failures. Template and colours are in Styles/Controls.axaml.
 //
 //   <controls:MessageBar Text="{Binding CreateSceneError}"/>
 //   <controls:MessageBar Text="{Binding SceneIoStatus.Text}"
