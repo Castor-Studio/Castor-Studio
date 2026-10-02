@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
         services.AddSingleton<IDockChromeService, AvaloniaDockChromeService>();
         services.AddSingleton<DockLayoutService>();
+        services.AddSingleton<StatusMessageService>(_ => new StatusMessageService());
 
         services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
 
@@ -83,7 +84,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IStreamingRuntime>(),
             provider.GetRequiredService<IProviderStore>(),
             provider.GetRequiredService<SettingsService>(),
-            provider.GetRequiredService<VideoCanvasResolutionResolver>()
+            provider.GetRequiredService<VideoCanvasResolutionResolver>(),
+            provider.GetRequiredService<StatusMessageService>()
         ));
 
         services.AddSingleton(provider => new ScenesViewModel(
@@ -98,7 +100,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IAddSourceDialogService>(),
             provider.GetRequiredService<ISceneTransferDialogService>(),
             provider.GetRequiredService<SettingsService>(),
-            provider.GetRequiredService<VideoCanvasResolutionResolver>()
+            provider.GetRequiredService<VideoCanvasResolutionResolver>(),
+            provider.GetRequiredService<StatusMessageService>()
         ));
 
         services.AddSingleton(provider => new MulticamViewModel(
@@ -119,7 +122,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<ScenesViewModel>(),
             provider.GetRequiredService<SettingsViewModel>(),
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
-            provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>()
+            provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>(),
+            provider.GetRequiredService<StatusMessageService>()
         ));
     }
 }
