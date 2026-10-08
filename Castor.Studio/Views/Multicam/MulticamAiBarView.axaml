@@ -5,90 +5,63 @@
              x:Class="CastorApplication.Views.Multicam.MulticamAiBarView"
              x:DataType="vm:MulticamViewModel">
 
-	<Border Background="{DynamicResource AppSurface3}" Padding="16,10">
-	<StackPanel Spacing="8">
-<Grid ColumnDefinitions="Auto, *, Auto">
+	<!-- Bas de la carte du panneau : la barre du dock arrondit le haut (DockTheme.axaml).
+	     Ne restent ici que les réglages de l'IA : sa suggestion s'affiche sur la tuile de la
+	     scène proposée (MulticamTileView), là où l'opérateur regarde déjà. -->
+	<Border Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="12,8"
+	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
+		<StackPanel Spacing="8" VerticalAlignment="Center">
+			<Grid ColumnDefinitions="Auto, Auto, *, Auto">
 
-	<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10"
+				<TextBlock Grid.Column="0" Text="IA" Margin="0,0,10,0"
+                           FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppFg2}"
+                           VerticalAlignment="Center"/>
+
+				<Border Grid.Column="1" Classes="segmented" VerticalAlignment="Center">
+					<StackPanel Orientation="Horizontal" Spacing="2">
+						<RadioButton Classes="segment" GroupName="MulticamAiMode" Content="Désactivée"
+                                     IsChecked="{Binding IsAiOff, Mode=OneWay}"
+                                     Command="{Binding SetAiOffCommand}"
+                                     IsEnabled="{Binding !IsAiBusy}"/>
+						<RadioButton Classes="segment" GroupName="MulticamAiMode" Content="Agent"
+                                     IsChecked="{Binding IsAiAgent, Mode=OneWay}"
+                                     Command="{Binding SetAiAgentCommand}"
+                                     IsEnabled="{Binding !IsAiBusy}"
+                                     ToolTip.Tip="L'IA suggère une scène sur sa tuile, vous la mettez à l'antenne"/>
+						<RadioButton Classes="segment" GroupName="MulticamAiMode" Content="Auto"
+                                     IsChecked="{Binding IsAiAuto, Mode=OneWay}"
+                                     Command="{Binding SetAiAutoCommand}"
+                                     IsEnabled="{Binding !IsAiBusy}"
+                                     ToolTip.Tip="L'IA met elle-même à l'antenne la scène qu'elle choisit"/>
+					</StackPanel>
+				</Border>
+
+				<StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="7" Margin="16,0"
                             VerticalAlignment="Center">
-		<TextBlock Text="IA :" Foreground="{DynamicResource AppFg3}" FontSize="12"
-                               FontWeight="SemiBold" VerticalAlignment="Center"/>
-
-		<StackPanel Orientation="Horizontal" Spacing="6">
-			<Button IsVisible="{Binding IsAiOff}"
-                                Content="DÉSACTIVÉ"
-                                Background="{DynamicResource AppBadgeBg}" Foreground="{DynamicResource AppFg3}"
-                                BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
-                                Padding="12,6" CornerRadius="6"
-                                FontSize="11" FontWeight="SemiBold" Cursor="Hand"/>
-			<Button IsVisible="{Binding !IsAiOff}"
-                                Content="DÉSACTIVÉ"
-                                Command="{Binding SetAiOffCommand}"
-                                IsEnabled="{Binding !IsAiBusy}"
-                                Classes="ai-mode"/>
-
-			<Button IsVisible="{Binding IsAiAgent}"
-                                Content="MODE AGENT"
-                                Classes="ai-active"/>
-			<Button IsVisible="{Binding !IsAiAgent}"
-                                Content="MODE AGENT"
-                                Command="{Binding SetAiAgentCommand}"
-                                IsEnabled="{Binding !IsAiBusy}"
-                                Classes="ai-mode"/>
-
-			<Button IsVisible="{Binding IsAiAuto}"
-                                Content="MODE AUTO"
-                                Classes="ai-active"/>
-			<Button IsVisible="{Binding !IsAiAuto}"
-                                Content="MODE AUTO"
-                                Command="{Binding SetAiAutoCommand}"
-                                IsEnabled="{Binding !IsAiBusy}"
-                                Classes="ai-mode"/>
-		</StackPanel>
-	</StackPanel>
-
-	<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
-                            VerticalAlignment="Center" HorizontalAlignment="Center">
-		<Ellipse Width="7" Height="7" Fill="{DynamicResource StatusOkBrush}" VerticalAlignment="Center"
+					<Ellipse Width="7" Height="7" Fill="{DynamicResource AppAccentFg}" VerticalAlignment="Center"
                              IsVisible="{Binding IsAiEnabled}"/>
-		<TextBlock Text="{Binding AiStatusText}" Foreground="{DynamicResource AppFg3}"
+					<TextBlock Text="{Binding AiStatusText}" Foreground="{DynamicResource AppFg3}"
+                               TextTrimming="CharacterEllipsis"
                                FontSize="12" VerticalAlignment="Center"/>
-	</StackPanel>
+				</StackPanel>
 
-	<StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+				<StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center">
-		<TextBlock Text="Modèle IA :" Foreground="{DynamicResource AppFg4}"
-                               FontSize="11" VerticalAlignment="Center"/>
-		<ComboBox MinWidth="180"
+					<TextBlock Text="Modèle" Foreground="{DynamicResource AppFg3}"
+                               FontSize="12" VerticalAlignment="Center"/>
+					<ComboBox MinWidth="140"
                               SelectedIndex="{Binding SelectedAiModelIndex}"
                               IsEnabled="{Binding !IsAiEnabled}"
+                              ToolTip.Tip="Désactivez l'IA pour changer de modèle"
+                              ToolTip.ShowOnDisabled="True"
                               Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="12">
-			<ComboBoxItem Content="Football"/>
-			<ComboBoxItem Content="Podcast"/>
-		</ComboBox>
-	</StackPanel>
-
-	</Grid>
-
-		<Border IsVisible="{Binding HasAiSuggestion}" Background="{DynamicResource AppSurface2}"
-				CornerRadius="6" Padding="10,7">
-			<Grid ColumnDefinitions="*, Auto">
-				<StackPanel Grid.Column="0" Spacing="2">
-					<TextBlock Text="Suggestion IA" FontSize="10" Foreground="{DynamicResource AppFg4}"/>
-					<TextBlock Text="{Binding AiSuggestionName}" FontSize="12"
-							Foreground="{DynamicResource AppFg1}" FontWeight="SemiBold"/>
-					<TextBlock Text="{Binding AiSuggestionConfidence, StringFormat='Confiance : {0}'}"
-							FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+						<ComboBoxItem Content="Football"/>
+						<ComboBoxItem Content="Podcast"/>
+					</ComboBox>
 				</StackPanel>
-				<Button Grid.Column="1" Content="APPLIQUER"
-						Command="{Binding ApplyAiSuggestionCommand}"
-						IsEnabled="{Binding !IsAiBusy}" VerticalAlignment="Center"
-						Classes="ai-mode"/>
 			</Grid>
-		</Border>
-		<TextBlock Text="Opération en cours..." IsVisible="{Binding IsAiBusy}"
-				   FontSize="11" Foreground="{DynamicResource AppFg4}"/>
-		<controls:MessageBar Text="{Binding AiError}"/>
-	</StackPanel>
+
+			<controls:MessageBar Text="{Binding AiError}"/>
+		</StackPanel>
 	</Border>
 </UserControl>

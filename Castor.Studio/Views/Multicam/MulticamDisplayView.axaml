@@ -6,33 +6,85 @@
              x:Class="CastorApplication.Views.Multicam.MulticamDisplayView"
              x:DataType="vm:MulticamViewModel">
 
+	<UserControl.Styles>
+		<!-- La grande image du Spotlight porte le même tally que les tuiles : vert tant que
+		     la scène est seulement choisie, rouge dès qu'elle est streamée ou enregistrée. -->
+		<Style Selector="Border.spotlight.onAir">
+			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
+			<Setter Property="BorderThickness" Value="2"/>
+			<Setter Property="Padding" Value="0"/>
+		</Style>
+		<Style Selector="Border.spotlight.onAir.live">
+			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
+		<Style Selector="Border.spotlight.onAir Border.band">
+			<Setter Property="Background" Value="{DynamicResource StatusOkBrush}"/>
+		</Style>
+		<Style Selector="Border.spotlight.onAir.live Border.band">
+			<Setter Property="Background" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
+		<Style Selector="Border.spotlight.onAir Border.band TextBlock">
+			<Setter Property="Foreground" Value="{DynamicResource AppOnStatusFg}"/>
+		</Style>
+		<Style Selector="Border.spotlight.onAir Border.band Ellipse">
+			<Setter Property="Fill" Value="{DynamicResource AppOnStatusFg}"/>
+		</Style>
+
+		<!-- Repère de sortie de la barre d'outils : la scène qui part, lisible sans
+		     chercher sa tuile dans le mur, avec le même code couleur que le tally. -->
+		<Style Selector="Border.output-chip">
+			<Setter Property="Background" Value="{DynamicResource AppLiveBg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppLiveBorder}"/>
+		</Style>
+		<Style Selector="Border.output-chip TextBlock.state">
+			<Setter Property="Foreground" Value="{DynamicResource StatusOkBrush}"/>
+		</Style>
+		<Style Selector="Border.output-chip Ellipse">
+			<Setter Property="Fill" Value="{DynamicResource StatusOkBrush}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live">
+			<Setter Property="Background" Value="{DynamicResource AppStopBg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppStopBorder}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live TextBlock.state">
+			<Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live Ellipse">
+			<Setter Property="Fill" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
+	</UserControl.Styles>
+
+	<!-- Bas de la carte du panneau : la barre du dock arrondit le haut (DockTheme.axaml). -->
+	<Border Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" ClipToBounds="True"
+	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 	<Grid RowDefinitions="Auto, *">
 
 		<!-- Les commandes vivent dans le panneau, pas dans l'en-tête de la page : quand
 		     l'aperçu est sorti dans sa propre fenêtre, le choix du mode doit partir avec
 		     lui, sinon on se retrouve avec un affichage qu'on ne peut plus changer. -->
-		<Border Grid.Row="0" Background="{DynamicResource AppSurface3}"
-                BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
-                Padding="10,7">
-			<Grid ColumnDefinitions="Auto, *, Auto">
-			<StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-				<Border Background="{DynamicResource AppBadgeBg}" CornerRadius="6" Padding="3">
+		<Border Grid.Row="0" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
+                Padding="10,8">
+			<Grid ColumnDefinitions="Auto, Auto, *, Auto">
+				<Border Grid.Column="0" Classes="segmented" VerticalAlignment="Center">
 					<StackPanel Orientation="Horizontal" Spacing="2">
-						<Button IsVisible="{Binding IsGridLayout}" Content="GRILLE" Classes="ai-active"/>
-						<Button IsVisible="{Binding !IsGridLayout}" Content="GRILLE"
-                                Command="{Binding UseGridLayoutCommand}" Classes="ai-mode"/>
-						<Button IsVisible="{Binding IsSpotlightLayout}" Content="SPOTLIGHT" Classes="ai-active"/>
-						<Button IsVisible="{Binding !IsSpotlightLayout}" Content="SPOTLIGHT"
-                                Command="{Binding UseSpotlightLayoutCommand}" Classes="ai-mode"/>
+						<RadioButton Classes="segment" GroupName="MulticamLayout" Content="Grille"
+                                     IsChecked="{Binding IsGridLayout, Mode=OneWay}"
+                                     Command="{Binding UseGridLayoutCommand}"
+                                     ToolTip.Tip="Toutes les scènes à la même taille"/>
+						<RadioButton Classes="segment" GroupName="MulticamLayout" Content="Spotlight"
+                                     IsChecked="{Binding IsSpotlightLayout, Mode=OneWay}"
+                                     Command="{Binding UseSpotlightLayoutCommand}"
+                                     ToolTip.Tip="La scène à l'antenne en grand, les autres en bande"/>
 					</StackPanel>
 				</Border>
 
-				<StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                            IsVisible="{Binding IsGridLayout}">
-					<TextBlock Text="Colonnes :" VerticalAlignment="Center"
-                               FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+				<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
+                            VerticalAlignment="Center" IsVisible="{Binding IsGridLayout}">
+					<TextBlock Text="Colonnes" VerticalAlignment="Center"
+                               FontSize="12" Foreground="{DynamicResource AppFg3}"/>
 					<ComboBox SelectedIndex="{Binding ColumnChoice}" Width="88"
-                              VerticalAlignment="Center">
+                              VerticalAlignment="Center"
+                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}">
 						<ComboBoxItem Content="Auto"/>
 						<ComboBoxItem Content="1"/>
 						<ComboBoxItem Content="2"/>
@@ -40,92 +92,134 @@
 						<ComboBoxItem Content="4"/>
 					</ComboBox>
 				</StackPanel>
-			</StackPanel>
 
-				<Border Grid.Column="1" Background="{DynamicResource AppBadgeBg}" CornerRadius="10"
-                        Padding="8,3" HorizontalAlignment="Left" Margin="10,0,0,0"
-                        VerticalAlignment="Center">
-					<TextBlock Text="{Binding Scenes.Count, StringFormat='{}{0} scènes'}"
-                               FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+				<Border Grid.Column="2" Classes="output-chip" Classes.live="{Binding IsOutputLive}"
+                        IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,8,0"
+                        BorderThickness="1" CornerRadius="12" Padding="10,4"
+                        ToolTip.Tip="Scène envoyée au stream et à l'enregistrement">
+					<StackPanel Orientation="Horizontal" Spacing="7">
+						<Ellipse Width="7" Height="7" VerticalAlignment="Center"/>
+						<TextBlock Classes="state" Text="{Binding OutputLabel}"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+						<Rectangle Width="1" Height="12" Fill="{DynamicResource AppBorder2}" VerticalAlignment="Center"/>
+						<TextBlock Text="{Binding SpotlightScene.Name, FallbackValue=''}"
+                                   MaxWidth="220" TextTrimming="CharacterEllipsis"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppFg1}"/>
+					</StackPanel>
 				</Border>
 
-				<Button Grid.Column="2" Content="ACTUALISER"
-                        Command="{Binding RefreshTilesCommand}"
-                        Background="{DynamicResource AppAccentBg}" Foreground="{DynamicResource AppAccentFg}"
-                        BorderThickness="0" Padding="12,6" CornerRadius="6"
-                        FontSize="11" FontWeight="SemiBold"
-                        VerticalAlignment="Center" Cursor="Hand"/>
+				<Button Grid.Column="3" Command="{Binding RefreshTilesCommand}"
+                        Background="Transparent" BorderThickness="0"
+                        Width="30" Height="30" Padding="0" CornerRadius="6" Cursor="Hand"
+                        HorizontalContentAlignment="Center"
+                        ToolTip.Tip="Actualiser les aperçus"
+                        AutomationProperties.Name="Actualiser les aperçus">
+					<Viewbox Width="15" Height="15">
+						<Canvas Width="24" Height="24">
+							<Path Data="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4 M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"
+                                  Stroke="{DynamicResource AppFg3}" StrokeThickness="2"
+                                  StrokeLineCap="Round" StrokeJoin="Round"/>
+						</Canvas>
+					</Viewbox>
+				</Button>
 			</Grid>
 		</Border>
 
-		<Panel Grid.Row="1">
-<!-- Grille : toutes les scènes à la même taille. -->
-<ItemsControl IsVisible="{Binding IsGridLayout}" ItemsSource="{Binding Tiles}">
-	<ItemsControl.ItemsPanel>
-		<ItemsPanelTemplate>
-			<UniformGrid Columns="{Binding GridColumns}"/>
-		</ItemsPanelTemplate>
-	</ItemsControl.ItemsPanel>
-		<ItemsControl.ItemTemplate>
-			<DataTemplate x:DataType="vm:MulticamSceneTile">
-				<mcViews:MulticamTileView/>
-			</DataTemplate>
-		</ItemsControl.ItemTemplate>
-</ItemsControl>
+		<!-- Le mur : 5 px autour de la zone + 5 px autour de chaque tuile, soit le même
+		     espace de 10 px entre deux tuiles qu'entre une tuile et le bord. -->
+		<Panel Grid.Row="1" Background="{DynamicResource AppBg}">
 
-<!-- Spotlight : la scène à l'antenne en grand, les autres en bande.
-     Elle est rendue sur une surface qui lui est propre plutôt qu'en
-     empruntant sa tuile : un aperçu par fenêtre est précisément ce que
-     le runtime sait faire, et ça évite de tenir à jour une seconde
-     collection filtrée. -->
-<Grid RowDefinitions="*, Auto" IsVisible="{Binding IsSpotlightLayout}">
-	<Border Grid.Row="0"
+			<StackPanel IsVisible="{Binding !HasScenes}" Spacing="4" Margin="24"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+				<TextBlock Text="Aucune scène pour l'instant" HorizontalAlignment="Center"
+                           FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppFg1}"/>
+				<TextBlock Text="Créez une scène dans l'onglet Scènes : elle apparaîtra ici, en direct."
+                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                           FontSize="12" Foreground="{DynamicResource AppFg4}"/>
+			</StackPanel>
+
+			<!-- Grille : toutes les scènes à la même taille. -->
+			<ItemsControl IsVisible="{Binding IsGridLayout}" ItemsSource="{Binding Tiles}" Margin="5">
+				<ItemsControl.ItemsPanel>
+					<ItemsPanelTemplate>
+						<UniformGrid Columns="{Binding GridColumns}"/>
+					</ItemsPanelTemplate>
+				</ItemsControl.ItemsPanel>
+				<ItemsControl.ItemTemplate>
+					<DataTemplate x:DataType="vm:MulticamSceneTile">
+						<mcViews:MulticamTileView/>
+					</DataTemplate>
+				</ItemsControl.ItemTemplate>
+			</ItemsControl>
+
+			<!-- Spotlight : la scène à l'antenne en grand, les autres en bande.
+			     Elle est rendue sur une surface qui lui est propre plutôt qu'en
+			     empruntant sa tuile : un aperçu par fenêtre est précisément ce que
+			     le runtime sait faire, et ça évite de tenir à jour une seconde
+			     collection filtrée. -->
+			<Grid RowDefinitions="*, Auto" Margin="5" IsVisible="{Binding IsSpotlightLayout}">
+				<Border Grid.Row="0" Classes="spotlight"
+                        Classes.onAir="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        Classes.live="{Binding IsOutputLive}"
                         Background="{DynamicResource AppSurface}"
-                        CornerRadius="8" Margin="0,0,0,10"
-                        BorderBrush="{DynamicResource StatusErrorBrush}" BorderThickness="2">
-		<Grid RowDefinitions="Auto, *">
-			<Border Grid.Row="0" Background="{DynamicResource AppBg}" Padding="10,6" CornerRadius="7,7,0,0">
-				<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-					<Border Background="{DynamicResource StatusErrorBrush}"
-                                        CornerRadius="3" Padding="6,2" VerticalAlignment="Center"
-                                        IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}">
-						<TextBlock Text="LIVE" Foreground="{DynamicResource AppOnStatusFg}"
-                                               FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
-					</Border>
-					<TextBlock Text="{Binding SpotlightScene.Name}"
-                                           FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                        CornerRadius="8" Margin="5"
+                        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Padding="1">
+					<Grid RowDefinitions="Auto, *">
+						<Border Grid.Row="0" Classes="band"
+                                Background="{DynamicResource AppSurface3}" Padding="14,8"
+                                CornerRadius="7,7,0,0">
+							<Grid ColumnDefinitions="*, Auto">
+								<TextBlock Grid.Column="0" Text="{Binding SpotlightScene.Name, FallbackValue=''}"
+                                           IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                                            Foreground="{DynamicResource AppFg1}"/>
-				</StackPanel>
-			</Border>
+								<TextBlock Grid.Column="0" Text="Aucune scène en sortie"
+                                           IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNull}}"
+                                           FontSize="14" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource AppFg4}"/>
+								<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                            IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                            Margin="12,0,0,0" VerticalAlignment="Center">
+									<Ellipse Width="8" Height="8" VerticalAlignment="Center"/>
+									<TextBlock Text="{Binding OutputLabel}"
+                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+								</StackPanel>
+							</Grid>
+						</Border>
 
-			<Panel Grid.Row="1" Background="Black" ClipToBounds="True">
-				<controls:StudioPreview Scene="{Binding SpotlightScene}"
+						<Panel Grid.Row="1" Background="Black" ClipToBounds="True">
+							<controls:StudioPreview Scene="{Binding SpotlightScene}"
+                                                    ShowSceneName="False"
                                                     PreviewRuntime="{Binding PreviewRuntime}"
                                                     BaseCanvasWidth="{Binding BaseCanvasWidth}"
                                                     BaseCanvasHeight="{Binding BaseCanvasHeight}"
                                                     Message="{Binding SpotlightPlaceholderText}"
                                                     HorizontalAlignment="Stretch"
                                                     VerticalAlignment="Stretch"/>
-			</Panel>
-		</Grid>
-	</Border>
+						</Panel>
+					</Grid>
+				</Border>
 
-	<ScrollViewer Grid.Row="1" Height="170" HorizontalScrollBarVisibility="Auto"
+				<ScrollViewer Grid.Row="1" Height="190" HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Disabled">
-		<ItemsControl ItemsSource="{Binding Tiles}">
-			<ItemsControl.ItemsPanel>
-				<ItemsPanelTemplate>
-					<StackPanel Orientation="Horizontal"/>
-				</ItemsPanelTemplate>
-			</ItemsControl.ItemsPanel>
-			<ItemsControl.ItemTemplate>
-				<DataTemplate x:DataType="vm:MulticamSceneTile">
-					<mcViews:MulticamTileView Width="240" Margin="0,0,10,0"/>
-				</DataTemplate>
-			</ItemsControl.ItemTemplate>
-		</ItemsControl>
-	</ScrollViewer>
-</Grid>
+					<ItemsControl ItemsSource="{Binding Tiles}">
+						<ItemsControl.ItemsPanel>
+							<ItemsPanelTemplate>
+								<StackPanel Orientation="Horizontal"/>
+							</ItemsPanelTemplate>
+						</ItemsControl.ItemsPanel>
+						<ItemsControl.ItemTemplate>
+							<DataTemplate x:DataType="vm:MulticamSceneTile">
+								<mcViews:MulticamTileView Width="250"/>
+							</DataTemplate>
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+				</ScrollViewer>
+			</Grid>
 		</Panel>
 	</Grid>
+	</Border>
 </UserControl>

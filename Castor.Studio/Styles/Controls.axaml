@@ -120,31 +120,56 @@
     <Style Selector="Button.scene-toolbar-item.danger, Button.scene-menu-item.danger">
         <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
-    <Style Selector="Button.ai-mode">
-        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
-        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+    <!-- Choix exclusif entre quelques options (mode de l'IA, disposition du multicam) :
+         une rainure, l'option choisie y est posée en relief. Des RadioButton plutôt que des
+         paires de boutons montrés / cachés, pour que le groupe se lise comme un seul choix,
+         au clavier comme au lecteur d'écran. L'option déjà choisie ne réagit plus : la
+         recliquer relancerait sa commande (redémarrer une session IA, par exemple). -->
+    <Style Selector="Border.segmented">
+        <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="14,7"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="CornerRadius" Value="7"/>
+        <Setter Property="Padding" Value="2"/>
+    </Style>
+    <Style Selector="RadioButton.segment">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+        <Setter Property="Padding" Value="12,5"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="FontSize" Value="12"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                    <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFg}"
+                            BorderThickness="1" CornerRadius="{TemplateBinding CornerRadius}"
+                            IsVisible="False"/>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
     </Style>
-    <Style Selector="Button.ai-mode:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AppBadgeBg}"/>
-        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+    <Style Selector="RadioButton.segment:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
     </Style>
-    <Style Selector="Button.ai-active">
+    <Style Selector="RadioButton.segment:checked">
         <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="14,7"/>
-        <Setter Property="CornerRadius" Value="6"/>
-        <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="IsHitTestVisible" Value="False"/>
+    </Style>
+    <Style Selector="RadioButton.segment:disabled">
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+    <Style Selector="RadioButton.segment:focus-visible /template/ Border#PART_FocusRing">
+        <Setter Property="IsVisible" Value="True"/>
     </Style>
     <!-- La sélection d'une scène pour l'IA, sur les tuiles du multicam. Une pastille plutôt
          qu'une case à cocher : elle porte son propre libellé, donc on sait à quoi elle sert
@@ -156,8 +181,8 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="9,3"/>
         <Setter Property="CornerRadius" Value="4"/>
-        <Setter Property="FontSize" Value="10"/>
-        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="ToggleButton.ai-pick:pointerover /template/ ContentPresenter">

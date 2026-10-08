@@ -1,23 +1,16 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Multicam"
-             xmlns:controls="using:CastorApplication.Controls"
-             xmlns:mcViews="using:CastorApplication.Views.Multicam"
              x:Class="CastorApplication.Views.MulticamView"
              x:DataType="vm:MulticamViewModel">
 
-	<Grid Background="{DynamicResource AppBg}">
+	<!-- Même inset que l'espace ancrable du Studio : la page porte elle-même sa marge,
+	     la coquille ne l'applique plus. Les erreurs de l'IA s'affichent dans son panneau,
+	     qui suit l'opérateur s'il le sort de la fenêtre.
 
-		<!-- Même inset que l'espace ancrable du Studio : la page porte elle-même sa marge,
-		     la coquille ne l'applique plus. -->
-		<Grid RowDefinitions="Auto, *" Margin="12">
-			<controls:MessageBar Grid.Row="0" Margin="0,0,0,12" Text="{Binding AiError}"/>
+	     La page est un espace ancrable : l'affichage et les réglages de l'IA sont deux
+	     panneaux, qu'on peut déplacer ou sortir. -->
+	<DockControl Layout="{Binding DockLayout}"
+	             Background="{DynamicResource AppBg}" Margin="12"/>
 
-			<!-- La page est un espace ancrable : soit l'affichage entier en un panneau,
-			     soit un panneau par scène. Dans les deux cas on peut le sortir. -->
-			<DockControl Grid.Row="1" Layout="{Binding DockLayout}"
-                         Background="{DynamicResource AppBg}"/>
-		</Grid>
-
-	</Grid>
 </UserControl>

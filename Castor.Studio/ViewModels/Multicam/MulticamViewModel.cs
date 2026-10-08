@@ -29,6 +29,13 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     public string Name => Scene.Name;
     public int SourceCount => Scene.Sources.Count;
 
+    public string SourceCountText => SourceCount switch
+    {
+        0 => "Aucune source",
+        1 => "1 source",
+        var count => $"{count} sources",
+    };
+
     // Each tile draws on its own native surface. LibObsSceneRuntime keeps one
     // preview session per window, so every tile renders at the same time
     // instead of taking turns - which is the whole point of a grid.
@@ -45,6 +52,12 @@ public sealed partial class MulticamSceneTile : ViewModelBase
 
     /// <summary>Whether this is the scene currently going to the output.</summary>
     public bool IsOnAir => ReferenceEquals(_workspace.ActiveScene, Scene);
+
+    /// <summary>Whether this scene is actually leaving the app: streamed, recorded, or both.</summary>
+    public bool IsOutputLive => IsOnAir && MulticamViewModel.IsOutputRunning(_workspace);
+
+    /// <summary>What the tile's tally says, empty unless this is the output scene.</summary>
+    public string OutputLabel => IsOnAir ? MulticamViewModel.OutputStateText(_workspace) : "";
 
     /// <summary>Whether the scene has anything to show. Drives the empty state.</summary>
     public bool HasVideo => StudioWorkspaceViewModel.HasVideoSource(Scene);
@@ -72,7 +85,17 @@ public sealed partial class MulticamSceneTile : ViewModelBase
         Scene.Sources.CollectionChanged += OnSourcesChanged;
     }
 
-    internal void NotifyOnAirChanged() => OnPropertyChanged(nameof(IsOnAir));
+    internal void NotifyOnAirChanged()
+    {
+        OnPropertyChanged(nameof(IsOnAir));
+        NotifyOutputStateChanged();
+    }
+
+    internal void NotifyOutputStateChanged()
+    {
+        OnPropertyChanged(nameof(IsOutputLive));
+        OnPropertyChanged(nameof(OutputLabel));
+    }
 
     // Lets the tile view act on a drop without holding a reference back to the page.
     internal void MoveSceneHere(SceneItemViewModel moved) => _workspace.MoveScene(moved, Scene);
@@ -104,6 +127,7 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     private void OnSourcesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(SourceCount));
+        OnPropertyChanged(nameof(SourceCountText));
         OnPropertyChanged(nameof(HasVideo));
         OnPropertyChanged(nameof(PreviewPlaceholderText));
     }
@@ -150,6 +174,24 @@ public partial class MulticamViewModel : ViewModelBase
     // and it saves keeping a second, filtered collection of tiles in step.
     public SceneItemViewModel? SpotlightScene => _workspace.ActiveScene;
 
+    // The tally: green while the output scene is only chosen, red once it actually leaves
+    // the app. Same words as the top bar, so the two never disagree.
+    internal static bool IsOutputRunning(StudioWorkspaceViewModel workspace) =>
+        workspace.IsStreaming || workspace.IsRecording;
+
+    internal static string OutputStateText(StudioWorkspaceViewModel workspace) =>
+        (workspace.IsStreaming, workspace.IsRecording) switch
+        {
+            (true, true) => "En direct + REC",
+            (true, false) => "En direct",
+            (false, true) => "REC",
+            _ => "Prête",
+        };
+
+    public bool IsOutputLive => SpotlightScene != null && IsOutputRunning(_workspace);
+
+    public string OutputLabel => SpotlightScene != null ? OutputStateText(_workspace) : "";
+
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
     [ObservableProperty] private int _baseCanvasWidth = 1920;
@@ -158,7 +200,7 @@ public partial class MulticamViewModel : ViewModelBase
     public string SpotlightPlaceholderText => !_previewRuntime.IsAvailable
         ? _previewRuntime.UnavailableMessage
         : SpotlightScene == null
-            ? "Aucune scène à l'antenne."
+            ? "Aucune scène en sortie."
             : !StudioWorkspaceViewModel.HasVideoSource(SpotlightScene)
                 ? "Pas de source vidéo"
                 : "";
@@ -251,11 +293,22 @@ public partial class MulticamViewModel : ViewModelBase
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(StudioWorkspaceViewModel.IsStreaming)
+            or nameof(StudioWorkspaceViewModel.IsRecording))
+        {
+            foreach (var tile in Tiles) tile.NotifyOutputStateChanged();
+            OnPropertyChanged(nameof(IsOutputLive));
+            OnPropertyChanged(nameof(OutputLabel));
+            return;
+        }
+
         if (e.PropertyName != nameof(StudioWorkspaceViewModel.ActiveScene)) return;
 
         foreach (var tile in Tiles) tile.NotifyOnAirChanged();
         OnPropertyChanged(nameof(SpotlightScene));
         OnPropertyChanged(nameof(SpotlightPlaceholderText));
+        OnPropertyChanged(nameof(IsOutputLive));
+        OnPropertyChanged(nameof(OutputLabel));
     }
 
     private void OnScenesChanged(object? sender, NotifyCollectionChangedEventArgs e)
