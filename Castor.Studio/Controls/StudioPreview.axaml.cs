@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -129,6 +130,14 @@ public partial class StudioPreview : UserControl
                 UpdatePreviewViewport();
         };
         UpdatePreviewViewport();
+
+        // Écoutés en descente, et même déjà traités : les flèches et Alt servent ailleurs à
+        // la navigation au clavier, qui les prendrait avant qu'ils ne remontent jusqu'ici.
+        AddHandler(KeyDownEvent, OnPictureKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyUpEvent, OnPictureKeyUp, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+        // Les pastilles posées sur l'image sont rendues ici, à l'échelle de cet écran.
+        AttachedToVisualTree += (_, _) => PreviewBadgeRenderer.Attach(TopLevel.GetTopLevel(this)?.RenderScaling ?? 1);
     }
 
     /// <summary>
@@ -143,6 +152,9 @@ public partial class StudioPreview : UserControl
         var composition = Composition;
         if (composition == null) return;
         if (ToCanvas(e.GetPosition(this)) is not var (x, y)) return;
+
+        // Tout clic sur l'aperçu lui donne le clavier : c'est là que zoom et flèches s'écoutent.
+        Focus();
 
         var properties = e.GetCurrentPoint(this).Properties;
         var onPicture = NativePreview.Bounds.Contains(e.GetPosition(this));
@@ -258,6 +270,7 @@ public partial class StudioPreview : UserControl
         UpdateCropModifier(composition, e.KeyModifiers);
         if (!composition.ZoomAt(x, y, e.Delta.Y)) return;
 
+        Focus();
         NativePreview.ShowComposition();
         e.Handled = true;
     }

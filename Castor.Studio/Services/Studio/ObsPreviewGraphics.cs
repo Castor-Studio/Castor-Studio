@@ -27,7 +27,6 @@ internal readonly record struct OverlayMetrics(
     float CropArm,
     float CropThickness,
     float Dash,
-    float GlyphCell = 2,
     float BadgeInset = 6,
     float CanvasPerScreenPixel = 1);
 
@@ -37,6 +36,12 @@ internal static class ObsPreviewGraphics
 
     // obs_base_effect : l'effet « solid » est le quatrième de l'énumération de libobs.
     private const int ObsEffectSolid = 3;
+
+    // obs_base_effect : l'effet par défaut, qui peint une texture, est le premier.
+    private const int ObsEffectDefault = 0;
+
+    // gs_color_format : GS_BGRA, l'ordre des pixels que rend Avalonia.
+    private const int GsColorFormatBgra = 5;
 
     // Le cadre d'une source porte la couleur de sa pastille dans la liste : sur une
     // composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Ce qui
@@ -90,7 +95,6 @@ internal static class ObsPreviewGraphics
         CropArm: ToCanvasPixels(16f, viewportWidth, canvasWidth, minimum: 6f),
         CropThickness: ToCanvasPixels(4f, viewportWidth, canvasWidth, minimum: 2f),
         Dash: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f),
-        GlyphCell: ToCanvasPixels(2f, viewportWidth, canvasWidth, minimum: 1f),
         BadgeInset: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f),
         CanvasPerScreenPixel: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 0f));
 
@@ -254,108 +258,33 @@ internal static class ObsPreviewGraphics
         return rects;
     }
 
-    // Une police de moniteur, trois cases sur cinq : le moteur ne sait peindre que des
-    // rectangles, et c'est assez pour écrire un facteur de zoom lisible à toute échelle.
-    private static readonly Dictionary<char, string[]> Glyphs = new()
-    {
-        ['0'] = ["###", "#.#", "#.#", "#.#", "###"],
-        ['1'] = [".#.", "##.", ".#.", ".#.", "###"],
-        ['2'] = ["###", "..#", "###", "#..", "###"],
-        ['3'] = ["###", "..#", "###", "..#", "###"],
-        ['4'] = ["#.#", "#.#", "###", "..#", "..#"],
-        ['5'] = ["###", "#..", "###", "..#", "###"],
-        ['6'] = ["###", "#..", "###", "#.#", "###"],
-        ['7'] = ["###", "..#", "..#", "..#", "..#"],
-        ['8'] = ["###", "#.#", "###", "#.#", "###"],
-        ['9'] = ["###", "#.#", "###", "..#", "###"],
-        ['.'] = [".", ".", ".", ".", "#"],
-        [','] = [".", ".", ".", "#", "#"],
-        ['×'] = ["...", "#.#", ".#.", "#.#", "..."]
-    };
-
-    private const int GlyphRows = 5;
-
-    /// <summary>
-    /// Le texte écrit en cases de <paramref name="cell"/>, à partir de (<paramref name="x"/>,
-    /// <paramref name="y"/>), une case d'écart entre deux signes. Les cases voisines d'une
-    /// même ligne forment un seul rectangle. Un signe inconnu laisse un blanc.
-    /// </summary>
-    internal static IReadOnlyList<PreviewFillRect> GlyphRects(string text, float x, float y, float cell)
-    {
-        var rects = new List<PreviewFillRect>();
-        if (cell <= 0) return rects;
-
-        var left = x;
-        foreach (var character in text)
-        {
-            if (!Glyphs.TryGetValue(character, out var rows))
-            {
-                left += 2 * cell;
-                continue;
-            }
-
-            for (var row = 0; row < GlyphRows; row++)
-            {
-                var line = rows[row];
-                var column = 0;
-                while (column < line.Length)
-                {
-                    if (line[column] != '#')
-                    {
-                        column++;
-                        continue;
-                    }
-
-                    var start = column;
-                    while (column < line.Length && line[column] == '#') column++;
-                    rects.Add(new PreviewFillRect(left + start * cell, y + row * cell, (column - start) * cell, cell));
-                }
-            }
-
-            left += (rows[0].Length + 1) * cell;
-        }
-
-        return rects;
-    }
-
-    /// <summary>Largeur que prend ce texte écrit en cases de <paramref name="cell"/>.</summary>
-    internal static float GlyphWidth(string text, float cell)
-    {
-        var width = 0f;
-        foreach (var character in text)
-            width += ((Glyphs.TryGetValue(character, out var rows) ? rows[0].Length : 1) + 1) * cell;
-
-        return Math.Max(0, width - cell);
-    }
-
-    /// <summary>Ce que le badge d'une source zoomée écrit : son facteur, à un chiffre après la virgule.</summary>
+    /// <summary>Ce que la pastille d'une source zoomée écrit, au format du curseur de zoom.</summary>
     internal static string ZoomLabel(SourceZoom zoom) =>
-        string.Create(CultureInfo.CurrentCulture, $"×{zoom.Factor:0.0}");
+        string.Create(CultureInfo.CurrentCulture, $"Zoom ×{zoom.Factor:0.0}");
 
     /// <summary>
-    /// Le badge d'une source zoomée, dans le repère de son cadre : une plaque sombre dans le
-    /// coin haut-gauche et le facteur écrit dessus. Rien si le cadre est trop petit pour le
-    /// porter.
+    /// Où se pose la pastille de zoom d'une source, dans le repère de son cadre : dans le coin
+    /// haut-gauche, à la taille de l'écran (<paramref name="imageWidth"/> ×
+    /// <paramref name="imageHeight"/> pixels physiques). Rien sans zoom, ou si le cadre est
+    /// trop petit pour la porter.
     /// </summary>
-    internal static (PreviewFillRect Plate, IReadOnlyList<PreviewFillRect> Text)? ZoomBadge(
+    internal static PreviewFillRect? ZoomBadge(
         SourceTransform transform,
+        int imageWidth,
+        int imageHeight,
         OverlayMetrics metrics)
     {
-        if (!transform.Zoom.IsZoomed) return null;
+        if (!transform.Zoom.IsZoomed || imageWidth <= 0 || imageHeight <= 0) return null;
 
-        var label = ZoomLabel(transform.Zoom);
-        var cell = metrics.GlyphCell;
-        var padding = cell * 2;
-        var plate = new PreviewFillRect(
+        var badge = new PreviewFillRect(
             metrics.BadgeInset,
             metrics.BadgeInset,
-            GlyphWidth(label, cell) + padding * 2,
-            GlyphRows * cell + padding * 2);
-        if (plate.X + plate.Width > transform.Width - metrics.BadgeInset ||
-            plate.Y + plate.Height > transform.Height - metrics.BadgeInset)
-            return null;
-
-        return (plate, GlyphRects(label, plate.X + padding, plate.Y + padding, cell));
+            imageWidth * metrics.CanvasPerScreenPixel,
+            imageHeight * metrics.CanvasPerScreenPixel);
+        return badge.X + badge.Width > transform.Width - metrics.BadgeInset ||
+               badge.Y + badge.Height > transform.Height - metrics.BadgeInset
+            ? null
+            : badge;
     }
 
     /// <summary>
@@ -407,7 +336,20 @@ internal static class ObsPreviewGraphics
                 GsOrtho(0, canvasWidth, 0, canvasHeight, -100, 100);
                 GsSetViewport(viewport.X, viewport.Y, viewport.Width, viewport.Height);
                 frame.Render(sceneSource);
-                DrawOverlay(overlay, MetricsFor(viewport.Width, canvasWidth), canvasWidth, canvasHeight);
+                var metrics = MetricsFor(viewport.Width, canvasWidth);
+                DrawOverlay(overlay, metrics, canvasWidth, canvasHeight);
+                // Les pastilles passent au-dessus de tout le reste de l'overlay.
+                if (!_outlinesUnavailable)
+                {
+                    try
+                    {
+                        DrawZoomBadges(overlay, metrics);
+                    }
+                    catch (Exception)
+                    {
+                        _outlinesUnavailable = true;
+                    }
+                }
             }
             finally
             {
@@ -485,7 +427,7 @@ internal static class ObsPreviewGraphics
                 while (GsEffectLoop(effect, "Solid")) FillAll(CanvasFrame, guides);
             }
 
-            DrawZoomMarks(effect, colorParameter, overlay, metrics);
+            DrawZoomMap(effect, colorParameter, overlay, metrics);
 
             if (chosen == null) return;
 
@@ -510,48 +452,83 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    // Le badge de chaque source zoomée, et la mini-carte de celle qui est choisie. Les
-    // plaques sont sombres et un peu transparentes : elles se lisent sur n'importe quelle
-    // image sans la cacher. Le texte et le contour de l'image prennent la couleur neutre de
-    // l'outil ; la fenêtre, l'accent de la sélection, parce que c'est elle qu'on saisit.
-    private static void DrawZoomMarks(
+    // La mini-carte de la source choisie et zoomée. Sa plaque est sombre et un peu
+    // transparente : elle se lit sur n'importe quelle image sans la cacher. Le contour de
+    // l'image prend la couleur neutre de l'outil ; la fenêtre, l'accent de la sélection,
+    // parce que c'est elle qu'on saisit.
+    private static void DrawZoomMap(
         IntPtr effect,
         IntPtr colorParameter,
         CompositionOverlay overlay,
         OverlayMetrics metrics)
     {
-        var badges = new List<(SourceTransform Frame, PreviewFillRect Plate, IReadOnlyList<PreviewFillRect> Text)>();
-        foreach (var source in overlay.Sources)
-        {
-            if (ZoomBadge(source.Transform, metrics) is { } badge)
-                badges.Add((source.Transform, badge.Plate, badge.Text));
-        }
-
-        var chosen = overlay.Selected?.Transform;
-        var map = chosen != null ? ZoomMapShapes(chosen, metrics) : null;
-        if (badges.Count == 0 && map == null) return;
+        if (overlay.Selected?.Transform is not { } chosen) return;
+        if (ZoomMapShapes(chosen, metrics) is not { } map) return;
 
         SetColor(colorParameter, Plate);
-        while (GsEffectLoop(effect, "Solid"))
-        {
-            foreach (var badge in badges) Fill(badge.Frame, badge.Plate);
-            if (map is { } shapes) Fill(chosen!, shapes.Plate);
-        }
+        while (GsEffectLoop(effect, "Solid")) Fill(chosen, map.Plate);
 
         SetColor(colorParameter, HandleCore);
-        while (GsEffectLoop(effect, "Solid"))
-        {
-            foreach (var badge in badges) FillAll(badge.Frame, badge.Text);
-            if (map is { } shapes) FillAll(chosen!, shapes.Outline);
-        }
-
-        if (map is not { } chosenMap) return;
+        while (GsEffectLoop(effect, "Solid")) FillAll(chosen, map.Outline);
 
         SetColor(colorParameter, ChosenVeil);
-        while (GsEffectLoop(effect, "Solid")) Fill(chosen!, chosenMap.Window);
+        while (GsEffectLoop(effect, "Solid")) Fill(chosen, map.Window);
 
         SetColor(colorParameter, Chosen);
-        while (GsEffectLoop(effect, "Solid")) FillAll(chosen!, chosenMap.WindowEdges);
+        while (GsEffectLoop(effect, "Solid")) FillAll(chosen, map.WindowEdges);
+    }
+
+    // La pastille de zoom de chaque source zoomée, rendue par l'interface dans le style de
+    // celle qui nomme la scène. Une pastille pas encore rendue est demandée, et paraît à
+    // l'image suivante.
+    private static void DrawZoomBadges(CompositionOverlay overlay, OverlayMetrics metrics)
+    {
+        IntPtr effect = IntPtr.Zero;
+        IntPtr imageParameter = IntPtr.Zero;
+        foreach (var source in overlay.Sources)
+        {
+            var transform = source.Transform;
+            if (!transform.Zoom.IsZoomed) continue;
+            if (PreviewBadges.Get(ZoomLabel(transform.Zoom)) is not { } image) continue;
+            if (ZoomBadge(transform, image.Width, image.Height, metrics) is not { } badge) continue;
+
+            var texture = TextureOf(image);
+            if (texture == IntPtr.Zero) continue;
+
+            if (effect == IntPtr.Zero)
+            {
+                effect = ObsGetBaseEffect(ObsEffectDefault);
+                if (effect == IntPtr.Zero) return;
+                imageParameter = GsEffectGetParamByName(effect, "image");
+                if (imageParameter == IntPtr.Zero) return;
+            }
+
+            GsEffectSetTexture(imageParameter, texture);
+            while (GsEffectLoop(effect, "Draw")) Fill(transform, badge, texture, image.Width, image.Height);
+        }
+    }
+
+    // Une texture par pastille, créée au premier besoin sur le thread graphique et gardée :
+    // il n'y en a qu'une par facteur de zoom affiché, chacune de quelques kilo-octets.
+    private static readonly Dictionary<PreviewBadgeImage, IntPtr> Textures = new(ReferenceEqualityComparer.Instance);
+
+    private static IntPtr TextureOf(PreviewBadgeImage image)
+    {
+        if (Textures.TryGetValue(image, out var texture)) return texture;
+
+        var handle = GCHandle.Alloc(image.Pixels, GCHandleType.Pinned);
+        try
+        {
+            var levels = new[] { handle.AddrOfPinnedObject() };
+            texture = GsTextureCreate((uint)image.Width, (uint)image.Height, GsColorFormatBgra, 1, levels, 0);
+        }
+        finally
+        {
+            handle.Free();
+        }
+
+        Textures[image] = texture;
+        return texture;
     }
 
     /// <summary>
@@ -640,7 +617,12 @@ internal static class ObsPreviewGraphics
     // Un quad unitaire mis à la place et à la taille voulues : c'est ainsi que libobs peint
     // ses propres rectangles, sans avoir à construire de géométrie. Le repère de la source
     // vient d'abord — son point, puis sa rotation —, exactement comme libobs compose l'item.
-    private static void Fill(SourceTransform frame, PreviewFillRect rect)
+    private static void Fill(SourceTransform frame, PreviewFillRect rect) =>
+        Fill(frame, rect, IntPtr.Zero, 1, 1);
+
+    // Une texture se peint de même : gs_draw_sprite la pose sur un quad de sa propre taille,
+    // ramené ensuite à celle du rectangle.
+    private static void Fill(SourceTransform frame, PreviewFillRect rect, IntPtr texture, int width, int height)
     {
         GsMatrixPush();
         try
@@ -650,8 +632,8 @@ internal static class ObsPreviewGraphics
             if (frame.Rotation != 0)
                 GsMatrixRotaa4f(0f, 0f, 1f, (float)(frame.Rotation * Math.PI / 180));
             GsMatrixTranslate3f(rect.X, rect.Y, 0f);
-            GsMatrixScale3f(rect.Width, rect.Height, 1f);
-            GsDrawSprite(IntPtr.Zero, 0, 1, 1);
+            GsMatrixScale3f(rect.Width / width, rect.Height / height, 1f);
+            GsDrawSprite(texture, 0, (uint)width, (uint)height);
         }
         finally
         {
@@ -724,6 +706,18 @@ internal static class ObsPreviewGraphics
 
     [DllImport(ObsLibrary, EntryPoint = "gs_matrix_scale3f", CallingConvention = CallingConvention.Cdecl)]
     private static extern void GsMatrixScale3f(float x, float y, float z);
+
+    [DllImport(ObsLibrary, EntryPoint = "gs_texture_create", CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr GsTextureCreate(
+        uint width,
+        uint height,
+        int colorFormat,
+        uint levels,
+        IntPtr[] data,
+        uint flags);
+
+    [DllImport(ObsLibrary, EntryPoint = "gs_effect_set_texture", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void GsEffectSetTexture(IntPtr parameter, IntPtr texture);
 
     [DllImport(ObsLibrary, EntryPoint = "gs_draw_sprite", CallingConvention = CallingConvention.Cdecl)]
     private static extern void GsDrawSprite(IntPtr texture, uint flip, uint width, uint height);

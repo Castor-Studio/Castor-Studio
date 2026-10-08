@@ -163,32 +163,20 @@ public sealed class ObsPreviewGraphicsTests
     }
 
     [Fact]
-    public void Glyphs_merge_neighbouring_cells_and_leave_one_cell_between_signs()
+    public void Only_a_zoomed_source_with_room_for_it_carries_a_zoom_badge()
     {
-        // « 1 » : la barre du bas tient en un seul rectangle de trois cases.
-        var one = ObsPreviewGraphics.GlyphRects("1", 0, 0, cell: 2);
-        Assert.Contains(new PreviewFillRect(0, 8, 6, 2), one);
-
-        // Le second signe commence après trois cases et une case d'écart.
-        var two = ObsPreviewGraphics.GlyphRects("11", 0, 0, cell: 2);
-        Assert.Contains(new PreviewFillRect(8, 8, 6, 2), two);
-        Assert.Equal(14, ObsPreviewGraphics.GlyphWidth("11", 2));
-    }
-
-    [Fact]
-    public void Only_a_zoomed_source_with_room_for_it_carries_a_badge()
-    {
-        var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 1920, canvasWidth: 1920);
+        // Le canvas est montré à moitié : une pastille de 80 × 22 pixels d'écran en couvre le double.
+        var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 960, canvasWidth: 1920);
         var source = new SourceTransform(Guid.NewGuid(), 0, 0, 640, 360, 1, 1, SourceCrop.None, 640, 360, true);
 
-        Assert.Null(ObsPreviewGraphics.ZoomBadge(source, metrics));
+        Assert.Null(ObsPreviewGraphics.ZoomBadge(source, 80, 22, metrics));
 
-        var badge = ObsPreviewGraphics.ZoomBadge(source with { Zoom = new SourceZoom(2) }, metrics);
-        Assert.NotNull(badge);
-        Assert.Equal(metrics.BadgeInset, badge.Value.Plate.X);
-        Assert.NotEmpty(badge.Value.Text);
+        var badge = ObsPreviewGraphics.ZoomBadge(source with { Zoom = new SourceZoom(2) }, 80, 22, metrics);
+        Assert.Equal(new PreviewFillRect(metrics.BadgeInset, metrics.BadgeInset, 160, 44), badge);
 
-        Assert.Null(ObsPreviewGraphics.ZoomBadge(source with { Width = 20, Height = 12, Zoom = new SourceZoom(2) }, metrics));
+        Assert.Null(ObsPreviewGraphics.ZoomBadge(
+            source with { Width = 120, Height = 40, Zoom = new SourceZoom(2) }, 80, 22, metrics));
+        Assert.StartsWith("Zoom ×", ObsPreviewGraphics.ZoomLabel(new SourceZoom(1.5)));
     }
 
     [Fact]
