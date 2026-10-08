@@ -43,6 +43,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
     // enfoncé. Les deux ne valent que pour la source choisie.
     private bool _cropMode;
     private bool _cropModifier;
+    // Le mode où glisser sur la source choisie déplace son image zoomée plutôt qu'elle.
+    private bool _panMode;
     private Guid? _hoveredSourceId;
     // La taille du canvas à la dernière lecture : ses bords et son centre aimantent les
     // sources qu'on déplace.
@@ -60,6 +62,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
         public required double OriginX { get; init; }
         public required double OriginY { get; init; }
         public SourcePlacement Requested { get; set; }
+        // Ce qu'un glissement du zoom demande : le cadre, lui, ne bouge pas.
+        public SourceZoom RequestedZoom { get; set; }
         public bool HasPendingWrite { get; set; }
         public bool HasWritten { get; set; }
         public long? LastWrite { get; set; }
@@ -86,6 +90,12 @@ public partial class SceneCompositionViewModel : ViewModelBase
     public bool IsCropMode => _cropMode && HasSelection;
 
     /// <summary>
+    /// Si le mode déplacement du zoom est tenu : glisser sur la source choisie fait glisser
+    /// son image zoomée sous le cadre.
+    /// </summary>
+    public bool IsPanMode => _panMode && HasSelection;
+
+    /// <summary>
     /// Si la source choisie se montre et se saisit en rognage : mode tenu, ou Alt enfoncé.
     /// </summary>
     public bool IsCropping => Overlay.IsCropping;
@@ -109,6 +119,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         // rouvrir la suivante avec une sélection qui n'est plus à elle.
         _selectedSourceId = null;
         _cropMode = false;
+        _panMode = false;
         Publish([]);
         Refresh();
     }
@@ -127,8 +138,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
             return;
         }
 
-        // Le rognage se fait sur une source : en choisir une autre le termine.
-        if (source.SourceId != _selectedSourceId) _cropMode = false;
+        // Rognage et déplacement du zoom se font sur une source : en choisir une autre les
+        // termine.
+        if (source.SourceId != _selectedSourceId) _cropMode = _panMode = false;
         _selectedSourceId = source.SourceId;
         Publish(Overlay.Sources);
     }
@@ -160,6 +172,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
         _selectedSourceId = null;
         _cropMode = false;
+        _panMode = false;
         Publish(Overlay.Sources);
     }
 
@@ -179,6 +192,11 @@ public partial class SceneCompositionViewModel : ViewModelBase
         double rotationReach = 0)
     {
         var selected = Selected;
+        // En déplacement du zoom, toute la source choisie se saisit pour faire glisser son
+        // image ; ses poignées se taisent.
+        if (selected != null && _panMode && CompositionGeometry.Contains(selected, canvasX, canvasY))
+            return new CompositionTarget(CompositionGestureKind.Pan, null);
+
         if (selected != null)
         {
             var cropping = crop || _cropMode;
@@ -229,8 +247,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
             ? SourceAt(canvasX, canvasY)!
             : Selected!;
 
-        // Saisir une autre source, c'est quitter le rognage de la précédente.
-        if (start.SourceId != _selectedSourceId) _cropMode = false;
+        // Saisir une autre source, c'est quitter le rognage et le déplacement du zoom de la
+        // précédente.
+        if (start.SourceId != _selectedSourceId) _cropMode = _panMode = false;
         _selectedSourceId = start.SourceId;
         _gesture = new Gesture
         {
@@ -240,7 +259,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
             Start = start,
             OriginX = canvasX,
             OriginY = canvasY,
-            Requested = start.Placement
+            Requested = start.Placement,
+            RequestedZoom = start.Zoom
         };
         Publish(Overlay.Sources);
         return target;
@@ -271,6 +291,17 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
         var deltaX = canvasX - gesture.OriginX;
         var deltaY = canvasY - gesture.OriginY;
+
+        if (gesture.Kind == CompositionGestureKind.Pan)
+        {
+            var zoom = CompositionGeometry.Pan(gesture.Start, deltaX, deltaY);
+            if (zoom == gesture.RequestedZoom) return;
+
+            gesture.RequestedZoom = zoom;
+            Request(gesture);
+            return;
+        }
+
         var requested = gesture.Kind switch
         {
             CompositionGestureKind.Resize => CompositionGeometry.Resize(
@@ -296,6 +327,12 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (requested == gesture.Requested) return;
 
         gesture.Requested = requested;
+        Request(gesture);
+    }
+
+    // Le cadre suit tout de suite ; le moteur, à son rythme.
+    private void Request(Gesture gesture)
+    {
         gesture.HasPendingWrite = true;
         Publish(Overlay.Sources);
 
@@ -348,10 +385,12 @@ public partial class SceneCompositionViewModel : ViewModelBase
             var gesture = _gesture;
             if (gesture == null) return "";
 
-            var shown = CompositionGeometry.Preview(gesture.Start, gesture.Requested);
+            var shown = Shown(gesture);
             var crop = shown.Crop;
             return gesture.Kind switch
             {
+                CompositionGestureKind.Pan =>
+                    $"Centre {shown.Zoom.CenterX * 100:0} % · {shown.Zoom.CenterY * 100:0} %",
                 CompositionGestureKind.Resize => $"{shown.Width:0} × {shown.Height:0}",
                 CompositionGestureKind.Crop =>
                     $"Gauche {crop.Left} · Haut {crop.Top} · Droite {crop.Right} · Bas {crop.Bottom}",
@@ -370,6 +409,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (!HasSelection || _cropMode) return;
 
         _cropMode = true;
+        _panMode = false;
         Publish(Overlay.Sources);
     }
 
@@ -387,6 +427,35 @@ public partial class SceneCompositionViewModel : ViewModelBase
     {
         if (_cropMode) ExitCropMode();
         else EnterCropMode();
+    }
+
+    /// <summary>
+    /// Tient le déplacement du zoom sur la source choisie, jusqu'à ce qu'on en sorte. Sans
+    /// image zoomée, il n'y a rien à faire glisser. Le rognage, lui, se termine.
+    /// </summary>
+    public void EnterPanMode()
+    {
+        if (Selected is not { Zoom.IsZoomed: true } || _panMode) return;
+
+        _panMode = true;
+        _cropMode = false;
+        Publish(Overlay.Sources);
+    }
+
+    /// <summary>Quitte le déplacement du zoom : glisser déplace de nouveau la source.</summary>
+    public void ExitPanMode()
+    {
+        if (!_panMode) return;
+
+        _panMode = false;
+        Publish(Overlay.Sources);
+    }
+
+    /// <summary>Entre en déplacement du zoom, ou en sort s'il est déjà tenu.</summary>
+    public void TogglePanMode()
+    {
+        if (_panMode) ExitPanMode();
+        else EnterPanMode();
     }
 
     /// <summary>
@@ -506,7 +575,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
     // ne reste de la demande refusée, ni à l'écran, ni dans le moteur.
     private bool Write(Gesture gesture)
     {
-        var result = _sourceRuntime.SetSourceTransform(gesture.SceneId, gesture.Start.SourceId, gesture.Requested);
+        var result = gesture.Kind == CompositionGestureKind.Pan
+            ? _sourceRuntime.SetSourceZoom(gesture.SceneId, gesture.Start.SourceId, gesture.RequestedZoom)
+            : _sourceRuntime.SetSourceTransform(gesture.SceneId, gesture.Start.SourceId, gesture.Requested);
         gesture.LastWrite = _time.GetTimestamp();
         gesture.HasPendingWrite = false;
         if (result.IsSuccess)
@@ -528,9 +599,17 @@ public partial class SceneCompositionViewModel : ViewModelBase
         gesture.LastWrite is not { } lastWrite || _time.GetElapsedTime(lastWrite) >= WriteInterval;
 
     private SourceTransformResult Restore(Gesture gesture) =>
-        gesture.HasWritten
-            ? _sourceRuntime.SetSourceTransform(gesture.SceneId, gesture.Start.SourceId, gesture.Start.Placement)
-            : SourceTransformResult.Success(gesture.Start);
+        !gesture.HasWritten
+            ? SourceTransformResult.Success(gesture.Start)
+            : gesture.Kind == CompositionGestureKind.Pan
+                ? _sourceRuntime.SetSourceZoom(gesture.SceneId, gesture.Start.SourceId, gesture.Start.Zoom)
+                : _sourceRuntime.SetSourceTransform(gesture.SceneId, gesture.Start.SourceId, gesture.Start.Placement);
+
+    // Ce que le geste demande, montré avant la confirmation du moteur.
+    private static SourceTransform Shown(Gesture gesture) =>
+        gesture.Kind == CompositionGestureKind.Pan
+            ? gesture.Start with { Zoom = gesture.RequestedZoom }
+            : CompositionGeometry.Preview(gesture.Start, gesture.Requested);
 
     // La source qui est devant à ce point du canvas. La liste va de l'arrière-plan vers le
     // premier plan : on la remonte pour rencontrer d'abord ce qui est dessus.
@@ -559,6 +638,10 @@ public partial class SceneCompositionViewModel : ViewModelBase
             _cropMode = false;
         }
 
+        // Une image qui n'est plus zoomée (zoom remis à zéro, ici ou par une IA) n'a plus
+        // rien à faire glisser.
+        if (selected is not { Transform.Zoom.IsZoomed: true }) _panMode = false;
+
         // Le survol se tait pendant un geste, et sur la source déjà choisie : elle porte déjà
         // ce poids.
         var hovered = _gesture == null && _hoveredSourceId != _selectedSourceId
@@ -581,7 +664,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         var gesture = _gesture;
         if (gesture == null) return sources;
 
-        var shown = CompositionGeometry.Preview(gesture.Start, gesture.Requested);
+        var shown = Shown(gesture);
         var result = new List<OverlaySource>(sources.Count);
         foreach (var source in sources)
         {

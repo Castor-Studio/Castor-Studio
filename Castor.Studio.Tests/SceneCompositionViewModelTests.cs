@@ -707,6 +707,36 @@ public sealed class SceneCompositionViewModelTests
     }
 
     [Fact]
+    public void In_pan_mode_dragging_slides_the_zoomed_image_and_leaves_the_frame_alone()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        var camera = Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360);
+        runtime.Compose(scene, camera with { Zoom = new SourceZoom(2) });
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+        composition.EnterPanMode();
+
+        // Tirer l'image de 160 px vers la gauche, c'est un quart de cadre, donc un huitième
+        // d'image à ×2 : le point visé part vers la droite.
+        var target = composition.BeginGesture(420, 280, HandleTolerance, crop: false);
+        Assert.Equal(CompositionGestureKind.Pan, target?.Kind);
+        composition.UpdateGesture(260, 280, keepAspectRatio: true);
+        composition.EndGesture();
+
+        var panned = runtime.TransformOf(Id(scene, "Caméra"));
+        Assert.Equal(0.625, panned.Zoom.CenterX, 6);
+        Assert.Equal(0.5, panned.Zoom.CenterY, 6);
+        Assert.Equal(camera.Placement, panned.Placement);
+        Assert.Empty(runtime.Writes);
+
+        // Sans zoom, il n'y a plus rien à faire glisser : le mode tombe de lui-même.
+        composition.ResetSelectedZoom();
+        Assert.False(composition.IsPanMode);
+    }
+
+    [Fact]
     public void A_dragged_source_snaps_to_the_centre_and_shows_its_guides_until_released()
     {
         var scene = SceneWith("Caméra");

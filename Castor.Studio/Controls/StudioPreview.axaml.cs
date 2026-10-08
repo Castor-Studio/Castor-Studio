@@ -101,6 +101,7 @@ public partial class StudioPreview : UserControl
     private const double SnapReach = 8;
 
     private static readonly Cursor SizeAllCursor = new(StandardCursorType.SizeAll);
+    private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
     // Les quatre axes d'étirement : ↔, ↘↖, ↕, ↗↙.
     private static readonly Cursor HorizontalCursor = new(StandardCursorType.SizeWestEast);
     private static readonly Cursor DescendingDiagonalCursor = new(StandardCursorType.TopLeftCorner);
@@ -256,12 +257,17 @@ public partial class StudioPreview : UserControl
 
         switch (e.Key)
         {
-            // Échap annule d'abord le geste en cours ; sans geste, il quitte le rognage.
+            // Échap annule d'abord le geste en cours ; sans geste, il quitte le rognage ou le
+            // déplacement du zoom.
             case Key.Escape when composition.IsGesturing:
                 CancelGesture();
                 break;
             case Key.Escape or Key.Enter when composition.IsCropMode:
                 composition.ExitCropMode();
+                NativePreview.ShowComposition();
+                break;
+            case Key.Escape or Key.Enter when composition.IsPanMode:
+                composition.ExitPanMode();
                 NativePreview.ShowComposition();
                 break;
             default:
@@ -342,6 +348,8 @@ public partial class StudioPreview : UserControl
                 Item("Réinitialiser la rotation", composition.ResetSelectedRotation, selected.Rotation != 0),
                 new Separator(),
                 ZoomItem(composition, selected.Zoom.Factor),
+                Item(composition.IsPanMode ? "Terminer le déplacement du zoom" : "Déplacer le zoom",
+                    composition.TogglePanMode, selected.Zoom.IsZoomed),
                 Item("Réinitialiser le zoom", composition.ResetSelectedZoom, selected.Zoom.IsZoomed)
             }
         };
@@ -462,6 +470,7 @@ public partial class StudioPreview : UserControl
         null => null,
         { Kind: CompositionGestureKind.Move } => SizeAllCursor,
         { Kind: CompositionGestureKind.Rotate } => RotateCursor,
+        { Kind: CompositionGestureKind.Pan } => HandCursor,
         { Handle: { } handle } => PullCursor(CompositionGeometry.PullDirection(handle, rotation)),
         _ => null
     };

@@ -21,14 +21,16 @@ public enum CompositionHandle
 
 /// <summary>
 /// Ce qu'un geste sur le canvas fait à une source : la déplacer, l'étirer par une poignée,
-/// la rogner par une poignée, ou la faire tourner par un de ses coins.
+/// la rogner par une poignée, la faire tourner par un de ses coins, ou faire glisser son
+/// image zoomée sous son cadre.
 /// </summary>
 public enum CompositionGestureKind
 {
     Move,
     Resize,
     Crop,
-    Rotate
+    Rotate,
+    Pan
 }
 
 /// <summary>
@@ -367,6 +369,27 @@ public static class CompositionGeometry
     /// <summary>La source tourne de <paramref name="degrees"/> autour de son centre.</summary>
     public static SourcePlacement RotateBy(SourceTransform start, double degrees) =>
         TurnedTo(start, start.Rotation + degrees);
+
+    /// <summary>
+    /// L'image zoomée glisse sous le cadre avec le pointeur, comme une photo qu'on pousse du
+    /// doigt : le point visé part dans l'autre sens. Le déplacement se compte le long des
+    /// bords de la source, et le point visé s'arrête là où la fenêtre zoomée touche le bord
+    /// de l'image.
+    /// </summary>
+    public static SourceZoom Pan(SourceTransform start, double deltaX, double deltaY)
+    {
+        var zoom = start.Zoom;
+        if (!zoom.IsZoomed || start.Width <= 0 || start.Height <= 0) return zoom;
+
+        var (u, v) = Turn(deltaX, deltaY, -start.Rotation);
+        // Le cadre montre 1 / Factor de l'image : un cadre entier parcouru en déplace autant.
+        var half = 0.5 / zoom.Factor;
+        return zoom with
+        {
+            CenterX = Math.Clamp(Math.Clamp(zoom.CenterX, half, 1 - half) - u / start.Width / zoom.Factor, half, 1 - half),
+            CenterY = Math.Clamp(Math.Clamp(zoom.CenterY, half, 1 - half) - v / start.Height / zoom.Factor, half, 1 - half)
+        };
+    }
 
     /// <summary>Un angle ramené dans ]-180, 180] : un tour complet ne tourne rien.</summary>
     public static double NormalizeDegrees(double degrees)
