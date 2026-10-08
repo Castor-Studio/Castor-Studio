@@ -463,16 +463,18 @@ public partial class SceneCompositionViewModel : ViewModelBase
             selected = aimed;
         }
 
-        var factor = Math.Clamp(
-            selected.Zoom.Factor * Math.Pow(ZoomStep, steps), SourceZoom.MinFactor, SourceZoom.MaxFactor);
+        var factor = Stepped(selected.Zoom.Factor, steps);
         if (factor == selected.Zoom.Factor) return true;
 
         ApplyZoom(selected, CompositionGeometry.ZoomAt(selected, canvasX, canvasY, factor));
         return true;
     }
 
-    // Un cran de molette agrandit de 15 % : de ×1 à ×2 en cinq crans.
+    // Un cran de molette ou de touche agrandit de 15 % : de ×1 à ×2 en cinq crans.
     private const double ZoomStep = 1.15;
+
+    private static double Stepped(double factor, double steps) =>
+        Math.Clamp(factor * Math.Pow(ZoomStep, steps), SourceZoom.MinFactor, SourceZoom.MaxFactor);
 
     // Une flèche fait glisser l'image d'un dixième de ce que le cadre en montre.
     private const double NudgeShare = 0.1;
@@ -485,8 +487,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
     {
         if (Selected is not { } selected) return;
 
-        var factor = Math.Clamp(
-            selected.Zoom.Factor * Math.Pow(ZoomStep, steps), SourceZoom.MinFactor, SourceZoom.MaxFactor);
+        var factor = Stepped(selected.Zoom.Factor, steps);
         if (factor != selected.Zoom.Factor) ZoomSelected(factor);
     }
 
@@ -500,13 +501,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (Selected is not { Zoom.IsZoomed: true } selected) return;
 
         var zoom = selected.Zoom;
-        var half = 0.5 / zoom.Factor;
+        var shown = zoom.Aimed(zoom.CenterX, zoom.CenterY);
         var step = NudgeShare / zoom.Factor;
-        var nudged = zoom with
-        {
-            CenterX = Math.Clamp(Math.Clamp(zoom.CenterX, half, 1 - half) + columns * step, half, 1 - half),
-            CenterY = Math.Clamp(Math.Clamp(zoom.CenterY, half, 1 - half) + rows * step, half, 1 - half)
-        };
+        var nudged = shown.Aimed(shown.CenterX + columns * step, shown.CenterY + rows * step);
         if (nudged != zoom) ApplyZoom(selected, nudged);
     }
 

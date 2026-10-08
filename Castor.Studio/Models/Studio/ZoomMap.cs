@@ -71,11 +71,6 @@ public static class ZoomMap
     {
         if (!zoom.IsZoomed || map.Width <= 0 || map.Height <= 0) return zoom;
 
-        var half = 0.5 / zoom.Factor;
-        return zoom with
-        {
-            CenterX = Math.Clamp((x - map.X) / map.Width, half, 1 - half),
-            CenterY = Math.Clamp((y - map.Y) / map.Height, half, 1 - half)
-        };
+        return zoom.Aimed((x - map.X) / map.Width, (y - map.Y) / map.Height);
     }
 }

@@ -18,6 +18,20 @@ public readonly record struct SourceZoom(double Factor, double CenterX = 0.5, do
     public bool IsZoomed => Factor > MinFactor;
 
     /// <summary>
+    /// Ce zoom, visant (<paramref name="centerX"/>, <paramref name="centerY"/>) : le point est
+    /// ramené là où la fenêtre zoomée tient entière dans l'image, comme le moteur la cale.
+    /// </summary>
+    public SourceZoom Aimed(double centerX, double centerY)
+    {
+        var half = 0.5 / Factor;
+        return this with
+        {
+            CenterX = Math.Clamp(centerX, half, 1 - half),
+            CenterY = Math.Clamp(centerY, half, 1 - half)
+        };
+    }
+
+    /// <summary>
     /// Rognage que ce zoom ajoute dans une image visible de <paramref name="width"/> ×
     /// <paramref name="height"/> pixels : ce qu'il faut retirer de chaque bord pour n'en garder
     /// que la fenêtre zoomée. La fenêtre est poussée contre le bord plutôt que d'en sortir.

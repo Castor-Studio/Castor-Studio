@@ -1148,6 +1148,16 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             if (_initialized)
             {
+                // Les aperçus sont fermés : les textures de leurs pastilles partent avant le
+                // contexte graphique qui les porte.
+                try
+                {
+                    ObsPreviewGraphics.ReleaseTextures();
+                }
+                catch
+                {
+                }
+
                 Obs.Shutdown();
                 _initialized = false;
             }

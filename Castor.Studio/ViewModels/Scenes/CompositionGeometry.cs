@@ -384,12 +384,11 @@ public static class CompositionGeometry
 
         var (u, v) = Turn(deltaX, deltaY, -start.Rotation);
         // Le cadre montre 1 / Factor de l'image : un cadre entier parcouru en déplace autant.
-        var half = 0.5 / zoom.Factor;
-        return zoom with
-        {
-            CenterX = Math.Clamp(Math.Clamp(zoom.CenterX, half, 1 - half) - u / start.Width / zoom.Factor, half, 1 - half),
-            CenterY = Math.Clamp(Math.Clamp(zoom.CenterY, half, 1 - half) - v / start.Height / zoom.Factor, half, 1 - half)
-        };
+        // Le glissement part du point que le moteur montre vraiment, pas d'un point hors d'atteinte.
+        var shown = zoom.Aimed(zoom.CenterX, zoom.CenterY);
+        return shown.Aimed(
+            shown.CenterX - u / start.Width / zoom.Factor,
+            shown.CenterY - v / start.Height / zoom.Factor);
     }
 
     /// <summary>
@@ -407,20 +406,14 @@ public static class CompositionGeometry
         var frameX = Math.Clamp(u / start.Width, 0, 1);
         var frameY = Math.Clamp(v / start.Height, 0, 1);
 
-        return new SourceZoom(
-            factor,
-            Anchored(start.Zoom.Factor, start.Zoom.CenterX, frameX, factor),
-            Anchored(start.Zoom.Factor, start.Zoom.CenterY, frameY, factor));
-    }
-
-    // Le centre qui garde au même endroit du cadre le point de l'image qui y est déjà : ce
-    // point se lit dans la fenêtre d'avant, puis la nouvelle fenêtre se pose autour de lui.
-    private static double Anchored(double factor, double center, double frame, double newFactor)
-    {
-        var half = 0.5 / factor;
-        var aimed = Math.Clamp(center, half, 1 - half) - half + frame / factor;
-        var newHalf = 0.5 / newFactor;
-        return Math.Clamp(aimed - frame / newFactor + newHalf, newHalf, 1 - newHalf);
+        // Le point de l'image sous le pointeur se lit dans la fenêtre d'avant ; la nouvelle se
+        // pose autour de lui pour le garder au même endroit du cadre.
+        var before = start.Zoom.Aimed(start.Zoom.CenterX, start.Zoom.CenterY);
+        var imageX = before.CenterX + (frameX - 0.5) / before.Factor;
+        var imageY = before.CenterY + (frameY - 0.5) / before.Factor;
+        return new SourceZoom(factor).Aimed(
+            imageX - (frameX - 0.5) / factor,
+            imageY - (frameY - 0.5) / factor);
     }
 
     /// <summary>Un angle ramené dans ]-180, 180] : un tour complet ne tourne rien.</summary>

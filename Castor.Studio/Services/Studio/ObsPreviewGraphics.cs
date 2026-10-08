@@ -489,10 +489,11 @@ internal static class ObsPreviewGraphics
         {
             var transform = source.Transform;
             if (!transform.Zoom.IsZoomed) continue;
-            if (PreviewBadges.Get(ZoomLabel(transform.Zoom)) is not { } image) continue;
+            var label = ZoomLabel(transform.Zoom);
+            if (PreviewBadges.Get(label) is not { } image) continue;
             if (ZoomBadge(transform, image.Width, image.Height, metrics) is not { } badge) continue;
 
-            var texture = TextureOf(image);
+            var texture = TextureOf(label, image);
             if (texture == IntPtr.Zero) continue;
 
             if (effect == IntPtr.Zero)
@@ -508,15 +509,22 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    // Une texture par pastille, créée au premier besoin sur le thread graphique et gardée :
-    // il n'y en a qu'une par facteur de zoom affiché, chacune de quelques kilo-octets.
-    private static readonly Dictionary<PreviewBadgeImage, IntPtr> Textures = new(ReferenceEqualityComparer.Instance);
+    // Une texture par texte de pastille, créée au premier besoin et gardée : il n'y en a
+    // qu'une par facteur de zoom affiché, chacune de quelques kilo-octets. Une pastille
+    // rendue à nouveau (autre échelle d'écran) remplace la sienne, qui est détruite.
+    // N'est touché que dans le contexte graphique de libobs : il sérialise les accès.
+    private static readonly Dictionary<string, (PreviewBadgeImage Image, IntPtr Texture)> Textures = new();
 
-    private static IntPtr TextureOf(PreviewBadgeImage image)
+    private static IntPtr TextureOf(string label, PreviewBadgeImage image)
     {
-        if (Textures.TryGetValue(image, out var texture)) return texture;
+        if (Textures.TryGetValue(label, out var cached))
+        {
+            if (ReferenceEquals(cached.Image, image)) return cached.Texture;
+            if (cached.Texture != IntPtr.Zero) GsTextureDestroy(cached.Texture);
+        }
 
         var handle = GCHandle.Alloc(image.Pixels, GCHandleType.Pinned);
+        IntPtr texture;
         try
         {
             var levels = new[] { handle.AddrOfPinnedObject() };
@@ -527,8 +535,32 @@ internal static class ObsPreviewGraphics
             handle.Free();
         }
 
-        Textures[image] = texture;
+        Textures[label] = (image, texture);
         return texture;
+    }
+
+    /// <summary>
+    /// Détruit les textures des pastilles. À appeler avant d'arrêter libobs, une fois les
+    /// aperçus fermés : passé l'arrêt, plus rien ne peut les rendre.
+    /// </summary>
+    internal static void ReleaseTextures()
+    {
+        // Le contexte graphique d'abord, comme le thread de rendu qui le tient déjà quand il
+        // touche à ces textures : le même ordre partout, pas d'interblocage possible.
+        ObsEnterGraphics();
+        try
+        {
+            foreach (var (_, texture) in Textures.Values)
+            {
+                if (texture != IntPtr.Zero) GsTextureDestroy(texture);
+            }
+
+            Textures.Clear();
+        }
+        finally
+        {
+            ObsLeaveGraphics();
+        }
     }
 
     /// <summary>
@@ -715,6 +747,15 @@ internal static class ObsPreviewGraphics
         uint levels,
         IntPtr[] data,
         uint flags);
+
+    [DllImport(ObsLibrary, EntryPoint = "gs_texture_destroy", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void GsTextureDestroy(IntPtr texture);
+
+    [DllImport(ObsLibrary, EntryPoint = "obs_enter_graphics", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void ObsEnterGraphics();
+
+    [DllImport(ObsLibrary, EntryPoint = "obs_leave_graphics", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void ObsLeaveGraphics();
 
     [DllImport(ObsLibrary, EntryPoint = "gs_effect_set_texture", CallingConvention = CallingConvention.Cdecl)]
     private static extern void GsEffectSetTexture(IntPtr parameter, IntPtr texture);
