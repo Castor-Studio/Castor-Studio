@@ -6,22 +6,61 @@
              xmlns:dockSettings="using:Dock.Settings"
              x:DataType="vm:MulticamSceneTile">
 
-<Border Classes.onAir="{Binding IsOnAir}"
+<!-- Trois couleurs, trois sens : rouge pour la scène à l'antenne, bleu pour ce que fait l'IA,
+     neutre pour le reste. La bordure passe de 1 à 2 px en rendant 1 px de marge intérieure,
+     pour que la vidéo ne bouge pas d'un pixel quand une tuile change d'état. -->
+<Border Classes="tile"
+        Classes.aiConsidered="{Binding IsAiConsidered}"
+        Classes.aiPick="{Binding IsAiSelected}"
+        Classes.onAir="{Binding IsOnAir}"
         dockSettings:DockProperties.IsDragEnabled="False"
         dockSettings:DockProperties.IsDropEnabled="False"
         DoubleTapped="OnTileDoubleTapped"
         DragDrop.AllowDrop="True"
         DragDrop.DragOver="OnTileDragOver"
         DragDrop.Drop="OnTileDrop"
-        ToolTip.Tip="Double-cliquer pour envoyer cette scène à l'antenne"
+        ToolTip.Tip="Double-cliquez pour mettre cette scène à l'antenne"
         Background="{DynamicResource AppSurface}"
-        CornerRadius="10" Margin="0,0,10,10"
-        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
-        BoxShadow="0 2 10 0 #40000000">
+        CornerRadius="8" Margin="5"
+        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Padding="1">
 	<Border.Styles>
-		<Style Selector="Border.onAir">
+		<Style Selector="Border.tile.aiConsidered">
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+		</Style>
+		<Style Selector="Border.tile.aiPick">
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+			<Setter Property="BorderThickness" Value="2"/>
+			<Setter Property="Padding" Value="0"/>
+		</Style>
+		<!-- Déclaré après la suggestion : une scène suggérée qui est déjà à l'antenne
+		     se lit d'abord comme à l'antenne. -->
+		<Style Selector="Border.tile.onAir">
 			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
 			<Setter Property="BorderThickness" Value="2"/>
+			<Setter Property="Padding" Value="0"/>
+		</Style>
+
+		<!-- Le bandeau devient le tally : un aplat rouge qu'on repère sur le mur sans lire. -->
+		<Style Selector="Border.tile.onAir Border.band">
+			<Setter Property="Background" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
+		<Style Selector="Border.tile.onAir Border.band TextBlock">
+			<Setter Property="Foreground" Value="{DynamicResource AppOnStatusFg}"/>
+		</Style>
+
+		<Style Selector="Border.tile.aiPick Border.foot">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+		</Style>
+
+		<Style Selector="Button.tile-action">
+			<Setter Property="Background" Value="{DynamicResource AppAccentFg}"/>
+			<Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
+			<Setter Property="BorderThickness" Value="0"/>
+			<Setter Property="Padding" Value="9,3"/>
+			<Setter Property="CornerRadius" Value="4"/>
+			<Setter Property="FontSize" Value="11"/>
+			<Setter Property="FontWeight" Value="SemiBold"/>
+			<Setter Property="Cursor" Value="Hand"/>
 		</Style>
 	</Border.Styles>
 
@@ -29,29 +68,27 @@
 
 		<!-- Le titre tient dans un bandeau réservé, jamais en surimpression : la surface
 		     native est une fenêtre enfant Win32, Windows la compose au-dessus de tout ce
-		     qu'Avalonia peint. -->
-		<Border Grid.Row="0" Background="{DynamicResource AppSurface3}" Padding="12,8"
-                CornerRadius="9,9,0,0"
+		     qu'Avalonia peint. C'est aussi la poignée pour réordonner les scènes. -->
+		<Border Grid.Row="0" Classes="band"
+                Background="{DynamicResource AppSurface3}" Padding="12,7"
+                CornerRadius="7,7,0,0"
                 Cursor="SizeAll"
                 PointerPressed="OnTileBandPointerPressed"
-                ToolTip.Tip="Glisser pour réordonner les scènes">
-			<Grid ColumnDefinitions="Auto, *">
-				<Border Grid.Column="0" IsVisible="{Binding IsOnAir}"
-                        Background="{DynamicResource StatusErrorBrush}"
-                        CornerRadius="3" Padding="6,2" Margin="0,0,8,0"
-                        VerticalAlignment="Center">
-					<TextBlock Text="LIVE" Foreground="{DynamicResource AppOnStatusFg}"
-                               FontSize="9" FontWeight="Bold" LetterSpacing="1"/>
-				</Border>
-				<TextBlock Grid.Column="1" Text="{Binding Name}"
+                ToolTip.Tip="Glissez pour réordonner les scènes">
+			<Grid ColumnDefinitions="*, Auto">
+				<TextBlock Grid.Column="0" Text="{Binding Name}"
                            TextTrimming="CharacterEllipsis"
                            FontSize="13" FontWeight="SemiBold"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource AppFg1}"/>
+				<TextBlock Grid.Column="1" Text="À l'antenne"
+                           IsVisible="{Binding IsOnAir}"
+                           FontSize="11" FontWeight="SemiBold"
+                           Margin="10,0,0,0" VerticalAlignment="Center"/>
 			</Grid>
 		</Border>
 
-		<Panel Grid.Row="1" Background="#07070C" ClipToBounds="True">
+		<Panel Grid.Row="1" Background="Black" ClipToBounds="True">
 			<controls:StudioPreview Scene="{Binding Scene}"
                                     IsVisible="{Binding HasVideo}"
                                     ShowSceneName="False"
@@ -65,30 +102,48 @@
 			<!-- Une scène sans source ne lance pas d'aperçu du tout : plutôt qu'un
 			     rectangle noir, elle dit ce qui lui manque. Et c'est une surface native
 			     de moins à faire tourner. -->
-			<StackPanel IsVisible="{Binding !HasVideo}" Spacing="6"
+			<StackPanel IsVisible="{Binding !HasVideo}" Spacing="4" Margin="12"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock Text="AUCUNE SOURCE" HorizontalAlignment="Center"
-                           FontSize="11" FontWeight="Bold" LetterSpacing="2"
+				<TextBlock Text="Aucune source vidéo" HorizontalAlignment="Center"
+                           FontSize="12" FontWeight="SemiBold"
                            Foreground="{DynamicResource VideoFgBrush}"/>
-				<TextBlock Text="Ajoutez-en une depuis l'onglet Scènes"
-                           HorizontalAlignment="Center" FontSize="11"
+				<TextBlock Text="Ajoutez-en une dans l'onglet Scènes."
+                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                           FontSize="11"
                            Foreground="{DynamicResource VideoFgMutedBrush}"/>
 			</StackPanel>
 		</Panel>
 
-		<Border Grid.Row="2" Background="{DynamicResource AppSurface3}" Padding="12,7"
-                CornerRadius="0,0,9,9">
-			<Grid ColumnDefinitions="*, Auto">
-				<TextBlock Grid.Column="0"
-                           Text="{Binding SourceCount, StringFormat='{}{0} source(s)'}"
+		<!-- Le pied appartient à l'IA : la pastille qui inclut la scène dans l'analyse et,
+		     en mode agent, la suggestion à valider, là où se trouve la scène proposée. -->
+		<Border Grid.Row="2" Classes="foot"
+                Background="{DynamicResource AppSurface3}" Padding="12,5,8,5" MinHeight="34"
+                CornerRadius="0,0,7,7">
+			<Grid ColumnDefinitions="*, Auto, Auto">
+				<TextBlock Grid.Column="0" Text="{Binding SourceCountText}"
+                           IsVisible="{Binding !IsAiSelected}"
+                           TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource AppFg4}" FontSize="11"/>
 
-				<!-- Une pastille plutôt qu'une case nue : rien ne disait à quoi elle sert. -->
-				<ToggleButton Grid.Column="1" IsChecked="{Binding IsSelected}"
+				<TextBlock Grid.Column="0"
+                           IsVisible="{Binding IsAiSelected}"
+                           Text="{Binding $parent[ItemsControl].((vm:MulticamViewModel)DataContext).AiSuggestionConfidence, StringFormat='Suggérée ({0})', FallbackValue='Suggérée'}"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource AppAccentFg}" FontSize="11" FontWeight="SemiBold"/>
+				<Button Grid.Column="1" Classes="tile-action"
+                        IsVisible="{Binding IsAiSelected}"
+                        Content="Mettre à l'antenne"
+                        Command="{Binding $parent[ItemsControl].((vm:MulticamViewModel)DataContext).ApplyAiSuggestionCommand, FallbackValue={x:Null}}"
+                        IsEnabled="{Binding !$parent[ItemsControl].((vm:MulticamViewModel)DataContext).IsAiBusy, FallbackValue=False}"
+                        Margin="8,0,0,0" VerticalAlignment="Center"/>
+
+				<ToggleButton Grid.Column="2" IsChecked="{Binding IsSelected}"
                               Classes="ai-pick" VerticalAlignment="Center"
+                              Margin="6,0,0,0"
                               Content="IA"
-                              ToolTip.Tip="Inclure cette scène dans l'analyse IA"/>
+                              ToolTip.Tip="Inclure cette scène dans l'analyse de l'IA"/>
 			</Grid>
 		</Border>
 	</Grid>

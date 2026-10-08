@@ -29,6 +29,13 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     public string Name => Scene.Name;
     public int SourceCount => Scene.Sources.Count;
 
+    public string SourceCountText => SourceCount switch
+    {
+        0 => "Aucune source",
+        1 => "1 source",
+        var count => $"{count} sources",
+    };
+
     // Each tile draws on its own native surface. LibObsSceneRuntime keeps one
     // preview session per window, so every tile renders at the same time
     // instead of taking turns - which is the whole point of a grid.
@@ -104,6 +111,7 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     private void OnSourcesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(SourceCount));
+        OnPropertyChanged(nameof(SourceCountText));
         OnPropertyChanged(nameof(HasVideo));
         OnPropertyChanged(nameof(PreviewPlaceholderText));
     }
