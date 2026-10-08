@@ -735,6 +735,64 @@ public sealed class SceneCompositionViewModelTests
     }
 
     [Fact]
+    public void A_click_on_the_zoom_map_jumps_there_and_a_drag_keeps_aiming()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        var camera = Transform(scene, "Caméra", x: 100, y: 100, width: 1280, height: 720);
+        runtime.Compose(scene, camera with { Zoom = new SourceZoom(2) });
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        // À l'échelle 1, la carte fait 120 × 67,5 dans le coin bas-droit, à 8 px des bords.
+        var map = ZoomMap.Bounds(1280, 720, 1)!.Value;
+        double CanvasX(double share) => 100 + map.X + map.Width * share;
+        double CanvasY(double share) => 100 + map.Y + map.Height * share;
+
+        // Sans Alt : c'est un contrôle visible, il se saisit tel quel.
+        var target = composition.BeginGesture(CanvasX(0.7), CanvasY(0.5), HandleTolerance, crop: false,
+            canvasPerScreenPixel: 1);
+        Assert.Equal(CompositionGestureKind.Aim, target?.Kind);
+        Assert.Equal(0.7, Assert.Single(runtime.ZoomWrites).CenterX, 6);
+
+        // Viser plus loin que le bord cale la fenêtre contre lui.
+        composition.UpdateGesture(CanvasX(1.2), CanvasY(0.5), keepAspectRatio: true);
+        composition.EndGesture();
+
+        var aimed = runtime.TransformOf(Id(scene, "Caméra"));
+        Assert.Equal(0.75, aimed.Zoom.CenterX, 6);
+        Assert.Equal(camera.Placement, aimed.Placement);
+    }
+
+    [Fact]
+    public void The_keyboard_zooms_nudges_and_resets_the_chosen_source()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        // Sans zoom, une flèche n'a rien à faire glisser.
+        composition.NudgeSelectedZoom(1, 0);
+        Assert.Empty(runtime.ZoomWrites);
+
+        for (var step = 0; step < 5; step++) composition.StepSelectedZoom(1);
+        var zoomed = composition.Selected!.Zoom;
+        Assert.Equal(Math.Pow(1.15, 5), zoomed.Factor, 6);
+
+        // Un pas vaut un dixième de ce que le cadre montre.
+        composition.NudgeSelectedZoom(1, -1);
+        Assert.Equal(0.5 + 0.1 / zoomed.Factor, composition.Selected.Zoom.CenterX, 6);
+        Assert.Equal(0.5 - 0.1 / zoomed.Factor, composition.Selected.Zoom.CenterY, 6);
+
+        composition.ResetSelectedZoom();
+        Assert.Equal(SourceZoom.None, composition.Selected.Zoom);
+    }
+
+    [Fact]
     public void Alt_and_the_wheel_zoom_towards_the_pointer_and_the_wheel_alone_does_nothing()
     {
         var scene = SceneWith("Caméra");

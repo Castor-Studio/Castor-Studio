@@ -102,6 +102,7 @@ public partial class StudioPreview : UserControl
 
     private static readonly Cursor SizeAllCursor = new(StandardCursorType.SizeAll);
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
+    private static readonly Cursor AimCursor = new(StandardCursorType.Cross);
     // Les quatre axes d'étirement : ↔, ↘↖, ↕, ↗↙.
     private static readonly Cursor HorizontalCursor = new(StandardCursorType.SizeWestEast);
     private static readonly Cursor DescendingDiagonalCursor = new(StandardCursorType.TopLeftCorner);
@@ -172,7 +173,7 @@ public partial class StudioPreview : UserControl
         }
 
         var target = onPicture
-            ? composition.BeginGesture(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance)
+            ? composition.BeginGesture(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance, CanvasPerScreenPixel)
             : null;
 
         if (target == null)
@@ -213,7 +214,7 @@ public partial class StudioPreview : UserControl
             var onPicture = NativePreview.Bounds.Contains(point);
             Picture.Cursor = onPicture
                 ? CursorFor(
-                    composition.TargetAt(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance),
+                    composition.TargetAt(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance, CanvasPerScreenPixel),
                     composition.Selected?.Rotation ?? 0)
                 : null;
             if (onPicture ? composition.HoverAt(x, y) : composition.ClearHover())
@@ -280,6 +281,33 @@ public partial class StudioPreview : UserControl
                 break;
             case Key.Escape or Key.Enter when composition.IsCropMode:
                 composition.ExitCropMode();
+                NativePreview.ShowComposition();
+                break;
+            // + et - zooment la source choisie, 0 rend son image entière : ces touches n'ont
+            // aucun sens pour le cadre, elles n'ont pas besoin d'Alt.
+            case var _ when !composition.HasSelection || composition.IsGesturing:
+                return;
+            case Key.Add or Key.OemPlus:
+            case var _ when e.KeySymbol == "+":
+                composition.StepSelectedZoom(1);
+                NativePreview.ShowComposition();
+                break;
+            case Key.Subtract or Key.OemMinus:
+            case var _ when e.KeySymbol == "-":
+                composition.StepSelectedZoom(-1);
+                NativePreview.ShowComposition();
+                break;
+            case Key.NumPad0:
+            case var _ when e.KeySymbol == "0":
+                composition.ResetSelectedZoom();
+                NativePreview.ShowComposition();
+                break;
+            // Les flèches, elles, pourraient un jour pousser le cadre : faire glisser l'image
+            // demande Alt, comme à la souris.
+            case Key.Left or Key.Right or Key.Up or Key.Down when composition.IsCropping:
+                composition.NudgeSelectedZoom(
+                    e.Key switch { Key.Left => -1, Key.Right => 1, _ => 0 },
+                    e.Key switch { Key.Up => -1, Key.Down => 1, _ => 0 });
                 NativePreview.ShowComposition();
                 break;
             default:
@@ -467,6 +495,12 @@ public partial class StudioPreview : UserControl
 
     private double SnapTolerance => TryGetCanvasScale(out var scaleX, out _) ? SnapReach * scaleX : 0;
 
+    // La mini-carte se pense en pixels physiques de l'écran, comme le moteur la peint dans sa
+    // surface native : elle tombe ainsi au même endroit pour le clic et pour l'œil, quelle
+    // que soit la mise à l'échelle de Windows.
+    private double CanvasPerScreenPixel =>
+        TryGetCanvasScale(out var scaleX, out _) ? scaleX / (TopLevel.GetTopLevel(this)?.RenderScaling ?? 1) : 0;
+
     // Le pointeur quitte l'image : plus rien n'est survolé.
     private void OnPicturePointerExited(object? sender, PointerEventArgs e)
     {
@@ -484,6 +518,7 @@ public partial class StudioPreview : UserControl
         { Kind: CompositionGestureKind.Move } => SizeAllCursor,
         { Kind: CompositionGestureKind.Rotate } => RotateCursor,
         { Kind: CompositionGestureKind.Pan } => HandCursor,
+        { Kind: CompositionGestureKind.Aim } => AimCursor,
         { Handle: { } handle } => PullCursor(CompositionGeometry.PullDirection(handle, rotation)),
         _ => null
     };

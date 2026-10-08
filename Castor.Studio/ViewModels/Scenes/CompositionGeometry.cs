@@ -21,8 +21,8 @@ public enum CompositionHandle
 
 /// <summary>
 /// Ce qu'un geste sur le canvas fait à une source : la déplacer, l'étirer par une poignée,
-/// la rogner par une poignée, la faire tourner par un de ses coins, ou faire glisser son
-/// image zoomée sous son cadre.
+/// la rogner par une poignée, la faire tourner par un de ses coins, faire glisser son
+/// image zoomée sous son cadre, ou viser un point de cette image sur sa mini-carte.
 /// </summary>
 public enum CompositionGestureKind
 {
@@ -30,7 +30,8 @@ public enum CompositionGestureKind
     Resize,
     Crop,
     Rotate,
-    Pan
+    Pan,
+    Aim
 }
 
 /// <summary>

@@ -47,6 +47,20 @@ public sealed class SourceZoomTests
     }
 
     [Fact]
+    public void The_zoom_map_keeps_the_shape_of_the_frame_and_disappears_on_a_small_one()
+    {
+        var map = ZoomMap.Bounds(1920, 1080, 1);
+        Assert.NotNull(map);
+        Assert.Equal(120, map.Value.Width, 6);
+        Assert.Equal(67.5, map.Value.Height, 6);
+
+        // Un canvas réduit de moitié à l'écran : la carte garde sa taille à l'œil.
+        Assert.Equal(240, ZoomMap.Bounds(1920, 1080, 2)!.Value.Width, 6);
+
+        Assert.Null(ZoomMap.Bounds(100, 60, 1));
+    }
+
+    [Fact]
     public void An_ai_zoom_on_a_source_goes_to_the_engine_and_a_whole_scene_is_refused_for_now()
     {
         var runtime = new ZoomRecordingRuntime();

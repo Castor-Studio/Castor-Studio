@@ -62,6 +62,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
         public SourcePlacement Requested { get; set; }
         // Ce qu'un glissement du zoom demande : le cadre, lui, ne bouge pas.
         public SourceZoom RequestedZoom { get; set; }
+        // La mini-carte saisie, dans le repère du cadre, pour un geste qui y vise.
+        public FrameRect Map { get; init; }
         public bool HasPendingWrite { get; set; }
         public bool HasWritten { get; set; }
         public long? LastWrite { get; set; }
@@ -170,17 +172,25 @@ public partial class SceneCompositionViewModel : ViewModelBase
     /// <paramref name="handleTolerance"/> près ; sinon, hors de la source mais à moins de
     /// <paramref name="rotationReach"/> d'un de ses coins, sa rotation ; sinon la source qui
     /// est devant. Les poignées passent avant tout : elles sont peintes par-dessus les
-    /// autres cadres.
+    /// autres cadres. La mini-carte d'une source choisie et zoomée passe avant elles : elle
+    /// est peinte dans le cadre, par-dessus l'image.
     /// </summary>
     /// <param name="crop">Si Alt est enfoncé : les poignées rognent au lieu d'étirer.</param>
+    /// <param name="canvasPerScreenPixel">
+    /// Pixels du canvas par pixel de l'écran, qui situe la mini-carte ; 0 sans mini-carte.
+    /// </param>
     public CompositionTarget? TargetAt(
         double canvasX,
         double canvasY,
         double handleTolerance,
         bool crop,
-        double rotationReach = 0)
+        double rotationReach = 0,
+        double canvasPerScreenPixel = 0)
     {
         var selected = Selected;
+        if (selected != null && MapAt(selected, canvasX, canvasY, canvasPerScreenPixel) != null)
+            return new CompositionTarget(CompositionGestureKind.Aim, null);
+
         if (selected != null)
         {
             var cropping = crop || _cropMode;
@@ -220,12 +230,13 @@ public partial class SceneCompositionViewModel : ViewModelBase
         double canvasY,
         double handleTolerance,
         bool crop,
-        double rotationReach = 0)
+        double rotationReach = 0,
+        double canvasPerScreenPixel = 0)
     {
         FinishGesture(reconcile: false);
 
         var scene = _scene;
-        var target = TargetAt(canvasX, canvasY, handleTolerance, crop, rotationReach);
+        var target = TargetAt(canvasX, canvasY, handleTolerance, crop, rotationReach, canvasPerScreenPixel);
         if (scene == null || target == null)
         {
             ClearSelection();
@@ -248,10 +259,26 @@ public partial class SceneCompositionViewModel : ViewModelBase
             OriginX = canvasX,
             OriginY = canvasY,
             Requested = start.Placement,
-            RequestedZoom = start.Zoom
+            RequestedZoom = start.Zoom,
+            Map = MapAt(start, canvasX, canvasY, canvasPerScreenPixel) ?? default
         };
         Publish(Overlay.Sources);
+
+        // Un clic sur la mini-carte y saute aussitôt, sans attendre que le pointeur bouge.
+        if (target.Value.Kind == CompositionGestureKind.Aim)
+            UpdateGesture(canvasX, canvasY, keepAspectRatio: true);
+
         return target;
+    }
+
+    // La mini-carte de cette source, si elle en montre une et que ce point du canvas y tombe.
+    private static FrameRect? MapAt(SourceTransform source, double canvasX, double canvasY, double canvasPerScreenPixel)
+    {
+        if (!source.Zoom.IsZoomed) return null;
+        if (ZoomMap.Bounds(source.Width, source.Height, canvasPerScreenPixel) is not { } map) return null;
+
+        var (u, v) = CompositionGeometry.ToLocal(source, canvasX, canvasY);
+        return map.Contains(u, v) ? map : null;
     }
 
     /// <summary>
@@ -280,9 +307,11 @@ public partial class SceneCompositionViewModel : ViewModelBase
         var deltaX = canvasX - gesture.OriginX;
         var deltaY = canvasY - gesture.OriginY;
 
-        if (gesture.Kind == CompositionGestureKind.Pan)
+        if (IsZoomGesture(gesture.Kind))
         {
-            var zoom = CompositionGeometry.Pan(gesture.Start, deltaX, deltaY);
+            var zoom = gesture.Kind == CompositionGestureKind.Aim
+                ? AimedZoom(gesture, canvasX, canvasY)
+                : CompositionGeometry.Pan(gesture.Start, deltaX, deltaY);
             if (zoom == gesture.RequestedZoom) return;
 
             gesture.RequestedZoom = zoom;
@@ -377,7 +406,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
             var crop = shown.Crop;
             return gesture.Kind switch
             {
-                CompositionGestureKind.Pan =>
+                CompositionGestureKind.Pan or CompositionGestureKind.Aim =>
                     $"Centre {shown.Zoom.CenterX * 100:0} % · {shown.Zoom.CenterY * 100:0} %",
                 CompositionGestureKind.Resize => $"{shown.Width:0} × {shown.Height:0}",
                 CompositionGestureKind.Crop =>
@@ -444,6 +473,42 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
     // Un cran de molette agrandit de 15 % : de ×1 à ×2 en cinq crans.
     private const double ZoomStep = 1.15;
+
+    // Une flèche fait glisser l'image d'un dixième de ce que le cadre en montre.
+    private const double NudgeShare = 0.1;
+
+    /// <summary>
+    /// L'image de la source choisie zoome de <paramref name="steps"/> crans autour du point
+    /// qu'elle vise déjà : c'est le zoom du clavier, qui n'a pas de pointeur.
+    /// </summary>
+    public void StepSelectedZoom(int steps)
+    {
+        if (Selected is not { } selected) return;
+
+        var factor = Math.Clamp(
+            selected.Zoom.Factor * Math.Pow(ZoomStep, steps), SourceZoom.MinFactor, SourceZoom.MaxFactor);
+        if (factor != selected.Zoom.Factor) ZoomSelected(factor);
+    }
+
+    /// <summary>
+    /// L'image zoomée de la source choisie glisse sous son cadre, d'un dixième du cadre par
+    /// pas, dans le sens de la flèche : <paramref name="columns"/> vers la droite,
+    /// <paramref name="rows"/> vers le bas. Sans zoom, il n'y a rien à faire glisser.
+    /// </summary>
+    public void NudgeSelectedZoom(int columns, int rows)
+    {
+        if (Selected is not { Zoom.IsZoomed: true } selected) return;
+
+        var zoom = selected.Zoom;
+        var half = 0.5 / zoom.Factor;
+        var step = NudgeShare / zoom.Factor;
+        var nudged = zoom with
+        {
+            CenterX = Math.Clamp(Math.Clamp(zoom.CenterX, half, 1 - half) + columns * step, half, 1 - half),
+            CenterY = Math.Clamp(Math.Clamp(zoom.CenterY, half, 1 - half) + rows * step, half, 1 - half)
+        };
+        if (nudged != zoom) ApplyZoom(selected, nudged);
+    }
 
     /// <summary>
     /// Alt enfoncé ou relâché : tant qu'il l'est, la source choisie se montre et se saisit
@@ -562,7 +627,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
     // ne reste de la demande refusée, ni à l'écran, ni dans le moteur.
     private bool Write(Gesture gesture)
     {
-        var result = gesture.Kind == CompositionGestureKind.Pan
+        var result = IsZoomGesture(gesture.Kind)
             ? _sourceRuntime.SetSourceZoom(gesture.SceneId, gesture.Start.SourceId, gesture.RequestedZoom)
             : _sourceRuntime.SetSourceTransform(gesture.SceneId, gesture.Start.SourceId, gesture.Requested);
         gesture.LastWrite = _time.GetTimestamp();
@@ -588,13 +653,23 @@ public partial class SceneCompositionViewModel : ViewModelBase
     private SourceTransformResult Restore(Gesture gesture) =>
         !gesture.HasWritten
             ? SourceTransformResult.Success(gesture.Start)
-            : gesture.Kind == CompositionGestureKind.Pan
+            : IsZoomGesture(gesture.Kind)
                 ? _sourceRuntime.SetSourceZoom(gesture.SceneId, gesture.Start.SourceId, gesture.Start.Zoom)
                 : _sourceRuntime.SetSourceTransform(gesture.SceneId, gesture.Start.SourceId, gesture.Start.Placement);
 
+    // Ces gestes changent ce que le cadre montre, pas le cadre.
+    private static bool IsZoomGesture(CompositionGestureKind kind) =>
+        kind is CompositionGestureKind.Pan or CompositionGestureKind.Aim;
+
+    private static SourceZoom AimedZoom(Gesture gesture, double canvasX, double canvasY)
+    {
+        var (u, v) = CompositionGeometry.ToLocal(gesture.Start, canvasX, canvasY);
+        return ZoomMap.Aim(gesture.Start.Zoom, gesture.Map, u, v);
+    }
+
     // Ce que le geste demande, montré avant la confirmation du moteur.
     private static SourceTransform Shown(Gesture gesture) =>
-        gesture.Kind == CompositionGestureKind.Pan
+        IsZoomGesture(gesture.Kind)
             ? gesture.Start with { Zoom = gesture.RequestedZoom }
             : CompositionGeometry.Preview(gesture.Start, gesture.Requested);
 

@@ -161,4 +161,55 @@ public sealed class ObsPreviewGraphicsTests
         Assert.True(metrics.Handle > 0);
         Assert.True(metrics.ChosenThickness > 0);
     }
+
+    [Fact]
+    public void Glyphs_merge_neighbouring_cells_and_leave_one_cell_between_signs()
+    {
+        // « 1 » : la barre du bas tient en un seul rectangle de trois cases.
+        var one = ObsPreviewGraphics.GlyphRects("1", 0, 0, cell: 2);
+        Assert.Contains(new PreviewFillRect(0, 8, 6, 2), one);
+
+        // Le second signe commence après trois cases et une case d'écart.
+        var two = ObsPreviewGraphics.GlyphRects("11", 0, 0, cell: 2);
+        Assert.Contains(new PreviewFillRect(8, 8, 6, 2), two);
+        Assert.Equal(14, ObsPreviewGraphics.GlyphWidth("11", 2));
+    }
+
+    [Fact]
+    public void Only_a_zoomed_source_with_room_for_it_carries_a_badge()
+    {
+        var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 1920, canvasWidth: 1920);
+        var source = new SourceTransform(Guid.NewGuid(), 0, 0, 640, 360, 1, 1, SourceCrop.None, 640, 360, true);
+
+        Assert.Null(ObsPreviewGraphics.ZoomBadge(source, metrics));
+
+        var badge = ObsPreviewGraphics.ZoomBadge(source with { Zoom = new SourceZoom(2) }, metrics);
+        Assert.NotNull(badge);
+        Assert.Equal(metrics.BadgeInset, badge.Value.Plate.X);
+        Assert.NotEmpty(badge.Value.Text);
+
+        Assert.Null(ObsPreviewGraphics.ZoomBadge(source with { Width = 20, Height = 12, Zoom = new SourceZoom(2) }, metrics));
+    }
+
+    [Fact]
+    public void The_zoom_map_shows_the_window_the_frame_shows_in_its_bottom_right_corner()
+    {
+        var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 1920, canvasWidth: 1920);
+        var source = new SourceTransform(Guid.NewGuid(), 0, 0, 1280, 720, 1, 1, SourceCrop.None, 1280, 720, true)
+        {
+            Zoom = new SourceZoom(2, 1, 0)
+        };
+
+        var shapes = ObsPreviewGraphics.ZoomMapShapes(source, metrics);
+
+        Assert.NotNull(shapes);
+        var plate = shapes.Value.Plate;
+        Assert.Equal(1280 - 8, plate.X + plate.Width, 3);
+        Assert.Equal(720 - 8, plate.Y + plate.Height, 3);
+        // Calée en haut à droite de l'image, la fenêtre en couvre la moitié de chaque côté.
+        var window = shapes.Value.Window;
+        Assert.Equal(plate.X + plate.Width / 2, window.X, 3);
+        Assert.Equal(plate.Y, window.Y, 3);
+        Assert.Equal(plate.Width / 2, window.Width, 3);
+    }
 }

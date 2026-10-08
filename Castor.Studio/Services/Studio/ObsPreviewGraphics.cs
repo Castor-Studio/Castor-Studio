@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using CastorApplication.Models.Studio;
 using LibObs;
@@ -25,7 +26,10 @@ internal readonly record struct OverlayMetrics(
     float Shadow,
     float CropArm,
     float CropThickness,
-    float Dash);
+    float Dash,
+    float GlyphCell = 2,
+    float BadgeInset = 6,
+    float CanvasPerScreenPixel = 1);
 
 internal static class ObsPreviewGraphics
 {
@@ -41,6 +45,8 @@ internal static class ObsPreviewGraphics
     private static readonly Vec4 Chosen = new(0.357f, 0.553f, 0.937f, 1f);     // AppAccentFg
     private static readonly Vec4 HandleCore = new(0.918f, 0.918f, 0.941f, 1f); // AppFg1
     private static readonly Vec4 Shadow = new(0.043f, 0.043f, 0.071f, 1f);     // AppBg
+    private static readonly Vec4 Plate = new(0.043f, 0.043f, 0.071f, 0.78f);   // AppBg, voilé
+    private static readonly Vec4 ChosenVeil = new(0.357f, 0.553f, 0.937f, 0.3f); // AppAccentFg, voilé
 
     // Un symbole graphique absent ne doit pas emporter le thread de rendu de libobs : au
     // premier échec on renonce à l'overlay pour de bon, l'image, elle, continue.
@@ -83,7 +89,10 @@ internal static class ObsPreviewGraphics
         Shadow: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f),
         CropArm: ToCanvasPixels(16f, viewportWidth, canvasWidth, minimum: 6f),
         CropThickness: ToCanvasPixels(4f, viewportWidth, canvasWidth, minimum: 2f),
-        Dash: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f));
+        Dash: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f),
+        GlyphCell: ToCanvasPixels(2f, viewportWidth, canvasWidth, minimum: 1f),
+        BadgeInset: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f),
+        CanvasPerScreenPixel: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 0f));
 
     private static float ToCanvasPixels(float devicePixels, int viewportWidth, uint canvasWidth, float minimum)
     {
@@ -245,6 +254,135 @@ internal static class ObsPreviewGraphics
         return rects;
     }
 
+    // Une police de moniteur, trois cases sur cinq : le moteur ne sait peindre que des
+    // rectangles, et c'est assez pour écrire un facteur de zoom lisible à toute échelle.
+    private static readonly Dictionary<char, string[]> Glyphs = new()
+    {
+        ['0'] = ["###", "#.#", "#.#", "#.#", "###"],
+        ['1'] = [".#.", "##.", ".#.", ".#.", "###"],
+        ['2'] = ["###", "..#", "###", "#..", "###"],
+        ['3'] = ["###", "..#", "###", "..#", "###"],
+        ['4'] = ["#.#", "#.#", "###", "..#", "..#"],
+        ['5'] = ["###", "#..", "###", "..#", "###"],
+        ['6'] = ["###", "#..", "###", "#.#", "###"],
+        ['7'] = ["###", "..#", "..#", "..#", "..#"],
+        ['8'] = ["###", "#.#", "###", "#.#", "###"],
+        ['9'] = ["###", "#.#", "###", "..#", "###"],
+        ['.'] = [".", ".", ".", ".", "#"],
+        [','] = [".", ".", ".", "#", "#"],
+        ['×'] = ["...", "#.#", ".#.", "#.#", "..."]
+    };
+
+    private const int GlyphRows = 5;
+
+    /// <summary>
+    /// Le texte écrit en cases de <paramref name="cell"/>, à partir de (<paramref name="x"/>,
+    /// <paramref name="y"/>), une case d'écart entre deux signes. Les cases voisines d'une
+    /// même ligne forment un seul rectangle. Un signe inconnu laisse un blanc.
+    /// </summary>
+    internal static IReadOnlyList<PreviewFillRect> GlyphRects(string text, float x, float y, float cell)
+    {
+        var rects = new List<PreviewFillRect>();
+        if (cell <= 0) return rects;
+
+        var left = x;
+        foreach (var character in text)
+        {
+            if (!Glyphs.TryGetValue(character, out var rows))
+            {
+                left += 2 * cell;
+                continue;
+            }
+
+            for (var row = 0; row < GlyphRows; row++)
+            {
+                var line = rows[row];
+                var column = 0;
+                while (column < line.Length)
+                {
+                    if (line[column] != '#')
+                    {
+                        column++;
+                        continue;
+                    }
+
+                    var start = column;
+                    while (column < line.Length && line[column] == '#') column++;
+                    rects.Add(new PreviewFillRect(left + start * cell, y + row * cell, (column - start) * cell, cell));
+                }
+            }
+
+            left += (rows[0].Length + 1) * cell;
+        }
+
+        return rects;
+    }
+
+    /// <summary>Largeur que prend ce texte écrit en cases de <paramref name="cell"/>.</summary>
+    internal static float GlyphWidth(string text, float cell)
+    {
+        var width = 0f;
+        foreach (var character in text)
+            width += ((Glyphs.TryGetValue(character, out var rows) ? rows[0].Length : 1) + 1) * cell;
+
+        return Math.Max(0, width - cell);
+    }
+
+    /// <summary>Ce que le badge d'une source zoomée écrit : son facteur, à un chiffre après la virgule.</summary>
+    internal static string ZoomLabel(SourceZoom zoom) =>
+        string.Create(CultureInfo.CurrentCulture, $"×{zoom.Factor:0.0}");
+
+    /// <summary>
+    /// Le badge d'une source zoomée, dans le repère de son cadre : une plaque sombre dans le
+    /// coin haut-gauche et le facteur écrit dessus. Rien si le cadre est trop petit pour le
+    /// porter.
+    /// </summary>
+    internal static (PreviewFillRect Plate, IReadOnlyList<PreviewFillRect> Text)? ZoomBadge(
+        SourceTransform transform,
+        OverlayMetrics metrics)
+    {
+        if (!transform.Zoom.IsZoomed) return null;
+
+        var label = ZoomLabel(transform.Zoom);
+        var cell = metrics.GlyphCell;
+        var padding = cell * 2;
+        var plate = new PreviewFillRect(
+            metrics.BadgeInset,
+            metrics.BadgeInset,
+            GlyphWidth(label, cell) + padding * 2,
+            GlyphRows * cell + padding * 2);
+        if (plate.X + plate.Width > transform.Width - metrics.BadgeInset ||
+            plate.Y + plate.Height > transform.Height - metrics.BadgeInset)
+            return null;
+
+        return (plate, GlyphRects(label, plate.X + padding, plate.Y + padding, cell));
+    }
+
+    /// <summary>
+    /// La mini-carte d'une source zoomée, dans le repère de son cadre : sa plaque, le contour
+    /// de l'image entière, et la fenêtre que le cadre en montre. Rien sans zoom, ou si le
+    /// cadre est trop petit pour qu'elle se lise.
+    /// </summary>
+    internal static (PreviewFillRect Plate, IReadOnlyList<PreviewFillRect> Outline, PreviewFillRect Window,
+        IReadOnlyList<PreviewFillRect> WindowEdges)? ZoomMapShapes(SourceTransform transform, OverlayMetrics metrics)
+    {
+        if (!transform.Zoom.IsZoomed) return null;
+        if (ZoomMap.Bounds(transform.Width, transform.Height, metrics.CanvasPerScreenPixel) is not { } map) return null;
+
+        var window = ZoomMap.Window(transform.Zoom);
+        var windowRect = new PreviewFillRect(
+            (float)(map.X + window.X * map.Width),
+            (float)(map.Y + window.Y * map.Height),
+            (float)(window.Width * map.Width),
+            (float)(window.Height * map.Height));
+
+        return (
+            new PreviewFillRect((float)map.X, (float)map.Y, (float)map.Width, (float)map.Height),
+            BoxEdges(map.X, map.Y, map.Width, map.Height, metrics.IdleThickness),
+            windowRect,
+            BoxEdges(windowRect.X, windowRect.Y, windowRect.Width, windowRect.Height, metrics.ChosenThickness));
+    }
+
     /// <summary>
     /// Peint la scène puis, par-dessus, l'overlay de composition. Tout passe par la même
     /// projection : l'overlay tombe exactement sur l'image, au pixel près et à la même image
@@ -347,6 +485,8 @@ internal static class ObsPreviewGraphics
                 while (GsEffectLoop(effect, "Solid")) FillAll(CanvasFrame, guides);
             }
 
+            DrawZoomMarks(effect, colorParameter, overlay, metrics);
+
             if (chosen == null) return;
 
             // L'état, lui, tient au poids du trait et à ces poignées, qui prennent l'accent
@@ -368,6 +508,50 @@ internal static class ObsPreviewGraphics
         {
             _outlinesUnavailable = true;
         }
+    }
+
+    // Le badge de chaque source zoomée, et la mini-carte de celle qui est choisie. Les
+    // plaques sont sombres et un peu transparentes : elles se lisent sur n'importe quelle
+    // image sans la cacher. Le texte et le contour de l'image prennent la couleur neutre de
+    // l'outil ; la fenêtre, l'accent de la sélection, parce que c'est elle qu'on saisit.
+    private static void DrawZoomMarks(
+        IntPtr effect,
+        IntPtr colorParameter,
+        CompositionOverlay overlay,
+        OverlayMetrics metrics)
+    {
+        var badges = new List<(SourceTransform Frame, PreviewFillRect Plate, IReadOnlyList<PreviewFillRect> Text)>();
+        foreach (var source in overlay.Sources)
+        {
+            if (ZoomBadge(source.Transform, metrics) is { } badge)
+                badges.Add((source.Transform, badge.Plate, badge.Text));
+        }
+
+        var chosen = overlay.Selected?.Transform;
+        var map = chosen != null ? ZoomMapShapes(chosen, metrics) : null;
+        if (badges.Count == 0 && map == null) return;
+
+        SetColor(colorParameter, Plate);
+        while (GsEffectLoop(effect, "Solid"))
+        {
+            foreach (var badge in badges) Fill(badge.Frame, badge.Plate);
+            if (map is { } shapes) Fill(chosen!, shapes.Plate);
+        }
+
+        SetColor(colorParameter, HandleCore);
+        while (GsEffectLoop(effect, "Solid"))
+        {
+            foreach (var badge in badges) FillAll(badge.Frame, badge.Text);
+            if (map is { } shapes) FillAll(chosen!, shapes.Outline);
+        }
+
+        if (map is not { } chosenMap) return;
+
+        SetColor(colorParameter, ChosenVeil);
+        while (GsEffectLoop(effect, "Solid")) Fill(chosen!, chosenMap.Window);
+
+        SetColor(colorParameter, Chosen);
+        while (GsEffectLoop(effect, "Solid")) FillAll(chosen!, chosenMap.WindowEdges);
     }
 
     /// <summary>
