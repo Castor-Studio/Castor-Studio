@@ -128,4 +128,14 @@ internal interface ISourceRuntime
     /// qu'elle avait, jamais un mélange de l'ancienne et de la nouvelle.
     /// </remarks>
     SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement);
+
+    /// <summary>
+    /// Zoome l'image d'une source dans son cadre, sans toucher au cadre lui-même, et rend la
+    /// transformation confirmée. Le zoom suit ensuite la source : déplacer, étirer ou rogner
+    /// le cadre le garde. <see cref="SourceZoom.None"/> rend l'image entière.
+    /// </summary>
+    /// <remarks>
+    /// Un zoom refusé ne touche à rien, comme un placement refusé.
+    /// </remarks>
+    SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom);
 }

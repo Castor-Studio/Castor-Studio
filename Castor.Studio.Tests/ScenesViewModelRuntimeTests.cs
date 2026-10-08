@@ -905,6 +905,9 @@ public sealed class ScenesViewModelRuntimeTests
         public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement) =>
             SourceTransformResult.Failure("Aucune source composée.");
 
+        public SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom) =>
+            SourceTransformResult.Failure("Aucune source composée.");
+
         public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
         {
             RequestedLayerIndexes.Add(layerIndex);

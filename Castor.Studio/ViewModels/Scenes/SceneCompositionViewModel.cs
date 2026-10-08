@@ -419,14 +419,34 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (Selected is { } selected) Apply(selected, CompositionGeometry.ResetCrop(selected));
     }
 
+    /// <summary>
+    /// L'image de la source choisie s'agrandit de <paramref name="factor"/> dans son cadre,
+    /// autour du point que son zoom vise déjà — le centre de l'image s'il n'y en a pas.
+    /// </summary>
+    public void ZoomSelected(double factor)
+    {
+        if (Selected is { } selected) ApplyZoom(selected, selected.Zoom with { Factor = factor });
+    }
+
+    /// <summary>La source choisie montre de nouveau son image entière.</summary>
+    public void ResetSelectedZoom()
+    {
+        if (Selected is { } selected) ApplyZoom(selected, SourceZoom.None);
+    }
+
     // Une commande d'un seul coup (menu) : une écriture, puis la relecture du moteur. Un
     // refus laisse ce que le moteur détient et se dit, comme pour un geste.
-    private void Apply(SourceTransform selected, SourcePlacement placement)
-    {
-        var scene = _scene;
-        if (scene == null || _gesture != null) return;
+    private void Apply(SourceTransform selected, SourcePlacement placement) =>
+        Command(() => _sourceRuntime.SetSourceTransform(_scene!.Id, selected.SourceId, placement));
 
-        var result = _sourceRuntime.SetSourceTransform(scene.Id, selected.SourceId, placement);
+    private void ApplyZoom(SourceTransform selected, SourceZoom zoom) =>
+        Command(() => _sourceRuntime.SetSourceZoom(_scene!.Id, selected.SourceId, zoom));
+
+    private void Command(Func<SourceTransformResult> write)
+    {
+        if (_scene == null || _gesture != null) return;
+
+        var result = write();
         Refresh();
         if (!result.IsSuccess) Status = result.Message;
     }

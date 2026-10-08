@@ -685,6 +685,28 @@ public sealed class SceneCompositionViewModelTests
     }
 
     [Fact]
+    public void Zooming_from_the_menu_keeps_the_aimed_point_and_leaves_the_frame_alone()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        var camera = Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360);
+        runtime.Compose(scene, camera with { Zoom = new SourceZoom(2, 0.25, 0.75) });
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        composition.ZoomSelected(3);
+
+        Assert.Equal(new SourceZoom(3, 0.25, 0.75), composition.Selected!.Zoom);
+        Assert.Equal(camera.Placement, composition.Selected.Placement);
+
+        composition.ResetSelectedZoom();
+
+        Assert.Equal(SourceZoom.None, runtime.TransformOf(Id(scene, "Caméra")).Zoom);
+        Assert.Empty(runtime.Writes);
+    }
+
+    [Fact]
     public void A_dragged_source_snaps_to_the_centre_and_shows_its_guides_until_released()
     {
         var scene = SceneWith("Caméra");
@@ -855,6 +877,23 @@ public sealed class SceneCompositionViewModelTests
                 Crop = placement.Crop,
                 Rotation = placement.Rotation
             };
+            _composition = _composition with
+            {
+                Sources = _composition.Sources.Select(item => item.SourceId == source ? written : item).ToArray()
+            };
+            return SourceTransformResult.Success(written);
+        }
+
+        /// <summary>Chaque zoom que le moteur a reçu, dans l'ordre.</summary>
+        public List<SourceZoom> ZoomWrites { get; } = [];
+
+        // Le zoom se joue dans le cadre : le moteur ne change que lui.
+        public SourceTransformResult SetSourceZoom(Guid scene, Guid source, SourceZoom zoom)
+        {
+            ZoomWrites.Add(zoom);
+            if (scene != sceneId) return SourceTransformResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            var written = TransformOf(source) with { Zoom = zoom };
             _composition = _composition with
             {
                 Sources = _composition.Sources.Select(item => item.SourceId == source ? written : item).ToArray()

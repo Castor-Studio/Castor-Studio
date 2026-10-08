@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -338,11 +339,60 @@ public partial class StudioPreview : UserControl
                 Item("Pivoter de 90° à droite", () => composition.RotateSelected(90)),
                 Item("Pivoter de 90° à gauche", () => composition.RotateSelected(-90)),
                 Item("Pivoter de 180°", () => composition.RotateSelected(180)),
-                Item("Réinitialiser la rotation", composition.ResetSelectedRotation, selected.Rotation != 0)
+                Item("Réinitialiser la rotation", composition.ResetSelectedRotation, selected.Rotation != 0),
+                new Separator(),
+                ZoomItem(composition, selected.Zoom.Factor),
+                Item("Réinitialiser le zoom", composition.ResetSelectedZoom, selected.Zoom.IsZoomed)
             }
         };
         menu.Open(Picture);
     }
+
+    // Le curseur du zoom vit dans le menu, qui reste ouvert pendant qu'on le tire : chaque
+    // cran part au moteur, et l'aperçu montre aussitôt ce qu'il en a fait.
+    private MenuItem ZoomItem(SceneCompositionViewModel composition, double factor)
+    {
+        var value = new TextBlock
+        {
+            Text = FormatZoom(factor),
+            MinWidth = 36,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var slider = new Slider
+        {
+            Minimum = SourceZoom.MinFactor,
+            Maximum = SourceZoom.MaxFactor,
+            Value = factor,
+            SmallChange = 0.1,
+            LargeChange = 0.5,
+            Width = 160,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        slider.ValueChanged += (_, e) =>
+        {
+            composition.ZoomSelected(e.NewValue);
+            value.Text = FormatZoom(composition.Selected?.Zoom.Factor ?? e.NewValue);
+            NativePreview.ShowComposition();
+        };
+
+        return new MenuItem
+        {
+            StaysOpenOnClick = true,
+            Header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                Children =
+                {
+                    new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center },
+                    slider,
+                    value
+                }
+            }
+        };
+    }
+
+    private static string FormatZoom(double factor) => $"×{factor:0.0}";
 
     // Rattrape un pointeur qui s'arrête entre deux écritures : sans lui, la dernière
     // position attendrait le mouvement suivant ou le relâcher pour atteindre le moteur.
