@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using CastorApplication.ViewModels.Shell;
@@ -27,6 +28,11 @@ public partial class App : Application
             DockSettings.FloatingWindowOwnerPolicy = DockFloatingWindowOwnerPolicy.NeverOwned;
             CastorApplication.Docking.StudioPanelChrome.Register();
             DockSettings.CloseFloatingWindowsOnMainWindowClose = true;
+
+            // And whatever Dock misses - a detached window it no longer tracks, one gone off
+            // screen - must not keep the process alive with no main window left. The default,
+            // OnLastWindowClose, would: Castor kept running invisibly, holding the exe.
+            desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
 
             var collection = new ServiceCollection();
             collection.AddCommonServices(desktop);
