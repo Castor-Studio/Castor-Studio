@@ -6,13 +6,15 @@
              xmlns:dockSettings="using:Dock.Settings"
              x:DataType="vm:MulticamSceneTile">
 
-<!-- Trois couleurs, trois sens : rouge pour la scène à l'antenne, bleu pour ce que fait l'IA,
+<!-- Une couleur, un sens : vert pour la scène choisie pour la sortie tant que rien ne tourne,
+     rouge dès qu'elle part vraiment (stream ou enregistrement), bleu pour ce que fait l'IA,
      neutre pour le reste. La bordure passe de 1 à 2 px en rendant 1 px de marge intérieure,
      pour que la vidéo ne bouge pas d'un pixel quand une tuile change d'état. -->
 <Border Classes="tile"
         Classes.aiConsidered="{Binding IsAiConsidered}"
         Classes.aiPick="{Binding IsAiSelected}"
         Classes.onAir="{Binding IsOnAir}"
+        Classes.live="{Binding IsOutputLive}"
         dockSettings:DockProperties.IsDragEnabled="False"
         dockSettings:DockProperties.IsDropEnabled="False"
         DoubleTapped="OnTileDoubleTapped"
@@ -32,20 +34,29 @@
 			<Setter Property="BorderThickness" Value="2"/>
 			<Setter Property="Padding" Value="0"/>
 		</Style>
-		<!-- Déclaré après la suggestion : une scène suggérée qui est déjà à l'antenne
-		     se lit d'abord comme à l'antenne. -->
+		<!-- Déclarés après la suggestion : une scène suggérée qui est déjà en sortie se lit
+		     d'abord comme en sortie. -->
 		<Style Selector="Border.tile.onAir">
-			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
 			<Setter Property="BorderThickness" Value="2"/>
 			<Setter Property="Padding" Value="0"/>
 		</Style>
+		<Style Selector="Border.tile.onAir.live">
+			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
 
-		<!-- Le bandeau devient le tally : un aplat rouge qu'on repère sur le mur sans lire. -->
+		<!-- Le bandeau devient le tally : un aplat qu'on repère sur le mur sans lire. -->
 		<Style Selector="Border.tile.onAir Border.band">
+			<Setter Property="Background" Value="{DynamicResource StatusOkBrush}"/>
+		</Style>
+		<Style Selector="Border.tile.onAir.live Border.band">
 			<Setter Property="Background" Value="{DynamicResource StatusErrorBrush}"/>
 		</Style>
 		<Style Selector="Border.tile.onAir Border.band TextBlock">
 			<Setter Property="Foreground" Value="{DynamicResource AppOnStatusFg}"/>
+		</Style>
+		<Style Selector="Border.tile.onAir Border.band Ellipse">
+			<Setter Property="Fill" Value="{DynamicResource AppOnStatusFg}"/>
 		</Style>
 
 		<Style Selector="Border.tile.aiPick Border.foot">
@@ -81,10 +92,14 @@
                            FontSize="13" FontWeight="SemiBold"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource AppFg1}"/>
-				<TextBlock Grid.Column="1" Text="À l'antenne"
-                           IsVisible="{Binding IsOnAir}"
-                           FontSize="11" FontWeight="SemiBold"
-                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+				<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5"
+                            IsVisible="{Binding IsOnAir}"
+                            Margin="10,0,0,0" VerticalAlignment="Center"
+                            ToolTip.Tip="Scène envoyée au stream et à l'enregistrement">
+					<Ellipse Width="7" Height="7" VerticalAlignment="Center"/>
+					<TextBlock Text="{Binding OutputLabel}"
+                               FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+				</StackPanel>
 			</Grid>
 		</Border>
 

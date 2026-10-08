@@ -7,17 +7,50 @@
              x:DataType="vm:MulticamViewModel">
 
 	<UserControl.Styles>
-		<!-- La grande image du Spotlight porte le même tally que les tuiles. -->
+		<!-- La grande image du Spotlight porte le même tally que les tuiles : vert tant que
+		     la scène est seulement choisie, rouge dès qu'elle est streamée ou enregistrée. -->
 		<Style Selector="Border.spotlight.onAir">
-			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
 			<Setter Property="BorderThickness" Value="2"/>
 			<Setter Property="Padding" Value="0"/>
 		</Style>
+		<Style Selector="Border.spotlight.onAir.live">
+			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
 		<Style Selector="Border.spotlight.onAir Border.band">
+			<Setter Property="Background" Value="{DynamicResource StatusOkBrush}"/>
+		</Style>
+		<Style Selector="Border.spotlight.onAir.live Border.band">
 			<Setter Property="Background" Value="{DynamicResource StatusErrorBrush}"/>
 		</Style>
 		<Style Selector="Border.spotlight.onAir Border.band TextBlock">
 			<Setter Property="Foreground" Value="{DynamicResource AppOnStatusFg}"/>
+		</Style>
+		<Style Selector="Border.spotlight.onAir Border.band Ellipse">
+			<Setter Property="Fill" Value="{DynamicResource AppOnStatusFg}"/>
+		</Style>
+
+		<!-- Repère de sortie de la barre d'outils : la scène qui part, lisible sans
+		     chercher sa tuile dans le mur, avec le même code couleur que le tally. -->
+		<Style Selector="Border.output-chip">
+			<Setter Property="Background" Value="{DynamicResource AppLiveBg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppLiveBorder}"/>
+		</Style>
+		<Style Selector="Border.output-chip TextBlock.state">
+			<Setter Property="Foreground" Value="{DynamicResource StatusOkBrush}"/>
+		</Style>
+		<Style Selector="Border.output-chip Ellipse">
+			<Setter Property="Fill" Value="{DynamicResource StatusOkBrush}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live">
+			<Setter Property="Background" Value="{DynamicResource AppStopBg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppStopBorder}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live TextBlock.state">
+			<Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live Ellipse">
+			<Setter Property="Fill" Value="{DynamicResource StatusErrorBrush}"/>
 		</Style>
 	</UserControl.Styles>
 
@@ -59,6 +92,23 @@
 						<ComboBoxItem Content="4"/>
 					</ComboBox>
 				</StackPanel>
+
+				<Border Grid.Column="2" Classes="output-chip" Classes.live="{Binding IsOutputLive}"
+                        IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,8,0"
+                        BorderThickness="1" CornerRadius="12" Padding="10,4"
+                        ToolTip.Tip="Scène envoyée au stream et à l'enregistrement">
+					<StackPanel Orientation="Horizontal" Spacing="7">
+						<Ellipse Width="7" Height="7" VerticalAlignment="Center"/>
+						<TextBlock Classes="state" Text="{Binding OutputLabel}"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+						<Rectangle Width="1" Height="12" Fill="{DynamicResource AppBorder2}" VerticalAlignment="Center"/>
+						<TextBlock Text="{Binding SpotlightScene.Name, FallbackValue=''}"
+                                   MaxWidth="220" TextTrimming="CharacterEllipsis"
+                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppFg1}"/>
+					</StackPanel>
+				</Border>
 
 				<Button Grid.Column="3" Command="{Binding RefreshTilesCommand}"
                         Background="Transparent" BorderThickness="0"
@@ -112,6 +162,7 @@
 			<Grid RowDefinitions="*, Auto" Margin="5" IsVisible="{Binding IsSpotlightLayout}">
 				<Border Grid.Row="0" Classes="spotlight"
                         Classes.onAir="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                        Classes.live="{Binding IsOutputLive}"
                         Background="{DynamicResource AppSurface}"
                         CornerRadius="8" Margin="5"
                         BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Padding="1">
@@ -125,14 +176,17 @@
                                            TextTrimming="CharacterEllipsis"
                                            FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
                                            Foreground="{DynamicResource AppFg1}"/>
-								<TextBlock Grid.Column="0" Text="Aucune scène à l'antenne"
+								<TextBlock Grid.Column="0" Text="Aucune scène en sortie"
                                            IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNull}}"
                                            FontSize="14" VerticalAlignment="Center"
                                            Foreground="{DynamicResource AppFg4}"/>
-								<TextBlock Grid.Column="1" Text="À l'antenne"
-                                           IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                           FontSize="12" FontWeight="SemiBold"
-                                           Margin="12,0,0,0" VerticalAlignment="Center"/>
+								<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                            IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                            Margin="12,0,0,0" VerticalAlignment="Center">
+									<Ellipse Width="8" Height="8" VerticalAlignment="Center"/>
+									<TextBlock Text="{Binding OutputLabel}"
+                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+								</StackPanel>
 							</Grid>
 						</Border>
 
