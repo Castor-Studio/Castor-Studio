@@ -43,8 +43,6 @@ public partial class SceneCompositionViewModel : ViewModelBase
     // enfoncé. Les deux ne valent que pour la source choisie.
     private bool _cropMode;
     private bool _cropModifier;
-    // Le mode où glisser sur la source choisie déplace son image zoomée plutôt qu'elle.
-    private bool _panMode;
     private Guid? _hoveredSourceId;
     // La taille du canvas à la dernière lecture : ses bords et son centre aimantent les
     // sources qu'on déplace.
@@ -90,12 +88,6 @@ public partial class SceneCompositionViewModel : ViewModelBase
     public bool IsCropMode => _cropMode && HasSelection;
 
     /// <summary>
-    /// Si le mode déplacement du zoom est tenu : glisser sur la source choisie fait glisser
-    /// son image zoomée sous le cadre.
-    /// </summary>
-    public bool IsPanMode => _panMode && HasSelection;
-
-    /// <summary>
     /// Si la source choisie se montre et se saisit en rognage : mode tenu, ou Alt enfoncé.
     /// </summary>
     public bool IsCropping => Overlay.IsCropping;
@@ -119,7 +111,6 @@ public partial class SceneCompositionViewModel : ViewModelBase
         // rouvrir la suivante avec une sélection qui n'est plus à elle.
         _selectedSourceId = null;
         _cropMode = false;
-        _panMode = false;
         Publish([]);
         Refresh();
     }
@@ -138,9 +129,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
             return;
         }
 
-        // Rognage et déplacement du zoom se font sur une source : en choisir une autre les
-        // termine.
-        if (source.SourceId != _selectedSourceId) _cropMode = _panMode = false;
+        // Le rognage se fait sur une source : en choisir une autre le termine.
+        if (source.SourceId != _selectedSourceId) _cropMode = false;
         _selectedSourceId = source.SourceId;
         Publish(Overlay.Sources);
     }
@@ -172,7 +162,6 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
         _selectedSourceId = null;
         _cropMode = false;
-        _panMode = false;
         Publish(Overlay.Sources);
     }
 
@@ -192,11 +181,6 @@ public partial class SceneCompositionViewModel : ViewModelBase
         double rotationReach = 0)
     {
         var selected = Selected;
-        // En déplacement du zoom, toute la source choisie se saisit pour faire glisser son
-        // image ; ses poignées se taisent.
-        if (selected != null && _panMode && CompositionGeometry.Contains(selected, canvasX, canvasY))
-            return new CompositionTarget(CompositionGestureKind.Pan, null);
-
         if (selected != null)
         {
             var cropping = crop || _cropMode;
@@ -206,6 +190,11 @@ public partial class SceneCompositionViewModel : ViewModelBase
                 return new CompositionTarget(
                     cropping ? CompositionGestureKind.Crop : CompositionGestureKind.Resize, handle);
             }
+
+            // En rognage, l'intérieur d'une source zoomée fait glisser son image sous le cadre :
+            // sans Alt, on agit sur le cadre ; avec, sur ce qu'il montre.
+            if (cropping && selected.Zoom.IsZoomed && CompositionGeometry.Contains(selected, canvasX, canvasY))
+                return new CompositionTarget(CompositionGestureKind.Pan, null);
 
             // En rognage, la source ne tourne pas : les équerres sont seules à se saisir.
             var corner = cropping || rotationReach <= 0
@@ -247,9 +236,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
             ? SourceAt(canvasX, canvasY)!
             : Selected!;
 
-        // Saisir une autre source, c'est quitter le rognage et le déplacement du zoom de la
-        // précédente.
-        if (start.SourceId != _selectedSourceId) _cropMode = _panMode = false;
+        // Saisir une autre source, c'est quitter le rognage de la précédente.
+        if (start.SourceId != _selectedSourceId) _cropMode = false;
         _selectedSourceId = start.SourceId;
         _gesture = new Gesture
         {
@@ -409,7 +397,6 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (!HasSelection || _cropMode) return;
 
         _cropMode = true;
-        _panMode = false;
         Publish(Overlay.Sources);
     }
 
@@ -430,33 +417,33 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Tient le déplacement du zoom sur la source choisie, jusqu'à ce qu'on en sorte. Sans
-    /// image zoomée, il n'y a rien à faire glisser. Le rognage, lui, se termine.
+    /// Un cran de molette en rognage (Alt enfoncé ou mode tenu) : la source sous le pointeur
+    /// est choisie et son image zoome de <paramref name="steps"/> crans, le point sous le
+    /// pointeur restant où il est. Hors rognage, la molette ne touche à rien : un tour de
+    /// molette égaré ne doit pas changer l'image à l'antenne.
     /// </summary>
-    public void EnterPanMode()
+    /// <returns>Si la molette a servi.</returns>
+    public bool ZoomAt(double canvasX, double canvasY, double steps)
     {
-        if (Selected is not { Zoom.IsZoomed: true } || _panMode) return;
+        if (!(_cropMode || _cropModifier) || _gesture != null || steps == 0) return false;
 
-        _panMode = true;
-        _cropMode = false;
-        Publish(Overlay.Sources);
+        if (Selected is not { } selected || !CompositionGeometry.Contains(selected, canvasX, canvasY))
+        {
+            SelectAt(canvasX, canvasY);
+            if (Selected is not { } aimed) return false;
+            selected = aimed;
+        }
+
+        var factor = Math.Clamp(
+            selected.Zoom.Factor * Math.Pow(ZoomStep, steps), SourceZoom.MinFactor, SourceZoom.MaxFactor);
+        if (factor == selected.Zoom.Factor) return true;
+
+        ApplyZoom(selected, CompositionGeometry.ZoomAt(selected, canvasX, canvasY, factor));
+        return true;
     }
 
-    /// <summary>Quitte le déplacement du zoom : glisser déplace de nouveau la source.</summary>
-    public void ExitPanMode()
-    {
-        if (!_panMode) return;
-
-        _panMode = false;
-        Publish(Overlay.Sources);
-    }
-
-    /// <summary>Entre en déplacement du zoom, ou en sort s'il est déjà tenu.</summary>
-    public void TogglePanMode()
-    {
-        if (_panMode) ExitPanMode();
-        else EnterPanMode();
-    }
+    // Un cran de molette agrandit de 15 % : de ×1 à ×2 en cinq crans.
+    private const double ZoomStep = 1.15;
 
     /// <summary>
     /// Alt enfoncé ou relâché : tant qu'il l'est, la source choisie se montre et se saisit
@@ -637,10 +624,6 @@ public partial class SceneCompositionViewModel : ViewModelBase
             _selectedSourceId = null;
             _cropMode = false;
         }
-
-        // Une image qui n'est plus zoomée (zoom remis à zéro, ici ou par une IA) n'a plus
-        // rien à faire glisser.
-        if (selected is not { Transform.Zoom.IsZoomed: true }) _panMode = false;
 
         // Le survol se tait pendant un geste, et sur la source déjà choisie : elle porte déjà
         // ce poids.

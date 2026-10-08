@@ -244,6 +244,23 @@ public partial class StudioPreview : UserControl
         e.Handled = true;
     }
 
+    // Alt + molette zoome l'image de la source visée vers le pointeur ; sans Alt ni mode
+    // rognage, la molette ne fait rien ici.
+    private void OnPicturePointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        var composition = Composition;
+        if (composition == null) return;
+
+        var point = e.GetPosition(this);
+        if (!NativePreview.Bounds.Contains(point) || ToCanvas(point) is not var (x, y)) return;
+
+        UpdateCropModifier(composition, e.KeyModifiers);
+        if (!composition.ZoomAt(x, y, e.Delta.Y)) return;
+
+        NativePreview.ShowComposition();
+        e.Handled = true;
+    }
+
     // Une capture perdue sans relâcher (une fenêtre qui passe devant, un Alt+Tab) ne sait
     // pas où l'opérateur voulait finir : la source reprend son placement d'avant le geste.
     private void OnPicturePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => CancelGesture();
@@ -257,17 +274,12 @@ public partial class StudioPreview : UserControl
 
         switch (e.Key)
         {
-            // Échap annule d'abord le geste en cours ; sans geste, il quitte le rognage ou le
-            // déplacement du zoom.
+            // Échap annule d'abord le geste en cours ; sans geste, il quitte le rognage.
             case Key.Escape when composition.IsGesturing:
                 CancelGesture();
                 break;
             case Key.Escape or Key.Enter when composition.IsCropMode:
                 composition.ExitCropMode();
-                NativePreview.ShowComposition();
-                break;
-            case Key.Escape or Key.Enter when composition.IsPanMode:
-                composition.ExitPanMode();
                 NativePreview.ShowComposition();
                 break;
             default:
@@ -348,8 +360,6 @@ public partial class StudioPreview : UserControl
                 Item("Réinitialiser la rotation", composition.ResetSelectedRotation, selected.Rotation != 0),
                 new Separator(),
                 ZoomItem(composition, selected.Zoom.Factor),
-                Item(composition.IsPanMode ? "Terminer le déplacement du zoom" : "Déplacer le zoom",
-                    composition.TogglePanMode, selected.Zoom.IsZoomed),
                 Item("Réinitialiser le zoom", composition.ResetSelectedZoom, selected.Zoom.IsZoomed)
             }
         };
@@ -383,7 +393,7 @@ public partial class StudioPreview : UserControl
             NativePreview.ShowComposition();
         };
 
-        return new MenuItem
+        var item = new MenuItem
         {
             StaysOpenOnClick = true,
             Header = new StackPanel
@@ -398,6 +408,9 @@ public partial class StudioPreview : UserControl
                 }
             }
         };
+        // Le menu enseigne le geste direct, plus rapide une fois connu.
+        ToolTip.SetTip(item, "Sur l'aperçu : Alt + molette pour zoomer vers le pointeur, Alt + glisser pour déplacer l'image.");
+        return item;
     }
 
     private static string FormatZoom(double factor) => $"×{factor:0.0}";

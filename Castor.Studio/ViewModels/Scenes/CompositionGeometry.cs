@@ -391,6 +391,37 @@ public static class CompositionGeometry
         };
     }
 
+    /// <summary>
+    /// Le zoom passe à <paramref name="factor"/> en gardant fixe le point de l'image qui est
+    /// sous (<paramref name="x"/>, <paramref name="y"/>) dans le canvas, comme une carte qu'on
+    /// zoome vers le pointeur. Le point visé reste là où la fenêtre zoomée tient dans l'image.
+    /// </summary>
+    public static SourceZoom ZoomAt(SourceTransform start, double x, double y, double factor)
+    {
+        if (factor <= SourceZoom.MinFactor) return SourceZoom.None;
+        if (start.Width <= 0 || start.Height <= 0) return start.Zoom with { Factor = factor };
+
+        // Où tombe le pointeur dans le cadre, de 0 à 1 le long de ses bords.
+        var (u, v) = ToLocal(start, x, y);
+        var frameX = Math.Clamp(u / start.Width, 0, 1);
+        var frameY = Math.Clamp(v / start.Height, 0, 1);
+
+        return new SourceZoom(
+            factor,
+            Anchored(start.Zoom.Factor, start.Zoom.CenterX, frameX, factor),
+            Anchored(start.Zoom.Factor, start.Zoom.CenterY, frameY, factor));
+    }
+
+    // Le centre qui garde au même endroit du cadre le point de l'image qui y est déjà : ce
+    // point se lit dans la fenêtre d'avant, puis la nouvelle fenêtre se pose autour de lui.
+    private static double Anchored(double factor, double center, double frame, double newFactor)
+    {
+        var half = 0.5 / factor;
+        var aimed = Math.Clamp(center, half, 1 - half) - half + frame / factor;
+        var newHalf = 0.5 / newFactor;
+        return Math.Clamp(aimed - frame / newFactor + newHalf, newHalf, 1 - newHalf);
+    }
+
     /// <summary>Un angle ramené dans ]-180, 180] : un tour complet ne tourne rien.</summary>
     public static double NormalizeDegrees(double degrees)
     {

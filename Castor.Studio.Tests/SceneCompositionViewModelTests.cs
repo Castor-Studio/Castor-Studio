@@ -707,7 +707,7 @@ public sealed class SceneCompositionViewModelTests
     }
 
     [Fact]
-    public void In_pan_mode_dragging_slides_the_zoomed_image_and_leaves_the_frame_alone()
+    public void With_alt_dragging_inside_a_zoomed_source_slides_its_image_and_leaves_the_frame_alone()
     {
         var scene = SceneWith("Caméra");
         var runtime = new FakeCompositionRuntime(scene.Id);
@@ -716,11 +716,13 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime, new ManualTime());
         composition.ShowScene(scene);
         composition.SelectAt(200, 200);
-        composition.EnterPanMode();
+
+        // Sans Alt, glisser déplace le cadre, comme toujours.
+        Assert.Equal(CompositionGestureKind.Move, composition.TargetAt(420, 280, HandleTolerance, crop: false)?.Kind);
 
         // Tirer l'image de 160 px vers la gauche, c'est un quart de cadre, donc un huitième
         // d'image à ×2 : le point visé part vers la droite.
-        var target = composition.BeginGesture(420, 280, HandleTolerance, crop: false);
+        var target = composition.BeginGesture(420, 280, HandleTolerance, crop: true);
         Assert.Equal(CompositionGestureKind.Pan, target?.Kind);
         composition.UpdateGesture(260, 280, keepAspectRatio: true);
         composition.EndGesture();
@@ -730,10 +732,30 @@ public sealed class SceneCompositionViewModelTests
         Assert.Equal(0.5, panned.Zoom.CenterY, 6);
         Assert.Equal(camera.Placement, panned.Placement);
         Assert.Empty(runtime.Writes);
+    }
 
-        // Sans zoom, il n'y a plus rien à faire glisser : le mode tombe de lui-même.
-        composition.ResetSelectedZoom();
-        Assert.False(composition.IsPanMode);
+    [Fact]
+    public void Alt_and_the_wheel_zoom_towards_the_pointer_and_the_wheel_alone_does_nothing()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime, new ManualTime());
+        composition.ShowScene(scene);
+
+        // Le pointeur au milieu du bord droit du cadre, aux trois quarts de sa largeur.
+        Assert.False(composition.ZoomAt(580, 280, 5));
+        Assert.Empty(runtime.ZoomWrites);
+
+        composition.SetCropModifier(true);
+        Assert.True(composition.ZoomAt(580, 280, 5));
+
+        // La molette a choisi la source, et le point de l'image sous le pointeur n'a pas bougé.
+        var zoom = runtime.TransformOf(Id(scene, "Caméra")).Zoom;
+        Assert.Equal(Id(scene, "Caméra"), composition.Selected?.SourceId);
+        Assert.True(zoom.IsZoomed);
+        Assert.Equal(0.75, zoom.CenterX - 0.5 / zoom.Factor + 0.75 / zoom.Factor, 6);
+        Assert.Equal(0.5, zoom.CenterY, 6);
     }
 
     [Fact]
