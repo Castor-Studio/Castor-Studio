@@ -3,7 +3,14 @@
              xmlns:vm="using:CastorApplication.ViewModels.Studio"
              xmlns:converters="using:CastorApplication.Converters"
              x:Class="CastorApplication.Views.Studio.SceneSelectorPaneView"
+             xmlns:sys="using:System"
              x:DataType="vm:StudioViewModel">
+
+	<UserControl.Resources>
+		<DataTemplate x:Key="TransitionDurationTemplate" x:DataType="sys:Int32">
+			<TextBlock Text="{Binding StringFormat='{}{0} ms'}"/>
+		</DataTemplate>
+	</UserControl.Resources>
 
 	<!-- Bottom half of the pane card: rounds/outlines the sides + bottom, the dock's title bar does the top (DockTheme.axaml). -->
 	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="12,8"
@@ -11,7 +18,7 @@
 		<Panel>
 
 			<!-- Landscape: label, selector and status dot in a row. -->
-			<Grid ColumnDefinitions="Auto, Auto, *, Auto"
+			<Grid ColumnDefinitions="Auto, Auto, Auto, Auto, Auto, *, Auto"
                   IsVisible="{Binding #PaneRoot.Bounds, Converter={x:Static converters:IsLandscapeConverter.Instance}}">
 				<TextBlock Grid.Column="0" Text="SCÈNE ACTIVE :"
                            Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"
@@ -22,7 +29,26 @@
                           SelectedItem="{Binding ActiveScene}"
                           MinWidth="180" VerticalAlignment="Center"
                           Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-				<StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6"
+				<!-- La transition voisine du choix de scène : c'est elle qui joue quand la scène change. -->
+				<TextBlock Grid.Column="2" Text="TRANSITION :"
+                           Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="16,0,10,0"/>
+				<ComboBox Grid.Column="3"
+                          ItemsSource="{Binding TransitionOptions}"
+                          DisplayMemberBinding="{Binding Label}"
+                          SelectedItem="{Binding SelectedTransition}"
+                          MinWidth="130" VerticalAlignment="Center"
+                          ToolTip.Tip="Joue sur le live et l'enregistrement quand la scène active change"
+                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+				<ComboBox Grid.Column="4"
+                          ItemsSource="{Binding TransitionDurations}"
+                          SelectedItem="{Binding TransitionDurationMs}"
+                          IsVisible="{Binding IsTransitionAnimated}"
+                          ItemTemplate="{StaticResource TransitionDurationTemplate}"
+                          MinWidth="90" VerticalAlignment="Center" Margin="6,0,0,0"
+                          ToolTip.Tip="Durée de la transition"
+                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+				<StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6"
                             VerticalAlignment="Center">
 					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
 					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}"
@@ -40,6 +66,25 @@
                           SelectedItem="{Binding ActiveScene}"
                           HorizontalAlignment="Stretch"
                           Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+				<TextBlock Text="TRANSITION :" HorizontalAlignment="Center" Margin="0,4,0,0"
+                           Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"/>
+				<Grid ColumnDefinitions="*, Auto">
+					<ComboBox Grid.Column="0"
+                              ItemsSource="{Binding TransitionOptions}"
+                              DisplayMemberBinding="{Binding Label}"
+                              SelectedItem="{Binding SelectedTransition}"
+                              HorizontalAlignment="Stretch"
+                              ToolTip.Tip="Joue sur le live et l'enregistrement quand la scène active change"
+                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+					<ComboBox Grid.Column="1"
+                              ItemsSource="{Binding TransitionDurations}"
+                              SelectedItem="{Binding TransitionDurationMs}"
+                              IsVisible="{Binding IsTransitionAnimated}"
+                              ItemTemplate="{StaticResource TransitionDurationTemplate}"
+                              MinWidth="90" Margin="6,0,0,0"
+                              ToolTip.Tip="Durée de la transition"
+                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+				</Grid>
 				<StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
 					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
 					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}"
