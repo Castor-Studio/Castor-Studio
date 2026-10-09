@@ -27,6 +27,7 @@ public partial class StudioViewModel : ViewModelBase
     private readonly VideoCanvasResolutionResolver _resolutionResolver;
     private readonly DispatcherTimer _sessionTimer;
     private DateTime? _sessionStartUtc;
+    private bool _loadingTransition;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
     public bool IsStreaming => _workspace.IsStreaming;
@@ -61,6 +62,20 @@ public partial class StudioViewModel : ViewModelBase
                 : "";
 
     public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
+
+    // Passage d'une scène à l'autre sur le live et l'enregistrement. La preview, elle, coupe
+    // toujours sec : elle montre la scène active, pas la sortie programme.
+    public IReadOnlyList<SceneTransitionOption> TransitionOptions => SceneTransitionOption.All;
+    public IReadOnlyList<int> TransitionDurations => SceneTransitionOption.Durations;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsTransitionAnimated))]
+    private SceneTransitionOption? _selectedTransition = SceneTransitionOption.For(SceneTransition.Default.Kind);
+
+    [ObservableProperty] private int _transitionDurationMs = SceneTransition.DefaultDurationMs;
+
+    // Une coupe n'a pas de durée : le choix de durée s'efface.
+    public bool IsTransitionAnimated => SelectedTransition?.Kind != SceneTransitionKind.Cut;
 
     [ObservableProperty] private string _streamTimerText = "00:00:00";
     [ObservableProperty] private bool _isStreamingTransition;
@@ -134,6 +149,7 @@ public partial class StudioViewModel : ViewModelBase
         RefreshProviderState();
         RefreshOutputInfo();
         RefreshBaseCanvasSize();
+        RefreshTransition();
     }
 
     public void RefreshOutputInfo()
@@ -153,6 +169,45 @@ public partial class StudioViewModel : ViewModelBase
     {
         RefreshBaseCanvasSize();
         RefreshOutputInfo();
+        RefreshTransition();
+    }
+
+    // Le type et la durée se rechargent l'un après l'autre : sans ce garde, le premier
+    // s'enregistrerait avec l'ancienne valeur du second.
+    private void RefreshTransition()
+    {
+        _loadingTransition = true;
+        try
+        {
+            var transition = _settingsService.Load().ToSceneTransition();
+            SelectedTransition = SceneTransitionOption.For(transition.Kind);
+            TransitionDurationMs = SceneTransitionOption.NearestDuration(transition.DurationMs);
+        }
+        finally
+        {
+            _loadingTransition = false;
+        }
+    }
+
+    partial void OnSelectedTransitionChanged(SceneTransitionOption? value) => SaveTransition();
+
+    partial void OnTransitionDurationMsChanged(int value) => SaveTransition();
+
+    // Le runtime relit la transition à chaque sauvegarde : le prochain changement de scène
+    // l'emploie, live en cours compris.
+    private void SaveTransition()
+    {
+        // Une ComboBox qui se vide pousse null : rien de choisi, rien à enregistrer.
+        if (_loadingTransition || SelectedTransition == null) return;
+
+        var settings = _settingsService.Load();
+        if (settings.SceneTransitionKind == SelectedTransition.Kind &&
+            settings.SceneTransitionDurationMs == TransitionDurationMs)
+            return;
+
+        settings.SceneTransitionKind = SelectedTransition.Kind;
+        settings.SceneTransitionDurationMs = TransitionDurationMs;
+        _settingsService.Save(settings);
     }
 
     private void RefreshBaseCanvasSize()

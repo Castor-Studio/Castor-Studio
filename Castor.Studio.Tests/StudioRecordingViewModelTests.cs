@@ -278,6 +278,51 @@ public sealed class StudioRecordingViewModelTests
         }
     }
 
+    [Fact]
+    public void Transition_choice_is_loaded_from_and_saved_to_the_settings()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings
+            {
+                SceneTransitionKind = SceneTransitionKind.Slide,
+                SceneTransitionDurationMs = 1000
+            });
+            var viewModel = new StudioViewModel(
+                new StudioWorkspaceViewModel(), new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(),
+                new FakeRecordingRuntime(), new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
+
+            // Loading the kind first must not write it back with the default duration.
+            Assert.Equal(SceneTransitionKind.Slide, viewModel.SelectedTransition?.Kind);
+            Assert.Equal(1000, viewModel.TransitionDurationMs);
+            Assert.Equal(1000, settingsService.Load().SceneTransitionDurationMs);
+
+            viewModel.SelectedTransition = SceneTransitionOption.For(SceneTransitionKind.Cut);
+            viewModel.TransitionDurationMs = 500;
+
+            var saved = settingsService.Load();
+            Assert.Equal(SceneTransitionKind.Cut, saved.SceneTransitionKind);
+            Assert.Equal(500, saved.SceneTransitionDurationMs);
+            Assert.False(viewModel.IsTransitionAnimated);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(-10, SceneTransition.MinDurationMs)]
+    [InlineData(60_000, SceneTransition.MaxDurationMs)]
+    public void Out_of_range_transition_duration_is_clamped(int stored, int expected)
+    {
+        var settings = new ApplicationSettings { SceneTransitionDurationMs = stored };
+
+        Assert.Equal(expected, settings.ToSceneTransition().DurationMs);
+    }
+
     private static string CreateTemporaryDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), $"castor-viewmodel-{Guid.NewGuid():N}");

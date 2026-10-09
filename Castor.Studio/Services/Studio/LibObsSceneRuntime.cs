@@ -70,6 +70,11 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStarted;
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStopped;
     private bool _streamingStopRequested;
+    // Le canal programme (0) ne porte jamais une scène en direct : il porte cette transition,
+    // qui montre la scène du live ou de l'enregistrement et anime le passage à la suivante.
+    private ObsTransition? _programTransition;
+    private SceneTransitionKind _programTransitionKind;
+    private SceneTransition _transition = SceneTransition.Default;
     private bool _initialized;
     private bool _disposed;
     private string _unavailableMessage = "";
@@ -102,6 +107,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         {
             Obs.Startup();
             var settings = settingsService?.Load() ?? new ApplicationSettings();
+            _transition = settings.ToSceneTransition();
             _videoSettings = CreatePreviewVideoSettings(settings, _resolutionResolver.Resolve(settings));
             Obs.ResetVideo(_videoSettings);
             Obs.ResetAudio(new ObsAudioSettings());
@@ -625,6 +631,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         lock (_gate)
         {
             if (!IsAvailable) return;
+            // Contrairement à la vidéo, la transition se change en plein live : elle vaut dès
+            // le prochain changement de scène.
+            _transition = settings.ToSceneTransition();
             if (_recordingOutput != null || _streamingOutput != null)
             {
                 _pendingVideoSettings = settings;
@@ -830,8 +839,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             {
                 EnsureVideoSettingsForRecording(request);
                 ConfigureRecordingMedia(request);
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
+                ShowOnProgram(scene);
 
                 var resources = request.Container == RecordingContainer.WebM
                     ? CreateWebMOutput(request)
@@ -892,8 +900,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
+                TransitionProgramTo(scene);
                 // Keeps the "scene in use by the recording" guard on the scene actually
                 // being recorded now, so the previous one becomes deletable again.
                 _recordingSceneId = sceneId;
@@ -978,8 +985,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             try
             {
                 ConfigureStreamingMedia(request);
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
+                ShowOnProgram(scene);
 
                 var resources = CreateStreamingOutput(request);
                 _streamingOutput = resources.Output;
@@ -1036,8 +1042,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
+                TransitionProgramTo(scene);
                 _streamingSceneId = sceneId;
                 return StudioRuntimeResult.Success();
             }
@@ -1161,6 +1166,97 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 Obs.Shutdown();
                 _initialized = false;
             }
+        }
+    }
+
+    // Début d'un live ou d'un enregistrement : la scène s'affiche d'emblée, sans animation.
+    private void ShowOnProgram(ObsScene scene)
+    {
+        using var sceneSource = scene.Source;
+        ReplaceProgramTransition(sceneSource);
+    }
+
+    // Changement de scène pendant un live ou un enregistrement : la transition choisie
+    // l'anime. Si elle a changé depuis, la nouvelle reprend la scène affichée avant de partir.
+    private void TransitionProgramTo(ObsScene scene)
+    {
+        if (_programTransition == null || _programTransitionKind != _transition.Kind)
+        {
+            using var shown = _programTransition?.ActiveSource;
+            ReplaceProgramTransition(shown);
+        }
+
+        using var sceneSource = scene.Source;
+        // libobs refuse de démarrer vers la scène déjà affichée : elle y est, rien à animer.
+        if (!_transition.IsAnimated || !_programTransition!.Start(sceneSource, _transition.DurationMs))
+            _programTransition!.Set(sceneSource);
+    }
+
+    private void ReplaceProgramTransition(ObsSource? shown)
+    {
+        var next = CreateProgramTransition(_transition.Kind);
+        try
+        {
+            next.Set(shown);
+            using var nextSource = next.Source;
+            Obs.SetOutputSource(0, nextSource);
+        }
+        catch
+        {
+            next.Dispose();
+            throw;
+        }
+
+        var previous = _programTransition;
+        _programTransition = next;
+        _programTransitionKind = _transition.Kind;
+        previous?.Dispose();
+    }
+
+    private ObsTransition CreateProgramTransition(SceneTransitionKind kind)
+    {
+        const string name = "Castor - transition programme";
+        var transition = kind switch
+        {
+            SceneTransitionKind.Fade => ObsTransition.CreateFade(name),
+            SceneTransitionKind.FadeToBlack => ObsTransition.CreateFadeToColor(
+                name, new ObsFadeToColorTransitionSettings { Color = 0xFF000000 }),
+            SceneTransitionKind.Swipe => ObsTransition.CreateSwipe(name, new ObsSwipeTransitionSettings()),
+            SceneTransitionKind.Slide => ObsTransition.CreateSlide(name, new ObsSlideTransitionSettings()),
+            _ => ObsTransition.CreateCut(name)
+        };
+
+        try
+        {
+            // Les scènes sont à la taille du canevas : la transition aussi, sinon elle les recadre.
+            transition.SetSize(_videoSettings?.BaseWidth ?? 1920, _videoSettings?.BaseHeight ?? 1080);
+            return transition;
+        }
+        catch
+        {
+            transition.Dispose();
+            throw;
+        }
+    }
+
+    private void ReleaseProgramTransition()
+    {
+        try
+        {
+            if (_initialized) Obs.SetOutputSource(0, null);
+        }
+        catch
+        {
+        }
+
+        var transition = _programTransition;
+        _programTransition = null;
+        try
+        {
+            transition?.Dispose();
+        }
+        catch
+        {
         }
     }
 
@@ -1419,13 +1515,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         _recordingStopRequested = false;
 
         if (output != null) output.StateChanged -= OnRecordingOutputStateChanged;
-        try
-        {
-            if (_initialized) Obs.SetOutputSource(0, null);
-        }
-        catch
-        {
-        }
+        ReleaseProgramTransition();
         try
         {
             output?.Dispose();
@@ -1511,13 +1601,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         _streamingStopRequested = false;
 
         if (output != null) output.StateChanged -= OnStreamingOutputStateChanged;
-        try
-        {
-            if (_initialized) Obs.SetOutputSource(0, null);
-        }
-        catch
-        {
-        }
+        ReleaseProgramTransition();
         try
         {
             output?.Dispose();

@@ -1,5 +1,6 @@
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
 using LibObs;
 using System.Runtime.InteropServices;
@@ -637,6 +638,64 @@ public sealed class LibObsSceneRuntimeTests
             runtime.Dispose();
             File.Delete(outputPath);
             File.Delete(mediaPath);
+        }
+    }
+
+    [Theory]
+    [InlineData(SceneTransitionKind.Cut)]
+    [InlineData(SceneTransitionKind.Fade)]
+    [InlineData(SceneTransitionKind.FadeToBlack)]
+    [InlineData(SceneTransitionKind.Swipe)]
+    [InlineData(SceneTransitionKind.Slide)]
+    public async Task Switching_scene_mid_recording_plays_each_transition(SceneTransitionKind kind)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"castor-transition-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var outputPath = Path.Combine(directory, "record.mkv");
+        var mediaPath = Path.Combine(directory, "source.wav");
+        WriteSilentWave(mediaPath);
+        var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+        settingsService.Save(new ApplicationSettings { SceneTransitionKind = kind, SceneTransitionDurationMs = 150 });
+        var runtime = new LibObsSceneRuntime(settingsService);
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var first = Guid.NewGuid();
+            var second = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(first, "Plateau").IsSuccess);
+            Assert.True(runtime.CreateScene(second, "Caméra").IsSuccess);
+            Assert.True(runtime.AddSource(first,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Source 1", mediaPath, true)).IsSuccess);
+            Assert.True(runtime.AddSource(second,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Source 2", mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+
+            Assert.True((await runtime.StartRecordingAsync(
+                CreateRecordingRequest(first, outputPath, RecordingContainer.Mkv), timeout.Token)).IsSuccess);
+            await Task.Delay(300, timeout.Token);
+
+            var switched = runtime.SwitchRecordingScene(second);
+            Assert.True(switched.IsSuccess, switched.Message);
+            await Task.Delay(300, timeout.Token);
+
+            // Changed mid-recording: the next switch rebuilds the transition on the scene shown.
+            settingsService.Save(new ApplicationSettings
+            {
+                SceneTransitionKind = kind == SceneTransitionKind.Fade ? SceneTransitionKind.Slide : SceneTransitionKind.Fade,
+                SceneTransitionDurationMs = 150
+            });
+            var switchedBack = runtime.SwitchRecordingScene(first);
+            Assert.True(switchedBack.IsSuccess, switchedBack.Message);
+            await Task.Delay(300, timeout.Token);
+
+            var stopped = await runtime.StopRecordingAsync(timeout.Token);
+            Assert.True(stopped.IsSuccess, stopped.Message);
+            Assert.True(new FileInfo(outputPath).Length > 0);
+        }
+        finally
+        {
+            runtime.Dispose();
+            Directory.Delete(directory, recursive: true);
         }
     }
 
