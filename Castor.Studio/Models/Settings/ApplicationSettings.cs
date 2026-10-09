@@ -1,3 +1,5 @@
+using CastorApplication.Models.Studio;
+
 namespace CastorApplication.Models.Settings;
 
 public sealed class ApplicationSettings
@@ -23,6 +25,13 @@ public sealed class ApplicationSettings
     public int SelectedPlatformIndex { get; set; }
     public string StreamKey { get; set; } = "";
     public string RtmpUrl { get; set; } = "";
+
+    // Choisie dans la barre « Scène active » ; s'applique au live et à l'enregistrement.
+    public SceneTransitionKind SceneTransitionKind { get; set; } = SceneTransition.Default.Kind;
+    public int SceneTransitionDurationMs { get; set; } = SceneTransition.DefaultDurationMs;
+
+    public SceneTransition ToSceneTransition() =>
+        SceneTransition.From(SceneTransitionKind, SceneTransitionDurationMs);
 
     public int SelectedOutputFormatIndex { get; set; }
     public string OutputPath { get; set; } = DefaultOutputPath;
