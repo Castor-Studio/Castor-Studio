@@ -7,6 +7,12 @@
              x:DataType="vm:StudioViewModel">
 
 	<UserControl.Resources>
+		<!-- Le Slider Fluent réserve 15 px au-dessus et au-dessous de sa piste (place d'un
+		     en-tête et de graduations qu'on n'affiche pas) : dans une barre basse, la piste
+		     tombait sous l'axe des autres contrôles. Sans ces marges, elle se centre. -->
+		<x:Double x:Key="SliderPreContentMargin">0</x:Double>
+		<x:Double x:Key="SliderPostContentMargin">0</x:Double>
+
 		<!-- Une scène dans la liste : sa pastille de couleur, son nom, et un rappel quand elle
 		     n'a pas d'image — l'envoyer à l'antenne enverrait du noir. -->
 		<DataTemplate x:Key="SceneItemTemplate" x:DataType="scenes:SceneItemViewModel">
