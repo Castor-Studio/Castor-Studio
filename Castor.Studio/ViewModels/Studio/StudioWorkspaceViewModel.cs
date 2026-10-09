@@ -67,8 +67,7 @@ public partial class StudioWorkspaceViewModel : ViewModelBase
         return source;
     }
 
-    public static bool HasVideoSource(SceneItemViewModel scene) =>
-        scene.Sources.Any(source => source.Kind is SourceKind.Video or SourceKind.Media);
+    public static bool HasVideoSource(SceneItemViewModel scene) => scene.HasVideoSource;
 
     internal void SetRecordingState(bool value) => IsRecording = value;
     internal void SetStreamingState(bool value) => IsStreaming = value;

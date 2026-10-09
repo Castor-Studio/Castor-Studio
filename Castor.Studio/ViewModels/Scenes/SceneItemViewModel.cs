@@ -36,7 +36,11 @@ public partial class SceneItemViewModel : ViewModelBase
         _name = scene.Name;
         _color = scene.Color;
         Sources = new ObservableCollection<SourceItemViewModel>(scene.Sources.Select(source => new SourceItemViewModel(source)));
+        Sources.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasVideoSource));
     }
+
+    // Une scène sans image envoie du noir à l'antenne : le bandeau du Studio le signale.
+    public bool HasVideoSource => Sources.Any(source => source.Kind is SourceKind.Video or SourceKind.Media);
 
     public SceneDefinition ToDefinition() => new()
     {
