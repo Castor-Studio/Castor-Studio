@@ -112,6 +112,7 @@ public partial class StudioPreview : UserControl
     private static Cursor? _rotateCursor;
 
     private readonly DispatcherTimer _flushTimer;
+    private ContextMenu? _sourceMenu;
 
     public StudioPreview()
     {
@@ -122,7 +123,12 @@ public partial class StudioPreview : UserControl
         };
         _flushTimer.Tick += OnFlushTick;
         // Quitter la vue au milieu d'un geste ne doit pas laisser une source à mi-chemin.
-        DetachedFromVisualTree += (_, _) => CancelGesture();
+        // Le menu de la source, lui, n'a plus rien à viser.
+        DetachedFromVisualTree += (_, _) =>
+        {
+            CancelGesture();
+            CloseSourceMenu();
+        };
         SizeChanged += (_, _) => UpdatePreviewViewport();
         PropertyChanged += (_, change) =>
         {
@@ -154,7 +160,9 @@ public partial class StudioPreview : UserControl
         if (ToCanvas(e.GetPosition(this)) is not var (x, y)) return;
 
         // Tout clic sur l'aperçu lui donne le clavier : c'est là que zoom et flèches s'écoutent.
+        // Il ferme aussi le menu resté ouvert, comme partout ailleurs.
         Focus();
+        CloseSourceMenu();
 
         var properties = e.GetCurrentPoint(this).Properties;
         var onPicture = NativePreview.Bounds.Contains(e.GetPosition(this));
@@ -404,7 +412,22 @@ public partial class StudioPreview : UserControl
                 Item("Réinitialiser le zoom", composition.ResetSelectedZoom, selected.Zoom.IsZoomed)
             }
         };
+        menu.Closed += (_, _) =>
+        {
+            if (_sourceMenu == menu) _sourceMenu = null;
+        };
+        _sourceMenu = menu;
         menu.Open(Picture);
+    }
+
+    // Le menu ouvert sur la surface native ne se ferme pas de lui-même quand on clique
+    // ailleurs dans l'aperçu : le clic n'atteint jamais sa fenêtre. On le ferme donc ici,
+    // avant d'en ouvrir un autre ou de commencer quoi que ce soit d'autre.
+    private void CloseSourceMenu()
+    {
+        var menu = _sourceMenu;
+        _sourceMenu = null;
+        menu?.Close();
     }
 
     // Le curseur du zoom vit dans le menu, qui reste ouvert pendant qu'on le tire : chaque
