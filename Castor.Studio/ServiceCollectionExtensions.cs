@@ -62,6 +62,7 @@ public static class ServiceCollectionExtensions
                 provider.GetRequiredService<IAiSceneSourceProvider>()));
         services.AddSingleton<IAiSceneStreamRuntime, LibObsAiSceneStreamRuntime>();
         services.AddSingleton<IAiAnalysisClient, GrpcAiAnalysisClient>();
+        services.AddSingleton<IAiZoomEntryPoint, AiZoomEntryPoint>();
         services.AddSingleton<IAddSourceDialogService, AddSourceDialogService>();
         services.AddSingleton<ISceneTransferDialogService, SceneTransferDialogService>();
         services.AddSingleton<IAddSourceDialogViewModelFactory, AddSourceDialogViewModelFactory>();

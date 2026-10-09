@@ -16,7 +16,13 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         ObsSource Source,
         ObsSceneItem Item,
         bool IsMedia,
-        bool ProvidesVideo);
+        bool ProvidesVideo)
+    {
+        // libobs ne connaît qu'un rognage : celui de l'opérateur et celui du zoom y sont
+        // additionnés. On retient ce que le zoom y a ajouté pour rendre l'un sans l'autre.
+        public SourceZoom Zoom { get; set; } = SourceZoom.None;
+        public SourceCrop ZoomCrop { get; set; } = SourceCrop.None;
+    }
 
     // One native display per window that asked for a preview - a Studio panel and the
     // Scenes page (or two detached panels) can each hold their own live session instead of
@@ -419,40 +425,112 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 (sourceHeight > 0 && crop.Top + crop.Bottom >= sourceHeight))
                 return SourceTransformResult.Failure("Ce rognage ne laisserait plus rien de la source.");
 
-            var item = source.Item;
-            var previousTransform = item.Transform;
-            var previousCrop = item.Crop;
+            // Le zoom appartient à l'image, pas au cadre : il suit le cadre qu'on déplace,
+            // étire ou rogne.
+            return Compose(sourceId, source, placement, source.Zoom, "Transformation");
+        }
+    }
+
+    public SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom)
+    {
+        if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+
+        var invalid = ValidateZoom(zoom);
+        if (invalid != null) return SourceTransformResult.Failure(invalid);
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
+
+            // Sans image (une source audio, une caméra qui démarre), il n'y a rien à agrandir ;
+            // revenir à l'image entière, lui, reste toujours possible.
+            if (zoom.IsZoomed && (!source.ProvidesVideo || source.Source.Width == 0 || source.Source.Height == 0))
+                return SourceTransformResult.Failure("Cette source n'a pas d'image à zoomer.");
+
+            var placement = ReadTransform(sourceId, source).Placement;
+            return Compose(sourceId, source, placement, zoom.IsZoomed ? zoom : SourceZoom.None, "Zoom");
+        }
+    }
+
+    // Écrit le cadre et le zoom d'un seul tenant, sous le verrou. Sans zoom, l'item n'a pas de
+    // bounds : sa taille est celle de la source rognée, mise à l'échelle. Avec un zoom, le
+    // rognage gagne la fenêtre zoomée et des bounds « stretch » de la taille du cadre y
+    // ramènent l'image : le cadre ne bouge pas d'un pixel. L'échelle de l'item reste celle de
+    // l'opérateur ; libobs l'ignore tant que les bounds sont posés.
+    private static SourceTransformResult Compose(
+        Guid sourceId,
+        NativeSource source,
+        SourcePlacement placement,
+        SourceZoom zoom,
+        string operation)
+    {
+        var crop = placement.Crop;
+        var visibleWidth = Math.Max(0, (int)source.Source.Width - crop.Left - crop.Right);
+        var visibleHeight = Math.Max(0, (int)source.Source.Height - crop.Top - crop.Bottom);
+        var zoomCrop = zoom.CropWithin(visibleWidth, visibleHeight);
+        var zoomed = zoomCrop != SourceCrop.None;
+
+        var item = source.Item;
+        var previousTransform = item.Transform;
+        var previousCrop = item.Crop;
+        var previousZoom = source.Zoom;
+        var previousZoomCrop = source.ZoomCrop;
+        try
+        {
+            // Position, échelle, rotation et bounds partent d'un bloc (obs_sceneitem_set_info2) ;
+            // l'alignement reste celui que l'item a déjà. Le rognage, lui, n'en fait pas partie
+            // dans libobs : il suit.
+            item.ApplyTransform(previousTransform with
+            {
+                Position = new ObsVector2((float)placement.X, (float)placement.Y),
+                Scale = new ObsVector2((float)placement.ScaleX, (float)placement.ScaleY),
+                RotationDegrees = (float)placement.Rotation,
+                BoundsType = zoomed ? ObsBoundsType.Stretch : ObsBoundsType.None,
+                Bounds = zoomed
+                    ? new ObsVector2((float)(visibleWidth * placement.ScaleX), (float)(visibleHeight * placement.ScaleY))
+                    : new ObsVector2(0, 0)
+            });
+            item.Crop = new ObsSceneItemCrop(
+                crop.Left + zoomCrop.Left,
+                crop.Top + zoomCrop.Top,
+                crop.Right + zoomCrop.Right,
+                crop.Bottom + zoomCrop.Bottom);
+            source.Zoom = zoom;
+            source.ZoomCrop = zoomCrop;
+            return SourceTransformResult.Success(ReadTransform(sourceId, source));
+        }
+        catch (Exception exception)
+        {
+            // Deux écritures côté libobs : une qui échoue après l'autre laisserait la
+            // source dans un état que personne n'a demandé. On rend l'ancien, tel quel.
             try
             {
-                // Position, échelle et rotation partent d'un bloc (obs_sceneitem_set_info2) ;
-                // alignement et bounds restent ceux que l'item a déjà. Le rognage, lui, n'en
-                // fait pas partie dans libobs : il suit.
-                item.ApplyTransform(previousTransform with
-                {
-                    Position = new ObsVector2((float)placement.X, (float)placement.Y),
-                    Scale = new ObsVector2((float)placement.ScaleX, (float)placement.ScaleY),
-                    RotationDegrees = (float)placement.Rotation
-                });
-                item.Crop = new ObsSceneItemCrop(crop.Left, crop.Top, crop.Right, crop.Bottom);
-                return SourceTransformResult.Success(ReadTransform(sourceId, source));
+                item.ApplyTransform(previousTransform);
+                item.Crop = previousCrop;
+                source.Zoom = previousZoom;
+                source.ZoomCrop = previousZoomCrop;
             }
-            catch (Exception exception)
+            catch
             {
-                // Deux écritures côté libobs : une qui échoue après l'autre laisserait la
-                // source dans un état que personne n'a demandé. On rend l'ancien, tel quel.
-                try
-                {
-                    item.ApplyTransform(previousTransform);
-                    item.Crop = previousCrop;
-                }
-                catch
-                {
-                }
-
-                return SourceTransformResult.Failure(
-                    $"Transformation impossible dans LibObs : {exception.Message}");
             }
+
+            return SourceTransformResult.Failure($"{operation} impossible dans LibObs : {exception.Message}");
         }
+    }
+
+    // Refusé avant d'approcher le moteur, comme un placement : un nombre non fini n'a aucun
+    // sens pour libobs, et un centre hors de l'image ne viserait rien.
+    private static string? ValidateZoom(SourceZoom zoom)
+    {
+        if (!double.IsFinite(zoom.Factor) || zoom.Factor < SourceZoom.MinFactor || zoom.Factor > SourceZoom.MaxFactor)
+            return $"Le zoom d'une source doit être compris entre ×{SourceZoom.MinFactor:0} et ×{SourceZoom.MaxFactor:0}.";
+        if (!double.IsFinite(zoom.CenterX) || !double.IsFinite(zoom.CenterY) ||
+            zoom.CenterX is < 0 or > 1 || zoom.CenterY is < 0 or > 1)
+            return "Le centre du zoom doit tomber dans l'image de la source.";
+
+        return null;
     }
 
     // Refusé avant d'approcher le moteur : une échelle nulle ou négative ferait disparaître
@@ -476,12 +554,19 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     // Le rectangle composé se déduit ici, au contact du moteur : c'est sa règle (taille de la
     // source, moins le rognage, mise à l'échelle de l'item), et elle n'a rien à faire dans
-    // l'interface qui se contente ensuite de poser ce rectangle.
+    // l'interface qui se contente ensuite de poser ce rectangle. Le rognage rendu est celui de
+    // l'opérateur : ce que le zoom a ajouté à celui de libobs en est retiré.
     private static SourceTransform ReadTransform(Guid sourceId, NativeSource native)
     {
         var position = native.Item.Position;
         var scale = native.Item.Scale;
-        var crop = native.Item.Crop;
+        var engineCrop = native.Item.Crop;
+        var zoomCrop = native.ZoomCrop;
+        var crop = new ObsSceneItemCrop(
+            Math.Max(0, engineCrop.Left - zoomCrop.Left),
+            Math.Max(0, engineCrop.Top - zoomCrop.Top),
+            Math.Max(0, engineCrop.Right - zoomCrop.Right),
+            Math.Max(0, engineCrop.Bottom - zoomCrop.Bottom));
         var sourceWidth = (int)native.Source.Width;
         var sourceHeight = (int)native.Source.Height;
         var croppedWidth = Math.Max(0, sourceWidth - (int)crop.Left - (int)crop.Right);
@@ -499,7 +584,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             sourceWidth,
             sourceHeight,
             native.Item.IsVisible,
-            native.Item.RotationDegrees);
+            native.Item.RotationDegrees)
+        {
+            Zoom = native.Zoom
+        };
     }
 
     // libobs énumère ses items de l'arrière-plan vers le premier plan ; on rend l'inverse, et
@@ -1060,6 +1148,16 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             if (_initialized)
             {
+                // Les aperçus sont fermés : les textures de leurs pastilles partent avant le
+                // contexte graphique qui les porte.
+                try
+                {
+                    ObsPreviewGraphics.ReleaseTextures();
+                }
+                catch
+                {
+                }
+
                 Obs.Shutdown();
                 _initialized = false;
             }

@@ -161,4 +161,43 @@ public sealed class ObsPreviewGraphicsTests
         Assert.True(metrics.Handle > 0);
         Assert.True(metrics.ChosenThickness > 0);
     }
+
+    [Fact]
+    public void Only_a_zoomed_source_with_room_for_it_carries_a_zoom_badge()
+    {
+        // Le canvas est montré à moitié : une pastille de 80 × 22 pixels d'écran en couvre le double.
+        var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 960, canvasWidth: 1920);
+        var source = new SourceTransform(Guid.NewGuid(), 0, 0, 640, 360, 1, 1, SourceCrop.None, 640, 360, true);
+
+        Assert.Null(ObsPreviewGraphics.ZoomBadge(source, 80, 22, metrics));
+
+        var badge = ObsPreviewGraphics.ZoomBadge(source with { Zoom = new SourceZoom(2) }, 80, 22, metrics);
+        Assert.Equal(new PreviewFillRect(metrics.BadgeInset, metrics.BadgeInset, 160, 44), badge);
+
+        Assert.Null(ObsPreviewGraphics.ZoomBadge(
+            source with { Width = 120, Height = 40, Zoom = new SourceZoom(2) }, 80, 22, metrics));
+        Assert.StartsWith("Zoom ×", ObsPreviewGraphics.ZoomLabel(new SourceZoom(1.5)));
+    }
+
+    [Fact]
+    public void The_zoom_map_shows_the_window_the_frame_shows_in_its_bottom_right_corner()
+    {
+        var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 1920, canvasWidth: 1920);
+        var source = new SourceTransform(Guid.NewGuid(), 0, 0, 1280, 720, 1, 1, SourceCrop.None, 1280, 720, true)
+        {
+            Zoom = new SourceZoom(2, 1, 0)
+        };
+
+        var shapes = ObsPreviewGraphics.ZoomMapShapes(source, metrics);
+
+        Assert.NotNull(shapes);
+        var plate = shapes.Value.Plate;
+        Assert.Equal(1280 - 8, plate.X + plate.Width, 3);
+        Assert.Equal(720 - 8, plate.Y + plate.Height, 3);
+        // Calée en haut à droite de l'image, la fenêtre en couvre la moitié de chaque côté.
+        var window = shapes.Value.Window;
+        Assert.Equal(plate.X + plate.Width / 2, window.X, 3);
+        Assert.Equal(plate.Y, window.Y, 3);
+        Assert.Equal(plate.Width / 2, window.Width, 3);
+    }
 }

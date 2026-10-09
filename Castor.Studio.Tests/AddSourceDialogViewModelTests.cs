@@ -115,5 +115,8 @@ public sealed class AddSourceDialogViewModelTests
 
         public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement) =>
             SourceTransformResult.Failure("Aucune source à transformer.");
+
+        public SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom) =>
+            SourceTransformResult.Failure("Aucune source à zoomer.");
     }
 }

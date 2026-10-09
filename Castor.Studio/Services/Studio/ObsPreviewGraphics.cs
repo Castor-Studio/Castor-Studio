@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using CastorApplication.Models.Studio;
 using LibObs;
@@ -25,7 +26,9 @@ internal readonly record struct OverlayMetrics(
     float Shadow,
     float CropArm,
     float CropThickness,
-    float Dash);
+    float Dash,
+    float BadgeInset = 6,
+    float CanvasPerScreenPixel = 1);
 
 internal static class ObsPreviewGraphics
 {
@@ -34,6 +37,12 @@ internal static class ObsPreviewGraphics
     // obs_base_effect : l'effet « solid » est le quatrième de l'énumération de libobs.
     private const int ObsEffectSolid = 3;
 
+    // obs_base_effect : l'effet par défaut, qui peint une texture, est le premier.
+    private const int ObsEffectDefault = 0;
+
+    // gs_color_format : GS_BGRA, l'ordre des pixels que rend Avalonia.
+    private const int GsColorFormatBgra = 5;
+
     // Le cadre d'une source porte la couleur de sa pastille dans la liste : sur une
     // composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Ce qui
     // reste vient de Styles/Colors.axaml, dans les valeurs du thème sombre : la zone
@@ -41,6 +50,8 @@ internal static class ObsPreviewGraphics
     private static readonly Vec4 Chosen = new(0.357f, 0.553f, 0.937f, 1f);     // AppAccentFg
     private static readonly Vec4 HandleCore = new(0.918f, 0.918f, 0.941f, 1f); // AppFg1
     private static readonly Vec4 Shadow = new(0.043f, 0.043f, 0.071f, 1f);     // AppBg
+    private static readonly Vec4 Plate = new(0.043f, 0.043f, 0.071f, 0.78f);   // AppBg, voilé
+    private static readonly Vec4 ChosenVeil = new(0.357f, 0.553f, 0.937f, 0.3f); // AppAccentFg, voilé
 
     // Un symbole graphique absent ne doit pas emporter le thread de rendu de libobs : au
     // premier échec on renonce à l'overlay pour de bon, l'image, elle, continue.
@@ -83,7 +94,9 @@ internal static class ObsPreviewGraphics
         Shadow: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 1f),
         CropArm: ToCanvasPixels(16f, viewportWidth, canvasWidth, minimum: 6f),
         CropThickness: ToCanvasPixels(4f, viewportWidth, canvasWidth, minimum: 2f),
-        Dash: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f));
+        Dash: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f),
+        BadgeInset: ToCanvasPixels(6f, viewportWidth, canvasWidth, minimum: 2f),
+        CanvasPerScreenPixel: ToCanvasPixels(1f, viewportWidth, canvasWidth, minimum: 0f));
 
     private static float ToCanvasPixels(float devicePixels, int viewportWidth, uint canvasWidth, float minimum)
     {
@@ -245,6 +258,60 @@ internal static class ObsPreviewGraphics
         return rects;
     }
 
+    /// <summary>Ce que la pastille d'une source zoomée écrit, au format du curseur de zoom.</summary>
+    internal static string ZoomLabel(SourceZoom zoom) =>
+        string.Create(CultureInfo.CurrentCulture, $"Zoom ×{zoom.Factor:0.0}");
+
+    /// <summary>
+    /// Où se pose la pastille de zoom d'une source, dans le repère de son cadre : dans le coin
+    /// haut-gauche, à la taille de l'écran (<paramref name="imageWidth"/> ×
+    /// <paramref name="imageHeight"/> pixels physiques). Rien sans zoom, ou si le cadre est
+    /// trop petit pour la porter.
+    /// </summary>
+    internal static PreviewFillRect? ZoomBadge(
+        SourceTransform transform,
+        int imageWidth,
+        int imageHeight,
+        OverlayMetrics metrics)
+    {
+        if (!transform.Zoom.IsZoomed || imageWidth <= 0 || imageHeight <= 0) return null;
+
+        var badge = new PreviewFillRect(
+            metrics.BadgeInset,
+            metrics.BadgeInset,
+            imageWidth * metrics.CanvasPerScreenPixel,
+            imageHeight * metrics.CanvasPerScreenPixel);
+        return badge.X + badge.Width > transform.Width - metrics.BadgeInset ||
+               badge.Y + badge.Height > transform.Height - metrics.BadgeInset
+            ? null
+            : badge;
+    }
+
+    /// <summary>
+    /// La mini-carte d'une source zoomée, dans le repère de son cadre : sa plaque, le contour
+    /// de l'image entière, et la fenêtre que le cadre en montre. Rien sans zoom, ou si le
+    /// cadre est trop petit pour qu'elle se lise.
+    /// </summary>
+    internal static (PreviewFillRect Plate, IReadOnlyList<PreviewFillRect> Outline, PreviewFillRect Window,
+        IReadOnlyList<PreviewFillRect> WindowEdges)? ZoomMapShapes(SourceTransform transform, OverlayMetrics metrics)
+    {
+        if (!transform.Zoom.IsZoomed) return null;
+        if (ZoomMap.Bounds(transform.Width, transform.Height, metrics.CanvasPerScreenPixel) is not { } map) return null;
+
+        var window = ZoomMap.Window(transform.Zoom);
+        var windowRect = new PreviewFillRect(
+            (float)(map.X + window.X * map.Width),
+            (float)(map.Y + window.Y * map.Height),
+            (float)(window.Width * map.Width),
+            (float)(window.Height * map.Height));
+
+        return (
+            new PreviewFillRect((float)map.X, (float)map.Y, (float)map.Width, (float)map.Height),
+            BoxEdges(map.X, map.Y, map.Width, map.Height, metrics.IdleThickness),
+            windowRect,
+            BoxEdges(windowRect.X, windowRect.Y, windowRect.Width, windowRect.Height, metrics.ChosenThickness));
+    }
+
     /// <summary>
     /// Peint la scène puis, par-dessus, l'overlay de composition. Tout passe par la même
     /// projection : l'overlay tombe exactement sur l'image, au pixel près et à la même image
@@ -269,7 +336,20 @@ internal static class ObsPreviewGraphics
                 GsOrtho(0, canvasWidth, 0, canvasHeight, -100, 100);
                 GsSetViewport(viewport.X, viewport.Y, viewport.Width, viewport.Height);
                 frame.Render(sceneSource);
-                DrawOverlay(overlay, MetricsFor(viewport.Width, canvasWidth), canvasWidth, canvasHeight);
+                var metrics = MetricsFor(viewport.Width, canvasWidth);
+                DrawOverlay(overlay, metrics, canvasWidth, canvasHeight);
+                // Les pastilles passent au-dessus de tout le reste de l'overlay.
+                if (!_outlinesUnavailable)
+                {
+                    try
+                    {
+                        DrawZoomBadges(overlay, metrics);
+                    }
+                    catch (Exception)
+                    {
+                        _outlinesUnavailable = true;
+                    }
+                }
             }
             finally
             {
@@ -347,6 +427,8 @@ internal static class ObsPreviewGraphics
                 while (GsEffectLoop(effect, "Solid")) FillAll(CanvasFrame, guides);
             }
 
+            DrawZoomMap(effect, colorParameter, overlay, metrics);
+
             if (chosen == null) return;
 
             // L'état, lui, tient au poids du trait et à ces poignées, qui prennent l'accent
@@ -367,6 +449,117 @@ internal static class ObsPreviewGraphics
         catch (Exception)
         {
             _outlinesUnavailable = true;
+        }
+    }
+
+    // La mini-carte de la source choisie et zoomée. Sa plaque est sombre et un peu
+    // transparente : elle se lit sur n'importe quelle image sans la cacher. Le contour de
+    // l'image prend la couleur neutre de l'outil ; la fenêtre, l'accent de la sélection,
+    // parce que c'est elle qu'on saisit.
+    private static void DrawZoomMap(
+        IntPtr effect,
+        IntPtr colorParameter,
+        CompositionOverlay overlay,
+        OverlayMetrics metrics)
+    {
+        if (overlay.Selected?.Transform is not { } chosen) return;
+        if (ZoomMapShapes(chosen, metrics) is not { } map) return;
+
+        SetColor(colorParameter, Plate);
+        while (GsEffectLoop(effect, "Solid")) Fill(chosen, map.Plate);
+
+        SetColor(colorParameter, HandleCore);
+        while (GsEffectLoop(effect, "Solid")) FillAll(chosen, map.Outline);
+
+        SetColor(colorParameter, ChosenVeil);
+        while (GsEffectLoop(effect, "Solid")) Fill(chosen, map.Window);
+
+        SetColor(colorParameter, Chosen);
+        while (GsEffectLoop(effect, "Solid")) FillAll(chosen, map.WindowEdges);
+    }
+
+    // La pastille de zoom de chaque source zoomée, rendue par l'interface dans le style de
+    // celle qui nomme la scène. Une pastille pas encore rendue est demandée, et paraît à
+    // l'image suivante.
+    private static void DrawZoomBadges(CompositionOverlay overlay, OverlayMetrics metrics)
+    {
+        IntPtr effect = IntPtr.Zero;
+        IntPtr imageParameter = IntPtr.Zero;
+        foreach (var source in overlay.Sources)
+        {
+            var transform = source.Transform;
+            if (!transform.Zoom.IsZoomed) continue;
+            var label = ZoomLabel(transform.Zoom);
+            if (PreviewBadges.Get(label) is not { } image) continue;
+            if (ZoomBadge(transform, image.Width, image.Height, metrics) is not { } badge) continue;
+
+            var texture = TextureOf(label, image);
+            if (texture == IntPtr.Zero) continue;
+
+            if (effect == IntPtr.Zero)
+            {
+                effect = ObsGetBaseEffect(ObsEffectDefault);
+                if (effect == IntPtr.Zero) return;
+                imageParameter = GsEffectGetParamByName(effect, "image");
+                if (imageParameter == IntPtr.Zero) return;
+            }
+
+            GsEffectSetTexture(imageParameter, texture);
+            while (GsEffectLoop(effect, "Draw")) Fill(transform, badge, texture, image.Width, image.Height);
+        }
+    }
+
+    // Une texture par texte de pastille, créée au premier besoin et gardée : il n'y en a
+    // qu'une par facteur de zoom affiché, chacune de quelques kilo-octets. Une pastille
+    // rendue à nouveau (autre échelle d'écran) remplace la sienne, qui est détruite.
+    // N'est touché que dans le contexte graphique de libobs : il sérialise les accès.
+    private static readonly Dictionary<string, (PreviewBadgeImage Image, IntPtr Texture)> Textures = new();
+
+    private static IntPtr TextureOf(string label, PreviewBadgeImage image)
+    {
+        if (Textures.TryGetValue(label, out var cached))
+        {
+            if (ReferenceEquals(cached.Image, image)) return cached.Texture;
+            if (cached.Texture != IntPtr.Zero) GsTextureDestroy(cached.Texture);
+        }
+
+        var handle = GCHandle.Alloc(image.Pixels, GCHandleType.Pinned);
+        IntPtr texture;
+        try
+        {
+            var levels = new[] { handle.AddrOfPinnedObject() };
+            texture = GsTextureCreate((uint)image.Width, (uint)image.Height, GsColorFormatBgra, 1, levels, 0);
+        }
+        finally
+        {
+            handle.Free();
+        }
+
+        Textures[label] = (image, texture);
+        return texture;
+    }
+
+    /// <summary>
+    /// Détruit les textures des pastilles. À appeler avant d'arrêter libobs, une fois les
+    /// aperçus fermés : passé l'arrêt, plus rien ne peut les rendre.
+    /// </summary>
+    internal static void ReleaseTextures()
+    {
+        // Le contexte graphique d'abord, comme le thread de rendu qui le tient déjà quand il
+        // touche à ces textures : le même ordre partout, pas d'interblocage possible.
+        ObsEnterGraphics();
+        try
+        {
+            foreach (var (_, texture) in Textures.Values)
+            {
+                if (texture != IntPtr.Zero) GsTextureDestroy(texture);
+            }
+
+            Textures.Clear();
+        }
+        finally
+        {
+            ObsLeaveGraphics();
         }
     }
 
@@ -456,7 +649,12 @@ internal static class ObsPreviewGraphics
     // Un quad unitaire mis à la place et à la taille voulues : c'est ainsi que libobs peint
     // ses propres rectangles, sans avoir à construire de géométrie. Le repère de la source
     // vient d'abord — son point, puis sa rotation —, exactement comme libobs compose l'item.
-    private static void Fill(SourceTransform frame, PreviewFillRect rect)
+    private static void Fill(SourceTransform frame, PreviewFillRect rect) =>
+        Fill(frame, rect, IntPtr.Zero, 1, 1);
+
+    // Une texture se peint de même : gs_draw_sprite la pose sur un quad de sa propre taille,
+    // ramené ensuite à celle du rectangle.
+    private static void Fill(SourceTransform frame, PreviewFillRect rect, IntPtr texture, int width, int height)
     {
         GsMatrixPush();
         try
@@ -466,8 +664,8 @@ internal static class ObsPreviewGraphics
             if (frame.Rotation != 0)
                 GsMatrixRotaa4f(0f, 0f, 1f, (float)(frame.Rotation * Math.PI / 180));
             GsMatrixTranslate3f(rect.X, rect.Y, 0f);
-            GsMatrixScale3f(rect.Width, rect.Height, 1f);
-            GsDrawSprite(IntPtr.Zero, 0, 1, 1);
+            GsMatrixScale3f(rect.Width / width, rect.Height / height, 1f);
+            GsDrawSprite(texture, 0, (uint)width, (uint)height);
         }
         finally
         {
@@ -540,6 +738,27 @@ internal static class ObsPreviewGraphics
 
     [DllImport(ObsLibrary, EntryPoint = "gs_matrix_scale3f", CallingConvention = CallingConvention.Cdecl)]
     private static extern void GsMatrixScale3f(float x, float y, float z);
+
+    [DllImport(ObsLibrary, EntryPoint = "gs_texture_create", CallingConvention = CallingConvention.Cdecl)]
+    private static extern IntPtr GsTextureCreate(
+        uint width,
+        uint height,
+        int colorFormat,
+        uint levels,
+        IntPtr[] data,
+        uint flags);
+
+    [DllImport(ObsLibrary, EntryPoint = "gs_texture_destroy", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void GsTextureDestroy(IntPtr texture);
+
+    [DllImport(ObsLibrary, EntryPoint = "obs_enter_graphics", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void ObsEnterGraphics();
+
+    [DllImport(ObsLibrary, EntryPoint = "obs_leave_graphics", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void ObsLeaveGraphics();
+
+    [DllImport(ObsLibrary, EntryPoint = "gs_effect_set_texture", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void GsEffectSetTexture(IntPtr parameter, IntPtr texture);
 
     [DllImport(ObsLibrary, EntryPoint = "gs_draw_sprite", CallingConvention = CallingConvention.Cdecl)]
     private static extern void GsDrawSprite(IntPtr texture, uint flip, uint width, uint height);

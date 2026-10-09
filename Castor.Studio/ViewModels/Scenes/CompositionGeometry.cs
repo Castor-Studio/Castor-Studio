@@ -21,14 +21,17 @@ public enum CompositionHandle
 
 /// <summary>
 /// Ce qu'un geste sur le canvas fait à une source : la déplacer, l'étirer par une poignée,
-/// la rogner par une poignée, ou la faire tourner par un de ses coins.
+/// la rogner par une poignée, la faire tourner par un de ses coins, faire glisser son
+/// image zoomée sous son cadre, ou viser un point de cette image sur sa mini-carte.
 /// </summary>
 public enum CompositionGestureKind
 {
     Move,
     Resize,
     Crop,
-    Rotate
+    Rotate,
+    Pan,
+    Aim
 }
 
 /// <summary>
@@ -367,6 +370,51 @@ public static class CompositionGeometry
     /// <summary>La source tourne de <paramref name="degrees"/> autour de son centre.</summary>
     public static SourcePlacement RotateBy(SourceTransform start, double degrees) =>
         TurnedTo(start, start.Rotation + degrees);
+
+    /// <summary>
+    /// L'image zoomée glisse sous le cadre avec le pointeur, comme une photo qu'on pousse du
+    /// doigt : le point visé part dans l'autre sens. Le déplacement se compte le long des
+    /// bords de la source, et le point visé s'arrête là où la fenêtre zoomée touche le bord
+    /// de l'image.
+    /// </summary>
+    public static SourceZoom Pan(SourceTransform start, double deltaX, double deltaY)
+    {
+        var zoom = start.Zoom;
+        if (!zoom.IsZoomed || start.Width <= 0 || start.Height <= 0) return zoom;
+
+        var (u, v) = Turn(deltaX, deltaY, -start.Rotation);
+        // Le cadre montre 1 / Factor de l'image : un cadre entier parcouru en déplace autant.
+        // Le glissement part du point que le moteur montre vraiment, pas d'un point hors d'atteinte.
+        var shown = zoom.Aimed(zoom.CenterX, zoom.CenterY);
+        return shown.Aimed(
+            shown.CenterX - u / start.Width / zoom.Factor,
+            shown.CenterY - v / start.Height / zoom.Factor);
+    }
+
+    /// <summary>
+    /// Le zoom passe à <paramref name="factor"/> en gardant fixe le point de l'image qui est
+    /// sous (<paramref name="x"/>, <paramref name="y"/>) dans le canvas, comme une carte qu'on
+    /// zoome vers le pointeur. Le point visé reste là où la fenêtre zoomée tient dans l'image.
+    /// </summary>
+    public static SourceZoom ZoomAt(SourceTransform start, double x, double y, double factor)
+    {
+        if (factor <= SourceZoom.MinFactor) return SourceZoom.None;
+        if (start.Width <= 0 || start.Height <= 0) return start.Zoom with { Factor = factor };
+
+        // Où tombe le pointeur dans le cadre, de 0 à 1 le long de ses bords.
+        var (u, v) = ToLocal(start, x, y);
+        var frameX = Math.Clamp(u / start.Width, 0, 1);
+        var frameY = Math.Clamp(v / start.Height, 0, 1);
+
+        // Le point de l'image sous le pointeur se lit dans la fenêtre d'avant ; la nouvelle se
+        // pose autour de lui pour le garder au même endroit du cadre.
+        var before = start.Zoom.Aimed(start.Zoom.CenterX, start.Zoom.CenterY);
+        var imageX = before.CenterX + (frameX - 0.5) / before.Factor;
+        var imageY = before.CenterY + (frameY - 0.5) / before.Factor;
+        return new SourceZoom(factor).Aimed(
+            imageX - (frameX - 0.5) / factor,
+            imageY - (frameY - 0.5) / factor);
+    }
 
     /// <summary>Un angle ramené dans ]-180, 180] : un tour complet ne tourne rien.</summary>
     public static double NormalizeDegrees(double degrees)

@@ -20,9 +20,10 @@ public readonly record struct SourceCrop(int Left, int Top, int Right, int Botto
 /// défaut de libobs.
 /// </summary>
 /// <remarks>
-/// libobs connaît aussi des « bounds » (un cadre qui contraint la taille rendue). L'interface
-/// ne les pose pas ; s'il fallait les lire, ils changeraient le rectangle rendu ici même, et
-/// rien dans l'interface.
+/// <see cref="Crop"/> est le rognage de l'opérateur, celui qui découpe le cadre. Le
+/// <see cref="Zoom"/> se joue à l'intérieur de ce cadre : le moteur rogne davantage et remet
+/// l'image à la taille du cadre (ses « bounds »), si bien que <see cref="Width"/>,
+/// <see cref="Height"/> et le rognage lus ici ne bougent pas quand on zoome.
 /// </remarks>
 public sealed record SourceTransform(
     Guid SourceId,
@@ -38,6 +39,9 @@ public sealed record SourceTransform(
     bool IsVisible,
     double Rotation = 0)
 {
+    /// <summary>Le zoom de l'image dans son cadre ; <see cref="SourceZoom.None"/> sans zoom.</summary>
+    public SourceZoom Zoom { get; init; } = SourceZoom.None;
+
     /// <summary>Ce que le moteur détient de cette transformation, sans ce qu'il en déduit.</summary>
     public SourcePlacement Placement => new(X, Y, ScaleX, ScaleY, Crop, Rotation);
 }

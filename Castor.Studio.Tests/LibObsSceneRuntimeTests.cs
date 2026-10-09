@@ -256,6 +256,14 @@ public sealed class LibObsSceneRuntimeTests
             var after = runtime.GetSceneComposition(sceneId);
             Assert.Equal(written.Transform.Placement, Assert.Single(after.Composition.Sources).Placement);
 
+            // Un son n'a pas d'image à agrandir ; l'image entière, elle, se redemande toujours.
+            Assert.False(runtime.SetSourceZoom(sceneId, sourceId, new SourceZoom(2)).IsSuccess);
+            Assert.False(runtime.SetSourceZoom(sceneId, sourceId, new SourceZoom(double.NaN)).IsSuccess);
+            Assert.False(runtime.SetSourceZoom(sceneId, sourceId, new SourceZoom(1, 2, 0.5)).IsSuccess);
+            var unzoomed = runtime.SetSourceZoom(sceneId, sourceId, SourceZoom.None);
+            Assert.True(unzoomed.IsSuccess, unzoomed.Message);
+            Assert.Equal(written.Transform.Placement, unzoomed.Transform!.Placement);
+
             Assert.True(runtime.RemoveSource(sceneId, sourceId).IsSuccess);
             Assert.True(runtime.RemoveScene(sceneId).IsSuccess);
         }
