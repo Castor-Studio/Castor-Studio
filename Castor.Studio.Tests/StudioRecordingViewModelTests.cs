@@ -313,6 +313,50 @@ public sealed class StudioRecordingViewModelTests
         }
     }
 
+    [Fact]
+    public void Duration_slider_moves_from_preset_to_preset_and_greys_out_on_a_cut()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings());
+            var viewModel = new StudioViewModel(
+                new StudioWorkspaceViewModel(), new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(),
+                new FakeRecordingRuntime(), new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
+
+            Assert.Equal(1, viewModel.TransitionDurationStep);
+            Assert.Equal("300 ms", viewModel.TransitionDurationText);
+
+            // A drag lands between two notches: the duration snaps to the nearest preset.
+            viewModel.TransitionDurationStep = 3.4;
+            Assert.Equal(750, viewModel.TransitionDurationMs);
+            Assert.Equal(750, settingsService.Load().SceneTransitionDurationMs);
+
+            viewModel.SelectedTransition = SceneTransitionOption.For(SceneTransitionKind.Cut);
+            Assert.False(viewModel.IsTransitionAnimated);
+            Assert.Equal("", viewModel.TransitionDurationText);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void A_scene_tile_knows_when_its_scene_has_no_picture()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Pause");
+        Assert.False(scene.HasVideoSource);
+
+        workspace.AddSource(scene, new SourceDefinition { Name = "Micro", Kind = SourceKind.Audio });
+        Assert.False(scene.HasVideoSource);
+
+        workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        Assert.True(scene.HasVideoSource);
+    }
+
     [Theory]
     [InlineData(-10, SceneTransition.MinDurationMs)]
     [InlineData(60_000, SceneTransition.MaxDurationMs)]

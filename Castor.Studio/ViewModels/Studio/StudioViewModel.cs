@@ -69,13 +69,27 @@ public partial class StudioViewModel : ViewModelBase
     public IReadOnlyList<int> TransitionDurations => SceneTransitionOption.Durations;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsTransitionAnimated))]
+    [NotifyPropertyChangedFor(nameof(IsTransitionAnimated), nameof(TransitionDurationText))]
     private SceneTransitionOption? _selectedTransition = SceneTransitionOption.For(SceneTransition.Default.Kind);
 
-    [ObservableProperty] private int _transitionDurationMs = SceneTransition.DefaultDurationMs;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TransitionDurationStep), nameof(TransitionDurationText))]
+    private int _transitionDurationMs = SceneTransition.DefaultDurationMs;
 
-    // Une coupe n'a pas de durée : le choix de durée s'efface.
+    // Une coupe n'a pas de durée : le curseur de durée se grise.
     public bool IsTransitionAnimated => SelectedTransition?.Kind != SceneTransitionKind.Cut;
+
+    // Le curseur avance de durée prête en durée prête, pas de milliseconde en milliseconde :
+    // un glissé n'écrit les settings qu'à chaque cran, et tombe toujours sur une valeur ronde.
+    public double TransitionDurationStep
+    {
+        get => SceneTransitionOption.StepOf(TransitionDurationMs);
+        set => TransitionDurationMs = SceneTransitionOption.DurationAt((int)Math.Round(value));
+    }
+
+    public int TransitionDurationLastStep => TransitionDurations.Count - 1;
+
+    public string TransitionDurationText => IsTransitionAnimated ? $"{TransitionDurationMs} ms" : "";
 
     [ObservableProperty] private string _streamTimerText = "00:00:00";
     [ObservableProperty] private bool _isStreamingTransition;
@@ -113,7 +127,7 @@ public partial class StudioViewModel : ViewModelBase
     [ObservableProperty] private string _recordingOutputDirectory = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
-    public string SceneBarStatusText => IsStreaming ? "EN DIRECT" : IsRecording ? "REC" : "Prêt";
+    public string SceneBarStatusText => IsStreaming ? "En direct" : IsRecording ? "Enregistrement" : "Prêt";
     // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
     public bool IsOnAir => IsStreaming || IsRecording;
 

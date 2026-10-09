@@ -1,89 +1,158 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Studio"
+             xmlns:scenes="using:CastorApplication.ViewModels.Scenes"
              xmlns:converters="using:CastorApplication.Converters"
              x:Class="CastorApplication.Views.Studio.SceneSelectorPaneView"
-             xmlns:sys="using:System"
              x:DataType="vm:StudioViewModel">
 
 	<UserControl.Resources>
-		<DataTemplate x:Key="TransitionDurationTemplate" x:DataType="sys:Int32">
-			<TextBlock Text="{Binding StringFormat='{}{0} ms'}"/>
+		<!-- Le Slider Fluent réserve 15 px au-dessus et au-dessous de sa piste (place d'un
+		     en-tête et de graduations qu'on n'affiche pas) : dans une barre basse, la piste
+		     tombait sous l'axe des autres contrôles. Sans ces marges, elle se centre. -->
+		<GridLength x:Key="SliderPreContentMargin">0</GridLength>
+		<GridLength x:Key="SliderPostContentMargin">0</GridLength>
+
+		<!-- Une scène dans la liste : sa pastille de couleur, son nom, et un rappel quand elle
+		     n'a pas d'image — l'envoyer à l'antenne enverrait du noir. -->
+		<DataTemplate x:Key="SceneItemTemplate" x:DataType="scenes:SceneItemViewModel">
+			<StackPanel Orientation="Horizontal" Spacing="7">
+				<Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center"/>
+				<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+				<TextBlock Text="sans vidéo" IsVisible="{Binding !HasVideoSource}"
+                           Foreground="{DynamicResource AppFg5}" FontSize="11" VerticalAlignment="Center"/>
+			</StackPanel>
+		</DataTemplate>
+
+		<!-- Une transition = une icône. Son nom est porté par la case entière (style plus bas). -->
+		<DataTemplate x:Key="TransitionIconTemplate" x:DataType="vm:SceneTransitionOption">
+			<Viewbox Width="16" Height="16">
+				<Canvas Width="24" Height="24">
+					<Path Classes="transition-icon" Data="{Binding IconPath}" StrokeThickness="2"
+                          StrokeLineCap="Round" StrokeJoin="Round"/>
+				</Canvas>
+			</Viewbox>
 		</DataTemplate>
 	</UserControl.Resources>
 
+	<UserControl.Styles>
+		<!-- Choix de la transition : une rangée d'icônes jointives, la choisie en accent. -->
+		<Style Selector="ListBox.segmented">
+			<Setter Property="Background" Value="Transparent"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="CornerRadius" Value="6"/>
+			<Setter Property="Padding" Value="0"/>
+			<Setter Property="ClipToBounds" Value="True"/>
+			<Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+			<Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+		</Style>
+		<!-- Infobulle et nom accessible sur toute la case, pas seulement sur le trait de l'icône :
+		     sinon le survol des marges n'affiche rien. -->
+		<Style Selector="ListBox.segmented ListBoxItem" x:DataType="vm:SceneTransitionOption">
+			<Setter Property="ToolTip.Tip" Value="{Binding Label}"/>
+			<Setter Property="AutomationProperties.Name" Value="{Binding Label}"/>
+		</Style>
+		<Style Selector="ListBox.segmented ListBoxItem">
+			<Setter Property="Padding" Value="9,7"/>
+			<Setter Property="MinHeight" Value="0"/>
+			<Setter Property="Cursor" Value="Hand"/>
+		</Style>
+		<Style Selector="ListBox.segmented ListBoxItem:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+		</Style>
+		<Style Selector="ListBox.segmented ListBoxItem:selected /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+		</Style>
+		<Style Selector="ListBox.segmented ListBoxItem:selected:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+		</Style>
+		<Style Selector="ListBox.segmented ListBoxItem:selected:focus /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+		</Style>
+		<Style Selector="Path.transition-icon">
+			<Setter Property="Stroke" Value="{DynamicResource AppFg3}"/>
+		</Style>
+		<Style Selector="ListBoxItem:selected Path.transition-icon">
+			<Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
+		</Style>
+
+		<Style Selector="TextBlock.duration">
+			<Setter Property="FontSize" Value="11"/>
+			<Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+			<Setter Property="MinWidth" Value="48"/>
+			<Setter Property="VerticalAlignment" Value="Center"/>
+		</Style>
+	</UserControl.Styles>
+
 	<!-- Bottom half of the pane card: rounds/outlines the sides + bottom, the dock's title bar does the top (DockTheme.axaml). -->
-	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="12,8"
+	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="12,6"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 		<Panel>
 
-			<!-- Landscape: label, selector and status dot in a row. -->
-			<Grid ColumnDefinitions="Auto, Auto, Auto, Auto, Auto, *, Auto"
+			<!-- Landscape: scene, transition and duration on the left, status on the right. The
+			     free column between them is room for more information later. -->
+			<Grid ColumnDefinitions="Auto, Auto, Auto, *, Auto" ColumnSpacing="14"
                   IsVisible="{Binding #PaneRoot.Bounds, Converter={x:Static converters:IsLandscapeConverter.Instance}}">
-				<TextBlock Grid.Column="0" Text="SCÈNE ACTIVE :"
-                           Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Margin="0,0,10,0"/>
-				<ComboBox Grid.Column="1"
+				<ComboBox Grid.Column="0"
                           ItemsSource="{Binding Scenes}"
-                          DisplayMemberBinding="{Binding Name}"
+                          ItemTemplate="{StaticResource SceneItemTemplate}"
                           SelectedItem="{Binding ActiveScene}"
-                          MinWidth="180" VerticalAlignment="Center"
+                          PlaceholderText="Aucune scène"
+                          MinWidth="170" VerticalAlignment="Center"
+                          ToolTip.Tip="Scène envoyée au live et à l'enregistrement"
                           Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-				<!-- La transition voisine du choix de scène : c'est elle qui joue quand la scène change. -->
-				<TextBlock Grid.Column="2" Text="TRANSITION :"
-                           Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Margin="16,0,10,0"/>
-				<ComboBox Grid.Column="3"
-                          ItemsSource="{Binding TransitionOptions}"
-                          DisplayMemberBinding="{Binding Label}"
-                          SelectedItem="{Binding SelectedTransition}"
-                          MinWidth="130" VerticalAlignment="Center"
-                          ToolTip.Tip="Joue sur le live et l'enregistrement quand la scène active change"
-                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-				<ComboBox Grid.Column="4"
-                          ItemsSource="{Binding TransitionDurations}"
-                          SelectedItem="{Binding TransitionDurationMs}"
-                          IsVisible="{Binding IsTransitionAnimated}"
-                          ItemTemplate="{StaticResource TransitionDurationTemplate}"
-                          MinWidth="90" VerticalAlignment="Center" Margin="6,0,0,0"
-                          ToolTip.Tip="Durée de la transition"
-                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-				<StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6"
-                            VerticalAlignment="Center">
+				<ListBox Grid.Column="1" Classes="segmented" VerticalAlignment="Center"
+                         ItemsSource="{Binding TransitionOptions}"
+                         SelectedItem="{Binding SelectedTransition}"
+                         ItemTemplate="{StaticResource TransitionIconTemplate}">
+					<ListBox.ItemsPanel>
+						<ItemsPanelTemplate>
+							<StackPanel Orientation="Horizontal"/>
+						</ItemsPanelTemplate>
+					</ListBox.ItemsPanel>
+				</ListBox>
+				<Grid Grid.Column="2" ColumnDefinitions="110, Auto" ColumnSpacing="8"
+                      IsEnabled="{Binding IsTransitionAnimated}" VerticalAlignment="Center"
+                      ToolTip.Tip="Durée de la transition">
+					<Slider Minimum="0" Maximum="{Binding TransitionDurationLastStep}"
+                            TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding TransitionDurationStep}" VerticalAlignment="Center"/>
+					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
+				</Grid>
+				<StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
 					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
 					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}"
                                FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
 				</StackPanel>
 			</Grid>
 
-			<!-- Portrait: same controls stacked top to bottom instead of side by side. -->
-			<StackPanel Orientation="Vertical" Spacing="6" HorizontalAlignment="Stretch"
+			<!-- Portrait: the same controls stacked, full width. -->
+			<StackPanel Orientation="Vertical" Spacing="8"
                         IsVisible="{Binding #PaneRoot.Bounds, Converter={x:Static converters:IsPortraitConverter.Instance}}">
-				<TextBlock Text="SCÈNE ACTIVE :" HorizontalAlignment="Center"
-                           Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"/>
 				<ComboBox ItemsSource="{Binding Scenes}"
-                          DisplayMemberBinding="{Binding Name}"
+                          ItemTemplate="{StaticResource SceneItemTemplate}"
                           SelectedItem="{Binding ActiveScene}"
+                          PlaceholderText="Aucune scène"
                           HorizontalAlignment="Stretch"
+                          ToolTip.Tip="Scène envoyée au live et à l'enregistrement"
                           Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-				<TextBlock Text="TRANSITION :" HorizontalAlignment="Center" Margin="0,4,0,0"
-                           Foreground="{DynamicResource AppFg4}" FontSize="11" FontWeight="SemiBold"/>
-				<Grid ColumnDefinitions="*, Auto">
-					<ComboBox Grid.Column="0"
-                              ItemsSource="{Binding TransitionOptions}"
-                              DisplayMemberBinding="{Binding Label}"
-                              SelectedItem="{Binding SelectedTransition}"
-                              HorizontalAlignment="Stretch"
-                              ToolTip.Tip="Joue sur le live et l'enregistrement quand la scène active change"
-                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
-					<ComboBox Grid.Column="1"
-                              ItemsSource="{Binding TransitionDurations}"
-                              SelectedItem="{Binding TransitionDurationMs}"
-                              IsVisible="{Binding IsTransitionAnimated}"
-                              ItemTemplate="{StaticResource TransitionDurationTemplate}"
-                              MinWidth="90" Margin="6,0,0,0"
-                              ToolTip.Tip="Durée de la transition"
-                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+				<ListBox Classes="segmented" HorizontalAlignment="Center"
+                         ItemsSource="{Binding TransitionOptions}"
+                         SelectedItem="{Binding SelectedTransition}"
+                         ItemTemplate="{StaticResource TransitionIconTemplate}">
+					<ListBox.ItemsPanel>
+						<ItemsPanelTemplate>
+							<StackPanel Orientation="Horizontal"/>
+						</ItemsPanelTemplate>
+					</ListBox.ItemsPanel>
+				</ListBox>
+				<Grid ColumnDefinitions="*, Auto" ColumnSpacing="8"
+                      IsEnabled="{Binding IsTransitionAnimated}" ToolTip.Tip="Durée de la transition">
+					<Slider Minimum="0" Maximum="{Binding TransitionDurationLastStep}"
+                            TickFrequency="1" IsSnapToTickEnabled="True"
+                            Value="{Binding TransitionDurationStep}" VerticalAlignment="Center"/>
+					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
 				<StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
 					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
