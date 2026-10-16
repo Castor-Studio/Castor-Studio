@@ -487,6 +487,51 @@ public sealed class LibObsSceneRuntimeTests
     }
 
     [Fact]
+    public async Task Native_preview_decodes_the_frames_of_a_media_source()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+
+        var windowHandle = CreateWindowEx(
+            0, "STATIC", "Castor media preview test", WindowStylePopup,
+            0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+        Assert.NotEqual(IntPtr.Zero, windowHandle);
+
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-media-video-{Guid.NewGuid():N}.y4m");
+        WriteTestVideo(mediaPath, 64, 36);
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var scene = new SceneDefinition { Name = "Media preview" };
+            var sourceId = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            Assert.True((await runtime.StartPreviewAsync(scene, windowHandle, 320, 180, timeout.Token)).IsSuccess);
+            Assert.True(runtime.AddSource(scene.Id,
+                new SourceAddRequest.Media(sourceId, "Clip", mediaPath, true)).IsSuccess);
+
+            // A media source has no size until its first frame is decoded.
+            SourceTransform? decoded = null;
+            while (!timeout.IsCancellationRequested)
+            {
+                decoded = Assert.Single(runtime.GetSceneComposition(scene.Id).Composition.Sources);
+                if (decoded.SourceWidth > 0) break;
+                await Task.Delay(50);
+            }
+
+            Assert.Equal(64, decoded!.SourceWidth);
+            Assert.Equal(36, decoded.SourceHeight);
+            Assert.True((await runtime.StopPreviewAsync(windowHandle, scene.Id, CancellationToken.None)).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            DestroyWindow(windowHandle);
+            File.Delete(mediaPath);
+        }
+    }
+
+    [Fact]
     public async Task Native_preview_keeps_an_empty_scene_alive_while_sources_change()
     {
         if (!OperatingSystem.IsWindows()) return;
@@ -811,6 +856,25 @@ public sealed class LibObsSceneRuntimeTests
         {
             runtime.Dispose();
             File.Delete(mediaPath);
+        }
+    }
+
+    // One second of raw YUV 4:2:0 video: FFmpeg reads it with no codec or container to build.
+    private static void WriteTestVideo(string path, int width, int height)
+    {
+        const int frames = 30;
+        using var stream = File.Create(path);
+        stream.Write(System.Text.Encoding.ASCII.GetBytes($"YUV4MPEG2 W{width} H{height} F30:1 Ip A1:1 C420jpeg\n"));
+        var luma = new byte[width * height];
+        var chroma = new byte[width / 2 * (height / 2)];
+        Array.Fill(chroma, (byte)128);
+        for (var frame = 0; frame < frames; frame++)
+        {
+            Array.Fill(luma, (byte)(40 + frame * 6));
+            stream.Write("FRAME\n"u8);
+            stream.Write(luma);
+            stream.Write(chroma);
+            stream.Write(chroma);
         }
     }
 

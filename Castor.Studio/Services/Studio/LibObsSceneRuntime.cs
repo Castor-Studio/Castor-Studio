@@ -1752,6 +1752,18 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 : ObsWindowsWindowCaptureMethod.BitBlt
         };
 
+    // With restart_on_activate set, ffmpeg_source only starts playback on activation.
+    // Only the program output (live, recording) activates a scene: previews go through
+    // an ObsView, which shows it without activating it, and the media stays black.
+    // So playback starts as soon as the source is created.
+    internal static ObsMediaSourceSettings CreateMediaSourceSettings(SourceAddRequest.Media media) => new()
+    {
+        FilePath = media.FilePath,
+        Loop = media.Loop,
+        RestartWhenActivated = false,
+        CloseWhenInactive = false
+    };
+
     private static ObsSource CreateNativeSource(SourceAddRequest request) => request switch
     {
         SourceAddRequest.Video video => video.Option.Type switch
@@ -1775,7 +1787,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             _ => throw new NotSupportedException($"Le type audio '{audio.Option.Type}' n'est pas pris en charge.")
         },
         SourceAddRequest.Media media => ObsSource.CreateMediaSource(media.RequestedName,
-            new ObsMediaSourceSettings { FilePath = media.FilePath, Loop = media.Loop }),
+            CreateMediaSourceSettings(media)),
         _ => throw new NotSupportedException("Ce type de source n'est pas pris en charge.")
     };
 
