@@ -510,7 +510,7 @@ public sealed class LibObsSceneRuntimeTests
             Assert.True(runtime.AddSource(scene.Id,
                 new SourceAddRequest.Media(sourceId, "Clip", mediaPath, true)).IsSuccess);
 
-            // Une source média n'a de taille qu'une fois sa première image décodée.
+            // A media source has no size until its first frame is decoded.
             SourceTransform? decoded = null;
             while (!timeout.IsCancellationRequested)
             {
@@ -859,7 +859,7 @@ public sealed class LibObsSceneRuntimeTests
         }
     }
 
-    // Une seconde de vidéo YUV 4:2:0 brute : FFmpeg la lit sans codec ni conteneur à fabriquer.
+    // One second of raw YUV 4:2:0 video: FFmpeg reads it with no codec or container to build.
     private static void WriteTestVideo(string path, int width, int height)
     {
         const int frames = 30;

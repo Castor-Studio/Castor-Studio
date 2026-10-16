@@ -1752,10 +1752,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 : ObsWindowsWindowCaptureMethod.BitBlt
         };
 
-    // ffmpeg_source ne lance la lecture qu'à l'activation quand restart_on_activate est
-    // vrai. Or seule la sortie programme (live, enregistrement) active une scène : les
-    // aperçus passent par un ObsView, qui la montre sans l'activer, et le média reste noir.
-    // La lecture démarre donc dès la création.
+    // With restart_on_activate set, ffmpeg_source only starts playback on activation.
+    // Only the program output (live, recording) activates a scene: previews go through
+    // an ObsView, which shows it without activating it, and the media stays black.
+    // So playback starts as soon as the source is created.
     internal static ObsMediaSourceSettings CreateMediaSourceSettings(SourceAddRequest.Media media) => new()
     {
         FilePath = media.FilePath,
