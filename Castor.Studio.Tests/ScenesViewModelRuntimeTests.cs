@@ -98,7 +98,7 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.True(second.IsActive);
 
         // Selecting from Scenes updates the same workspace selection used by Studio.
-        workspace.SetRecordingState(true);
+        workspace.TrySetRecordingState(RecordingState.Recording);
         viewModel.SelectSceneCommand.Execute(onAir);
         Assert.Same(onAir, viewModel.SelectedScene);
         Assert.Same(onAir, workspace.ActiveScene);

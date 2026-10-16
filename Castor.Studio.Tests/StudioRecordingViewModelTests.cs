@@ -175,10 +175,91 @@ public sealed class StudioRecordingViewModelTests
             );
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
 
-            recordingRuntime.RaiseState(false, "Disque plein");
+            recordingRuntime.RaiseState(RecordingState.Idle, "Disque plein");
 
             Assert.False(workspace.IsRecording);
             Assert.Equal("Disque plein", viewModel.RecordError.Text);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Runtime_states_drive_the_recording_state_and_invalid_ones_are_ignored()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings { OutputPath = directory });
+            var workspace = new StudioWorkspaceViewModel();
+            var scene = workspace.CreateScene("États");
+            workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
+            var recordingRuntime = new FakeRecordingRuntime();
+            var viewModel = new StudioViewModel(
+                workspace,
+                new FakeStudioRuntime(),
+                new UnavailableScenePreviewRuntime(),
+                recordingRuntime,
+                new FakeStreamingRuntime(),
+                new FakeProviderStore(),
+                settingsService
+            );
+            await viewModel.StartRecordingCommand.ExecuteAsync(null);
+            Assert.Equal(RecordingState.Recording, workspace.RecordingState);
+
+            recordingRuntime.RaiseState(RecordingState.Paused);
+            Assert.Equal(RecordingState.Paused, viewModel.RecordingState);
+            Assert.True(viewModel.IsOnAir);
+            Assert.Equal("Enregistrement", viewModel.SceneBarStatusText);
+
+            recordingRuntime.RaiseState(RecordingState.Recording);
+            recordingRuntime.RaiseState(RecordingState.Stopping);
+            Assert.Equal(RecordingState.Stopping, workspace.RecordingState);
+            Assert.True(workspace.IsRecording);
+
+            // Stopping only ends in Idle: a late "started" must not revive the session.
+            recordingRuntime.RaiseState(RecordingState.Recording);
+            Assert.Equal(RecordingState.Stopping, workspace.RecordingState);
+
+            recordingRuntime.RaiseState(RecordingState.Idle);
+            Assert.Equal(RecordingState.Idle, workspace.RecordingState);
+            Assert.False(viewModel.IsOnAir);
+            Assert.Equal("Prêt", viewModel.SceneBarStatusText);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Stop_command_returns_to_idle()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+            settingsService.Save(new ApplicationSettings { OutputPath = directory });
+            var workspace = new StudioWorkspaceViewModel();
+            var scene = workspace.CreateScene("Stop");
+            workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
+            var viewModel = new StudioViewModel(
+                workspace,
+                new FakeStudioRuntime(),
+                new UnavailableScenePreviewRuntime(),
+                new FakeRecordingRuntime(),
+                new FakeStreamingRuntime(),
+                new FakeProviderStore(),
+                settingsService
+            );
+            await viewModel.StartRecordingCommand.ExecuteAsync(null);
+
+            await viewModel.StopRecordingCommand.ExecuteAsync(null);
+
+            Assert.Equal(RecordingState.Idle, workspace.RecordingState);
         }
         finally
         {
@@ -401,8 +482,8 @@ public sealed class StudioRecordingViewModelTests
             return SwitchResult;
         }
 
-        public void RaiseState(bool isRecording, string message = "") =>
-            StateChanged?.Invoke(this, new RecordingStateChangedEventArgs(isRecording, message));
+        public void RaiseState(RecordingState state, string message = "") =>
+            StateChanged?.Invoke(this, new RecordingStateChangedEventArgs(state, message));
     }
 
     private sealed class FakeStudioRuntime : IStudioRuntime
