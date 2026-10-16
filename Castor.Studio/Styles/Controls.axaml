@@ -348,4 +348,12 @@
     <Style Selector="Ellipse.session-state.live">
         <Setter Property="Fill" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
+    <!-- Enregistrement en pause : ambre plutôt que rouge, rien ne s'écrit. Déclaré après
+         live pour l'emporter quand les deux classes sont posées. -->
+    <Style Selector="TextBlock.session-state.paused">
+        <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}"/>
+    </Style>
+    <Style Selector="Ellipse.session-state.paused">
+        <Setter Property="Fill" Value="{DynamicResource StatusWarningBrush}"/>
+    </Style>
 </Styles>

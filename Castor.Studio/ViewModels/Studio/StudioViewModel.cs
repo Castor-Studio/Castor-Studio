@@ -26,7 +26,12 @@ public partial class StudioViewModel : ViewModelBase
     private readonly SettingsService _settingsService;
     private readonly VideoCanvasResolutionResolver _resolutionResolver;
     private readonly DispatcherTimer _sessionTimer;
-    private DateTime? _sessionStartUtc;
+    private readonly TimeProvider _timeProvider;
+    private DateTimeOffset? _sessionStartUtc;
+    // The timer shows recorded time only: finished pauses add up here, and the one in progress
+    // runs from _pausedSinceUtc.
+    private DateTimeOffset? _pausedSinceUtc;
+    private TimeSpan _pausedTotal;
     private bool _loadingTransition;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
@@ -128,7 +133,30 @@ public partial class StudioViewModel : ViewModelBase
     [ObservableProperty] private string _recordingOutputDirectory = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
-    public string SceneBarStatusText => IsStreaming ? "En direct" : IsRecording ? "Enregistrement" : "Prêt";
+    public string SceneBarStatusText => IsStreaming
+        ? "En direct"
+        : IsRecordingPaused ? "En pause" : IsRecording ? "Enregistrement" : "Prêt";
+    public bool IsRecordingPaused => _workspace.RecordingState == RecordingState.Paused;
+
+    // Filled in when a recording starts: its container and encoder decide whether it can pause.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PauseToolTip))]
+    [NotifyCanExecuteChangedFor(nameof(TogglePauseRecordingCommand))]
+    private string _pauseUnavailableReason = "";
+
+    public const string PauseShortcutText = "Ctrl+Maj+P";
+
+    public bool CanTogglePauseRecording =>
+        PauseUnavailableReason.Length == 0 &&
+        _workspace.RecordingState is RecordingState.Recording or RecordingState.Paused;
+
+    public string PauseButtonText => IsRecordingPaused ? "REPRENDRE" : "PAUSE";
+
+    public string PauseToolTip =>PauseUnavailableReason.Length > 0
+        ? PauseUnavailableReason
+        : IsRecordingPaused
+            ? $"Reprendre l'enregistrement dans le même fichier ({PauseShortcutText})"
+            : $"Mettre l'enregistrement en pause ({PauseShortcutText})";
     // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
     public bool IsOnAir => IsStreaming || IsRecording;
 
@@ -141,8 +169,10 @@ public partial class StudioViewModel : ViewModelBase
         IProviderStore providerStore,
         SettingsService settingsService,
         VideoCanvasResolutionResolver? resolutionResolver = null,
-        StatusMessageService? messages = null)
+        StatusMessageService? messages = null,
+        TimeProvider? timeProvider = null)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         messages ??= new StatusMessageService();
         RecordError = messages.Create();
         StreamError = messages.Create();
@@ -368,6 +398,24 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         _workspace.TrySetRecordingState(RecordingState.Recording);
+        PauseUnavailableReason = _recordingRuntime.PauseUnavailableReason;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanTogglePauseRecording))]
+    private void TogglePauseRecording()
+    {
+        RecordError.Clear();
+        var pausing = _workspace.RecordingState == RecordingState.Recording;
+        var result = pausing ? _recordingRuntime.PauseRecording() : _recordingRuntime.ResumeRecording();
+        if (!result.IsSuccess)
+        {
+            // libobs left the output as it was, so the state stays as well.
+            RecordError.ShowError(result.Message);
+            return;
+        }
+
+        // The runtime also reports the change; applying it twice is a no-op.
+        _workspace.TrySetRecordingState(pausing ? RecordingState.Paused : RecordingState.Recording);
     }
 
     [RelayCommand]
@@ -466,8 +514,18 @@ public partial class StudioViewModel : ViewModelBase
         else if (e.PropertyName is nameof(StudioWorkspaceViewModel.RecordingState) or nameof(StudioWorkspaceViewModel.IsStreaming))
         {
             NotifySessionStateChanged();
-            if (IsRecording || IsStreaming) StartSessionTimerIfNeeded();
-            else ResetSessionTimer();
+            if (IsRecording || IsStreaming)
+            {
+                StartSessionTimerIfNeeded();
+                TrackRecordingPause();
+            }
+            else
+            {
+                ResetSessionTimer();
+            }
+
+            if (_workspace.RecordingState == RecordingState.Idle) PauseUnavailableReason = "";
+            TogglePauseRecordingCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -485,6 +543,10 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(StreamStatusText));
         OnPropertyChanged(nameof(IsOnAir));
         OnPropertyChanged(nameof(SceneBarStatusText));
+        OnPropertyChanged(nameof(IsRecordingPaused));
+        OnPropertyChanged(nameof(PauseButtonText));
+        OnPropertyChanged(nameof(CanTogglePauseRecording));
+        OnPropertyChanged(nameof(PauseToolTip));
     }
 
     private const string AccountDisconnectedError = "Compte Twitch déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
@@ -513,22 +575,44 @@ public partial class StudioViewModel : ViewModelBase
     private void StartSessionTimerIfNeeded()
     {
         if (_sessionStartUtc != null) return;
-        _sessionStartUtc = DateTime.UtcNow;
+        _sessionStartUtc = _timeProvider.GetUtcNow();
         StreamTimerText = "00:00:00";
         _sessionTimer.Start();
+    }
+
+    private void TrackRecordingPause()
+    {
+        var now = _timeProvider.GetUtcNow();
+        if (IsRecordingPaused)
+        {
+            _pausedSinceUtc ??= now;
+        }
+        else if (_pausedSinceUtc is { } pausedSince)
+        {
+            _pausedTotal += now - pausedSince;
+            _pausedSinceUtc = null;
+        }
+        RefreshSessionTimer();
     }
 
     private void ResetSessionTimer()
     {
         _sessionTimer.Stop();
         _sessionStartUtc = null;
+        _pausedSinceUtc = null;
+        _pausedTotal = TimeSpan.Zero;
         StreamTimerText = "00:00:00";
     }
 
-    private void OnSessionTimerTick(object? sender, EventArgs e)
+    private void OnSessionTimerTick(object? sender, EventArgs e) => RefreshSessionTimer();
+
+    // While paused the text holds still: the pause in progress is taken off as it grows.
+    internal void RefreshSessionTimer()
     {
         if (_sessionStartUtc == null) return;
-        var elapsed = DateTime.UtcNow - _sessionStartUtc.Value;
+        var now = _timeProvider.GetUtcNow();
+        var paused = _pausedTotal + (_pausedSinceUtc is { } pausedSince ? now - pausedSince : TimeSpan.Zero);
+        var elapsed = now - _sessionStartUtc.Value - paused;
         StreamTimerText = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
     }
 

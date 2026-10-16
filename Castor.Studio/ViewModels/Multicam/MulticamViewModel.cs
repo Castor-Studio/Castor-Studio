@@ -4,6 +4,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Threading;
 using CastorApplication.Models.Settings;
+using CastorApplication.Models.Studio;
 using CastorApplication.Services.Ai;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
@@ -179,14 +180,17 @@ public partial class MulticamViewModel : ViewModelBase
     internal static bool IsOutputRunning(StudioWorkspaceViewModel workspace) =>
         workspace.IsStreaming || workspace.IsRecording;
 
-    internal static string OutputStateText(StudioWorkspaceViewModel workspace) =>
-        (workspace.IsStreaming, workspace.IsRecording) switch
+    internal static string OutputStateText(StudioWorkspaceViewModel workspace)
+    {
+        var recording = workspace.RecordingState == RecordingState.Paused ? "PAUSE" : "REC";
+        return (workspace.IsStreaming, workspace.IsRecording) switch
         {
-            (true, true) => "En direct + REC",
+            (true, true) => $"En direct + {recording}",
             (true, false) => "En direct",
-            (false, true) => "REC",
+            (false, true) => recording,
             _ => "Prête",
         };
+    }
 
     public bool IsOutputLive => SpotlightScene != null && IsOutputRunning(_workspace);
 

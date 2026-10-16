@@ -121,8 +121,8 @@
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
 				<StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
-					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}"
+					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
+					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
                                FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
 				</StackPanel>
 			</Grid>
@@ -155,8 +155,8 @@
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
 				<StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
-					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.ready="{Binding !IsOnAir}"
+					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
+					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
                                FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
 				</StackPanel>
 			</StackPanel>
