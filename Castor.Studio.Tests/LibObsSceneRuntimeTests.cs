@@ -100,8 +100,8 @@ public sealed class LibObsSceneRuntimeTests
     [Fact]
     public void Shipped_runtime_includes_libobs_winrt_for_windows_graphics_capture()
     {
-        // Sans cette DLL, la capture repasse en silence sur DXGI/BitBlt : le paquet
-        // LibObs.Runtime doit la livrer et la déclarer dans son manifeste.
+        // Without this DLL, capture silently falls back to DXGI/BitBlt: the
+        // LibObs.Runtime package must ship it and list it in its manifest.
         var baseDirectory = AppContext.BaseDirectory;
         Assert.True(LibObsSceneRuntime.HasWinRtCaptureRuntime(baseDirectory));
 

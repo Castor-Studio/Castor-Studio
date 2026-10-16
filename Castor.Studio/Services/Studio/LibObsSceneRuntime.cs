@@ -1726,9 +1726,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    // win-capture.dll charge libobs-winrt.dll pour Windows Graphics Capture et plante sans
-    // elle. Le runtime 0.4.0 la livre ; ce repli DXGI/BitBlt reste en garde-fou contre un
-    // runtime incomplet.
+    // win-capture.dll loads libobs-winrt.dll for Windows Graphics Capture and crashes
+    // without it. Runtime 0.4.0 ships it; the DXGI/BitBlt fallback stays as a guard
+    // against an incomplete runtime.
     internal static bool HasWinRtCaptureRuntime(string baseDirectory) =>
         File.Exists(Path.Combine(baseDirectory, WinRtRuntimeRelativePath));
 
