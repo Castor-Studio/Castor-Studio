@@ -294,7 +294,7 @@ public partial class MulticamViewModel : ViewModelBase
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(StudioWorkspaceViewModel.IsStreaming)
-            or nameof(StudioWorkspaceViewModel.IsRecording))
+            or nameof(StudioWorkspaceViewModel.RecordingState))
         {
             foreach (var tile in Tiles) tile.NotifyOutputStateChanged();
             OnPropertyChanged(nameof(IsOutputLive));

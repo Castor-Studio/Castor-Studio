@@ -1470,13 +1470,17 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             if (args.State == ObsOutputState.Started)
             {
                 started = _recordingStarted;
-                notification = new RecordingStateChangedEventArgs(true);
+                notification = new RecordingStateChangedEventArgs(RecordingState.Recording);
+            }
+            else if (args.State == ObsOutputState.Stopping)
+            {
+                notification = new RecordingStateChangedEventArgs(RecordingState.Stopping);
             }
             else if (args.State == ObsOutputState.Stopped)
             {
                 started = _recordingStarted;
                 stopped = _recordingStopped;
-                notification = new RecordingStateChangedEventArgs(false, RecordingStopMessage(args));
+                notification = new RecordingStateChangedEventArgs(RecordingState.Idle, RecordingStopMessage(args));
                 _recordingSceneId = null;
                 if (!_recordingStopRequested) unexpectedlyStoppedOutput = _recordingOutput;
             }

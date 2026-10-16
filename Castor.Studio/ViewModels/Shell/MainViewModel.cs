@@ -190,7 +190,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
+        if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.RecordingState) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
         OnPropertyChanged(nameof(GlobalStatusText));
         OnPropertyChanged(nameof(IsOnAir));
     }

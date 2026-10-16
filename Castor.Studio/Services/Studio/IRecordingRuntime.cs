@@ -2,9 +2,9 @@ using CastorApplication.Models.Studio;
 
 namespace CastorApplication.Services.Studio;
 
-internal sealed class RecordingStateChangedEventArgs(bool isRecording, string message = "") : EventArgs
+internal sealed class RecordingStateChangedEventArgs(RecordingState state, string message = "") : EventArgs
 {
-    public bool IsRecording { get; } = isRecording;
+    public RecordingState State { get; } = state;
     public string Message { get; } = message;
 }
 

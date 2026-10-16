@@ -31,6 +31,7 @@ public partial class StudioViewModel : ViewModelBase
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
     public bool IsStreaming => _workspace.IsStreaming;
+    public RecordingState RecordingState => _workspace.RecordingState;
     public bool IsRecording => _workspace.IsRecording;
 
     public SceneItemViewModel? ActiveScene
@@ -366,7 +367,7 @@ public partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        _workspace.SetRecordingState(true);
+        _workspace.TrySetRecordingState(RecordingState.Recording);
     }
 
     [RelayCommand]
@@ -378,14 +379,26 @@ public partial class StudioViewModel : ViewModelBase
             RecordError.ShowError(result.Message);
             return;
         }
-        _workspace.SetRecordingState(false);
+        ApplyRecordingState(RecordingState.Idle);
+    }
+
+    // An output that ends on its own (disk full, encoder error) or a stop whose "stopping"
+    // signal was missed reports Idle straight from Recording / Paused; walk through Stopping
+    // so the workspace transition rules still hold.
+    private void ApplyRecordingState(RecordingState state)
+    {
+        if (state == RecordingState.Idle &&
+            _workspace.RecordingState is RecordingState.Recording or RecordingState.Paused)
+            _workspace.TrySetRecordingState(RecordingState.Stopping);
+
+        _workspace.TrySetRecordingState(state);
     }
 
     private void OnRecordingRuntimeStateChanged(object? sender, RecordingStateChangedEventArgs e)
     {
         void ApplyState()
         {
-            _workspace.SetRecordingState(e.IsRecording);
+            ApplyRecordingState(e.State);
             if (!string.IsNullOrWhiteSpace(e.Message)) RecordError.ShowError(e.Message);
         }
 
@@ -450,7 +463,7 @@ public partial class StudioViewModel : ViewModelBase
             ApplyActiveSceneToRecording();
             ApplyActiveSceneToStreaming();
         }
-        else if (e.PropertyName is nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))
+        else if (e.PropertyName is nameof(StudioWorkspaceViewModel.RecordingState) or nameof(StudioWorkspaceViewModel.IsStreaming))
         {
             NotifySessionStateChanged();
             if (IsRecording || IsStreaming) StartSessionTimerIfNeeded();
@@ -467,6 +480,7 @@ public partial class StudioViewModel : ViewModelBase
     private void NotifySessionStateChanged()
     {
         OnPropertyChanged(nameof(IsStreaming));
+        OnPropertyChanged(nameof(RecordingState));
         OnPropertyChanged(nameof(IsRecording));
         OnPropertyChanged(nameof(StreamStatusText));
         OnPropertyChanged(nameof(IsOnAir));
