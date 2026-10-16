@@ -98,6 +98,18 @@ public sealed class LibObsSceneRuntimeTests
     }
 
     [Fact]
+    public void Shipped_runtime_includes_libobs_winrt_for_windows_graphics_capture()
+    {
+        // Sans cette DLL, la capture repasse en silence sur DXGI/BitBlt : le paquet
+        // LibObs.Runtime doit la livrer et la déclarer dans son manifeste.
+        var baseDirectory = AppContext.BaseDirectory;
+        Assert.True(LibObsSceneRuntime.HasWinRtCaptureRuntime(baseDirectory));
+
+        var manifest = File.ReadAllText(Path.Combine(baseDirectory, "obs-runtime", "runtime-manifest.json"));
+        Assert.Contains("\"bin/64bit/libobs-winrt.dll\"", manifest);
+    }
+
+    [Fact]
     public void Recording_video_settings_keep_base_canvas_and_requested_output_resolution()
     {
         var request = new RecordingRequest(
