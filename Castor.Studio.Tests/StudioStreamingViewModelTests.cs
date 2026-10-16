@@ -370,6 +370,10 @@ public sealed class StudioStreamingViewModelTests
 
         public StudioRuntimeResult SwitchRecordingScene(Guid sceneId) =>
             StudioRuntimeResult.Success();
+
+        public string PauseUnavailableReason => "";
+        public StudioRuntimeResult PauseRecording() => StudioRuntimeResult.Success();
+        public StudioRuntimeResult ResumeRecording() => StudioRuntimeResult.Success();
     }
 
     private sealed class FakeProviderStore(ProviderSettings? provider) : IProviderStore
