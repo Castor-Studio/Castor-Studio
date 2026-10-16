@@ -1752,6 +1752,18 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 : ObsWindowsWindowCaptureMethod.BitBlt
         };
 
+    // ffmpeg_source ne lance la lecture qu'à l'activation quand restart_on_activate est
+    // vrai. Or seule la sortie programme (live, enregistrement) active une scène : les
+    // aperçus passent par un ObsView, qui la montre sans l'activer, et le média reste noir.
+    // La lecture démarre donc dès la création.
+    internal static ObsMediaSourceSettings CreateMediaSourceSettings(SourceAddRequest.Media media) => new()
+    {
+        FilePath = media.FilePath,
+        Loop = media.Loop,
+        RestartWhenActivated = false,
+        CloseWhenInactive = false
+    };
+
     private static ObsSource CreateNativeSource(SourceAddRequest request) => request switch
     {
         SourceAddRequest.Video video => video.Option.Type switch
@@ -1775,7 +1787,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             _ => throw new NotSupportedException($"Le type audio '{audio.Option.Type}' n'est pas pris en charge.")
         },
         SourceAddRequest.Media media => ObsSource.CreateMediaSource(media.RequestedName,
-            new ObsMediaSourceSettings { FilePath = media.FilePath, Loop = media.Loop }),
+            CreateMediaSourceSettings(media)),
         _ => throw new NotSupportedException("Ce type de source n'est pas pris en charge.")
     };
 
