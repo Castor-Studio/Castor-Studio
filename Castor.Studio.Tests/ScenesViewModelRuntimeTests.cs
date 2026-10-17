@@ -203,6 +203,31 @@ public sealed class ScenesViewModelRuntimeTests
     }
 
     [Fact]
+    public void A_scene_being_recorded_cannot_be_deleted()
+    {
+        var runtime = new FakeSceneRuntime();
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(runtime, workspace);
+        var recorded = CreateScene(viewModel, "Enregistrée");
+        var other = CreateScene(viewModel, "Libre");
+        recorded.IsBeingRecorded = true;
+
+        viewModel.DeleteSceneCommand.Execute(recorded);
+
+        Assert.Contains(recorded, viewModel.Scenes);
+        Assert.Equal(0, runtime.RemoveCalls);
+        Assert.Contains("en cours d'enregistrement", viewModel.DeleteSceneError);
+
+        recorded.IsMultiSelected = true;
+        other.IsMultiSelected = true;
+        viewModel.DeleteSelectedScenesCommand.Execute(null);
+
+        Assert.Contains(recorded, viewModel.Scenes);
+        Assert.DoesNotContain(other, viewModel.Scenes);
+        Assert.Contains("Enregistrée", viewModel.DeleteSceneError);
+    }
+
+    [Fact]
     public void Delete_guard_does_not_call_native_runtime_while_live()
     {
         var runtime = new FakeSceneRuntime();

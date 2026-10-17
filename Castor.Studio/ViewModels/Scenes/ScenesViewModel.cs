@@ -291,9 +291,18 @@ public partial class ScenesViewModel : ViewModelBase
         NewSceneName = "";
     }
 
+    private const string RecordedSceneError =
+        "Cette scène est en cours d'enregistrement. Arrêtez son enregistrement avant de la supprimer.";
+
     [RelayCommand]
     private void DeleteScene(SceneItemViewModel scene)
     {
+        if (scene.IsBeingRecorded)
+        {
+            DeleteSceneError = RecordedSceneError;
+            return;
+        }
+
         if (WouldLeaveNoScenesWhileLive(1))
         {
             DeleteSceneError = "Impossible de supprimer la seule scène pendant un enregistrement ou un live.";
@@ -331,6 +340,12 @@ public partial class ScenesViewModel : ViewModelBase
         var failures = new List<string>();
         foreach (var scene in selected)
         {
+            if (scene.IsBeingRecorded)
+            {
+                failures.Add($"{scene.Name} : {RecordedSceneError}");
+                continue;
+            }
+
             var result = _sceneRuntime.RemoveScene(scene.Id);
             if (!result.IsSuccess)
             {

@@ -21,6 +21,8 @@
 				<TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
 				<TextBlock Text="sans vidéo" IsVisible="{Binding !HasVideoSource}"
                            Foreground="{DynamicResource AppFg5}" FontSize="11" VerticalAlignment="Center"/>
+				<TextBlock Text="REC" IsVisible="{Binding IsBeingRecorded}"
+                           Foreground="{DynamicResource StatusRecBrush}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
 			</StackPanel>
 		</DataTemplate>
 

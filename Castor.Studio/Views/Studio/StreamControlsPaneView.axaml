@@ -96,23 +96,77 @@
                     Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
                     BorderBrush="{DynamicResource AppStopBorder}"/>
 
-			<!-- Un clic, et l'enregistrement part sur la scène active. Le dossier se règle dans
+			<!-- Un clic, et l'enregistrement part : la scène active par défaut. La flèche ouvre le
+			     choix des scènes à enregistrer chacune dans son fichier. Le dossier se règle dans
 			     Paramètres et se rappelle au survol. -->
-			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
-                    Content="ENREGISTRER"
-                    IsVisible="{Binding !IsRecording}"
-                    Command="{Binding StartRecordingCommand}"
-                    ToolTip.Tip="{Binding RecordingOutputDirectory, StringFormat='Enregistre la scène active dans : {0}'}"
-                    Classes="ctrl-btn"
-                    Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
-                    BorderBrush="{DynamicResource AppRecBorder}"/>
+			<Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !IsRecording}">
+				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="ENREGISTRER"
+                        Command="{Binding StartRecordingCommand}"
+                        ToolTip.Tip="{Binding RecordingButtonToolTip}"
+                        ToolTip.ShowOnDisabled="True"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
+                        BorderBrush="{DynamicResource AppRecBorder}"/>
+				<Button Grid.Column="1" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="▾"
+                        ToolTip.Tip="Choisir les scènes à enregistrer"
+                        AutomationProperties.Name="Choisir les scènes à enregistrer"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
+                        BorderBrush="{DynamicResource AppRecBorder}">
+					<Button.Flyout>
+						<Flyout Placement="Top">
+							<StackPanel Width="300" Spacing="10" Margin="4">
+								<TextBlock Text="SCÈNES À ENREGISTRER"
+                                           FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+								<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+								<CheckBox IsChecked="{Binding RecordProgram}">
+									<StackPanel Spacing="1">
+										<TextBlock Text="Scène active" FontSize="12" Foreground="{DynamicResource AppFg1}"/>
+										<TextBlock Text="Suit les changements de scène, comme aujourd'hui"
+                                                   FontSize="10" Foreground="{DynamicResource AppFg4}"/>
+									</StackPanel>
+								</CheckBox>
+								<TextBlock Text="Chaque scène cochée ci-dessous s'enregistre à part, dans son propre fichier."
+                                           TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource AppFg3}"/>
+								<ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Disabled">
+									<ItemsControl ItemsSource="{Binding RecordingSceneOptions}">
+										<ItemsControl.ItemTemplate>
+											<DataTemplate x:DataType="vm:RecordingSceneOption">
+												<CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding Scene.HasVideoSource}">
+													<StackPanel Orientation="Horizontal" Spacing="7">
+														<Ellipse Width="8" Height="8" Fill="{Binding Scene.Color}" VerticalAlignment="Center"/>
+														<TextBlock Text="{Binding Scene.Name}" FontSize="12"
+                                                                   Foreground="{DynamicResource AppFg1}" TextTrimming="CharacterEllipsis"
+                                                                   VerticalAlignment="Center"/>
+														<TextBlock Text="sans vidéo" IsVisible="{Binding !Scene.HasVideoSource}"
+                                                                   FontSize="11" Foreground="{DynamicResource AppFg5}" VerticalAlignment="Center"/>
+													</StackPanel>
+												</CheckBox>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+								</ScrollViewer>
+								<TextBlock Text="{Binding RecordingLoadWarning}"
+                                           IsVisible="{Binding RecordingLoadWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                           TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource StatusWarningBrush}"/>
+								<TextBlock Text="Choisissez au moins une scène à enregistrer."
+                                           IsVisible="{Binding !HasRecordingTarget}"
+                                           TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource AppFg4}"/>
+							</StackPanel>
+						</Flyout>
+					</Button.Flyout>
+				</Button>
+			</Grid>
 
 			<!-- Pause et arrêt partagent la case du bouton ENREGISTRER : la barre garde ses deux
-			     cases au lieu de passer sur une deuxième ligne. Pause reste visible mais grisée
-			     quand le format ne le permet pas, avec la raison au survol. -->
-			<!-- Annuler, plus rare et destructif, reste un bouton étroit au bout : une
-			     confirmation nomme le fichier avant de le supprimer. -->
-			<Grid ColumnDefinitions="*,*,Auto" IsVisible="{Binding IsRecording}">
+			     cases au lieu de passer sur une deuxième ligne. Ils agissent sur tous les
+			     enregistrements à la fois ; la liste (⋯) les pilote un par un. Pause reste visible
+			     mais grisée quand aucun format ne le permet, avec la raison au survol. -->
+			<!-- Annuler, plus rare et destructif, reste un bouton étroit : une confirmation nomme
+			     les fichiers avant de les supprimer. -->
+			<Grid ColumnDefinitions="*,*,Auto,Auto" IsVisible="{Binding IsRecording}">
 				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                         Content="{Binding PauseButtonText}"
                         Command="{Binding TogglePauseRecordingCommand}"
@@ -130,11 +184,75 @@
 				<Button Grid.Column="2" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                         Content="✕"
                         Command="{Binding CancelRecordingCommand}"
-                        ToolTip.Tip="Annuler l'enregistrement et supprimer son fichier"
-                        AutomationProperties.Name="Annuler l'enregistrement"
+                        ToolTip.Tip="{Binding CancelAllToolTip}"
+                        AutomationProperties.Name="Annuler les enregistrements"
                         Classes="ctrl-btn"
                         Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
                         BorderBrush="{DynamicResource AppBorder}"/>
+				<Button Grid.Column="3" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="⋯"
+                        ToolTip.Tip="{Binding RecordingSessionsToolTip}"
+                        AutomationProperties.Name="Enregistrements en cours"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
+                        BorderBrush="{DynamicResource AppBorder}">
+					<Button.Flyout>
+						<Flyout Placement="Top">
+							<StackPanel Width="360" Spacing="10" Margin="4">
+								<TextBlock Text="ENREGISTREMENTS EN COURS"
+                                           FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+								<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+								<ScrollViewer MaxHeight="280" HorizontalScrollBarVisibility="Disabled">
+									<ItemsControl ItemsSource="{Binding RecordingSessions}">
+										<ItemsControl.ItemTemplate>
+											<DataTemplate x:DataType="vm:RecordingSessionViewModel">
+												<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,8" Margin="0,0,0,6"
+                                                        BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
+													<Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+														<StackPanel Grid.Row="0" Grid.Column="0" Spacing="1">
+															<TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource AppFg1}" TextTrimming="CharacterEllipsis"/>
+															<TextBlock Text="{Binding Detail}" FontSize="10"
+                                                                       Foreground="{DynamicResource AppFg4}" TextTrimming="CharacterEllipsis"/>
+														</StackPanel>
+														<StackPanel Grid.Row="0" Grid.Column="1" Spacing="1" HorizontalAlignment="Right">
+															<TextBlock Text="{Binding TimerText}" FontSize="12" FontFamily="Consolas"
+                                                                       HorizontalAlignment="Right"
+                                                                       Classes="session-state" Classes.live="{Binding IsActive}" Classes.paused="{Binding IsPaused}"/>
+															<TextBlock Text="{Binding StateText}" FontSize="10" HorizontalAlignment="Right"
+                                                                       Classes="session-state" Classes.live="{Binding IsActive}" Classes.paused="{Binding IsPaused}"/>
+														</StackPanel>
+														<StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+															<Button Content="{Binding PauseButtonText}" FontSize="11" Padding="10,4" CornerRadius="5"
+                                                                    Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).ToggleSessionPauseCommand, FallbackValue={x:Null}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    ToolTip.Tip="{Binding PauseToolTip}"
+                                                                    ToolTip.ShowOnDisabled="True"
+                                                                    Background="{DynamicResource AppPauseBg}" Foreground="{DynamicResource StatusWarningBrush}"
+                                                                    BorderBrush="{DynamicResource AppPauseBorder}" BorderThickness="1"/>
+															<Button Content="Arrêter" FontSize="11" Padding="10,4" CornerRadius="5"
+                                                                    Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).StopSessionCommand, FallbackValue={x:Null}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
+                                                                    BorderBrush="{DynamicResource AppStopBorder}" BorderThickness="1"/>
+															<Button Content="Supprimer…" FontSize="11" Padding="10,4" CornerRadius="5"
+                                                                    Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).CancelSessionCommand, FallbackValue={x:Null}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    ToolTip.Tip="Arrêter cet enregistrement et supprimer son fichier"
+                                                                    Background="{DynamicResource AppSurface3}" Foreground="{DynamicResource AppFg3}"
+                                                                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"/>
+														</StackPanel>
+													</Grid>
+												</Border>
+											</DataTemplate>
+										</ItemsControl.ItemTemplate>
+									</ItemsControl>
+								</ScrollViewer>
+								<controls:MessageBar Text="{Binding RecordError.Text}"/>
+							</StackPanel>
+						</Flyout>
+					</Button.Flyout>
+				</Button>
 			</Grid>
 
 		</UniformGrid>
