@@ -35,7 +35,13 @@ public sealed record RecordingRequest(
     int BaseHeight,
     int OutputWidth,
     int OutputHeight,
-    RecordingContainer Container);
+    RecordingContainer Container,
+    // Identifies the recording session in later calls and events; empty lets the runtime
+    // pick one (stop-all and pause-all calls still reach it).
+    Guid SessionId = default,
+    // True: the session follows the program channel, re-pointed by SwitchRecordingScene.
+    // False: a dedicated view renders SceneId alone, whatever the program shows.
+    bool FollowsProgram = true);
 
 public sealed record StreamingRequest(
     SceneDefinition Scene,
