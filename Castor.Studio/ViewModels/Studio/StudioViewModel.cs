@@ -157,7 +157,7 @@ public partial class StudioViewModel : ViewModelBase
 
     public string PauseButtonText => IsRecordingPaused ? "REPRENDRE" : "PAUSE";
 
-    public string PauseToolTip =>PauseUnavailableReason.Length > 0
+    public string PauseToolTip => PauseUnavailableReason.Length > 0
         ? PauseUnavailableReason
         : IsRecordingPaused
             ? $"Reprendre l'enregistrement dans le même fichier ({PauseShortcutText})"
