@@ -1,3 +1,4 @@
+using CastorApplication.Models.Studio;
 using CastorApplication.Services.Ai;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Studio;
@@ -23,7 +24,7 @@ public sealed class MulticamOutputTallyTests
         workspace.CreateScene("Caméra");
 
         workspace.SetStreamingState(streaming);
-        workspace.SetRecordingState(recording);
+        if (recording) workspace.TrySetRecordingState(RecordingState.Recording);
 
         var tile = viewModel.Tiles.Single(t => t.Scene == output);
         Assert.Equal(live, tile.IsOutputLive);

@@ -107,13 +107,35 @@
                     Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
                     BorderBrush="{DynamicResource AppRecBorder}"/>
 
-			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
-                    Content="ARRÊTER"
-                    IsVisible="{Binding IsRecording}"
-                    Command="{Binding StopRecordingCommand}"
-                    Classes="ctrl-btn"
-                    Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
-                    BorderBrush="{DynamicResource AppStopBorder}"/>
+			<!-- Pause et arrêt partagent la case du bouton ENREGISTRER : la barre garde ses deux
+			     cases au lieu de passer sur une deuxième ligne. Pause reste visible mais grisée
+			     quand le format ne le permet pas, avec la raison au survol. -->
+			<!-- Annuler, plus rare et destructif, reste un bouton étroit au bout : une
+			     confirmation nomme le fichier avant de le supprimer. -->
+			<Grid ColumnDefinitions="*,*,Auto" IsVisible="{Binding IsRecording}">
+				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="{Binding PauseButtonText}"
+                        Command="{Binding TogglePauseRecordingCommand}"
+                        ToolTip.Tip="{Binding PauseToolTip}"
+                        ToolTip.ShowOnDisabled="True"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppPauseBg}" Foreground="{DynamicResource StatusWarningBrush}"
+                        BorderBrush="{DynamicResource AppPauseBorder}"/>
+				<Button Grid.Column="1" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="ARRÊTER"
+                        Command="{Binding StopRecordingCommand}"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
+                        BorderBrush="{DynamicResource AppStopBorder}"/>
+				<Button Grid.Column="2" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="✕"
+                        Command="{Binding CancelRecordingCommand}"
+                        ToolTip.Tip="Annuler l'enregistrement et supprimer son fichier"
+                        AutomationProperties.Name="Annuler l'enregistrement"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
+                        BorderBrush="{DynamicResource AppBorder}"/>
+			</Grid>
 
 		</UniformGrid>
 

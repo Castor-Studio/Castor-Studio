@@ -59,6 +59,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private ObsEncoder? _recordingVideoEncoder;
     private ObsEncoder? _recordingAudioEncoder;
     private Guid? _recordingSceneId;
+    private RecordingContainer _recordingContainer;
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _recordingStarted;
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _recordingStopped;
     private bool _recordingStopRequested;
@@ -849,6 +850,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 _recordingVideoEncoder = resources.VideoEncoder;
                 _recordingAudioEncoder = resources.AudioEncoder;
                 _recordingSceneId = request.SceneId;
+                _recordingContainer = request.Container;
                 _recordingStarted = NewOutputSignal();
                 _recordingStopped = NewOutputSignal();
                 _recordingOutput.StateChanged += OnRecordingOutputStateChanged;
@@ -912,6 +914,68 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             }
         }
     }
+
+    public string PauseUnavailableReason
+    {
+        get
+        {
+            lock (_gate)
+            {
+                if (_recordingOutput == null) return "";
+                try
+                {
+                    return _recordingOutput.CanPause ? "" : PauseUnsupportedMessage(_recordingContainer);
+                }
+                catch (ObjectDisposedException)
+                {
+                    return "";
+                }
+            }
+        }
+    }
+
+    public StudioRuntimeResult PauseRecording() => SetRecordingPaused(true);
+
+    public StudioRuntimeResult ResumeRecording() => SetRecordingPaused(false);
+
+    private StudioRuntimeResult SetRecordingPaused(bool paused)
+    {
+        lock (_gate)
+        {
+            if (_recordingOutput == null || _recordingStopRequested)
+                return StudioRuntimeResult.Failure("Aucun enregistrement en cours.");
+
+            try
+            {
+                if (_recordingOutput.TryPause(paused)) return StudioRuntimeResult.Success();
+
+                // libobs refuses while the encoders are still applying the previous pause or
+                // resume; the output keeps its current state.
+                var reason = _recordingOutput.LastError;
+                return StudioRuntimeResult.Failure(!string.IsNullOrWhiteSpace(reason)
+                    ? reason
+                    : paused
+                        ? "La mise en pause a échoué. Réessayez dans un instant."
+                        : "La reprise a échoué. Réessayez dans un instant.");
+            }
+            catch (NotSupportedException)
+            {
+                return StudioRuntimeResult.Failure(PauseUnsupportedMessage(_recordingContainer));
+            }
+            catch (Exception exception)
+            {
+                return StudioRuntimeResult.Failure(paused
+                    ? $"Mise en pause impossible : {exception.Message}"
+                    : $"Reprise impossible : {exception.Message}");
+            }
+        }
+    }
+
+    // ffmpeg_output, used for WebM, has no pause support; ffmpeg_muxer (MP4, MKV) does.
+    private static string PauseUnsupportedMessage(RecordingContainer container) =>
+        container == RecordingContainer.WebM
+            ? "Le format WebM ne permet pas la pause. Choisissez MP4 ou MKV dans Paramètres."
+            : "L'encodeur ou le format choisi ne permet pas la pause.";
 
     public async Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken)
     {
@@ -1470,13 +1534,25 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             if (args.State == ObsOutputState.Started)
             {
                 started = _recordingStarted;
-                notification = new RecordingStateChangedEventArgs(true);
+                notification = new RecordingStateChangedEventArgs(RecordingState.Recording);
+            }
+            else if (args.State == ObsOutputState.Paused)
+            {
+                notification = new RecordingStateChangedEventArgs(RecordingState.Paused);
+            }
+            else if (args.State == ObsOutputState.Unpaused)
+            {
+                notification = new RecordingStateChangedEventArgs(RecordingState.Recording);
+            }
+            else if (args.State == ObsOutputState.Stopping)
+            {
+                notification = new RecordingStateChangedEventArgs(RecordingState.Stopping);
             }
             else if (args.State == ObsOutputState.Stopped)
             {
                 started = _recordingStarted;
                 stopped = _recordingStopped;
-                notification = new RecordingStateChangedEventArgs(false, RecordingStopMessage(args));
+                notification = new RecordingStateChangedEventArgs(RecordingState.Idle, RecordingStopMessage(args));
                 _recordingSceneId = null;
                 if (!_recordingStopRequested) unexpectedlyStoppedOutput = _recordingOutput;
             }

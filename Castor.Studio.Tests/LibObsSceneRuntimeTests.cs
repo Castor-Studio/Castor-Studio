@@ -7,8 +7,22 @@ using System.Runtime.InteropServices;
 
 namespace Castor.Studio.Tests;
 
+[Collection(LibObsCollection.Name)]
 public sealed class LibObsSceneRuntimeTests
 {
+    private readonly LibObsSceneRuntime _runtime;
+    private readonly SettingsService _settings;
+    private readonly string _mediaPath;
+    private readonly string _videoPath;
+
+    public LibObsSceneRuntimeTests(LibObsRuntimeFixture fixture)
+    {
+        _runtime = fixture.Runtime;
+        _settings = fixture.Settings;
+        _mediaPath = fixture.MediaPath;
+        _videoPath = fixture.VideoPath;
+    }
+
     [Fact]
     public void Streaming_request_requires_a_twitch_key()
     {
@@ -146,15 +160,15 @@ public sealed class LibObsSceneRuntimeTests
     }
 
     [Fact]
-    public void Native_scene_lifecycle_deduplicates_names_and_shuts_down_cleanly()
+    public void Native_scene_lifecycle_deduplicates_names()
     {
-        var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
             var requestedName = $"Castor test {Guid.NewGuid():N}";
-            var firstId = Guid.NewGuid();
-            var secondId = Guid.NewGuid();
 
             var first = runtime.CreateScene(firstId, requestedName);
             var second = runtime.CreateScene(secondId, requestedName);
@@ -173,18 +187,16 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            RemoveScenes(firstId, secondId);
         }
-
-        Assert.False(Obs.IsInitialized);
     }
 
     [Fact]
     public async Task Native_runtime_enumerates_and_manages_a_media_source()
     {
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-media-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _mediaPath;
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
@@ -193,7 +205,6 @@ public sealed class LibObsSceneRuntimeTests
             Assert.NotNull(catalog.AudioSources);
             Assert.True(string.IsNullOrEmpty(catalog.Message), catalog.Message);
 
-            var sceneId = Guid.NewGuid();
             var sourceId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(sceneId, "Media test").IsSuccess);
 
@@ -211,23 +222,19 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
-            File.Delete(mediaPath);
+            RemoveScenes(sceneId);
         }
-
-        Assert.False(Obs.IsInitialized);
     }
 
     [Fact]
     public void Native_runtime_writes_a_transform_and_keeps_it_whole_when_refused()
     {
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-transform-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _mediaPath;
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var sceneId = Guid.NewGuid();
             var sourceId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(sceneId, "Transform test").IsSuccess);
             Assert.True(runtime.AddSource(sceneId,
@@ -282,11 +289,8 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
-            File.Delete(mediaPath);
+            RemoveScenes(sceneId);
         }
-
-        Assert.False(Obs.IsInitialized);
     }
 
     [Fact]
@@ -294,7 +298,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        using var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
         Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
 
         var catalog = await runtime.EnumerateSourcesAsync(CancellationToken.None);
@@ -324,7 +328,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         if (!OperatingSystem.IsWindows()) return;
 
-        using var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
         Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
 
         var catalog = await runtime.EnumerateSourcesAsync(CancellationToken.None);
@@ -358,13 +362,12 @@ public sealed class LibObsSceneRuntimeTests
         string extension)
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}{extension}");
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-record-source-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _mediaPath;
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var sceneId = Guid.NewGuid();
             var sourceId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(sceneId, $"Record {container}").IsSuccess);
             Assert.True(runtime.AddSource(sceneId,
@@ -385,12 +388,9 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            await StopRecordingAndRemoveScenesAsync(sceneId);
             File.Delete(outputPath);
-            File.Delete(mediaPath);
         }
-
-        Assert.False(Obs.IsInitialized);
     }
 
     [Fact]
@@ -398,13 +398,12 @@ public sealed class LibObsSceneRuntimeTests
     {
         var firstPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mkv");
         var secondPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mkv");
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-record-source-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _mediaPath;
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var sceneId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(sceneId, "Record twice").IsSuccess);
             Assert.True(runtime.AddSource(sceneId,
                 new SourceAddRequest.Media(Guid.NewGuid(), "Recording source", mediaPath, true)).IsSuccess);
@@ -424,10 +423,9 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            await StopRecordingAndRemoveScenesAsync(sceneId);
             File.Delete(firstPath);
             File.Delete(secondPath);
-            File.Delete(mediaPath);
         }
     }
 
@@ -435,7 +433,8 @@ public sealed class LibObsSceneRuntimeTests
     public async Task Native_runtime_rejects_an_unknown_or_empty_scene()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mp4");
-        var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
+        var emptySceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
@@ -446,7 +445,6 @@ public sealed class LibObsSceneRuntimeTests
             Assert.False(unknown.IsSuccess);
             Assert.Contains("n'existe pas", unknown.Message);
 
-            var emptySceneId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(emptySceneId, "Empty record").IsSuccess);
             var empty = await runtime.StartRecordingAsync(
                 CreateRecordingRequest(emptySceneId, outputPath, RecordingContainer.Mp4), timeout.Token);
@@ -455,7 +453,7 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            await StopRecordingAndRemoveScenesAsync(emptySceneId);
             File.Delete(outputPath);
         }
     }
@@ -463,27 +461,19 @@ public sealed class LibObsSceneRuntimeTests
     [Fact]
     public async Task Native_preview_rejects_an_invalid_surface_and_unknown_scene()
     {
-        var runtime = new LibObsSceneRuntime();
-        try
-        {
-            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var runtime = _runtime;
+        Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-            var invalidSurface = await runtime.StartPreviewAsync(
-                new SceneDefinition(), IntPtr.Zero, 320, 180, timeout.Token);
-            Assert.False(invalidSurface.IsSuccess);
-            Assert.Contains("handle", invalidSurface.Message);
+        var invalidSurface = await runtime.StartPreviewAsync(
+            new SceneDefinition(), IntPtr.Zero, 320, 180, timeout.Token);
+        Assert.False(invalidSurface.IsSuccess);
+        Assert.Contains("handle", invalidSurface.Message);
 
-            var unknown = await runtime.StartPreviewAsync(
-                new SceneDefinition(), new IntPtr(1), 320, 180, timeout.Token);
-            Assert.False(unknown.IsSuccess);
-            Assert.Contains("n'existe pas", unknown.Message);
-
-        }
-        finally
-        {
-            runtime.Dispose();
-        }
+        var unknown = await runtime.StartPreviewAsync(
+            new SceneDefinition(), new IntPtr(1), 320, 180, timeout.Token);
+        Assert.False(unknown.IsSuccess);
+        Assert.Contains("n'existe pas", unknown.Message);
     }
 
     [Fact]
@@ -496,13 +486,12 @@ public sealed class LibObsSceneRuntimeTests
             0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
         Assert.NotEqual(IntPtr.Zero, windowHandle);
 
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-media-video-{Guid.NewGuid():N}.y4m");
-        WriteTestVideo(mediaPath, 64, 36);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _videoPath;
+        var runtime = _runtime;
+        var scene = new SceneDefinition { Name = "Media preview" };
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var scene = new SceneDefinition { Name = "Media preview" };
             var sourceId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -525,9 +514,10 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            // Removing the scene also closes a preview left open by a failed assertion,
+            // before its window goes.
+            RemoveScenes(scene.Id);
             DestroyWindow(windowHandle);
-            File.Delete(mediaPath);
         }
     }
 
@@ -541,13 +531,12 @@ public sealed class LibObsSceneRuntimeTests
             0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
         Assert.NotEqual(IntPtr.Zero, windowHandle);
 
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-preview-source-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _mediaPath;
+        var runtime = _runtime;
+        var scene = new SceneDefinition { Name = "Empty preview" };
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var scene = new SceneDefinition { Name = "Empty preview" };
             var sourceId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -564,9 +553,8 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            RemoveScenes(scene.Id);
             DestroyWindow(windowHandle);
-            File.Delete(mediaPath);
         }
     }
 
@@ -584,11 +572,11 @@ public sealed class LibObsSceneRuntimeTests
         Assert.NotEqual(IntPtr.Zero, firstWindow);
         Assert.NotEqual(IntPtr.Zero, secondWindow);
 
-        var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
+        var scene = new SceneDefinition { Name = "Shared preview" };
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var scene = new SceneDefinition { Name = "Shared preview" };
             Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
@@ -611,7 +599,7 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            RemoveScenes(scene.Id);
             DestroyWindow(firstWindow);
             DestroyWindow(secondWindow);
         }
@@ -629,11 +617,11 @@ public sealed class LibObsSceneRuntimeTests
             0, "STATIC", "Castor preview test 2", WindowStylePopup,
             0, 0, 320, 180, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
 
-        var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
+        var scene = new SceneDefinition { Name = "Removed while shown twice" };
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var scene = new SceneDefinition { Name = "Removed while shown twice" };
             Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
@@ -646,7 +634,7 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            RemoveScenes(scene.Id);
             DestroyWindow(firstWindow);
             DestroyWindow(secondWindow);
         }
@@ -656,14 +644,13 @@ public sealed class LibObsSceneRuntimeTests
     public async Task Switching_scene_mid_recording_re_points_the_live_output()
     {
         var outputPath = Path.Combine(Path.GetTempPath(), $"castor-switch-{Guid.NewGuid():N}.mkv");
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-switch-source-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _mediaPath;
+        var runtime = _runtime;
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var first = Guid.NewGuid();
-            var second = Guid.NewGuid();
             Assert.True(runtime.CreateScene(first, "Plateau").IsSuccess);
             Assert.True(runtime.CreateScene(second, "Caméra").IsSuccess);
             Assert.True(runtime.AddSource(first,
@@ -692,9 +679,8 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            await StopRecordingAndRemoveScenesAsync(first, second);
             File.Delete(outputPath);
-            File.Delete(mediaPath);
         }
     }
 
@@ -706,19 +692,17 @@ public sealed class LibObsSceneRuntimeTests
     [InlineData(SceneTransitionKind.Slide)]
     public async Task Switching_scene_mid_recording_plays_each_transition(SceneTransitionKind kind)
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"castor-transition-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(directory);
-        var outputPath = Path.Combine(directory, "record.mkv");
-        var mediaPath = Path.Combine(directory, "source.wav");
-        WriteSilentWave(mediaPath);
-        var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
+        var outputPath = Path.Combine(Path.GetTempPath(), $"castor-transition-{Guid.NewGuid():N}.mkv");
+        var mediaPath = _mediaPath;
+        // The shared runtime reloads its transition from these settings when they are saved.
+        var settingsService = _settings;
         settingsService.Save(new ApplicationSettings { SceneTransitionKind = kind, SceneTransitionDurationMs = 150 });
-        var runtime = new LibObsSceneRuntime(settingsService);
+        var runtime = _runtime;
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var first = Guid.NewGuid();
-            var second = Guid.NewGuid();
             Assert.True(runtime.CreateScene(first, "Plateau").IsSuccess);
             Assert.True(runtime.CreateScene(second, "Caméra").IsSuccess);
             Assert.True(runtime.AddSource(first,
@@ -751,19 +735,21 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
-            Directory.Delete(directory, recursive: true);
+            await StopRecordingAndRemoveScenesAsync(first, second);
+            // Back to the default transition for the tests that follow.
+            settingsService.Save(new ApplicationSettings());
+            File.Delete(outputPath);
         }
     }
 
     [Fact]
     public void Switching_scene_without_a_recording_is_a_no_op()
     {
-        var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var sceneId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(sceneId, "Hors enregistrement").IsSuccess);
 
             // Nothing is running, so there is no output to re-point - and an unknown scene
@@ -773,18 +759,18 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            RemoveScenes(sceneId);
         }
     }
 
     [Fact]
     public void Switching_scene_without_a_live_is_a_no_op()
     {
-        var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var sceneId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(sceneId, "Hors live").IsSuccess);
 
             // Nothing is running, so there is no output to re-point - and an unknown scene
@@ -794,8 +780,26 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
+            RemoveScenes(sceneId);
         }
+    }
+
+    // The runtime is shared by every native test: each one removes what it created, even
+    // when it fails, so the next test starts from an empty runtime. A scene the test
+    // already removed itself just reports a failure here, which is ignored.
+    private void RemoveScenes(params Guid[] sceneIds)
+    {
+        foreach (var sceneId in sceneIds)
+            _runtime.RemoveScene(sceneId);
+    }
+
+    private async Task StopRecordingAndRemoveScenesAsync(params Guid[] sceneIds)
+    {
+        // A no-op unless the test failed mid-recording; a running output would otherwise
+        // fail every later recording test and keep its scene undeletable.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await _runtime.StopRecordingAsync(timeout.Token);
+        RemoveScenes(sceneIds);
     }
 
     private static RecordingRequest CreateRecordingRequest(
@@ -815,17 +819,15 @@ public sealed class LibObsSceneRuntimeTests
         OutputHeight: 180,
         container);
 
-
     [Fact]
     public void Native_runtime_reads_back_and_changes_the_stacking_order()
     {
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-order-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
-        var runtime = new LibObsSceneRuntime();
+        var mediaPath = _mediaPath;
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var sceneId = Guid.NewGuid();
             Assert.True(runtime.CreateScene(sceneId, $"Order {Guid.NewGuid():N}").IsSuccess);
 
             var first = Guid.NewGuid();
@@ -854,54 +856,10 @@ public sealed class LibObsSceneRuntimeTests
         }
         finally
         {
-            runtime.Dispose();
-            File.Delete(mediaPath);
+            RemoveScenes(sceneId);
         }
     }
 
-    // One second of raw YUV 4:2:0 video: FFmpeg reads it with no codec or container to build.
-    private static void WriteTestVideo(string path, int width, int height)
-    {
-        const int frames = 30;
-        using var stream = File.Create(path);
-        stream.Write(System.Text.Encoding.ASCII.GetBytes($"YUV4MPEG2 W{width} H{height} F30:1 Ip A1:1 C420jpeg\n"));
-        var luma = new byte[width * height];
-        var chroma = new byte[width / 2 * (height / 2)];
-        Array.Fill(chroma, (byte)128);
-        for (var frame = 0; frame < frames; frame++)
-        {
-            Array.Fill(luma, (byte)(40 + frame * 6));
-            stream.Write("FRAME\n"u8);
-            stream.Write(luma);
-            stream.Write(chroma);
-            stream.Write(chroma);
-        }
-    }
-
-    private static void WriteSilentWave(string path)
-    {
-        const int sampleRate = 8_000;
-        const short channels = 1;
-        const short bitsPerSample = 16;
-        var data = new byte[sampleRate * channels * bitsPerSample / 8 / 10];
-
-        using var stream = File.Create(path);
-        using var writer = new BinaryWriter(stream);
-        writer.Write("RIFF"u8.ToArray());
-        writer.Write(36 + data.Length);
-        writer.Write("WAVE"u8.ToArray());
-        writer.Write("fmt "u8.ToArray());
-        writer.Write(16);
-        writer.Write((short)1);
-        writer.Write(channels);
-        writer.Write(sampleRate);
-        writer.Write(sampleRate * channels * bitsPerSample / 8);
-        writer.Write((short)(channels * bitsPerSample / 8));
-        writer.Write(bitsPerSample);
-        writer.Write("data"u8.ToArray());
-        writer.Write(data.Length);
-        writer.Write(data);
-    }
 
     private const uint WindowStylePopup = 0x80000000;
 

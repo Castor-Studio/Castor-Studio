@@ -12,8 +12,20 @@ public partial class StudioWorkspaceViewModel : ViewModelBase
     [ObservableProperty]
     private SceneItemViewModel? _activeScene;
 
-    [ObservableProperty]
-    private bool _isRecording;
+    private RecordingState _recordingState;
+
+    public RecordingState RecordingState
+    {
+        get => _recordingState;
+        private set
+        {
+            if (!SetProperty(ref _recordingState, value)) return;
+            OnPropertyChanged(nameof(IsRecording));
+        }
+    }
+
+    // Paused and Stopping still count: the file stays open until libobs confirms the stop.
+    public bool IsRecording => RecordingState != RecordingState.Idle;
 
     [ObservableProperty]
     private bool _isStreaming;
@@ -69,7 +81,29 @@ public partial class StudioWorkspaceViewModel : ViewModelBase
 
     public static bool HasVideoSource(SceneItemViewModel scene) => scene.HasVideoSource;
 
-    internal void SetRecordingState(bool value) => IsRecording = value;
+    // Returns false, leaving the state untouched, when the move is not an allowed one.
+    // Re-applying the current state is a no-op: runtime events and command results can
+    // both report the same change.
+    internal bool TrySetRecordingState(RecordingState next)
+    {
+        if (next == RecordingState) return true;
+        if (!IsAllowedRecordingTransition(RecordingState, next)) return false;
+
+        RecordingState = next;
+        return true;
+    }
+
+    internal static bool IsAllowedRecordingTransition(RecordingState from, RecordingState to) =>
+        (from, to) switch
+        {
+            (RecordingState.Idle, RecordingState.Recording) => true,
+            (RecordingState.Recording, RecordingState.Paused) => true,
+            (RecordingState.Paused, RecordingState.Recording) => true,
+            (RecordingState.Recording or RecordingState.Paused, RecordingState.Stopping) => true,
+            (RecordingState.Stopping, RecordingState.Idle) => true,
+            _ => false
+        };
+
     internal void SetStreamingState(bool value) => IsStreaming = value;
 
     partial void OnActiveSceneChanged(SceneItemViewModel? oldValue, SceneItemViewModel? newValue)
