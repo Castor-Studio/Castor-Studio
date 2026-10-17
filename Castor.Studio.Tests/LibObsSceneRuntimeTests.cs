@@ -784,19 +784,17 @@ public sealed class LibObsSceneRuntimeTests
         }
     }
 
-<<<<<<< HEAD
     [Fact]
     public async Task Native_runtime_records_several_scenes_at_once_into_separate_files()
     {
-        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-record-source-{Guid.NewGuid():N}.wav");
-        WriteSilentWave(mediaPath);
+        var mediaPath = _mediaPath;
         var outputs = new List<string>();
-        var runtime = new LibObsSceneRuntime();
+        var runtime = _runtime;
+        var programScene = Guid.NewGuid();
+        var dedicatedScene = Guid.NewGuid();
         try
         {
             Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
-            var programScene = Guid.NewGuid();
-            var dedicatedScene = Guid.NewGuid();
             Assert.True(runtime.CreateScene(programScene, "Program").IsSuccess);
             Assert.True(runtime.CreateScene(dedicatedScene, "Dedicated").IsSuccess);
             Assert.True(runtime.AddSource(programScene,
@@ -842,18 +840,14 @@ public sealed class LibObsSceneRuntimeTests
             Assert.Contains("WebM", (await runtime.StartRecordingAsync(
                 CreateRecordingRequest(dedicatedScene, outputs[0] + ".webm", RecordingContainer.WebM) with { FollowsProgram = false },
                 timeout.Token)).Message);
-            Assert.True(runtime.RemoveScene(dedicatedScene).IsSuccess);
-            Assert.True(runtime.RemoveScene(programScene).IsSuccess);
         }
         finally
         {
-            runtime.Dispose();
+            await StopRecordingAndRemoveScenesAsync(programScene, dedicatedScene);
             foreach (var output in outputs) File.Delete(output);
-            File.Delete(mediaPath);
         }
+    }
 
-        Assert.False(Obs.IsInitialized);
-=======
     // The runtime is shared by every native test: each one removes what it created, even
     // when it fails, so the next test starts from an empty runtime. A scene the test
     // already removed itself just reports a failure here, which is ignored.
@@ -870,7 +864,6 @@ public sealed class LibObsSceneRuntimeTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await _runtime.StopRecordingAsync(timeout.Token);
         RemoveScenes(sceneIds);
->>>>>>> d0ee5d43b6ae2985db78cbbd488cb4f246523d58
     }
 
     private static RecordingRequest CreateRecordingRequest(
