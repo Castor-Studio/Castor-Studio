@@ -6,6 +6,7 @@ using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services;
+using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
@@ -27,6 +28,10 @@ public partial class StudioViewModel : ViewModelBase
     private readonly VideoCanvasResolutionResolver _resolutionResolver;
     private readonly DispatcherTimer _sessionTimer;
     private readonly TimeProvider _timeProvider;
+    // Without a dialog to confirm with, cancelling is not offered: it deletes a file.
+    private readonly ICancelRecordingDialogService? _cancelRecordingDialog;
+    // The file of the current (or just ended) recording, which cancelling deletes.
+    private string? _recordingOutputPath;
     private DateTimeOffset? _sessionStartUtc;
     // The timer shows recorded time only: finished pauses add up here, and the one in progress
     // runs from _pausedSinceUtc.
@@ -170,8 +175,10 @@ public partial class StudioViewModel : ViewModelBase
         SettingsService settingsService,
         VideoCanvasResolutionResolver? resolutionResolver = null,
         StatusMessageService? messages = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ICancelRecordingDialogService? cancelRecordingDialog = null)
     {
+        _cancelRecordingDialog = cancelRecordingDialog;
         _timeProvider = timeProvider ?? TimeProvider.System;
         messages ??= new StatusMessageService();
         RecordError = messages.Create();
@@ -399,6 +406,42 @@ public partial class StudioViewModel : ViewModelBase
 
         _workspace.TrySetRecordingState(RecordingState.Recording);
         PauseUnavailableReason = _recordingRuntime.PauseUnavailableReason;
+        _recordingOutputPath = path;
+    }
+
+    public bool CanCancelRecording =>
+        _cancelRecordingDialog != null &&
+        _workspace.RecordingState is RecordingState.Recording or RecordingState.Paused;
+
+    // Throws the take away: stop, then delete the file this recording created - and only that
+    // one, whose name RecordingOutputPath picked so that it did not exist beforehand.
+    [RelayCommand(CanExecute = nameof(CanCancelRecording))]
+    private async Task CancelRecording(CancellationToken cancellationToken)
+    {
+        if (_cancelRecordingDialog == null || _recordingOutputPath is not { } path) return;
+        if (!await _cancelRecordingDialog.ConfirmAsync(path)) return;
+
+        RecordError.Clear();
+        // The output may have ended on its own while the dialog was open; there is nothing
+        // left to stop then, only the file to delete.
+        if (_workspace.RecordingState is not RecordingState.Idle)
+        {
+            // Returns once the output has stopped and released the file.
+            var result = await _recordingRuntime.StopRecordingAsync(cancellationToken);
+            if (!result.IsSuccess && _workspace.RecordingState is not RecordingState.Idle)
+            {
+                // Still running: the file is in use, so it stays, like the recording.
+                RecordError.ShowError(result.Message);
+                return;
+            }
+            ApplyRecordingState(RecordingState.Idle);
+        }
+
+        _recordingOutputPath = null;
+        if (!await RecordingFile.TryDeleteAsync(path))
+            RecordError.ShowError(
+                "Enregistrement annulé, mais son fichier n'a pas pu être supprimé. Il est peut-être " +
+                $"ouvert dans une autre application, ou protégé en écriture. Supprimez-le à la main : {path}");
     }
 
     [RelayCommand(CanExecute = nameof(CanTogglePauseRecording))]
@@ -526,6 +569,7 @@ public partial class StudioViewModel : ViewModelBase
 
             if (_workspace.RecordingState == RecordingState.Idle) PauseUnavailableReason = "";
             TogglePauseRecordingCommand.NotifyCanExecuteChanged();
+            CancelRecordingCommand.NotifyCanExecuteChanged();
         }
     }
 
