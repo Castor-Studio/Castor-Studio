@@ -30,13 +30,7 @@ public partial class StudioViewModel : ViewModelBase
     private readonly TimeProvider _timeProvider;
     // Without a dialog to confirm with, cancelling is not offered: it deletes a file.
     private readonly ICancelRecordingDialogService? _cancelRecordingDialog;
-    // The file of the current (or just ended) recording, which cancelling deletes.
-    private string? _recordingOutputPath;
-    private DateTimeOffset? _sessionStartUtc;
-    // The timer shows recorded time only: finished pauses add up here, and the one in progress
-    // runs from _pausedSinceUtc.
-    private DateTimeOffset? _pausedSinceUtc;
-    private TimeSpan _pausedTotal;
+    private readonly RecordingClock _sessionClock;
     private bool _loadingTransition;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
@@ -135,7 +129,9 @@ public partial class StudioViewModel : ViewModelBase
     public StatusMessage RecordError { get; }
     public StatusMessage StreamError { get; }
     [ObservableProperty] private string _outputInfoText = "";
-    [ObservableProperty] private string _recordingOutputDirectory = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordingButtonToolTip))]
+    private string _recordingOutputDirectory = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
     public string SceneBarStatusText => IsStreaming
@@ -143,11 +139,14 @@ public partial class StudioViewModel : ViewModelBase
         : IsRecordingPaused ? "En pause" : IsRecording ? "Enregistrement" : "Prêt";
     public bool IsRecordingPaused => _workspace.RecordingState == RecordingState.Paused;
 
-    // Filled in when a recording starts: its container and encoder decide whether it can pause.
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PauseToolTip))]
-    [NotifyCanExecuteChangedFor(nameof(TogglePauseRecordingCommand))]
-    private string _pauseUnavailableReason = "";
+    public ObservableCollection<RecordingSessionViewModel> RecordingSessions => _workspace.RecordingSessions;
+
+    // Each session's container and encoder decide whether it can pause; the global pause
+    // is offered as long as one of them can.
+    public string PauseUnavailableReason =>
+        RecordingSessions.Count > 0 && !RecordingSessions.Any(session => session.CanPause)
+            ? RecordingSessions[0].PauseUnavailableReason
+            : "";
 
     public const string PauseShortcutText = "Ctrl+Maj+P";
 
@@ -157,11 +156,66 @@ public partial class StudioViewModel : ViewModelBase
 
     public string PauseButtonText => IsRecordingPaused ? "REPRENDRE" : "PAUSE";
 
+    private bool HasSeveralSessions => RecordingSessions.Count > 1;
+
     public string PauseToolTip => PauseUnavailableReason.Length > 0
         ? PauseUnavailableReason
-        : IsRecordingPaused
-            ? $"Reprendre l'enregistrement dans le même fichier ({PauseShortcutText})"
-            : $"Mettre l'enregistrement en pause ({PauseShortcutText})";
+        : (IsRecordingPaused, HasSeveralSessions) switch
+        {
+            (true, true) => $"Reprendre tous les enregistrements ({PauseShortcutText})",
+            (true, false) => $"Reprendre l'enregistrement dans le même fichier ({PauseShortcutText})",
+            (false, true) => $"Mettre tous les enregistrements en pause ({PauseShortcutText})",
+            _ => $"Mettre l'enregistrement en pause ({PauseShortcutText})"
+        };
+
+    public string RecordingSessionsToolTip => RecordingSessions.Count == 1
+        ? "Enregistrement en cours"
+        : $"{RecordingSessions.Count} enregistrements en cours";
+
+    // ── Before recording: what to record ─────────────────────────────────────────────
+    // The program alone by default, so ENREGISTRER stays one click. Ticked scenes are each
+    // recorded into a file of their own, with or without the program.
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordingTargetCount), nameof(RecordingSelectionSummary),
+        nameof(RecordingLoadWarning), nameof(RecordingButtonToolTip), nameof(HasRecordingTarget))]
+    [NotifyCanExecuteChangedFor(nameof(StartRecordingCommand))]
+    private bool _recordProgram = true;
+
+    public ObservableCollection<RecordingSceneOption> RecordingSceneOptions { get; } = [];
+
+    public int RecordingTargetCount =>
+        (RecordProgram ? 1 : 0) + RecordingSceneOptions.Count(option => option.IsSelected);
+
+    public bool HasRecordingTarget => RecordingTargetCount > 0;
+
+    // Each extra scene is rendered and encoded on its own (x264, on the processor).
+    public const int HeavyRecordingTargetCount = 3;
+
+    public string RecordingLoadWarning => RecordingTargetCount >= HeavyRecordingTargetCount
+        ? $"{RecordingTargetCount} enregistrements à la fois : chaque scène est rendue et encodée à part, " +
+          "le processeur et la carte graphique risquent de saturer et de perdre des images."
+        : "";
+
+    public string RecordingSelectionSummary
+    {
+        get
+        {
+            var scenes = RecordingSceneOptions.Count(option => option.IsSelected);
+            var sceneText = scenes == 1 ? "1 scène" : $"{scenes} scènes";
+            return (RecordProgram, scenes) switch
+            {
+                (_, 0) when RecordProgram => "la scène active",
+                (true, _) => $"la scène active et {sceneText} à part",
+                (false, 0) => "rien",
+                _ => $"{sceneText} à part"
+            };
+        }
+    }
+
+    public string RecordingButtonToolTip => HasRecordingTarget
+        ? $"Enregistre {RecordingSelectionSummary} dans : {RecordingOutputDirectory}"
+        : "Choisissez au moins une scène à enregistrer.";
     // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
     public bool IsOnAir => IsStreaming || IsRecording;
 
@@ -180,6 +234,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         _cancelRecordingDialog = cancelRecordingDialog;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _sessionClock = new RecordingClock(_timeProvider);
         messages ??= new StatusMessageService();
         RecordError = messages.Create();
         StreamError = messages.Create();
@@ -192,6 +247,9 @@ public partial class StudioViewModel : ViewModelBase
         _settingsService = settingsService;
         _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
+        _workspace.Scenes.CollectionChanged += (_, _) => SyncRecordingSceneOptions();
+        _workspace.RecordingSessions.CollectionChanged += (_, _) => NotifyRecordingSessionsChanged();
+        SyncRecordingSceneOptions();
         _recordingRuntime.StateChanged += OnRecordingRuntimeStateChanged;
         _streamingRuntime.StreamingStateChanged += OnStreamingRuntimeStateChanged;
         _providerStore.Changed += OnProviderStoreChanged;
@@ -346,7 +404,10 @@ public partial class StudioViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand]
+    // One session per target: the program (following the active scene) if ticked, then each
+    // ticked scene into a file of its own. A target that fails is reported by name while the
+    // others keep recording.
+    [RelayCommand(CanExecute = nameof(HasRecordingTarget))]
     private async Task StartRecording(CancellationToken cancellationToken)
     {
         RecordError.Clear();
@@ -362,139 +423,290 @@ public partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        var scene = ActiveScene;
-        if (scene == null || !StudioWorkspaceViewModel.HasVideoSource(scene))
+        var targets = new List<SceneItemViewModel?>();
+        if (RecordProgram) targets.Add(null);
+        targets.AddRange(RecordingSceneOptions.Where(option => option.IsSelected).Select(option => option.Scene));
+        if (targets.Count == 0)
         {
-            RecordError.ShowError("Aucune source vidéo dans la scène active.");
+            RecordError.ShowError("Choisissez au moins une scène à enregistrer.");
             return;
         }
 
         var settings = _settingsService.Load();
         var container = FormatFromIndex(settings.SelectedOutputFormatIndex);
-        string path;
-        try
-        {
-            path = RecordingOutputPath.Create(settings.OutputPath, container, DateTime.Now);
-        }
-        catch (Exception exception)
-        {
-            RecordError.ShowError(exception.Message);
-            return;
-        }
-
-        RecordingOutputDirectory = Path.GetDirectoryName(path) ?? "";
         var baseResolution = _resolutionResolver.Resolve(settings);
         var (width, height) = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
-        var result = await _recordingRuntime.StartRecordingAsync(new RecordingRequest(
-            scene.Id,
-            path,
-            FpsFromIndex(settings.SelectedFpsIndex),
-            (int)settings.VideoBitrate,
-            AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
-            AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
-            AudioChannelsFromIndex(settings.SelectedChannelsIndex),
-            baseResolution.Width,
-            baseResolution.Height,
-            width,
-            height,
-            container), cancellationToken);
-        if (!result.IsSuccess)
+        var timestamp = DateTime.Now;
+        var takenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var failures = new List<string>();
+        string Describe(SceneItemViewModel? target, string message) =>
+            targets.Count == 1 ? message : $"{target?.Name ?? "Programme"} : {message}";
+
+        foreach (var target in targets)
         {
-            RecordError.ShowError(result.Message);
-            return;
-        }
-
-        _workspace.TrySetRecordingState(RecordingState.Recording);
-        PauseUnavailableReason = _recordingRuntime.PauseUnavailableReason;
-        _recordingOutputPath = path;
-    }
-
-    public bool CanCancelRecording =>
-        _cancelRecordingDialog != null &&
-        _workspace.RecordingState is RecordingState.Recording or RecordingState.Paused;
-
-    // Throws the take away: stop, then delete the file this recording created - and only that
-    // one, whose name RecordingOutputPath picked so that it did not exist beforehand.
-    [RelayCommand(CanExecute = nameof(CanCancelRecording))]
-    private async Task CancelRecording(CancellationToken cancellationToken)
-    {
-        if (_cancelRecordingDialog == null || _recordingOutputPath is not { } path) return;
-        if (!await _cancelRecordingDialog.ConfirmAsync(path)) return;
-
-        RecordError.Clear();
-        // The output may have ended on its own while the dialog was open; there is nothing
-        // left to stop then, only the file to delete.
-        if (_workspace.RecordingState is not RecordingState.Idle)
-        {
-            // Returns once the output has stopped and released the file.
-            var result = await _recordingRuntime.StopRecordingAsync(cancellationToken);
-            if (!result.IsSuccess && _workspace.RecordingState is not RecordingState.Idle)
+            var scene = target ?? ActiveScene;
+            if (scene == null || !StudioWorkspaceViewModel.HasVideoSource(scene))
             {
-                // Still running: the file is in use, so it stays, like the recording.
-                RecordError.ShowError(result.Message);
-                return;
+                failures.Add(Describe(target, target == null
+                    ? "Aucune source vidéo dans la scène active."
+                    : "Cette scène n'a pas de source vidéo."));
+                continue;
             }
-            ApplyRecordingState(RecordingState.Idle);
+
+            string path;
+            try
+            {
+                path = RecordingOutputPath.Create(settings.OutputPath, container, timestamp, target?.Name, takenPaths);
+            }
+            catch (Exception exception)
+            {
+                failures.Add(Describe(target, exception.Message));
+                continue;
+            }
+
+            takenPaths.Add(path);
+            RecordingOutputDirectory = Path.GetDirectoryName(path) ?? "";
+            var sessionId = Guid.NewGuid();
+            var result = await _recordingRuntime.StartRecordingAsync(new RecordingRequest(
+                scene.Id,
+                path,
+                FpsFromIndex(settings.SelectedFpsIndex),
+                (int)settings.VideoBitrate,
+                AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
+                AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
+                AudioChannelsFromIndex(settings.SelectedChannelsIndex),
+                baseResolution.Width,
+                baseResolution.Height,
+                width,
+                height,
+                container,
+                sessionId,
+                FollowsProgram: target == null), cancellationToken);
+            if (!result.IsSuccess)
+            {
+                failures.Add(Describe(target, result.Message));
+                continue;
+            }
+
+            _workspace.RecordingSessions.Add(new RecordingSessionViewModel(
+                sessionId,
+                _workspace,
+                target,
+                path,
+                _recordingRuntime.GetPauseUnavailableReason(sessionId),
+                _timeProvider));
+            _workspace.RefreshRecordingState();
         }
 
-        _recordingOutputPath = null;
-        if (!await RecordingFile.TryDeleteAsync(path))
-            RecordError.ShowError(
-                "Enregistrement annulé, mais son fichier n'a pas pu être supprimé. Il est peut-être " +
-                $"ouvert dans une autre application, ou protégé en écriture. Supprimez-le à la main : {path}");
+        if (failures.Count > 0) RecordError.ShowError(string.Join(Environment.NewLine, failures));
     }
+
+    // Prefixed with the session's name once several are running, so the message says which.
+    private string DescribeSession(RecordingSessionViewModel session, string message) =>
+        HasSeveralSessions ? $"{session.Name} : {message}" : message;
+
+    private void ApplySessionState(RecordingSessionViewModel session, RecordingState state)
+    {
+        session.Apply(state);
+        // The list drops a session as soon as it is over.
+        if (session.State == RecordingState.Idle) _workspace.RecordingSessions.Remove(session);
+        _workspace.RefreshRecordingState();
+        NotifySessionCommandsChanged();
+    }
+
+    // ── Global actions: every session at once ────────────────────────────────────────
 
     [RelayCommand(CanExecute = nameof(CanTogglePauseRecording))]
     private void TogglePauseRecording()
     {
         RecordError.Clear();
         var pausing = _workspace.RecordingState == RecordingState.Recording;
-        var result = pausing ? _recordingRuntime.PauseRecording() : _recordingRuntime.ResumeRecording();
-        if (!result.IsSuccess)
-        {
-            // libobs left the output as it was, so the state stays as well.
-            RecordError.ShowError(result.Message);
-            return;
-        }
-
-        // The runtime also reports the change; applying it twice is a no-op.
-        _workspace.TrySetRecordingState(pausing ? RecordingState.Paused : RecordingState.Recording);
+        var sessions = RecordingSessions
+            .Where(session => session.CanPause &&
+                              session.State == (pausing ? RecordingState.Recording : RecordingState.Paused))
+            .ToList();
+        var failures = sessions
+            .Select(session => SetSessionPaused(session, pausing))
+            .Where(failure => failure.Length > 0)
+            .ToList();
+        if (failures.Count > 0) RecordError.ShowError(string.Join(Environment.NewLine, failures));
     }
 
     [RelayCommand]
-    private async Task StopRecording(CancellationToken cancellationToken)
+    private Task StopRecording(CancellationToken cancellationToken) =>
+        StopSessionsAsync([.. RecordingSessions], cancellationToken);
+
+    public bool CanCancelRecording =>
+        _cancelRecordingDialog != null &&
+        RecordingSessions.Any(session => session.IsActive);
+
+    [RelayCommand(CanExecute = nameof(CanCancelRecording))]
+    private Task CancelRecording(CancellationToken cancellationToken) =>
+        CancelSessionsAsync([.. RecordingSessions.Where(session => session.IsActive)], cancellationToken);
+
+    // ── One session ──────────────────────────────────────────────────────────────────
+
+    private static bool CanToggleSessionPause(RecordingSessionViewModel? session) =>
+        session is { IsActive: true, CanPause: true };
+
+    [RelayCommand(CanExecute = nameof(CanToggleSessionPause))]
+    private void ToggleSessionPause(RecordingSessionViewModel? session)
     {
-        var result = await _recordingRuntime.StopRecordingAsync(cancellationToken);
-        if (!result.IsSuccess)
-        {
-            RecordError.ShowError(result.Message);
-            return;
-        }
-        ApplyRecordingState(RecordingState.Idle);
+        if (session == null) return;
+        RecordError.Clear();
+        var failure = SetSessionPaused(session, !session.IsPaused);
+        if (failure.Length > 0) RecordError.ShowError(failure);
     }
 
-    // An output that ends on its own (disk full, encoder error) or a stop whose "stopping"
-    // signal was missed reports Idle straight from Recording / Paused; walk through Stopping
-    // so the workspace transition rules still hold.
-    private void ApplyRecordingState(RecordingState state)
-    {
-        if (state == RecordingState.Idle &&
-            _workspace.RecordingState is RecordingState.Recording or RecordingState.Paused)
-            _workspace.TrySetRecordingState(RecordingState.Stopping);
+    private static bool CanStopSession(RecordingSessionViewModel? session) => session is { IsActive: true };
 
-        _workspace.TrySetRecordingState(state);
+    [RelayCommand(CanExecute = nameof(CanStopSession))]
+    private Task StopSession(RecordingSessionViewModel? session, CancellationToken cancellationToken) =>
+        session == null ? Task.CompletedTask : StopSessionsAsync([session], cancellationToken);
+
+    private bool CanCancelSession(RecordingSessionViewModel? session) =>
+        _cancelRecordingDialog != null && session is { IsActive: true };
+
+    [RelayCommand(CanExecute = nameof(CanCancelSession))]
+    private Task CancelSession(RecordingSessionViewModel? session, CancellationToken cancellationToken) =>
+        session == null ? Task.CompletedTask : CancelSessionsAsync([session], cancellationToken);
+
+    // "" on success. On failure libobs left the output as it was, so the state stays too.
+    private string SetSessionPaused(RecordingSessionViewModel session, bool paused)
+    {
+        var result = paused
+            ? _recordingRuntime.PauseRecording(session.Id)
+            : _recordingRuntime.ResumeRecording(session.Id);
+        if (!result.IsSuccess) return DescribeSession(session, result.Message);
+
+        // The runtime also reports the change; applying it twice is a no-op.
+        ApplySessionState(session, paused ? RecordingState.Paused : RecordingState.Recording);
+        return "";
+    }
+
+    // The stops run side by side, each returning once its output released the file; their
+    // results are applied together afterwards, on the caller's thread.
+    private async Task<IReadOnlyList<RecordingSessionViewModel>> StopSessionsCoreAsync(
+        IReadOnlyList<RecordingSessionViewModel> sessions,
+        CancellationToken cancellationToken)
+    {
+        // A session that ended on its own (while a dialog was open) has nothing left to stop.
+        var running = sessions.Where(RecordingSessions.Contains).ToList();
+        var results = await Task.WhenAll(running.Select(session =>
+            _recordingRuntime.StopRecordingAsync(session.Id, cancellationToken)));
+
+        var failures = new List<string>();
+        var stillRunning = new List<RecordingSessionViewModel>();
+        for (var i = 0; i < running.Count; i++)
+        {
+            var session = running[i];
+            if (!results[i].IsSuccess && session.State is not RecordingState.Idle && RecordingSessions.Contains(session))
+            {
+                failures.Add(DescribeSession(session, results[i].Message));
+                stillRunning.Add(session);
+                continue;
+            }
+            ApplySessionState(session, RecordingState.Idle);
+        }
+
+        if (failures.Count > 0) RecordError.ShowError(string.Join(Environment.NewLine, failures));
+        return stillRunning;
+    }
+
+    private async Task StopSessionsAsync(IReadOnlyList<RecordingSessionViewModel> sessions, CancellationToken cancellationToken)
+    {
+        RecordError.Clear();
+        await StopSessionsCoreAsync(sessions, cancellationToken);
+    }
+
+    // Throws takes away: stop, then delete the files these sessions created - and only those,
+    // whose names RecordingOutputPath picked so that they did not exist beforehand.
+    private async Task CancelSessionsAsync(IReadOnlyList<RecordingSessionViewModel> sessions, CancellationToken cancellationToken)
+    {
+        if (_cancelRecordingDialog == null || sessions.Count == 0) return;
+        if (!await _cancelRecordingDialog.ConfirmAsync([.. sessions.Select(session => session.OutputPath)])) return;
+
+        RecordError.Clear();
+        // Still running: their files are in use, so they stay, like the recordings.
+        var stillRunning = await StopSessionsCoreAsync(sessions, cancellationToken);
+
+        var undeleted = new List<string>();
+        foreach (var session in sessions.Except(stillRunning))
+        {
+            if (!await RecordingFile.TryDeleteAsync(session.OutputPath))
+                undeleted.Add(session.OutputPath);
+        }
+
+        if (undeleted.Count == 0) return;
+        var files = undeleted.Count == 1
+            ? $"son fichier n'a pas pu être supprimé. Il est peut-être ouvert dans une autre application, " +
+              $"ou protégé en écriture. Supprimez-le à la main : {undeleted[0]}"
+            : "ces fichiers n'ont pas pu être supprimés. Ils sont peut-être ouverts dans une autre application, " +
+              $"ou protégés en écriture. Supprimez-les à la main :{Environment.NewLine}{string.Join(Environment.NewLine, undeleted)}";
+        var message = $"Enregistrement annulé, mais {files}";
+        RecordError.ShowError(RecordError.Text.Length > 0 ? $"{RecordError.Text}{Environment.NewLine}{message}" : message);
     }
 
     private void OnRecordingRuntimeStateChanged(object? sender, RecordingStateChangedEventArgs e)
     {
         void ApplyState()
         {
-            ApplyRecordingState(e.State);
-            if (!string.IsNullOrWhiteSpace(e.Message)) RecordError.ShowError(e.Message);
+            // Events of a session not listed yet (its start is still being awaited) or gone
+            // already are dropped: the start result and the stop result cover them.
+            var session = RecordingSessions.FirstOrDefault(candidate => candidate.Id == e.SessionId);
+            if (session == null) return;
+            var message = string.IsNullOrWhiteSpace(e.Message) ? "" : DescribeSession(session, e.Message);
+            ApplySessionState(session, e.State);
+            if (message.Length > 0) RecordError.ShowError(message);
         }
 
         if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
         else Dispatcher.UIThread.Post(ApplyState);
+    }
+
+    // Keeps one option per scene, in the scenes' order, ticks preserved.
+    private void SyncRecordingSceneOptions()
+    {
+        var existing = RecordingSceneOptions.ToDictionary(option => option.Scene);
+        RecordingSceneOptions.Clear();
+        foreach (var scene in _workspace.Scenes)
+        {
+            if (!existing.TryGetValue(scene, out var option))
+            {
+                option = new RecordingSceneOption(scene);
+                option.PropertyChanged += (_, _) => NotifyRecordingSelectionChanged();
+            }
+            RecordingSceneOptions.Add(option);
+        }
+        NotifyRecordingSelectionChanged();
+    }
+
+    private void NotifyRecordingSelectionChanged()
+    {
+        OnPropertyChanged(nameof(RecordingTargetCount));
+        OnPropertyChanged(nameof(HasRecordingTarget));
+        OnPropertyChanged(nameof(RecordingSelectionSummary));
+        OnPropertyChanged(nameof(RecordingLoadWarning));
+        OnPropertyChanged(nameof(RecordingButtonToolTip));
+        StartRecordingCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifyRecordingSessionsChanged()
+    {
+        OnPropertyChanged(nameof(PauseUnavailableReason));
+        OnPropertyChanged(nameof(CanTogglePauseRecording));
+        OnPropertyChanged(nameof(PauseToolTip));
+        OnPropertyChanged(nameof(RecordingSessionsToolTip));
+        NotifySessionCommandsChanged();
+    }
+
+    private void NotifySessionCommandsChanged()
+    {
+        TogglePauseRecordingCommand.NotifyCanExecuteChanged();
+        CancelRecordingCommand.NotifyCanExecuteChanged();
+        ToggleSessionPauseCommand.NotifyCanExecuteChanged();
+        StopSessionCommand.NotifyCanExecuteChanged();
+        CancelSessionCommand.NotifyCanExecuteChanged();
     }
 
     private void OnStreamingRuntimeStateChanged(object? sender, StreamingStateChangedEventArgs e)
@@ -522,7 +734,8 @@ public partial class StudioViewModel : ViewModelBase
     // alone - starting an output points the channel at the active scene anyway.
     private void ApplyActiveSceneToRecording()
     {
-        if (!_workspace.IsRecording) return;
+        // Sessions dedicated to a scene keep their scene; only the program one follows.
+        if (!RecordingSessions.Any(session => session.FollowsProgram)) return;
 
         var scene = ActiveScene;
         if (scene == null) return;
@@ -567,9 +780,7 @@ public partial class StudioViewModel : ViewModelBase
                 ResetSessionTimer();
             }
 
-            if (_workspace.RecordingState == RecordingState.Idle) PauseUnavailableReason = "";
-            TogglePauseRecordingCommand.NotifyCanExecuteChanged();
-            CancelRecordingCommand.NotifyCanExecuteChanged();
+            NotifySessionCommandsChanged();
         }
     }
 
@@ -618,33 +829,22 @@ public partial class StudioViewModel : ViewModelBase
 
     private void StartSessionTimerIfNeeded()
     {
-        if (_sessionStartUtc != null) return;
-        _sessionStartUtc = _timeProvider.GetUtcNow();
+        if (_sessionClock.IsStarted) return;
+        _sessionClock.Start();
         StreamTimerText = "00:00:00";
         _sessionTimer.Start();
     }
 
     private void TrackRecordingPause()
     {
-        var now = _timeProvider.GetUtcNow();
-        if (IsRecordingPaused)
-        {
-            _pausedSinceUtc ??= now;
-        }
-        else if (_pausedSinceUtc is { } pausedSince)
-        {
-            _pausedTotal += now - pausedSince;
-            _pausedSinceUtc = null;
-        }
+        _sessionClock.SetPaused(IsRecordingPaused);
         RefreshSessionTimer();
     }
 
     private void ResetSessionTimer()
     {
         _sessionTimer.Stop();
-        _sessionStartUtc = null;
-        _pausedSinceUtc = null;
-        _pausedTotal = TimeSpan.Zero;
+        _sessionClock.Reset();
         StreamTimerText = "00:00:00";
     }
 
@@ -653,11 +853,9 @@ public partial class StudioViewModel : ViewModelBase
     // While paused the text holds still: the pause in progress is taken off as it grows.
     internal void RefreshSessionTimer()
     {
-        if (_sessionStartUtc == null) return;
-        var now = _timeProvider.GetUtcNow();
-        var paused = _pausedTotal + (_pausedSinceUtc is { } pausedSince ? now - pausedSince : TimeSpan.Zero);
-        var elapsed = now - _sessionStartUtc.Value - paused;
-        StreamTimerText = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+        if (!_sessionClock.IsStarted) return;
+        StreamTimerText = _sessionClock.Text;
+        foreach (var session in RecordingSessions) session.RefreshTimer();
     }
 
     private static int FpsFromIndex(int index) => index switch { 0 => 60, 2 => 25, _ => 30 };

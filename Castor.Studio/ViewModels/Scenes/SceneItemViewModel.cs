@@ -21,6 +21,10 @@ public partial class SceneItemViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLive;
 
+    // Shown in the scene lists, and blocks deletion: a recording is writing this scene.
+    [ObservableProperty]
+    private bool _isBeingRecorded;
+
     [ObservableProperty]
     private string _color;
 

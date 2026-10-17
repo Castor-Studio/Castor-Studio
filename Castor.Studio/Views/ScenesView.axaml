@@ -298,12 +298,20 @@
                                                                Foreground="{DynamicResource AppFg3}" FontSize="13"
                                                                VerticalAlignment="Center"/>
 											</StackPanel>
-											<Border Grid.Column="1"
-                                                            IsVisible="{Binding IsLive}"
-                                                            Background="{DynamicResource AppAccentFg}" CornerRadius="3" Padding="6,2">
-												<TextBlock Text="EN DIRECT" Foreground="{DynamicResource AppOnAccentFg}"
-                                                               FontSize="9" FontWeight="Bold"/>
-											</Border>
+											<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+												<Border IsVisible="{Binding IsBeingRecorded}"
+                                                                Background="{DynamicResource AppRecBg}" CornerRadius="3" Padding="6,2"
+                                                                BorderBrush="{DynamicResource AppRecBorder}" BorderThickness="1"
+                                                                ToolTip.Tip="En cours d'enregistrement : elle ne peut pas être supprimée">
+													<TextBlock Text="REC" Foreground="{DynamicResource StatusRecBrush}"
+                                                                   FontSize="9" FontWeight="Bold"/>
+												</Border>
+												<Border IsVisible="{Binding IsLive}"
+                                                                Background="{DynamicResource AppAccentFg}" CornerRadius="3" Padding="6,2">
+													<TextBlock Text="EN DIRECT" Foreground="{DynamicResource AppOnAccentFg}"
+                                                                   FontSize="9" FontWeight="Bold"/>
+												</Border>
+											</StackPanel>
 										</Grid>
 									</Button>
 
