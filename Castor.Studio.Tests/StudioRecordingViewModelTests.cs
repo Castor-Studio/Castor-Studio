@@ -2,6 +2,7 @@ using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services.Auth.Storage;
+using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Multicam;
@@ -419,6 +420,130 @@ public sealed class StudioRecordingViewModelTests
     }
 
     [Fact]
+    public async Task Cancel_is_available_while_recording_and_while_paused()
+    {
+        using var fixture = CreateRecordingFixture();
+        Assert.False(fixture.ViewModel.CancelRecordingCommand.CanExecute(null));
+
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        Assert.True(fixture.ViewModel.CancelRecordingCommand.CanExecute(null));
+
+        fixture.ViewModel.TogglePauseRecordingCommand.Execute(null);
+        Assert.True(fixture.ViewModel.CancelRecordingCommand.CanExecute(null));
+
+        fixture.Runtime.RaiseState(RecordingState.Stopping);
+        Assert.False(fixture.ViewModel.CancelRecordingCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task Confirmed_cancel_stops_deletes_the_file_and_returns_to_idle()
+    {
+        using var fixture = CreateRecordingFixture();
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        var path = fixture.CreateRecordedFile();
+
+        await fixture.ViewModel.CancelRecordingCommand.ExecuteAsync(null);
+
+        Assert.Equal([path], fixture.CancelDialog.AskedPaths);
+        Assert.Equal(1, fixture.Runtime.StopCalls);
+        Assert.Equal(RecordingState.Idle, fixture.Workspace.RecordingState);
+        Assert.False(File.Exists(path));
+        Assert.Equal("", fixture.ViewModel.RecordError.Text);
+    }
+
+    [Fact]
+    public async Task Cancel_from_pause_deletes_the_file_too()
+    {
+        using var fixture = CreateRecordingFixture();
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        var path = fixture.CreateRecordedFile();
+        fixture.ViewModel.TogglePauseRecordingCommand.Execute(null);
+
+        await fixture.ViewModel.CancelRecordingCommand.ExecuteAsync(null);
+
+        Assert.Equal(RecordingState.Idle, fixture.Workspace.RecordingState);
+        Assert.False(File.Exists(path));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Dismissing_the_confirmation_leaves_the_recording_untouched(bool paused)
+    {
+        using var fixture = CreateRecordingFixture();
+        fixture.CancelDialog.Answer = false;
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        var path = fixture.CreateRecordedFile();
+        if (paused) fixture.ViewModel.TogglePauseRecordingCommand.Execute(null);
+
+        await fixture.ViewModel.CancelRecordingCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, fixture.Runtime.StopCalls);
+        Assert.Equal(paused ? RecordingState.Paused : RecordingState.Recording, fixture.Workspace.RecordingState);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public async Task A_file_that_cannot_be_deleted_is_reported_with_its_path_and_the_ui_still_goes_idle()
+    {
+        using var fixture = CreateRecordingFixture();
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        var path = fixture.CreateRecordedFile();
+
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+            await fixture.ViewModel.CancelRecordingCommand.ExecuteAsync(null);
+
+        Assert.Equal(RecordingState.Idle, fixture.Workspace.RecordingState);
+        Assert.True(File.Exists(path));
+        Assert.Contains(path, fixture.ViewModel.RecordError.Text);
+    }
+
+    [Fact]
+    public async Task A_stop_failure_keeps_the_recording_and_its_file()
+    {
+        using var fixture = CreateRecordingFixture(new FakeRecordingRuntime
+        {
+            StopResult = StudioRuntimeResult.Failure("Arrêt de l'enregistrement impossible.")
+        });
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        var path = fixture.CreateRecordedFile();
+
+        await fixture.ViewModel.CancelRecordingCommand.ExecuteAsync(null);
+
+        Assert.Equal(RecordingState.Recording, fixture.Workspace.RecordingState);
+        Assert.True(File.Exists(path));
+        Assert.Equal("Arrêt de l'enregistrement impossible.", fixture.ViewModel.RecordError.Text);
+    }
+
+    [Fact]
+    public async Task Cancel_deletes_nothing_but_the_recording_file()
+    {
+        using var fixture = CreateRecordingFixture();
+        var neighbour = Path.Combine(fixture.Directory, "Castor_previous_take.mp4");
+        File.WriteAllText(neighbour, "keep me");
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        fixture.CreateRecordedFile();
+
+        await fixture.ViewModel.CancelRecordingCommand.ExecuteAsync(null);
+
+        Assert.True(File.Exists(neighbour));
+        Assert.True(File.Exists(Path.Combine(fixture.Directory, "settings.json")));
+    }
+
+    [Fact]
+    public async Task A_normal_stop_keeps_the_file()
+    {
+        using var fixture = CreateRecordingFixture();
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        var path = fixture.CreateRecordedFile();
+
+        await fixture.ViewModel.StopRecordingCommand.ExecuteAsync(null);
+
+        Assert.Empty(fixture.CancelDialog.AskedPaths);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
     public async Task Switching_scene_while_recording_re_points_the_output()
     {
         var directory = CreateTemporaryDirectory();
@@ -621,8 +746,14 @@ public sealed class StudioRecordingViewModelTests
             return Task.FromResult(StartResult);
         }
 
-        public Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(StudioRuntimeResult.Success());
+        public StudioRuntimeResult StopResult { get; set; } = StudioRuntimeResult.Success();
+        public int StopCalls { get; private set; }
+
+        public Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken)
+        {
+            StopCalls++;
+            return Task.FromResult(StopResult);
+        }
 
         public List<Guid> SwitchedScenes { get; } = [];
         public StudioRuntimeResult SwitchResult { get; set; } = StudioRuntimeResult.Success();
@@ -661,23 +792,47 @@ public sealed class StudioRecordingViewModelTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
+    private sealed class FakeCancelRecordingDialog : ICancelRecordingDialogService
+    {
+        public bool Answer { get; set; } = true;
+        public List<string> AskedPaths { get; } = [];
+
+        public Task<bool> ConfirmAsync(string outputPath)
+        {
+            AskedPaths.Add(outputPath);
+            return Task.FromResult(Answer);
+        }
+    }
+
     private sealed class RecordingFixture(
         string directory,
         StudioWorkspaceViewModel workspace,
         FakeRecordingRuntime runtime,
         StudioViewModel viewModel,
-        ManualTimeProvider time) : IDisposable
+        ManualTimeProvider time,
+        FakeCancelRecordingDialog cancelDialog) : IDisposable
     {
+        public string Directory { get; } = directory;
         public StudioWorkspaceViewModel Workspace { get; } = workspace;
         public FakeRecordingRuntime Runtime { get; } = runtime;
         public StudioViewModel ViewModel { get; } = viewModel;
         public ManualTimeProvider Time { get; } = time;
+        public FakeCancelRecordingDialog CancelDialog { get; } = cancelDialog;
 
-        public void Dispose() => Directory.Delete(directory, recursive: true);
+        // The fake runtime writes nothing: stands in for the file the output would create.
+        public string CreateRecordedFile()
+        {
+            var path = Assert.IsType<RecordingRequest>(Runtime.Request).OutputPath;
+            File.WriteAllText(path, "frames");
+            return path;
+        }
+
+        public void Dispose() => System.IO.Directory.Delete(Directory, recursive: true);
     }
 
     private static RecordingFixture CreateRecordingFixture(FakeRecordingRuntime? runtime = null)
     {
+        var cancelDialog = new FakeCancelRecordingDialog();
         var directory = CreateTemporaryDirectory();
         var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
         settingsService.Save(new ApplicationSettings { OutputPath = directory });
@@ -694,9 +849,10 @@ public sealed class StudioRecordingViewModelTests
             new FakeStreamingRuntime(),
             new FakeProviderStore(),
             settingsService,
-            timeProvider: time
+            timeProvider: time,
+            cancelRecordingDialog: cancelDialog
         );
-        return new RecordingFixture(directory, workspace, runtime, viewModel, time);
+        return new RecordingFixture(directory, workspace, runtime, viewModel, time, cancelDialog);
     }
 
     private sealed class FakeStudioRuntime : IStudioRuntime
