@@ -798,6 +798,76 @@ public sealed class LibObsSceneRuntimeTests
         }
     }
 
+    [Fact]
+    public async Task Native_runtime_records_several_scenes_at_once_into_separate_files()
+    {
+        var mediaPath = Path.Combine(Path.GetTempPath(), $"castor-record-source-{Guid.NewGuid():N}.wav");
+        WriteSilentWave(mediaPath);
+        var outputs = new List<string>();
+        var runtime = new LibObsSceneRuntime();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            var programScene = Guid.NewGuid();
+            var dedicatedScene = Guid.NewGuid();
+            Assert.True(runtime.CreateScene(programScene, "Program").IsSuccess);
+            Assert.True(runtime.CreateScene(dedicatedScene, "Dedicated").IsSuccess);
+            Assert.True(runtime.AddSource(programScene,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Program source", mediaPath, true)).IsSuccess);
+            Assert.True(runtime.AddSource(dedicatedScene,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Dedicated source", mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+            // Two cycles: views, mixes and encoders must all be released between them.
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                var programPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mkv");
+                var dedicatedPath = Path.Combine(Path.GetTempPath(), $"castor-record-{Guid.NewGuid():N}.mkv");
+                outputs.Add(programPath);
+                outputs.Add(dedicatedPath);
+                var programSession = Guid.NewGuid();
+                var dedicatedSession = Guid.NewGuid();
+
+                var program = await runtime.StartRecordingAsync(
+                    CreateRecordingRequest(programScene, programPath, RecordingContainer.Mkv) with { SessionId = programSession },
+                    timeout.Token);
+                Assert.True(program.IsSuccess, program.Message);
+                var dedicated = await runtime.StartRecordingAsync(
+                    CreateRecordingRequest(dedicatedScene, dedicatedPath, RecordingContainer.Mkv) with
+                    {
+                        SessionId = dedicatedSession,
+                        FollowsProgram = false
+                    },
+                    timeout.Token);
+                Assert.True(dedicated.IsSuccess, dedicated.Message);
+                Assert.Contains("utilisée", runtime.RemoveScene(dedicatedScene).Message);
+
+                await Task.Delay(1_000, timeout.Token);
+                // Stopping one leaves the other running.
+                Assert.True((await runtime.StopRecordingAsync(dedicatedSession, timeout.Token)).IsSuccess);
+                Assert.True(new FileInfo(dedicatedPath).Length > 0);
+                Assert.True(runtime.PauseRecording(programSession).IsSuccess);
+                await Task.Delay(300, timeout.Token);
+                Assert.True((await runtime.StopRecordingAsync(timeout.Token)).IsSuccess);
+                Assert.True(new FileInfo(programPath).Length > 0);
+            }
+
+            Assert.Contains("WebM", (await runtime.StartRecordingAsync(
+                CreateRecordingRequest(dedicatedScene, outputs[0] + ".webm", RecordingContainer.WebM) with { FollowsProgram = false },
+                timeout.Token)).Message);
+            Assert.True(runtime.RemoveScene(dedicatedScene).IsSuccess);
+            Assert.True(runtime.RemoveScene(programScene).IsSuccess);
+        }
+        finally
+        {
+            runtime.Dispose();
+            foreach (var output in outputs) File.Delete(output);
+            File.Delete(mediaPath);
+        }
+
+        Assert.False(Obs.IsInitialized);
+    }
+
     private static RecordingRequest CreateRecordingRequest(
         Guid sceneId,
         string outputPath,
