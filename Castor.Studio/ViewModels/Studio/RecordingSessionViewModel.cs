@@ -36,11 +36,13 @@ public sealed partial class RecordingSessionViewModel : ViewModelBase
     public string OutputPath { get; }
     public string PauseUnavailableReason { get; }
     public bool CanPause => PauseUnavailableReason.Length == 0;
+    // Null rather than "": an empty tip would still pop up as a blank box.
+    public string? PauseToolTip => CanPause ? null : PauseUnavailableReason;
 
-    public string Name => Scene?.Name ?? "Programme";
+    public string Name => Scene?.Name ?? "Scène active";
     public string Detail => FollowsProgram
-        ? $"Suit la scène active : {_workspace.ActiveScene?.Name ?? "aucune"}"
-        : "Scène enregistrée à part";
+        ? $"En ce moment : {_workspace.ActiveScene?.Name ?? "aucune scène"}"
+        : "Enregistrée à part, dans son propre fichier";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StateText), nameof(PauseButtonText), nameof(IsPaused), nameof(IsActive))]

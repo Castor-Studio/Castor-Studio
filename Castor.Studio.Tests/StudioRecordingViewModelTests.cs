@@ -581,7 +581,7 @@ public sealed class StudioRecordingViewModelTests
         Assert.Equal(3, fixture.Runtime.Requests.Select(r => r.OutputPath).Distinct().Count());
         Assert.Contains("Caméra", fixture.Runtime.Requests[1].OutputPath);
         Assert.Contains("Plan large", fixture.Runtime.Requests[2].OutputPath);
-        Assert.Equal(["Programme", "Caméra", "Plan large"], fixture.ViewModel.RecordingSessions.Select(s => s.Name));
+        Assert.Equal(["Scène active", "Caméra", "Plan large"], fixture.ViewModel.RecordingSessions.Select(s => s.Name));
         Assert.Equal(RecordingState.Recording, fixture.Workspace.RecordingState);
     }
 

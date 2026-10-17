@@ -168,6 +168,10 @@ public partial class StudioViewModel : ViewModelBase
             _ => $"Mettre l'enregistrement en pause ({PauseShortcutText})"
         };
 
+    public string CancelAllToolTip => HasSeveralSessions
+        ? "Arrêter tous les enregistrements et supprimer leurs fichiers"
+        : "Arrêter l'enregistrement et supprimer son fichier";
+
     public string RecordingSessionsToolTip => RecordingSessions.Count == 1
         ? "Enregistrement en cours"
         : $"{RecordingSessions.Count} enregistrements en cours";
@@ -440,7 +444,7 @@ public partial class StudioViewModel : ViewModelBase
         var takenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var failures = new List<string>();
         string Describe(SceneItemViewModel? target, string message) =>
-            targets.Count == 1 ? message : $"{target?.Name ?? "Programme"} : {message}";
+            targets.Count == 1 ? message : $"{target?.Name ?? "Scène active"} : {message}";
 
         foreach (var target in targets)
         {
@@ -697,6 +701,7 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanTogglePauseRecording));
         OnPropertyChanged(nameof(PauseToolTip));
         OnPropertyChanged(nameof(RecordingSessionsToolTip));
+        OnPropertyChanged(nameof(CancelAllToolTip));
         NotifySessionCommandsChanged();
     }
 
