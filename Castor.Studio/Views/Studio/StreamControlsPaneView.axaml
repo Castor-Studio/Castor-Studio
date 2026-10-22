@@ -160,12 +160,12 @@
 				</Button>
 			</Grid>
 
-			<!-- Pause et arrêt partagent la case du bouton ENREGISTRER : la barre garde ses deux
-			     cases au lieu de passer sur une deuxième ligne. Ils agissent sur tous les
-			     enregistrements à la fois ; la liste (⋯) les pilote un par un. Pause reste visible
-			     mais grisée quand aucun format ne le permet, avec la raison au survol. -->
-			<!-- Annuler, plus rare et destructif, reste un bouton étroit : une confirmation nomme
-			     les fichiers avant de les supprimer. -->
+			<!-- Pause and stop share the slot of the RECORD button: the bar keeps its two slots
+			     instead of wrapping onto a second line. They act on every recording at once;
+			     the list (⋯) drives them one by one. Pause stays visible but greyed out when
+			     no format supports it, with the reason on hover. -->
+			<!-- Cancel, rarer and destructive, stays a narrow button: a confirmation names
+			     the files before deleting them. -->
 			<Grid ColumnDefinitions="*,*,Auto,Auto" IsVisible="{Binding IsRecording}">
 				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                         Content="{Binding PauseButtonText}"
