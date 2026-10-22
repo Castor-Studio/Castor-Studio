@@ -22,11 +22,11 @@ internal abstract record SourceAddRequest(Guid SourceId, string RequestedName)
     public sealed record Network(Guid SourceId, string RequestedName, string Url)
         : SourceAddRequest(SourceId, RequestedName)
     {
-        // L'URL porte souvent la clé du flux : elle ne doit jamais finir dans un journal.
+        // The URL usually carries the stream key: it must never end up in a log.
         protected override bool PrintMembers(StringBuilder builder)
         {
             if (base.PrintMembers(builder)) builder.Append(", ");
-            builder.Append("Url = <masquée>");
+            builder.Append("Url = <redacted>");
             return true;
         }
     }

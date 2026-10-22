@@ -15,10 +15,10 @@ public abstract record AddSourceResult
 
     public sealed record Network(string Name, string Url) : AddSourceResult
     {
-        // L'URL porte souvent la clé du flux : elle ne doit jamais finir dans un journal.
+        // The URL usually carries the stream key: it must never end up in a log.
         protected override bool PrintMembers(System.Text.StringBuilder builder)
         {
-            builder.Append($"Name = {Name}, Url = <masquée>");
+            builder.Append($"Name = {Name}, Url = <redacted>");
             return true;
         }
     }
