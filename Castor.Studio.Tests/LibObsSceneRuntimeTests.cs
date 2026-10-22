@@ -79,6 +79,46 @@ public sealed class LibObsSceneRuntimeTests
     }
 
     [Fact]
+    public void Rtmp_camera_opens_its_stream_without_waiting_for_the_program_output()
+    {
+        var settings = LibObsSceneRuntime.CreateNetworkMediaSourceSettings(
+            new SourceAddRequest.Network(Guid.NewGuid(), "Caméra", "rtmp://192.168.1.20/live/camera"));
+
+        Assert.Equal("rtmp://192.168.1.20/live/camera", settings.Url);
+        Assert.False(settings.RestartWhenActivated);
+        Assert.False(settings.CloseWhenInactive);
+    }
+
+    [Fact]
+    public void Native_runtime_adds_an_unreachable_rtmp_camera_and_refuses_another_scheme()
+    {
+        var runtime = _runtime;
+        var sceneId = Guid.NewGuid();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            Assert.True(runtime.CreateScene(sceneId, "RTMP test").IsSuccess);
+
+            var refused = runtime.AddSource(sceneId,
+                new SourceAddRequest.Network(Guid.NewGuid(), "RTSP", "rtsp://127.0.0.1/live/secret-key"));
+            Assert.False(refused.IsSuccess);
+            Assert.DoesNotContain("secret-key", refused.Message);
+
+            // Nothing listens on port 1: the camera is added anyway and keeps reconnecting.
+            var sourceId = Guid.NewGuid();
+            var added = runtime.AddSource(sceneId,
+                new SourceAddRequest.Network(sourceId, "Caméra", "rtmp://127.0.0.1:1/live/test"));
+            Assert.True(added.IsSuccess, added.Message);
+            Assert.False(runtime.SetMediaLoop(sceneId, sourceId, false).IsSuccess);
+            Assert.True(runtime.RemoveSource(sceneId, sourceId).IsSuccess);
+        }
+        finally
+        {
+            RemoveScenes(sceneId);
+        }
+    }
+
+    [Fact]
     public void Windows_capture_uses_safe_fallbacks_when_libobs_winrt_is_missing()
     {
         var baseDirectory = Path.Combine(Path.GetTempPath(), $"castor-winrt-{Guid.NewGuid():N}");
