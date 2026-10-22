@@ -107,11 +107,11 @@
                     Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
                     BorderBrush="{DynamicResource AppRecBorder}"/>
 
-			<!-- Pause et arrêt partagent la case du bouton ENREGISTRER : la barre garde ses deux
-			     cases au lieu de passer sur une deuxième ligne. Pause reste visible mais grisée
-			     quand le format ne le permet pas, avec la raison au survol. -->
-			<!-- Annuler, plus rare et destructif, reste un bouton étroit au bout : une
-			     confirmation nomme le fichier avant de le supprimer. -->
+			<!-- Pause and stop share the slot of the RECORD button: the bar keeps its two slots
+			     instead of wrapping onto a second line. Pause stays visible but greyed out
+			     when the format does not support it, with the reason on hover. -->
+			<!-- Cancel, rarer and destructive, stays a narrow button at the end: a
+			     confirmation names the file before deleting it. -->
 			<Grid ColumnDefinitions="*,*,Auto" IsVisible="{Binding IsRecording}">
 				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                         Content="{Binding PauseButtonText}"
