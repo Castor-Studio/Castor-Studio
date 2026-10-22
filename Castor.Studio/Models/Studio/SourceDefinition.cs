@@ -31,8 +31,10 @@ public sealed record AudioSourceOption(
     string DeviceId = "",
     int Index = -1);
 
-public sealed record DiscoveredCamera(
-    string Label,
-    string Ip,
-    string SuggestedUrl,
-    string Method);
+// A device of the local network that accepts RTMP connections. RTMP cannot list the streams
+// a device serves, so only its address is known: the stream path is left to the operator.
+public sealed record DiscoveredRtmpServer(string Address, string HostName = "")
+{
+    public string Server => $"rtmp://{Address}:{RtmpStreamUrl.DefaultPort}";
+    public string Title => HostName.Length > 0 ? HostName : Address;
+}

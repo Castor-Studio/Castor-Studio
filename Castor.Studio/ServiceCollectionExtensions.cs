@@ -66,6 +66,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAddSourceDialogService, AddSourceDialogService>();
         services.AddSingleton<ISceneTransferDialogService, SceneTransferDialogService>();
         services.AddSingleton<ICancelRecordingDialogService, CancelRecordingDialogService>();
+        services.AddSingleton<IRtmpDiscoveryService, RtmpDiscoveryService>();
         services.AddSingleton<IAddSourceDialogViewModelFactory, AddSourceDialogViewModelFactory>();
         services.AddSingleton<StudioWorkspaceViewModel>();
 
