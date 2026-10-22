@@ -17,7 +17,7 @@
 
 	<Window.KeyBindings>
 		<KeyBinding Gesture="Escape" Command="{Binding CloseSettingsCommand}"/>
-		<!-- Gardé en phase avec StudioViewModel.PauseShortcutText, affiché dans l'infobulle. -->
+		<!-- Kept in sync with StudioViewModel.PauseShortcutText, shown in the tooltip. -->
 		<KeyBinding Gesture="Ctrl+Shift+P" Command="{Binding TogglePauseRecordingCommand}"/>
 	</Window.KeyBindings>
 

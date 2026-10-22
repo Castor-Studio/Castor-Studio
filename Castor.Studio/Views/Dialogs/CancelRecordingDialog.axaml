@@ -13,8 +13,8 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">
 
-	<!-- Pas de Entrée pour confirmer : la suppression est définitive, elle se choisit au clic.
-	     Échap et la croix gardent l'enregistrement. -->
+	<!-- No Enter to confirm: deleting is final, so it is chosen with a click.
+	     Escape and the close button keep the recording. -->
 	<Window.KeyBindings>
 		<KeyBinding Gesture="Escape" Command="{Binding DismissCommand}"/>
 	</Window.KeyBindings>
@@ -23,7 +23,7 @@
             BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
 		<Grid RowDefinitions="46, 1, Auto, 1, 54">
 
-			<!-- ── Header (déplaçable) ── -->
+			<!-- ── Header (draggable) ── -->
 			<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="16,0,10,0"
                   Background="Transparent"
                   PointerPressed="OnHeaderPointerPressed">
@@ -40,7 +40,7 @@
 
 			<Rectangle Grid.Row="1" Fill="{DynamicResource AppBorder}"/>
 
-			<!-- ── Ce qui va disparaître : chaque fichier, nommé en entier ── -->
+			<!-- ── What will be lost: every file, named in full ── -->
 			<StackPanel Grid.Row="2" Margin="16,14" Spacing="10">
 				<TextBlock Text="{Binding Message}" TextWrapping="Wrap"
                            FontSize="12" Foreground="{DynamicResource AppFg1}"/>
@@ -61,7 +61,7 @@
 
 			<Rectangle Grid.Row="3" Fill="{DynamicResource AppBorder}"/>
 
-			<!-- ── Pied : garder (par défaut) ou supprimer ── -->
+			<!-- ── Footer: keep (default) or delete ── -->
 			<StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8"
                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0">
 				<Button Classes="dlg-btn" Content="{Binding DismissLabel}"
