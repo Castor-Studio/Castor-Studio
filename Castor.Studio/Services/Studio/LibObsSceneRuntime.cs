@@ -1933,6 +1933,15 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         CloseWhenInactive = false
     };
 
+    // Same reason as the media file: the stream has to open as soon as the source exists.
+    // libobs reconnects on its own when the camera drops, so nothing else is retried here.
+    internal static ObsNetworkMediaSourceSettings CreateNetworkMediaSourceSettings(SourceAddRequest.Network network) => new()
+    {
+        Url = network.Url,
+        RestartWhenActivated = false,
+        CloseWhenInactive = false
+    };
+
     private static ObsSource CreateNativeSource(SourceAddRequest request) => request switch
     {
         SourceAddRequest.Video video => video.Option.Type switch
@@ -1957,6 +1966,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         },
         SourceAddRequest.Media media => ObsSource.CreateMediaSource(media.RequestedName,
             CreateMediaSourceSettings(media)),
+        SourceAddRequest.Network network => ObsSource.CreateNetworkMediaSource(network.RequestedName,
+            CreateNetworkMediaSourceSettings(network)),
         _ => throw new NotSupportedException("Ce type de source n'est pas pris en charge.")
     };
 
