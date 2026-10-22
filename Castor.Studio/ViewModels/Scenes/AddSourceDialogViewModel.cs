@@ -12,6 +12,16 @@ public abstract record AddSourceResult
     public sealed record Video(CaptureSourceOption Option) : AddSourceResult;
     public sealed record Audio(AudioSourceOption Option) : AddSourceResult;
     public sealed record Media : AddSourceResult;
+
+    public sealed record Network(string Name, string Url) : AddSourceResult
+    {
+        // L'URL porte souvent la clé du flux : elle ne doit jamais finir dans un journal.
+        protected override bool PrintMembers(System.Text.StringBuilder builder)
+        {
+            builder.Append($"Name = {Name}, Url = <masquée>");
+            return true;
+        }
+    }
 }
 
 public enum AddSourceCategoryKind
@@ -19,6 +29,7 @@ public enum AddSourceCategoryKind
     Monitors,
     Windows,
     Cameras,
+    NetworkCameras,
     SystemAudio,
     Microphones,
     Files
@@ -68,9 +79,12 @@ public partial class AddSourceDialogViewModel : ViewModelBase
     private const string IconMic = SourceIcons.Mic;
     private const string IconFolder = SourceIcons.Folder;
     private const string IconMovie = SourceIcons.Movie;
+    private const string IconNetwork = SourceIcons.Network;
+    private const string DefaultNetworkName = "Caméra RTMP";
 
     private readonly ISourceRuntime _runtime;
     private readonly SceneItemViewModel? _scene;
+    private readonly IRtmpDiscoveryService? _discovery;
     private List<AddSourceItem> _monitors = [];
     private List<AddSourceItem> _windows = [];
     private List<AddSourceItem> _cameras = [];
@@ -80,29 +94,46 @@ public partial class AddSourceDialogViewModel : ViewModelBase
 
     public ObservableCollection<AddSourceCategoryItem> Categories { get; }
     public ObservableCollection<AddSourceItem> VisibleItems { get; } = [];
+    public ObservableCollection<DiscoveredRtmpServer> DiscoveredServers { get; } = [];
 
     [ObservableProperty] private AddSourceCategoryItem _selectedCategory;
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _isRefreshing;
     [ObservableProperty] private AddSourceItem? _selectedItem;
+    [ObservableProperty] private string _networkName = "";
+    [ObservableProperty] private string _networkUrl = "";
+    [ObservableProperty] private string _networkError = "";
+    [ObservableProperty] private bool _isScanning;
+    [ObservableProperty] private string _scanMessage = "";
+    [ObservableProperty] private DiscoveredRtmpServer? _selectedServer;
     // What the last refresh could not list. It stays until dismissed or the next refresh.
     public StatusMessage CatalogMessage { get; }
 
-    public bool IsListCategory => true;
-    public bool CanConfirm => _runtime.IsAvailable && SelectedItem != null;
+    public bool IsNetworkCategory => SelectedCategory.Kind == AddSourceCategoryKind.NetworkCameras;
+    public bool IsListCategory => !IsNetworkCategory;
+    public string NetworkNamePlaceholder => DefaultNetworkName;
+    public bool CanScan => _discovery != null;
+    public bool CanConfirm => _runtime.IsAvailable &&
+        (IsNetworkCategory ? NetworkUrl.Trim().Length > 0 : SelectedItem != null);
 
     public event Action<AddSourceResult?>? CloseRequested;
 
-    internal AddSourceDialogViewModel(ISourceRuntime runtime, SceneItemViewModel? scene, StatusMessageService? messages = null)
+    internal AddSourceDialogViewModel(
+        ISourceRuntime runtime,
+        SceneItemViewModel? scene,
+        StatusMessageService? messages = null,
+        IRtmpDiscoveryService? discovery = null)
     {
         CatalogMessage = (messages ?? new StatusMessageService()).Create();
         _runtime = runtime;
         _scene = scene;
+        _discovery = discovery;
         Categories =
         [
             new(AddSourceCategoryKind.Monitors, "Écrans", IconMonitor),
             new(AddSourceCategoryKind.Windows, "Fenêtres", IconWindow),
             new(AddSourceCategoryKind.Cameras, "Caméras", IconCamera),
+            new(AddSourceCategoryKind.NetworkCameras, "Caméras RTMP", IconNetwork, false),
             new(AddSourceCategoryKind.SystemAudio, "Audio système", IconVolume),
             new(AddSourceCategoryKind.Microphones, "Micros", IconMic),
             new(AddSourceCategoryKind.Files, "Fichiers", IconFolder, false)
@@ -129,11 +160,56 @@ public partial class AddSourceDialogViewModel : ViewModelBase
         if (oldValue != null) oldValue.IsSelected = false;
         newValue.IsSelected = true;
         SelectedItem = null;
+        NetworkError = "";
+        OnPropertyChanged(nameof(IsNetworkCategory));
+        OnPropertyChanged(nameof(IsListCategory));
+        OnPropertyChanged(nameof(CanConfirm));
         RebuildVisibleItems();
     }
 
     partial void OnSearchTextChanged(string value) => RebuildVisibleItems();
     partial void OnSelectedItemChanged(AddSourceItem? value) => OnPropertyChanged(nameof(CanConfirm));
+
+    partial void OnNetworkUrlChanged(string value)
+    {
+        NetworkError = "";
+        OnPropertyChanged(nameof(CanConfirm));
+    }
+
+    // RTMP cannot say which streams a device serves: picking one only fills in its server,
+    // the operator completes the path.
+    partial void OnSelectedServerChanged(DiscoveredRtmpServer? value)
+    {
+        if (value != null) NetworkUrl = value.Server + "/";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanScan))]
+    private async Task ScanNetwork(CancellationToken cancellationToken)
+    {
+        IsScanning = true;
+        SelectedServer = null;
+        DiscoveredServers.Clear();
+        ScanMessage = "";
+        try
+        {
+            var servers = await _discovery!.ScanAsync(cancellationToken);
+            foreach (var server in servers) DiscoveredServers.Add(server);
+            ScanMessage = servers.Count == 0
+                ? $"Aucun appareil n'accepte de connexion RTMP (port {RtmpStreamUrl.DefaultPort}) sur le réseau local."
+                : $"{servers.Count} appareil(s) trouvé(s) : choisissez-en un, puis complétez le chemin du flux.";
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception)
+        {
+            ScanMessage = $"Scan impossible : {exception.Message}";
+        }
+        finally
+        {
+            IsScanning = false;
+        }
+    }
 
     [RelayCommand]
     public async Task Refresh(CancellationToken cancellationToken)
@@ -176,7 +252,8 @@ public partial class AddSourceDialogViewModel : ViewModelBase
     [RelayCommand]
     private void Confirm()
     {
-        if (SelectedItem != null) ConfirmItem(SelectedItem);
+        if (IsNetworkCategory) ConfirmNetwork();
+        else if (SelectedItem != null) ConfirmItem(SelectedItem);
     }
 
     public void ConfirmItem(AddSourceItem item)
@@ -185,6 +262,27 @@ public partial class AddSourceDialogViewModel : ViewModelBase
             (item.VideoOption != null ? new AddSourceResult.Video(item.VideoOption) :
              item.AudioOption != null ? new AddSourceResult.Audio(item.AudioOption) : null);
         if (result != null) CloseRequested?.Invoke(result);
+    }
+
+    // The message never repeats the address: its path usually carries the stream key.
+    private void ConfirmNetwork()
+    {
+        if (!_runtime.IsAvailable) return;
+        var url = NetworkUrl.Trim();
+        if (url.Length == 0)
+        {
+            NetworkError = "Saisissez l'adresse du flux.";
+            return;
+        }
+
+        if (!RtmpStreamUrl.IsValid(url))
+        {
+            NetworkError = "Adresse invalide : elle doit commencer par rtmp:// ou rtmps://, puis indiquer le serveur et le chemin du flux.";
+            return;
+        }
+
+        var name = NetworkName.Trim();
+        CloseRequested?.Invoke(new AddSourceResult.Network(name.Length > 0 ? name : DefaultNetworkName, url));
     }
 
     private List<AddSourceItem> ItemsFor(AddSourceCategoryKind kind) => kind switch
