@@ -96,9 +96,9 @@
                     Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
                     BorderBrush="{DynamicResource AppStopBorder}"/>
 
-			<!-- Un clic, et l'enregistrement part : la scène active par défaut. La flèche ouvre le
-			     choix des scènes à enregistrer chacune dans son fichier. Le dossier se règle dans
-			     Paramètres et se rappelle au survol. -->
+			<!-- One click starts recording: the active scene by default. The arrow opens the choice
+			     of scenes to record, each into its own file. The folder is set in Settings and
+			     shown again on hover. -->
 			<Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !IsRecording}">
 				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                         Content="ENREGISTRER"
