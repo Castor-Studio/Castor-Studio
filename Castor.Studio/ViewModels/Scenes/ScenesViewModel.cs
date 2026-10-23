@@ -291,9 +291,18 @@ public partial class ScenesViewModel : ViewModelBase
         NewSceneName = "";
     }
 
+    private const string RecordedSceneError =
+        "Cette scène est en cours d'enregistrement. Arrêtez son enregistrement avant de la supprimer.";
+
     [RelayCommand]
     private void DeleteScene(SceneItemViewModel scene)
     {
+        if (scene.IsBeingRecorded)
+        {
+            DeleteSceneError = RecordedSceneError;
+            return;
+        }
+
         if (WouldLeaveNoScenesWhileLive(1))
         {
             DeleteSceneError = "Impossible de supprimer la seule scène pendant un enregistrement ou un live.";
@@ -331,6 +340,12 @@ public partial class ScenesViewModel : ViewModelBase
         var failures = new List<string>();
         foreach (var scene in selected)
         {
+            if (scene.IsBeingRecorded)
+            {
+                failures.Add($"{scene.Name} : {RecordedSceneError}");
+                continue;
+            }
+
             var result = _sceneRuntime.RemoveScene(scene.Id);
             if (!result.IsSuccess)
             {
@@ -518,8 +533,7 @@ public partial class ScenesViewModel : ViewModelBase
                 definition.Name = result.EffectiveName;
                 foreach (var source in importedSources)
                 {
-                    var sourceResult = _sourceRuntime.AddSource(definition.Id, new SourceAddRequest.Media(
-                        source.Id, source.Name, source.OriginPath, source.Loop));
+                    var sourceResult = _sourceRuntime.AddSource(definition.Id, CreateImportRequest(source));
                     if (!sourceResult.IsSuccess)
                     {
                         sourceFailures++;
@@ -537,7 +551,7 @@ public partial class ScenesViewModel : ViewModelBase
             var details = new List<string>();
             if (skipped > 0) details.Add($"{skipped} source(s) non prise(s) en charge ignorée(s)");
             if (failed > 0) details.Add($"{failed} scène(s) refusée(s) ({firstFailure})");
-            if (sourceFailures > 0) details.Add($"{sourceFailures} source(s) média refusée(s) ({firstSourceFailure})");
+            if (sourceFailures > 0) details.Add($"{sourceFailures} source(s) refusée(s) ({firstSourceFailure})");
             // Anything left behind has to be read before it goes away: it stays like an error.
             if (details.Count == 0) SceneIoStatus.ShowInfo($"{importedCount} scène(s) importée(s).");
             else SceneIoStatus.ShowError($"{importedCount} scène(s) importée(s), {string.Join(", ", details)}.");
@@ -577,6 +591,9 @@ public partial class ScenesViewModel : ViewModelBase
                 break;
             case AddSourceResult.Media:
                 await AddFileMediaSourceAsync();
+                break;
+            case AddSourceResult.Network network:
+                AddNetworkCamera(SelectedScene, network.Name, network.Url);
                 break;
         }
     }
@@ -824,6 +841,26 @@ public partial class ScenesViewModel : ViewModelBase
         AddSource(scene, definition, new SourceAddRequest.Audio(definition.Id, definition.Name, option));
     }
 
+    // The stream key stays in OriginPath only: the label shows the server alone.
+    private void AddNetworkCamera(SceneItemViewModel scene, string name, string url)
+    {
+        var definition = new SourceDefinition
+        {
+            Name = name,
+            Kind = SourceKind.Video,
+            Color = "#5b8def",
+            Origin = SourceOrigin.Network,
+            OriginLabel = RtmpStreamUrl.Describe(url),
+            OriginPath = url,
+            VideoCaptureKind = Models.Studio.VideoCaptureKind.Network
+        };
+        AddSource(scene, definition, new SourceAddRequest.Network(definition.Id, definition.Name, url));
+    }
+
+    private static SourceAddRequest CreateImportRequest(SourceDefinition source) => source.Origin == SourceOrigin.Network
+        ? new SourceAddRequest.Network(source.Id, source.Name, source.OriginPath)
+        : new SourceAddRequest.Media(source.Id, source.Name, source.OriginPath, source.Loop);
+
     private void AddSource(SceneItemViewModel scene, SourceDefinition definition, SourceAddRequest request)
     {
         var result = _sourceRuntime.AddSource(scene.Id, request);
@@ -859,6 +896,15 @@ public partial class ScenesViewModel : ViewModelBase
 
         foreach (var source in sourceList)
         {
+            // Older collections may hold rtsp:// or http:// streams: only RTMP can be played back.
+            if (source.Origin == SourceOrigin.Network && RtmpStreamUrl.IsValid(source.OriginPath))
+            {
+                source.Kind = SourceKind.Video;
+                source.VideoCaptureKind = Models.Studio.VideoCaptureKind.Network;
+                normalized.Add(source);
+                continue;
+            }
+
             if (source.Origin != SourceOrigin.File)
             {
                 skipped++;

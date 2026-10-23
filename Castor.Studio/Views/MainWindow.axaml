@@ -17,6 +17,8 @@
 
 	<Window.KeyBindings>
 		<KeyBinding Gesture="Escape" Command="{Binding CloseSettingsCommand}"/>
+		<!-- Kept in sync with StudioViewModel.PauseShortcutText, shown in the tooltip. -->
+		<KeyBinding Gesture="Ctrl+Shift+P" Command="{Binding TogglePauseRecordingCommand}"/>
 	</Window.KeyBindings>
 
 	<!-- Maximized, Windows pushes the frame past the screen edges: OffScreenMargin pulls the
@@ -144,11 +146,11 @@
                             CornerRadius="12"
                             Padding="10,5">
 						<StackPanel Orientation="Horizontal" Spacing="6">
-							<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" VerticalAlignment="Center"/>
+							<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" VerticalAlignment="Center"/>
 							<TextBlock Text="{Binding GlobalStatusText}"
                                        FontSize="11"
                                        FontWeight="SemiBold"
-                                       Classes="session-state" Classes.live="{Binding IsOnAir}"
+                                       Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
                                        VerticalAlignment="Center"/>
 							<!-- Scène active : ce qui part à l'enregistrement ou au live, lisible depuis
 							     n'importe quel espace de travail. Le choix reste au sélecteur du Studio. -->

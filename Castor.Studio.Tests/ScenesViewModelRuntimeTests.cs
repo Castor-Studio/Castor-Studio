@@ -98,7 +98,7 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.True(second.IsActive);
 
         // Selecting from Scenes updates the same workspace selection used by Studio.
-        workspace.SetRecordingState(true);
+        workspace.TrySetRecordingState(RecordingState.Recording);
         viewModel.SelectSceneCommand.Execute(onAir);
         Assert.Same(onAir, viewModel.SelectedScene);
         Assert.Same(onAir, workspace.ActiveScene);
@@ -200,6 +200,31 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.True(first.IsSelected);
         Assert.Same(first, workspace.ActiveScene);
         Assert.Equal("", viewModel.DeleteSceneError);
+    }
+
+    [Fact]
+    public void A_scene_being_recorded_cannot_be_deleted()
+    {
+        var runtime = new FakeSceneRuntime();
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(runtime, workspace);
+        var recorded = CreateScene(viewModel, "Enregistrée");
+        var other = CreateScene(viewModel, "Libre");
+        recorded.IsBeingRecorded = true;
+
+        viewModel.DeleteSceneCommand.Execute(recorded);
+
+        Assert.Contains(recorded, viewModel.Scenes);
+        Assert.Equal(0, runtime.RemoveCalls);
+        Assert.Contains("en cours d'enregistrement", viewModel.DeleteSceneError);
+
+        recorded.IsMultiSelected = true;
+        other.IsMultiSelected = true;
+        viewModel.DeleteSelectedScenesCommand.Execute(null);
+
+        Assert.Contains(recorded, viewModel.Scenes);
+        Assert.DoesNotContain(other, viewModel.Scenes);
+        Assert.Contains("Enregistrée", viewModel.DeleteSceneError);
     }
 
     [Fact]
@@ -456,6 +481,56 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Equal(SourceKind.Media, source.Kind);
         Assert.Equal(@"C:\media\clip.mp4", source.OriginPath);
         Assert.IsType<SourceAddRequest.Media>(Assert.Single(sourceRuntime.AddedRequests));
+    }
+
+    [Fact]
+    public async Task Rtmp_camera_adds_a_native_network_source_labelled_without_its_key()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Plateau");
+
+        await viewModel.ApplyAddSourceResultAsync(
+            new AddSourceResult.Network("Caméra 1", "rtmp://192.168.1.20:1935/live/secret-key"));
+
+        var source = Assert.Single(viewModel.SelectedScene!.Sources);
+        Assert.Equal("Caméra 1", source.Name);
+        Assert.Equal(SourceKind.Video, source.Kind);
+        Assert.Equal(SourceOrigin.Network, source.Origin);
+        Assert.Equal(VideoCaptureKind.Network, source.VideoCaptureKind);
+        Assert.Equal("Caméra RTMP", source.Type);
+        Assert.Equal("rtmp://192.168.1.20:1935", source.OriginLabel);
+        Assert.Equal("rtmp://192.168.1.20:1935/live/secret-key", source.OriginPath);
+        var request = Assert.IsType<SourceAddRequest.Network>(Assert.Single(sourceRuntime.AddedRequests));
+        Assert.Equal("rtmp://192.168.1.20:1935/live/secret-key", request.Url);
+        Assert.DoesNotContain("secret-key", request.ToString());
+    }
+
+    [Fact]
+    public async Task Import_recreates_rtmp_cameras_and_skips_other_streams()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Importée",
+            Sources =
+            [
+                new SourceDefinition { Name = "RTMP", Kind = SourceKind.Media, Origin = SourceOrigin.Network, OriginPath = "rtmp://cam/live/key" },
+                new SourceDefinition { Name = "RTSP", Kind = SourceKind.Video, Origin = SourceOrigin.Network, OriginPath = "rtsp://cam/stream" }
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var source = Assert.Single(Assert.Single(viewModel.Scenes).Sources);
+        Assert.Equal("RTMP", source.Name);
+        Assert.Equal(SourceKind.Video, source.Kind);
+        Assert.Equal(VideoCaptureKind.Network, source.VideoCaptureKind);
+        var request = Assert.IsType<SourceAddRequest.Network>(Assert.Single(sourceRuntime.AddedRequests));
+        Assert.Equal("rtmp://cam/live/key", request.Url);
+        Assert.Contains("1 source(s) non prise(s) en charge ignorée(s)", viewModel.SceneIoStatus.Text);
     }
 
     [Fact]

@@ -59,6 +59,8 @@
             <SolidColorBrush x:Key="AppStopBorder" Color="#2f1820"/>
             <SolidColorBrush x:Key="AppRecBg" Color="#2d1212"/>
             <SolidColorBrush x:Key="AppRecBorder" Color="#3d1a1a"/>
+            <SolidColorBrush x:Key="AppPauseBg" Color="#2a2110"/>     <!-- StatusWarning on top: 9.5:1 -->
+            <SolidColorBrush x:Key="AppPauseBorder" Color="#3a2e14"/>
             <SolidColorBrush x:Key="AppErrorBg" Color="#3b1219"/>
             <SolidColorBrush x:Key="AppErrorBorder" Color="#7f1d1d"/>
         </ResourceDictionary>
@@ -103,6 +105,8 @@
             <SolidColorBrush x:Key="AppStopBorder" Color="#f0a0a0"/>
             <SolidColorBrush x:Key="AppRecBg" Color="#fce8e8"/>
             <SolidColorBrush x:Key="AppRecBorder" Color="#f0a0a0"/>
+            <SolidColorBrush x:Key="AppPauseBg" Color="#fdf3dc"/>     <!-- StatusWarning on top: 6.43:1 -->
+            <SolidColorBrush x:Key="AppPauseBorder" Color="#f2c46d"/>
             <SolidColorBrush x:Key="AppErrorBg" Color="#fde8e8"/>
             <SolidColorBrush x:Key="AppErrorBorder" Color="#f0a0a0"/>
         </ResourceDictionary>

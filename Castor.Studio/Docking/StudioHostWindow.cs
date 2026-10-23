@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using CastorApplication.ViewModels.Studio;
 using Dock.Avalonia.Controls;
 
 namespace CastorApplication.Docking;
@@ -88,8 +89,25 @@ public sealed class StudioHostWindow : HostWindow, IFullscreenHost
         {
             ToggleFullscreen();
             e.Handled = true;
+            return;
+        }
+
+        // MainWindow's Ctrl+Shift+P binding does not reach a detached window: pause / resume
+        // from here too, through whichever Studio panel this window holds.
+        if (e.Key == Key.P && e.KeyModifiers == (KeyModifiers.Control | KeyModifiers.Shift) &&
+            FindStudio()?.TogglePauseRecordingCommand is { } togglePause &&
+            togglePause.CanExecute(null))
+        {
+            togglePause.Execute(null);
+            e.Handled = true;
         }
     }
+
+    private StudioViewModel? FindStudio() =>
+        this.GetVisualDescendants()
+            .Select(visual => (visual as StyledElement)?.DataContext)
+            .OfType<StudioViewModel>()
+            .FirstOrDefault();
 
     private bool HoldsPreview => this.GetVisualDescendants().Any(visual => visual is StyledElement { DataContext: PreviewTool });
 

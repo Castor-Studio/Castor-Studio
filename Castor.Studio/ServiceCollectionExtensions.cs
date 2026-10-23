@@ -65,6 +65,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAiZoomEntryPoint, AiZoomEntryPoint>();
         services.AddSingleton<IAddSourceDialogService, AddSourceDialogService>();
         services.AddSingleton<ISceneTransferDialogService, SceneTransferDialogService>();
+        services.AddSingleton<ICancelRecordingDialogService, CancelRecordingDialogService>();
+        services.AddSingleton<IRtmpDiscoveryService, RtmpDiscoveryService>();
         services.AddSingleton<IAddSourceDialogViewModelFactory, AddSourceDialogViewModelFactory>();
         services.AddSingleton<StudioWorkspaceViewModel>();
 
@@ -86,7 +88,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IProviderStore>(),
             provider.GetRequiredService<SettingsService>(),
             provider.GetRequiredService<VideoCanvasResolutionResolver>(),
-            provider.GetRequiredService<StatusMessageService>()
+            provider.GetRequiredService<StatusMessageService>(),
+            cancelRecordingDialog: provider.GetRequiredService<ICancelRecordingDialogService>()
         ));
 
         services.AddSingleton(provider => new ScenesViewModel(

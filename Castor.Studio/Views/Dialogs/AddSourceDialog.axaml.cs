@@ -49,6 +49,7 @@ public partial class AddSourceDialog : Window
         if (DataContext is AddSourceDialogViewModel vm)
         {
             vm.CloseRequested -= OnCloseRequested;   // ← nécessite un abonnement par méthode nommée dans le constructeur
+            vm.ScanNetworkCommand.Cancel();
         }
 
         DataContext = null;

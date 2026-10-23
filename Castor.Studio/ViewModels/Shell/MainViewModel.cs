@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using CastorApplication.Models.Studio;
 using CastorApplication.Services;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
@@ -36,9 +37,15 @@ public partial class MainViewModel : ViewModelBase
     // is where the panel it brings back lives.
     public IReadOnlyList<StudioPanelEntry> PanelMenu { get; }
 
-    public string GlobalStatusText => _workspace.IsStreaming ? "EN DIRECT" : _workspace.IsRecording ? "REC" : "OFFLINE";
+    public string GlobalStatusText => _workspace.IsStreaming
+        ? "EN DIRECT"
+        : IsRecordingPaused ? "PAUSE" : _workspace.IsRecording ? "REC" : "OFFLINE";
     // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
     public bool IsOnAir => _workspace.IsStreaming || _workspace.IsRecording;
+    public bool IsRecordingPaused => _workspace.RecordingState == RecordingState.Paused;
+
+    // Window-wide shortcut (MainWindow.axaml): pause / resume works from every workspace.
+    public IRelayCommand TogglePauseRecordingCommand => _studioViewModel.TogglePauseRecordingCommand;
 
     // The scene going out, next to the status badge so it reads from every workspace. Shown,
     // not picked: the choice stays with the Studio's "Scène active" selector.
@@ -190,9 +197,10 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
+        if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.RecordingState) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
         OnPropertyChanged(nameof(GlobalStatusText));
         OnPropertyChanged(nameof(IsOnAir));
+        OnPropertyChanged(nameof(IsRecordingPaused));
     }
 
     partial void OnCurrentPageKindChanged(MainPageKind value)

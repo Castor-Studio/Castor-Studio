@@ -1,3 +1,4 @@
+using System.Text;
 using CastorApplication.Models.Studio;
 
 namespace CastorApplication.Services.Studio;
@@ -17,6 +18,18 @@ internal abstract record SourceAddRequest(Guid SourceId, string RequestedName)
 
     public sealed record Media(Guid SourceId, string RequestedName, string FilePath, bool Loop)
         : SourceAddRequest(SourceId, RequestedName);
+
+    public sealed record Network(Guid SourceId, string RequestedName, string Url)
+        : SourceAddRequest(SourceId, RequestedName)
+    {
+        // The URL usually carries the stream key: it must never end up in a log.
+        protected override bool PrintMembers(StringBuilder builder)
+        {
+            if (base.PrintMembers(builder)) builder.Append(", ");
+            builder.Append("Url = <redacted>");
+            return true;
+        }
+    }
 }
 
 internal sealed record SourceRuntimeResult(

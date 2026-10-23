@@ -190,13 +190,14 @@ public sealed class StudioStreamingViewModelTests
         var fixture = CreateFixture(ConnectedProvider());
         try
         {
-            fixture.Workspace.SetRecordingState(true);
+            fixture.Workspace.TrySetRecordingState(RecordingState.Recording);
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
             Assert.Null(fixture.StreamingRuntime.Request);
             Assert.Contains("Arrêtez l'enregistrement", fixture.ViewModel.StreamError.Text);
 
-            fixture.Workspace.SetRecordingState(false);
+            fixture.Workspace.TrySetRecordingState(RecordingState.Stopping);
+            fixture.Workspace.TrySetRecordingState(RecordingState.Idle);
             fixture.Workspace.SetStreamingState(true);
             await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
 
@@ -351,11 +352,10 @@ public sealed class StudioStreamingViewModelTests
         public bool IsAvailable => true;
         public string UnavailableMessage => "";
         public RecordingRequest? Request { get; private set; }
-        public event EventHandler<RecordingStateChangedEventArgs>? StateChanged
-        {
-            add { }
-            remove { }
-        }
+        public event EventHandler<RecordingStateChangedEventArgs>? StateChanged;
+
+        public void RaiseState(RecordingState state, string message = "") =>
+            StateChanged?.Invoke(this, new RecordingStateChangedEventArgs(Request?.SessionId ?? Guid.Empty, state, message));
 
         public Task<StudioRuntimeResult> StartRecordingAsync(
             RecordingRequest request,
@@ -365,11 +365,18 @@ public sealed class StudioStreamingViewModelTests
             return Task.FromResult(StudioRuntimeResult.Success());
         }
 
+        public Task<StudioRuntimeResult> StopRecordingAsync(Guid sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult(StudioRuntimeResult.Success());
+
         public Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
 
         public StudioRuntimeResult SwitchRecordingScene(Guid sceneId) =>
             StudioRuntimeResult.Success();
+
+        public string GetPauseUnavailableReason(Guid sessionId) => "";
+        public StudioRuntimeResult PauseRecording(Guid sessionId) => StudioRuntimeResult.Success();
+        public StudioRuntimeResult ResumeRecording(Guid sessionId) => StudioRuntimeResult.Success();
     }
 
     private sealed class FakeProviderStore(ProviderSettings? provider) : IProviderStore

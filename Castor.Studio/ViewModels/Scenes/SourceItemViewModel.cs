@@ -37,6 +37,7 @@ public partial class SourceItemViewModel : ViewModelBase
         SourceKind.Video => VideoCaptureKind switch
         {
             Models.Studio.VideoCaptureKind.Camera => "Caméra",
+            Models.Studio.VideoCaptureKind.Network => "Caméra RTMP",
             Models.Studio.VideoCaptureKind.Monitor => "Écran",
             Models.Studio.VideoCaptureKind.Window => "Fenêtre",
             _ => "Vidéo"
@@ -59,6 +60,7 @@ public partial class SourceItemViewModel : ViewModelBase
         {
             Models.Studio.VideoCaptureKind.Monitor => SourceIcons.Monitor,
             Models.Studio.VideoCaptureKind.Window => SourceIcons.Window,
+            Models.Studio.VideoCaptureKind.Network => SourceIcons.Network,
             _ => SourceIcons.Camera
         },
         SourceKind.Audio => AudioCaptureKind is Models.Studio.AudioCaptureKind.Microphone or Models.Studio.AudioCaptureKind.CameraMic

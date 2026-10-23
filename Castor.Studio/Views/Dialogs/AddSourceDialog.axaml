@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="using:CastorApplication.Controls"
         xmlns:vm="using:CastorApplication.ViewModels.Scenes"
+        xmlns:studioModels="using:CastorApplication.Models.Studio"
         x:Class="CastorApplication.Views.Dialogs.AddSourceDialog"
         x:Name="DialogRoot"
         x:DataType="vm:AddSourceDialogViewModel"
@@ -148,7 +149,7 @@
 
 					<!-- Liste des sources -->
 					<Grid Grid.Row="1" RowDefinitions="*, Auto">
-						<Panel Grid.Row="0">
+						<Panel Grid.Row="0" IsVisible="{Binding IsListCategory}">
 							<ListBox Classes="source-list"
                                  ItemsSource="{Binding VisibleItems}"
                                  SelectedItem="{Binding SelectedItem}"
@@ -191,6 +192,93 @@
                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
 						</Panel>
 
+						<!-- RTMP camera -->
+						<Grid Grid.Row="0" IsVisible="{Binding IsNetworkCategory}" RowDefinitions="Auto, Auto, *">
+						<StackPanel Grid.Row="0" Spacing="6">
+							<TextBlock Text="Adresse du flux"
+                                       Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+							<TextBox Text="{Binding NetworkUrl}"
+                                     PlaceholderText="rtmp://192.168.1.20:1935/live/camera"
+                                     FontSize="12" Padding="8,5"
+                                     Background="{DynamicResource AppSurface2}"
+                                     Foreground="{DynamicResource AppFg1}"
+                                     BorderBrush="{DynamicResource AppBorder2}"
+                                     CornerRadius="5"/>
+							<TextBlock Text="{Binding NetworkError}"
+                                       IsVisible="{Binding NetworkError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       Foreground="{StaticResource StatusErrorBrush}" FontSize="11" TextWrapping="Wrap"/>
+
+							<TextBlock Text="Nom" Margin="0,6,0,0"
+                                       Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+							<TextBox Text="{Binding NetworkName}"
+                                     PlaceholderText="{Binding NetworkNamePlaceholder}"
+                                     FontSize="12" Padding="8,5"
+                                     Background="{DynamicResource AppSurface2}"
+                                     Foreground="{DynamicResource AppFg1}"
+                                     BorderBrush="{DynamicResource AppBorder2}"
+                                     CornerRadius="5"/>
+
+							<TextBlock TextWrapping="Wrap"
+                                       Foreground="{DynamicResource AppFg5}" FontSize="10"
+                                       Text="La source reste noire tant que le flux n'émet pas, et se reconnecte seule s'il coupe."/>
+						</StackPanel>
+
+						<!-- Network scan -->
+						<Grid Grid.Row="1" ColumnDefinitions="*, Auto" Margin="0,12,0,6">
+							<TextBlock Grid.Column="0" Text="Appareils RTMP du réseau"
+                                       Foreground="{DynamicResource AppFg3}" FontSize="11"
+                                       VerticalAlignment="Center"/>
+							<Button Grid.Column="1"
+                                    Command="{Binding ScanNetworkCommand}"
+                                    IsVisible="{Binding CanScan}"
+                                    Background="{DynamicResource AppSurface2}"
+                                    BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1"
+                                    Foreground="{DynamicResource AppFg2}"
+                                    Padding="10,4" CornerRadius="5" FontSize="11" Cursor="Hand"
+                                    ToolTip.Tip="Cherche les appareils qui acceptent les connexions RTMP (port 1935)">
+								<Panel>
+									<TextBlock Text="Scan en cours…" IsVisible="{Binding IsScanning}"/>
+									<TextBlock Text="Scanner le réseau" IsVisible="{Binding !IsScanning}"/>
+								</Panel>
+							</Button>
+						</Grid>
+
+						<Grid Grid.Row="2" RowDefinitions="*, Auto">
+							<ListBox Grid.Row="0" Classes="source-list"
+                                     ItemsSource="{Binding DiscoveredServers}"
+                                     SelectedItem="{Binding SelectedServer}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+								<ListBox.ItemTemplate>
+									<DataTemplate x:DataType="studioModels:DiscoveredRtmpServer">
+										<Grid ColumnDefinitions="24, *" ToolTip.Tip="{Binding Server}">
+											<Viewbox Grid.Column="0" Width="16" Height="16"
+                                                     HorizontalAlignment="Left" VerticalAlignment="Center">
+												<Canvas Width="24" Height="24">
+													<Path Data="M18.36 19.36a9 9 0 1 0 -12.72 0 M15.54 16.54a5 5 0 1 0 -7.08 0 M12 13a1 1 0 1 0 0 -2a1 1 0 0 0 0 2"
+                                                          Stroke="{DynamicResource AppFg4}" StrokeThickness="2"
+                                                          StrokeLineCap="Round" StrokeJoin="Round"/>
+												</Canvas>
+											</Viewbox>
+											<StackPanel Grid.Column="1" Margin="8,0,8,0" Spacing="1"
+                                                        VerticalAlignment="Center">
+												<TextBlock Text="{Binding Title}"
+                                                           FontSize="12" Foreground="{DynamicResource AppFg1}"
+                                                           TextTrimming="CharacterEllipsis"/>
+												<TextBlock Text="{Binding Server}"
+                                                           FontSize="10" Foreground="{DynamicResource AppFg4}"
+                                                           TextTrimming="CharacterEllipsis"/>
+											</StackPanel>
+										</Grid>
+									</DataTemplate>
+								</ListBox.ItemTemplate>
+							</ListBox>
+							<TextBlock Grid.Row="1" Text="{Binding ScanMessage}"
+                                       IsVisible="{Binding ScanMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       Foreground="{DynamicResource AppFg4}" FontSize="10"
+                                       TextWrapping="Wrap" Margin="0,6,0,0"/>
+						</Grid>
+						</Grid>
+
 						<controls:MessageBar Grid.Row="1" Margin="0,8,0,0"
                                              Text="{Binding CatalogMessage.Text}"
                                              IsError="{Binding CatalogMessage.IsError}"
@@ -204,10 +292,14 @@
 
 			<!-- ── Pied ── -->
 			<Grid Grid.Row="4" ColumnDefinitions="Auto, *, Auto, 8, Auto" Margin="16,0">
-				<TextBlock Grid.Column="0" Text="Actualisation…"
-                           IsVisible="{Binding IsRefreshing}"
-                           Foreground="{DynamicResource AppFg5}" FontSize="11"
-                           VerticalAlignment="Center"/>
+				<StackPanel Grid.Column="0" VerticalAlignment="Center">
+					<TextBlock Text="Actualisation…"
+                               IsVisible="{Binding IsRefreshing}"
+                               Foreground="{DynamicResource AppFg5}" FontSize="11"/>
+					<TextBlock Text="Scan du réseau…"
+                               IsVisible="{Binding IsScanning}"
+                               Foreground="{DynamicResource AppFg5}" FontSize="11"/>
+				</StackPanel>
 				<Button Grid.Column="2" Classes="dlg-btn" Content="Annuler"
                         Command="{Binding CancelCommand}"
                         Background="{DynamicResource AppSurface2}"
