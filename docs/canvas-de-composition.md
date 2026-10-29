@@ -216,7 +216,7 @@ finir.
 ## Raccourcis clavier et barre du canvas
 
 Les raccourcis sont écrits à un seul endroit, `CompositionShortcuts` : la touche qui
-déclenche une commande est celle que le menu, les bulles des boutons et l'aide affichent.
+déclenche une commande est celle que le menu et les bulles des boutons affichent.
 Touche, bouton et ligne de menu passent ensuite par le même chemin
 (`StudioPreview.Execute`) — ils ne peuvent pas diverger.
 
@@ -248,11 +248,16 @@ L'empilement n'est pas à la composition : le canvas demande un plan
 (`SceneCompositionViewModel.ArrangeSelected`), la liste des sources l'écrit et relit l'ordre
 du moteur, comme pour ses propres boutons.
 
+Le **menu** d'une source (clic droit) est là où les raccourcis s'apprennent : chaque commande
+y porte son icône, et sa touche en face, dessinée en touche de clavier, dans une colonne
+commune à tout le menu. Il s'ouvre sur le nom de la source visée, sous la pastille qu'elle a
+dans la liste.
+
 La **barre** sous l'image porte les mêmes commandes à la souris : centrer, ajuster,
-réinitialiser, pivoter, rogner, changer de plan, et l'aide de tous les raccourcis. Elle est
-sous l'image et non dessus, rien ne pouvant se poser sur la surface native ; ses boutons ne
-prennent pas le clavier, qui reste à l'aperçu. Elle n'existe que là où l'aperçu compose : ni
-le panneau Studio ni le multicam n'en ont.
+réinitialiser, pivoter, rogner, changer de plan. Elle est sous l'image et non dessus, rien ne
+pouvant se poser sur la surface native ; ses boutons ne prennent pas le clavier, qui reste à
+l'aperçu. Elle n'existe que là où l'aperçu compose : ni le panneau Studio ni le multicam
+n'en ont.
 
 ## Rester en phase avec le moteur
 
