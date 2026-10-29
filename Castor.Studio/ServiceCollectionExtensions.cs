@@ -141,6 +141,8 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IAiSceneFrameRuntime>(provider =>
             new LibObsAiSceneFrameRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
+        services.AddSingleton<IAiAudioCaptureRuntime>(provider =>
+            new LibObsAiAudioCaptureRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
         services.AddSingleton<IAiAnalysisClient>(provider =>
         {
             var worker = provider.GetRequiredService<LocalWorkerOptions>();
@@ -152,7 +154,8 @@ public static class ServiceCollectionExtensions
 
             return new LocalAiAnalysisClient(
                 provider.GetRequiredService<AiClient>(),
-                provider.GetRequiredService<IAiSceneFrameRuntime>());
+                provider.GetRequiredService<IAiSceneFrameRuntime>(),
+                provider.GetRequiredService<IAiAudioCaptureRuntime>());
         });
     }
 

@@ -1,5 +1,3 @@
-using CastorApplication.Models.Studio;
-
 namespace CastorApplication.Services.Ai;
 
 internal interface IAiAnalysisClient : IAsyncDisposable
@@ -20,11 +18,11 @@ internal interface IAiAnalysisClient : IAsyncDisposable
 
     /// <param name="mode">"agent" or "auto".</param>
     /// <param name="onAirSceneId">Scene on air now; used as the first shot when it is one of <paramref name="scenes"/>.</param>
-    Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<SceneDefinition> scenes,
+    Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<AiSceneSetup> scenes,
         Guid? onAirSceneId, CancellationToken cancellationToken);
 
     /// <summary>Replaces the scenes of the running session. The AI starts again from scratch.</summary>
-    Task UpdateSourcesAsync(IReadOnlyList<SceneDefinition> scenes, Guid? onAirSceneId,
+    Task UpdateSourcesAsync(IReadOnlyList<AiSceneSetup> scenes, Guid? onAirSceneId,
         CancellationToken cancellationToken);
 
     Task StopSessionAsync(string reason, CancellationToken cancellationToken);

@@ -200,6 +200,83 @@ public sealed class MulticamAiSessionTests
         Assert.Equal("Worker IA introuvable.", viewModel.AiError);
     }
 
+    [Fact]
+    public void Every_audio_source_of_the_workspace_can_be_a_microphone()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = new MulticamViewModel(new FakeAiClient(), workspace);
+        var host = workspace.CreateSceneWithVideo("Animateur");
+        var mic = workspace.AddSource(host, new SourceDefinition { Name = "Micro 1", Kind = SourceKind.Audio });
+
+        Assert.Equal(["Aucun micro", "Micro 1 (Animateur)"], viewModel.AiMicrophoneOptions.Select(o => o.Label));
+        Assert.Same(viewModel.AiMicrophoneOptions, viewModel.Tiles.Single().AiMicrophoneOptions);
+
+        var tile = viewModel.Tiles.Single();
+        tile.AiMicrophone = viewModel.AiMicrophoneOptions[1];
+        host.Sources.Remove(mic);
+
+        Assert.Equal(["Aucun micro"], viewModel.AiMicrophoneOptions.Select(o => o.Label));
+        Assert.True(tile.AiMicrophone.IsNone);
+    }
+
+    [Fact]
+    public async Task Podcast_scenes_send_their_role_and_microphone()
+    {
+        var client = new FakeAiClient();
+        var workspace = new StudioWorkspaceViewModel();
+        var host = workspace.CreateSceneWithVideo("Animateur");
+        var mic = workspace.AddSource(host, new SourceDefinition { Name = "Micro 1", Kind = SourceKind.Audio });
+        var viewModel = new MulticamViewModel(client, workspace) { SelectedAiModelIndex = 1 };
+        var tile = viewModel.Tiles.Single();
+        tile.IsSelected = true;
+        tile.AiRole = tile.AiRoleOptions.Single(role => role.Value == "host");
+        tile.AiMicrophone = viewModel.AiMicrophoneOptions.Single(option => option.SourceId == mic.Id);
+
+        Assert.True(tile.ShowAiRole);
+        await viewModel.SetAiAgentCommand.ExecuteAsync(null);
+
+        Assert.Equal("podcast", client.ModuleName);
+        var setup = Assert.Single(client.Setups);
+        Assert.Equal("host", setup.Role);
+        Assert.Equal(new AiMicrophone(host.Id, mic.Id), setup.Microphone);
+    }
+
+    [Fact]
+    public async Task Football_sends_no_role()
+    {
+        var client = new FakeAiClient();
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateSceneWithVideo("Plateau");
+        var viewModel = new MulticamViewModel(client, workspace);
+        var tile = viewModel.Tiles.Single();
+        tile.IsSelected = true;
+        tile.AiRole = tile.AiRoleOptions[1];
+
+        Assert.False(tile.ShowAiRole);
+        Assert.True(tile.ShowAiMicrophone);
+        await viewModel.SetAiAutoCommand.ExecuteAsync(null);
+
+        Assert.Equal("", Assert.Single(client.Setups).Role);
+    }
+
+    [Fact]
+    public async Task Changing_a_microphone_restarts_the_running_session()
+    {
+        var client = new FakeAiClient();
+        var workspace = new StudioWorkspaceViewModel();
+        var host = workspace.CreateSceneWithVideo("Animateur");
+        workspace.AddSource(host, new SourceDefinition { Name = "Micro 1", Kind = SourceKind.Audio });
+        var viewModel = new MulticamViewModel(client, workspace) { SelectedAiModelIndex = 1 };
+        var tile = viewModel.Tiles.Single();
+        tile.IsSelected = true;
+        await viewModel.SetAiAgentCommand.ExecuteAsync(null);
+
+        tile.AiMicrophone = viewModel.AiMicrophoneOptions[1];
+
+        Assert.Single(client.Updates);
+        Assert.NotNull(Assert.Single(client.Setups).Microphone);
+    }
+
     private sealed class FakeAiClient : IAiAnalysisClient
     {
         public bool IsAvailable => true;
@@ -211,6 +288,7 @@ public sealed class MulticamAiSessionTests
         public Guid? OnAirAtStart { get; private set; }
         public List<Guid> ReportedOnAir { get; } = [];
         public List<HashSet<Guid>> Updates { get; } = [];
+        public IReadOnlyList<AiSceneSetup> Setups { get; private set; } = [];
         public string? StartFailure { get; init; }
         public Action? OnStart { get; set; }
 
@@ -219,7 +297,7 @@ public sealed class MulticamAiSessionTests
         public event EventHandler<AiSessionStatusEvent>? SessionStatusChanged;
         public event EventHandler<AiServerErrorEvent>? ServerErrorReceived;
 
-        public Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<SceneDefinition> scenes,
+        public Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<AiSceneSetup> scenes,
             Guid? onAirSceneId, CancellationToken cancellationToken)
         {
             OnStart?.Invoke();
@@ -228,14 +306,16 @@ public sealed class MulticamAiSessionTests
             StartedModes.Add(mode);
             OnAirAtStart = onAirSceneId;
             HasActiveSession = true;
-            ActiveSceneIds = scenes.Select(scene => scene.Id).ToHashSet();
+            Setups = scenes;
+            ActiveSceneIds = scenes.Select(setup => setup.Scene.Id).ToHashSet();
             return Task.CompletedTask;
         }
 
-        public Task UpdateSourcesAsync(IReadOnlyList<SceneDefinition> scenes, Guid? onAirSceneId,
+        public Task UpdateSourcesAsync(IReadOnlyList<AiSceneSetup> scenes, Guid? onAirSceneId,
             CancellationToken cancellationToken)
         {
-            ActiveSceneIds = scenes.Select(scene => scene.Id).ToHashSet();
+            Setups = scenes;
+            ActiveSceneIds = scenes.Select(setup => setup.Scene.Id).ToHashSet();
             Updates.Add(ActiveSceneIds.ToHashSet());
             return Task.CompletedTask;
         }

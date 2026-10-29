@@ -1,5 +1,3 @@
-using CastorApplication.Models.Studio;
-
 namespace CastorApplication.Services.Ai;
 
 internal sealed class UnavailableAiAnalysisClient(
@@ -31,9 +29,9 @@ internal sealed class UnavailableAiAnalysisClient(
         remove { }
     }
 
-    public Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<SceneDefinition> scenes,
+    public Task StartSessionAsync(string moduleName, string mode, IReadOnlyList<AiSceneSetup> scenes,
         Guid? onAirSceneId, CancellationToken cancellationToken) => Unavailable();
-    public Task UpdateSourcesAsync(IReadOnlyList<SceneDefinition> scenes, Guid? onAirSceneId,
+    public Task UpdateSourcesAsync(IReadOnlyList<AiSceneSetup> scenes, Guid? onAirSceneId,
         CancellationToken cancellationToken) => Unavailable();
     public Task StopSessionAsync(string reason, CancellationToken cancellationToken) => Task.CompletedTask;
     public void ReportOnAir(Guid sceneId) { }

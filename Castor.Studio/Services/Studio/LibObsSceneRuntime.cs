@@ -107,6 +107,17 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public ObsSourceAudioCapture? AddSourceAudioCapture(Guid sceneId, Guid sourceId, ObsSourceAudioCallback callback)
+    {
+        lock (_gate)
+        {
+            if (!IsAvailable || !_sources.TryGetValue(sceneId, out var sources) ||
+                !sources.TryGetValue(sourceId, out var source)) return null;
+            // Owned by the source: disposing it (source removed) also stops the callbacks.
+            return source.Source.AddAudioCaptureCallback(callback);
+        }
+    }
+
     public event EventHandler<RecordingStateChangedEventArgs>? StateChanged;
     public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
     public event EventHandler? PreviewResetRequested;

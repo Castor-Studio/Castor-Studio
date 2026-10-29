@@ -21,7 +21,7 @@ public sealed class LibObsAiSceneFrameRuntimeTests(LibObsRuntimeFixture fixture)
             TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
-            frames.Start([sceneId], 640, 360, (scene, bgra, width, height, stride) =>
+            frames.Start([sceneId], 640, 360, 15, (scene, bgra, width, height, stride) =>
                 received.TrySetResult((scene, width, height, stride, bgra.Length)));
 
             var frame = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -44,7 +44,7 @@ public sealed class LibObsAiSceneFrameRuntimeTests(LibObsRuntimeFixture fixture)
         using var frames = new LibObsAiSceneFrameRuntime(fixture.Runtime);
 
         var error = Assert.Throws<InvalidOperationException>(() =>
-            frames.Start([Guid.NewGuid()], 640, 360, (_, _, _, _, _) => { }));
+            frames.Start([Guid.NewGuid()], 640, 360, 15, (_, _, _, _, _) => { }));
 
         Assert.Contains("n'existe pas", error.Message);
     }

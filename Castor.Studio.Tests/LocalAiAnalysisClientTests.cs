@@ -9,6 +9,7 @@ public sealed class LocalAiAnalysisClientTests
 {
     private readonly FakeAiProvider _provider = new();
     private readonly FakeFrameRuntime _frames = new();
+    private readonly FakeAudioRuntime _audio = new();
     private readonly AiClient _sdk;
     private readonly LocalAiAnalysisClient _client;
     private readonly SceneDefinition _wide = new() { Name = "Plateau" };
@@ -17,7 +18,7 @@ public sealed class LocalAiAnalysisClientTests
     public LocalAiAnalysisClientTests()
     {
         _sdk = new AiClient(_provider);
-        _client = new LocalAiAnalysisClient(_sdk, _frames);
+        _client = new LocalAiAnalysisClient(_sdk, _frames, _audio);
     }
 
     [Theory]
@@ -34,7 +35,7 @@ public sealed class LocalAiAnalysisClientTests
     public async Task An_unknown_mode_is_rejected()
     {
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            _client.StartSessionAsync("podcast", "off", [_wide], null, CancellationToken.None));
+            _client.StartSessionAsync("podcast", "off", Setups(_wide), null, CancellationToken.None));
     }
 
     [Fact]
@@ -118,7 +119,7 @@ public sealed class LocalAiAnalysisClientTests
         await StartAsync("agent");
         var added = new SceneDefinition { Name = "Public" };
 
-        await _client.UpdateSourcesAsync([_wide, added], _wide.Id, CancellationToken.None);
+        await _client.UpdateSourcesAsync(Setups(_wide, added), _wide.Id, CancellationToken.None);
 
         Assert.Equal(2, _provider.Requests.Count);
         Assert.Equal([_wide.Id.ToString("N"), added.Id.ToString("N")],
@@ -219,6 +220,7 @@ public sealed class LocalAiAnalysisClientTests
         await StartAsync("auto", module: "football");
 
         Assert.Equal((640, 360), _frames.Format);
+        Assert.Equal(15, _frames.Fps);
         Assert.Equal(new HashSet<Guid> { _wide.Id, _closeup.Id }, _frames.Scenes);
 
         _frames.Push(_closeup.Id, 640, 360);
@@ -241,23 +243,121 @@ public sealed class LocalAiAnalysisClientTests
         Assert.False(_client.HasActiveSession);
     }
 
+    [Fact]
+    public async Task Roles_and_microphones_reach_the_cameras()
+    {
+        var wideMic = new AiMicrophone(_wide.Id, Guid.NewGuid());
+        var guestMic = new AiMicrophone(_closeup.Id, Guid.NewGuid());
+        var host = new SceneDefinition { Name = "Animateur serré" };
+
+        await _client.StartSessionAsync("podcast", "agent",
+        [
+            new AiSceneSetup(_wide, "host", wideMic),
+            new AiSceneSetup(_closeup, " guest ", guestMic),
+            // Same person, same microphone: same channel.
+            new AiSceneSetup(host, "host_zoom", wideMic),
+        ], null, CancellationToken.None);
+
+        var request = Assert.Single(_provider.Requests);
+        Assert.Equal(2, request.AudioChannels);
+        Assert.Equal(["host", "guest", "host_zoom"], request.Cameras.Select(c => c.Role));
+        Assert.Equal([0, 1, 0], request.Cameras.Select(c => c.AudioChannel));
+        Assert.Equal(new Dictionary<AiMicrophone, int> { [wideMic] = 0, [guestMic] = 1 }, _audio.Channels);
+    }
+
+    [Fact]
+    public async Task A_scene_without_microphone_has_no_channel_and_nothing_is_captured()
+    {
+        await StartAsync("agent");
+
+        Assert.Equal([-1, -1], _provider.Requests[0].Cameras.Select(c => c.AudioChannel));
+        Assert.Equal(0, _provider.Requests[0].AudioChannels);
+        Assert.Null(_audio.Channels);
+    }
+
+    [Fact]
+    public async Task Microphones_are_released_on_restart_and_stop()
+    {
+        var microphone = new AiMicrophone(_wide.Id, Guid.NewGuid());
+        await _client.StartSessionAsync("podcast", "agent",
+            [new AiSceneSetup(_wide, "host", microphone)], null, CancellationToken.None);
+
+        // The sink writes to the SDK from any thread.
+        _audio.Push(0, 48_000);
+
+        await _client.UpdateSourcesAsync(Setups(_wide), null, CancellationToken.None);
+        Assert.Null(_audio.Channels);
+
+        await _client.UpdateSourcesAsync([new AiSceneSetup(_wide, "host", microphone)], null, CancellationToken.None);
+        Assert.NotNull(_audio.Channels);
+
+        await _client.StopSessionAsync("test", CancellationToken.None);
+        Assert.Null(_audio.Channels);
+    }
+
+    [Fact]
+    public async Task A_microphone_that_cannot_be_captured_is_reported()
+    {
+        _audio.Failure = "Un micro choisi pour l'IA n'existe plus dans sa scène.";
+        var errors = new List<AiServerErrorEvent>();
+        _client.ServerErrorReceived += (_, e) => errors.Add(e);
+
+        await _client.StartSessionAsync("podcast", "agent",
+            [new AiSceneSetup(_wide, "host", new AiMicrophone(_wide.Id, Guid.NewGuid()))], null, CancellationToken.None);
+
+        var error = Assert.Single(errors);
+        Assert.Equal("AI_AUDIO_UNAVAILABLE", error.ErrorCode);
+        Assert.False(error.IsFatal);
+        Assert.True(_client.HasActiveSession);
+    }
+
     private Task StartAsync(string mode, Guid? onAir = null, string module = "podcast") =>
-        _client.StartSessionAsync(module, mode, [_wide, _closeup], onAir, CancellationToken.None);
+        _client.StartSessionAsync(module, mode, Setups(_wide, _closeup), onAir, CancellationToken.None);
+
+    private static List<AiSceneSetup> Setups(params SceneDefinition[] scenes) =>
+        scenes.Select(scene => new AiSceneSetup(scene)).ToList();
+
+    private sealed class FakeAudioRuntime : IAiAudioCaptureRuntime
+    {
+        private AiAudioSink? _sink;
+
+        public Dictionary<AiMicrophone, int>? Channels { get; private set; }
+        public string? Failure { get; set; }
+
+        public void Start(IReadOnlyDictionary<AiMicrophone, int> channels, AiAudioSink sink)
+        {
+            Channels = channels.ToDictionary();
+            _sink = sink;
+            if (Failure != null) throw new InvalidOperationException(Failure);
+        }
+
+        public void StopAll()
+        {
+            Channels = null;
+            _sink = null;
+        }
+
+        public void Push(int channel, int sampleRate) => _sink?.Invoke(channel, new float[480], sampleRate);
+
+        public void Dispose() { }
+    }
 
     private sealed class FakeFrameRuntime : IAiSceneFrameRuntime
     {
         private AiSceneFrameSink? _sink;
 
         public (int Width, int Height)? Format { get; private set; }
+        public double Fps { get; private set; }
         public HashSet<Guid> Scenes { get; } = [];
         public bool IsAvailable => true;
         public string UnavailableMessage => "";
 
-        public void Start(IReadOnlyCollection<Guid> sceneIds, int width, int height, AiSceneFrameSink sink)
+        public void Start(IReadOnlyCollection<Guid> sceneIds, int width, int height, double fps, AiSceneFrameSink sink)
         {
             Scenes.Clear();
             Scenes.UnionWith(sceneIds);
             Format = (width, height);
+            Fps = fps;
             _sink = sink;
         }
 

@@ -11,7 +11,7 @@ namespace CastorApplication.Services.Ai;
 /// </summary>
 internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
 {
-    private sealed record SceneRender(ObsView View, ObsRawOutput Output, int Width, int Height);
+    private sealed record SceneRender(ObsView View, ObsRawOutput Output, int Width, int Height, uint Divisor);
 
     private readonly IAiSceneSourceProvider _sceneSources;
     private readonly object _gate = new();
@@ -25,11 +25,12 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
 
     public string UnavailableMessage => "Le rendu des scènes pour l'IA nécessite la vidéo LibObs active.";
 
-    public void Start(IReadOnlyCollection<Guid> sceneIds, int width, int height, AiSceneFrameSink sink)
+    public void Start(IReadOnlyCollection<Guid> sceneIds, int width, int height, double fps, AiSceneFrameSink sink)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
         if (!IsAvailable) throw new InvalidOperationException(UnavailableMessage);
+        var divisor = FrameRateDivisor(VideoInfo(), fps);
 
         var failures = new List<string>();
         lock (_gate)
@@ -37,7 +38,8 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
             _sink = sink;
             foreach (var (sceneId, render) in _renders.ToList())
             {
-                if (sceneIds.Contains(sceneId) && render.Width == width && render.Height == height) continue;
+                if (sceneIds.Contains(sceneId) && render.Width == width && render.Height == height &&
+                    render.Divisor == divisor) continue;
                 _renders.Remove(sceneId);
                 Release(render);
             }
@@ -45,7 +47,7 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
             foreach (var sceneId in sceneIds)
             {
                 if (_renders.ContainsKey(sceneId)) continue;
-                try { _renders.Add(sceneId, Create(sceneId, width, height)); }
+                try { _renders.Add(sceneId, Create(sceneId, width, height, divisor)); }
                 catch (Exception exception) { failures.Add(exception.Message); }
             }
         }
@@ -73,7 +75,15 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
         _disposed = true;
     }
 
-    private SceneRender Create(Guid sceneId, int width, int height)
+    // libobs runs every mix at the main frame rate: frames the AI would drop are not even delivered.
+    internal static uint FrameRateDivisor(ObsVideoInfo? videoInfo, double fps)
+    {
+        if (fps <= 0 || videoInfo is not { FpsNumerator: > 0, FpsDenominator: > 0 } info) return 1;
+        var mixFps = (double)info.FpsNumerator / info.FpsDenominator;
+        return (uint)Math.Max(1, Math.Floor(mixFps / fps));
+    }
+
+    private SceneRender Create(Guid sceneId, int width, int height, uint divisor)
     {
         using var source = _sceneSources.AcquireSceneSource(sceneId)
             ?? throw new InvalidOperationException("La scène n'existe pas dans LibObs.");
@@ -92,6 +102,7 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
                     ObsVideoFormat.Bgra, (uint)width, (uint)height, ObsVideoRange.Full, ObsVideoColorSpace.Default),
                 // Built once per scene: the video thread allocates nothing per frame.
                 OnVideo = frame => OnFrame(sceneId, frame),
+                FrameRateDivisor = divisor,
             });
             output.CallbackFailed += (_, args) => Debug.WriteLine($"[Castor.AI frames {sceneId:N}] {args}");
             try
@@ -104,7 +115,7 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
                 throw;
             }
 
-            return new SceneRender(view, output, width, height);
+            return new SceneRender(view, output, width, height, divisor);
         }
         catch
         {
