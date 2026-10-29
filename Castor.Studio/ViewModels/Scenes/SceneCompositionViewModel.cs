@@ -52,6 +52,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
     // vrai changement, pas à chaque mouvement du pointeur.
     private bool _notifiedSelection;
     private bool _notifiedCropMode;
+    private double _notifiedZoomFactor = SourceZoom.None.Factor;
     private SceneItemViewModel? _scene;
     private Guid? _selectedSourceId;
     private Gesture? _gesture;
@@ -657,6 +658,22 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (Selected is { } selected) ApplyZoom(selected, selected.Zoom with { Factor = factor });
     }
 
+    /// <summary>
+    /// Le zoom de l'image de la source choisie, tel que le moteur le détient — ×1 sans
+    /// source. C'est le curseur de la barre : l'écrire demande ce zoom au moteur, et la
+    /// valeur lue ensuite est celle qu'il a confirmée. Un zoom donné ailleurs (molette,
+    /// clavier, menu) le fait suivre.
+    /// </summary>
+    public double SelectedZoomFactor
+    {
+        get => Selected?.Zoom.Factor ?? SourceZoom.None.Factor;
+        set
+        {
+            // Le curseur renvoie la valeur qu'on vient de lui donner : rien à écrire alors.
+            if (Selected is { } selected && Math.Abs(value - selected.Zoom.Factor) > 0.001) ZoomSelected(value);
+        }
+    }
+
     /// <summary>La source choisie montre de nouveau son image entière.</summary>
     public void ResetSelectedZoom()
     {
@@ -831,6 +848,12 @@ public partial class SceneCompositionViewModel : ViewModelBase
         {
             _notifiedCropMode = IsCropMode;
             OnPropertyChanged(nameof(IsCropMode));
+        }
+
+        if (_notifiedZoomFactor != SelectedZoomFactor)
+        {
+            _notifiedZoomFactor = SelectedZoomFactor;
+            OnPropertyChanged(nameof(SelectedZoomFactor));
         }
     }
 

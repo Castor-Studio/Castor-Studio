@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:CastorApplication.Controls"
              xmlns:scenes="using:CastorApplication.ViewModels.Scenes"
+             xmlns:models="using:CastorApplication.Models.Studio"
              x:Class="CastorApplication.Controls.StudioPreview"
              x:Name="PreviewRoot"
              x:DataType="controls:StudioPreview"
@@ -31,8 +32,9 @@
         <Style Selector="Button.composition-tool.active">
             <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
         </Style>
-        <!-- Sans source choisie, la barre s'efface d'un bloc, icônes comprises. -->
-        <Style Selector="Button.composition-tool:disabled">
+        <!-- Sans source choisie, la barre s'efface d'un bloc : boutons, noms de groupe et
+             curseur ensemble. -->
+        <Style Selector="DockPanel.composition-tools:disabled">
             <Setter Property="Opacity" Value="0.4"/>
         </Style>
         <Style Selector="Button.composition-tool:disabled /template/ ContentPresenter">
@@ -57,8 +59,28 @@
         <Style Selector="Rectangle.composition-tool-separator">
             <Setter Property="Width" Value="1"/>
             <Setter Property="Height" Value="16"/>
-            <Setter Property="Margin" Value="4,0"/>
+            <Setter Property="Margin" Value="6,0"/>
             <Setter Property="Fill" Value="{DynamicResource AppBorder}"/>
+        </Style>
+        <!-- Le nom d'un groupe d'icônes : il dit sur quoi elles agissent. En retrait, sans fond
+             ni survol, pour ne pas passer pour un bouton. -->
+        <Style Selector="TextBlock.composition-group">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg5}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="4,0,2,0"/>
+        </Style>
+        <!-- Le facteur du zoom : un chiffre qu'on clique pour revenir à l'image entière. -->
+        <Style Selector="Button.composition-tool.zoom-value">
+            <Setter Property="MinWidth" Value="44"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Slider.composition-zoom">
+            <Setter Property="Width" Value="120"/>
+            <Setter Property="Margin" Value="4,-10"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="False"/>
         </Style>
     </UserControl.Styles>
 
@@ -140,32 +162,59 @@
             Background="{DynamicResource AppSurface}"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0"
             Padding="6,4">
-        <DockPanel>
+        <!-- Rangée par ce que chaque commande modifie : le cadre, son orientation, sa place
+             dans la pile, puis à part l'image qu'il montre. Rien de tout ça n'a de sens sans
+             source choisie. -->
+        <DockPanel Classes="composition-tools"
+                   IsEnabled="{Binding #PreviewRoot.Composition.HasSelection, FallbackValue=False}">
 
-            <!-- Rien de tout ça n'a de sens sans source choisie. -->
-            <StackPanel Orientation="Horizontal" Spacing="2"
-                        IsEnabled="{Binding #PreviewRoot.Composition.HasSelection, FallbackValue=False}">
+            <!-- L'image dans le cadre : à part, à droite, parce qu'elle ne bouge pas le cadre.
+                 Le curseur suit le zoom donné ailleurs (molette, clavier, menu). -->
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.ZoomIn}"
+                        ToolTip.Tip="Zoomer dans l'image"/>
+                <Slider Classes="composition-zoom"
+                        Minimum="{x:Static models:SourceZoom.MinFactor}"
+                        Maximum="{x:Static models:SourceZoom.MaxFactor}"
+                        SmallChange="0.1" LargeChange="0.5"
+                        Value="{Binding #PreviewRoot.Composition.SelectedZoomFactor, FallbackValue=1}"
+                        ValueChanged="OnZoomSliderChanged"
+                        ToolTip.Tip="Zoom dans l'image. Sur l'aperçu, Alt + molette zoome vers le pointeur."/>
+                <Button Classes="composition-tool zoom-value" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.ResetZoom}"
+                        ToolTip.Tip="Revenir à l'image entière">
+                    <TextBlock Text="{Binding #PreviewRoot.Composition.SelectedZoomFactor, StringFormat='×{0:0.0}', FallbackValue='×1,0'}"/>
+                </Button>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="2">
                 <Button Classes="composition-tool" Content="Centrer" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.CenterSelected}"
                         ToolTip.Tip="Centrer dans le canvas"/>
                 <Button Classes="composition-tool" Content="Ajuster" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.FitSelected}"
                         ToolTip.Tip="Ajuster au canvas"/>
+                <Button Classes="composition-tool" Content="Rogner" Click="OnToolClick"
+                        Classes.active="{Binding #PreviewRoot.Composition.IsCropMode, FallbackValue=False}"
+                        Tag="{x:Static scenes:CompositionCommand.ToggleCrop}"
+                        ToolTip.Tip="Rogner / terminer le rognage"/>
+                <!-- En dernier : il défait tout ce qui précède. -->
                 <Button Classes="composition-tool" Content="Réinitialiser" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.ResetTransform}"
                         ToolTip.Tip="Réinitialiser la transformation"/>
+
                 <Rectangle Classes="composition-tool-separator"/>
+                <TextBlock Classes="composition-group" Text="Pivoter"/>
                 <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.RotateLeft}"
                         ToolTip.Tip="Pivoter de 90° à gauche"/>
                 <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.RotateRight}"
                         ToolTip.Tip="Pivoter de 90° à droite"/>
-                <Button Classes="composition-tool" Content="Rogner" Click="OnToolClick"
-                        Classes.active="{Binding #PreviewRoot.Composition.IsCropMode, FallbackValue=False}"
-                        Tag="{x:Static scenes:CompositionCommand.ToggleCrop}"
-                        ToolTip.Tip="Rogner / terminer le rognage"/>
+
                 <Rectangle Classes="composition-tool-separator"/>
+                <TextBlock Classes="composition-group" Text="Plan"/>
                 <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.BringToFront}"
                         ToolTip.Tip="Mettre au premier plan"/>

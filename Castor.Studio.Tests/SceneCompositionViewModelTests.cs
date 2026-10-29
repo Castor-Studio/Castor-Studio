@@ -1011,6 +1011,38 @@ public sealed class SceneCompositionViewModelTests
             changes.Where(name => name is nameof(SceneCompositionViewModel.HasSelection) or nameof(SceneCompositionViewModel.IsCropMode)));
     }
 
+    [Fact]
+    public void The_zoom_slider_writes_to_the_engine_and_follows_zoom_given_elsewhere()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        var changes = new List<string?>();
+        composition.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+
+        // Sans source, le curseur est à ×1 et n'écrit rien.
+        composition.SelectedZoomFactor = 2;
+        Assert.Empty(runtime.ZoomWrites);
+        Assert.Equal(1d, composition.SelectedZoomFactor);
+
+        composition.SelectAt(10, 10);
+        composition.SelectedZoomFactor = 2;
+        Assert.Equal(2d, composition.SelectedZoomFactor);
+        Assert.Contains(nameof(SceneCompositionViewModel.SelectedZoomFactor), changes);
+
+        // Le curseur renvoie la valeur qu'on vient de lui donner : rien de plus n'est écrit.
+        composition.SelectedZoomFactor = 2;
+        Assert.Single(runtime.ZoomWrites);
+
+        // Un zoom donné au clavier le fait suivre.
+        changes.Clear();
+        composition.ResetSelectedZoom();
+        Assert.Equal(1d, composition.SelectedZoomFactor);
+        Assert.Contains(nameof(SceneCompositionViewModel.SelectedZoomFactor), changes);
+    }
+
     private const double HandleTolerance = 6;
     private const double RotationReach = 24;
     private const double SnapReach = 10;

@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -410,7 +411,8 @@ public partial class StudioPreview : UserControl
     }
 
     // Chaque outil de la barre prend l'icône que sa commande porte dans le menu, devant son
-    // libellé s'il en a un ; sa bulle dit aussi la touche qui fait la même chose.
+    // libellé s'il en a un ; sa bulle dit aussi la touche qui fait la même chose. Un outil
+    // qui montre déjà autre chose (le facteur du zoom) le garde.
     private void DescribeTools()
     {
         foreach (var tool in Toolbar.GetLogicalDescendants().OfType<Button>().ToList())
@@ -421,16 +423,24 @@ public partial class StudioPreview : UserControl
                 ToolTip.SetTip(tool, CompositionShortcuts.Describe(tip, command));
 
             var icon = MenuIcon(CompositionIcons.Of(command), "tool-icon", 15);
-            tool.Content = tool.Content is string label
-                ? new StackPanel
+            tool.Content = tool.Content switch
+            {
+                string label => new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     Spacing = 6,
                     Children = { icon, new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center } }
-                }
-                : icon;
+                },
+                null => icon,
+                var content => content
+            };
         }
     }
+
+    // Le curseur écrit son zoom par la composition (liaison) ; il reste à montrer au moteur
+    // l'overlay qui en découle, la mini-carte d'une source zoomée comprise.
+    private void OnZoomSliderChanged(object? sender, RangeBaseValueChangedEventArgs e) =>
+        NativePreview.ShowComposition();
 
     private void OnPictureKeyUp(object? sender, KeyEventArgs e)
     {
