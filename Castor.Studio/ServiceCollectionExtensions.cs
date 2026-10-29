@@ -139,7 +139,8 @@ public static class ServiceCollectionExtensions
         services.AddCastorAI(options =>
             options.Client = new AiClientOptions { Dispatch = action => Dispatcher.UIThread.Post(action) });
 
-        services.AddSingleton<IAiSceneFrameRuntime, UnavailableAiSceneFrameRuntime>();
+        services.AddSingleton<IAiSceneFrameRuntime>(provider =>
+            new LibObsAiSceneFrameRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
         services.AddSingleton<IAiAnalysisClient>(provider =>
         {
             var worker = provider.GetRequiredService<LocalWorkerOptions>();
