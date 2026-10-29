@@ -213,6 +213,47 @@ un refus est une lecture du moteur.
 en plein geste mènent au même retour : sans relâcher, rien ne dit où l'opérateur voulait
 finir.
 
+## Raccourcis clavier et barre du canvas
+
+Les raccourcis sont écrits à un seul endroit, `CompositionShortcuts` : la touche qui
+déclenche une commande est celle que le menu, les bulles des boutons et l'aide affichent.
+Touche, bouton et ligne de menu passent ensuite par le même chemin
+(`StudioPreview.Execute`) — ils ne peuvent pas diverger.
+
+| Touches | Effet |
+| --- | --- |
+| Tab / Maj+Tab | source suivante / précédente, dans l'ordre de la liste (premier plan en tête) |
+| Échap | annule le geste, puis quitte le rognage, puis ne choisit plus rien |
+| Flèches / Maj+Flèches | déplace la source de 1 / 10 px du canvas, sans aimant |
+| Ctrl+D | centre la source dans le canvas |
+| Ctrl+F | l'ajuste au canvas, proportions gardées, au centre |
+| Ctrl+R | réinitialise sa transformation : coin haut-gauche, échelle 1, ni rotation, ni rognage, ni zoom |
+| R / Maj+R | pivote de 90° à droite / à gauche |
+| C, Entrée | entre en rognage ou en sort ; Entrée en sort |
+| + / − / 0 | zoome, dézoome l'image, la rend entière |
+| Page↑ / Page↓ | rapproche du premier plan / recule d'un plan |
+| Ctrl+Page↑ / Ctrl+Page↓ | met au premier plan / à l'arrière-plan |
+
+- Ctrl+D, Ctrl+F et Ctrl+R sont ceux d'OBS : un opérateur qui en vient n'a rien à réapprendre.
+- Les touches ne s'écoutent que sur l'aperçu, quand il a le clavier (un clic sur l'image le
+  lui donne). Une lettre seule ne vole donc rien à un champ texte.
+- Alt ne change aucune commande : il tient le rognage, R tourne toujours la source. En
+  rognage, les flèches font glisser l'image zoomée sous son cadre plutôt que le cadre.
+- Une touche sans emploi poursuit son chemin : Tab au-delà de la dernière source rend le
+  focus à la page, une flèche sans source choisie navigue comme ailleurs.
+- Aucune commande ne part pendant un geste : elle écrirait par-dessus ce que le pointeur
+  demande.
+
+L'empilement n'est pas à la composition : le canvas demande un plan
+(`SceneCompositionViewModel.ArrangeSelected`), la liste des sources l'écrit et relit l'ordre
+du moteur, comme pour ses propres boutons.
+
+La **barre** sous l'image porte les mêmes commandes à la souris : centrer, ajuster,
+réinitialiser, pivoter, rogner, changer de plan, et l'aide de tous les raccourcis. Elle est
+sous l'image et non dessus, rien ne pouvant se poser sur la surface native ; ses boutons ne
+prennent pas le clavier, qui reste à l'aperçu. Elle n'existe que là où l'aperçu compose : ni
+le panneau Studio ni le multicam n'en ont.
+
 ## Rester en phase avec le moteur
 
 Rien ne prévient l'interface qu'une transformation a changé du côté du moteur. La composition
