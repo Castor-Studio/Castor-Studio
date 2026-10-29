@@ -66,6 +66,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAddSourceDialogService, AddSourceDialogService>();
         services.AddSingleton<ISceneTransferDialogService, SceneTransferDialogService>();
         services.AddSingleton<ICancelRecordingDialogService, CancelRecordingDialogService>();
+        services.AddSingleton<IUnsavedScenesDialogService, UnsavedScenesDialogService>();
         services.AddSingleton<IRtmpDiscoveryService, RtmpDiscoveryService>();
         services.AddSingleton<IAddSourceDialogViewModelFactory, AddSourceDialogViewModelFactory>();
         services.AddSingleton<StudioWorkspaceViewModel>();
@@ -105,7 +106,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<ISceneTransferDialogService>(),
             provider.GetRequiredService<SettingsService>(),
             provider.GetRequiredService<VideoCanvasResolutionResolver>(),
-            provider.GetRequiredService<StatusMessageService>()
+            provider.GetRequiredService<StatusMessageService>(),
+            SceneCollectionService.DefaultCollectionPath
         ));
 
         services.AddSingleton(provider => new MulticamViewModel(
@@ -127,7 +129,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<SettingsViewModel>(),
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
             provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>(),
-            provider.GetRequiredService<StatusMessageService>()
+            provider.GetRequiredService<StatusMessageService>(),
+            provider.GetRequiredService<IUnsavedScenesDialogService>()
         ));
     }
 }

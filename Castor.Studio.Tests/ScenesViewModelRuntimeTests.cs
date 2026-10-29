@@ -821,6 +821,76 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Equal(0, collection.SaveCalls);
     }
 
+    [Fact]
+    public async Task Saved_scenes_come_back_at_startup_without_counting_as_changes()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>
+        {
+            [@"C:\saved.json"] = [new SceneDefinition { Name = "Plateau" }, new SceneDefinition { Name = "Interview" }],
+        });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+
+        await viewModel.LoadSavedScenesAsync();
+
+        Assert.Equal(["Plateau", "Interview"], viewModel.Scenes.Select(scene => scene.Name));
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+        Assert.Equal("", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task A_missing_saved_scenes_file_is_a_first_launch()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>())
+        {
+            LoadError = new FileNotFoundException(),
+        };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+
+        await viewModel.LoadSavedScenesAsync();
+
+        Assert.Empty(viewModel.Scenes);
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+        Assert.Equal("", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task Scene_changes_stay_unsaved_until_saved()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+
+        var scene = CreateScene(viewModel, "Plateau");
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+
+        Assert.True(await viewModel.SaveScenesAsync());
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+        Assert.Equal(["Plateau"], collection.Saved.Select(saved => saved.Name));
+
+        scene.Color = "#34d399";
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+
+        // Back to what was saved: nothing left to save.
+        scene.Color = collection.Saved.Single().Color;
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+    }
+
+    [Fact]
+    public async Task A_failed_save_reports_the_error_and_keeps_the_changes_unsaved()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>())
+        {
+            SaveError = new IOException("disque plein"),
+        };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+        CreateScene(viewModel, "Plateau");
+
+        Assert.False(await viewModel.SaveScenesAsync());
+
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+        Assert.Contains("disque plein", viewModel.SceneIoStatus.Text);
+    }
+
     private static SceneItemViewModel CreateScene(ScenesViewModel viewModel, string name)
     {
         viewModel.NewSceneName = name;
@@ -838,7 +908,8 @@ public sealed class ScenesViewModelRuntimeTests
         SettingsService? settingsService = null,
         FakeTransferDialogService? transferDialog = null,
         FakeFilePicker? filePicker = null,
-        FakeSceneCollection? sceneCollection = null) =>
+        FakeSceneCollection? sceneCollection = null,
+        string? savedScenesPath = null) =>
         new(
             workspace ?? new StudioWorkspaceViewModel(),
             new UnavailableStudioRuntime(),
@@ -853,7 +924,8 @@ public sealed class ScenesViewModelRuntimeTests
             settingsService,
             new VideoCanvasResolutionResolver(
                 settingsService,
-                new TestResolutionProvider(new VideoCanvasResolution(1920, 1080))));
+                new TestResolutionProvider(new VideoCanvasResolution(1920, 1080))),
+            savedScenesPath: savedScenesPath);
 
     private sealed class FakeSceneRuntime : ISceneRuntime
     {
@@ -1023,16 +1095,21 @@ public sealed class ScenesViewModelRuntimeTests
     {
         public List<SceneDefinition> Saved { get; } = [];
         public int SaveCalls { get; private set; }
+        public Exception? SaveError { get; set; }
 
         public Task SaveAsync(string path, IReadOnlyCollection<SceneDefinition> definitions, CancellationToken cancellationToken)
         {
             SaveCalls++;
+            if (SaveError != null) throw SaveError;
             Saved.AddRange(definitions);
             return Task.CompletedTask;
         }
 
+        public Exception? LoadError { get; set; }
+
         public Task<IReadOnlyList<SceneDefinition>> LoadAsync(string path, CancellationToken cancellationToken) =>
-            files.TryGetValue(path, out var scenes)
+            LoadError != null ? throw LoadError
+            : files.TryGetValue(path, out var scenes)
                 ? Task.FromResult(scenes)
                 : throw new InvalidDataException("fichier illisible");
     }
