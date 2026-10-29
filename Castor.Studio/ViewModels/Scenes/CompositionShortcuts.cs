@@ -29,16 +29,9 @@ public enum CompositionCommand
 /// </summary>
 public readonly record struct CompositionKeyAction(CompositionCommand Command, int StepX = 0, int StepY = 0);
 
-/// <summary>Un raccourci tel qu'on l'enseigne : ses touches, en clair, et ce qu'il fait.</summary>
-public sealed record CompositionShortcut(string Keys, string Label);
-
-/// <summary>Un groupe de raccourcis, sous un titre, pour l'aide de la barre du canvas.</summary>
-public sealed record CompositionShortcutGroup(string Title, IReadOnlyList<CompositionShortcut> Shortcuts);
-
 /// <summary>
 /// Les raccourcis clavier du canvas de composition, écrits à un seul endroit : la touche
-/// qui déclenche une commande est celle que le menu, les bulles des boutons et l'aide
-/// affichent. Les combinaisons reprennent celles d'OBS là où elles existent (Ctrl+D, Ctrl+F,
+/// qui déclenche une commande est celle que le menu et les bulles des boutons affichent. Les combinaisons reprennent celles d'OBS là où elles existent (Ctrl+D, Ctrl+F,
 /// Ctrl+R) : un opérateur qui vient d'OBS n'a rien à réapprendre.
 /// </summary>
 /// <remarks>
@@ -117,44 +110,13 @@ public static class CompositionShortcuts
     /// <summary>Une bulle de bouton : ce qu'il fait, puis la touche qui fait la même chose.</summary>
     public static string Describe(string label, CompositionCommand command) => $"{label} ({KeysOf(command)})";
 
-    /// <summary>L'aide complète, par groupe, telle que la barre du canvas l'affiche.</summary>
-    public static IReadOnlyList<CompositionShortcutGroup> Help { get; } =
-    [
-        new("Choisir",
-        [
-            new("Clic", "Choisir la source sous le pointeur"),
-            new($"{KeysOf(CompositionCommand.SelectNext)} / {KeysOf(CompositionCommand.SelectPrevious)}", "Source suivante / précédente"),
-            new("Échap", "Annuler le geste, quitter le rognage, puis ne plus rien choisir")
-        ]),
-        new("Placer",
-        [
-            new("Flèches", $"Déplacer de {NudgeStep} px"),
-            new("Maj+Flèches", $"Déplacer de {LargeNudgeStep} px"),
-            new(KeysOf(CompositionCommand.CenterSelected), "Centrer dans le canvas"),
-            new(KeysOf(CompositionCommand.FitSelected), "Ajuster au canvas"),
-            new(KeysOf(CompositionCommand.ResetTransform), "Réinitialiser la transformation"),
-            new("Ctrl (en glissant)", "Couper l'aimant")
-        ]),
-        new("Transformer",
-        [
-            new($"{KeysOf(CompositionCommand.RotateRight)} / {KeysOf(CompositionCommand.RotateLeft)}", "Pivoter de 90° à droite / à gauche"),
-            new("Maj (en tournant)", "Tourner par pas de 15°"),
-            new("Maj (sur un angle)", "Libérer les proportions"),
-            new(KeysOf(CompositionCommand.ToggleCrop), "Rogner / terminer le rognage"),
-            new("Alt (maintenu)", "Rogner le temps de la touche"),
-            new("Entrée", "Terminer le rognage")
-        ]),
-        new("Zoomer dans l'image",
-        [
-            new("+ / −", "Zoomer / dézoomer"),
-            new("0", "Image entière"),
-            new("Alt+Flèches", "Faire glisser l'image zoomée"),
-            new("Alt+Molette", "Zoomer vers le pointeur")
-        ]),
-        new("Empiler",
-        [
-            new($"{KeysOf(CompositionCommand.BringForward)} / {KeysOf(CompositionCommand.SendBackward)}", "Rapprocher / reculer d'un plan"),
-            new($"{KeysOf(CompositionCommand.BringToFront)} / {KeysOf(CompositionCommand.SendToBack)}", "Premier plan / arrière-plan")
-        ])
-    ];
+    /// <summary>
+    /// Les touches d'une commande une à une, pour les dessiner en touches de clavier :
+    /// « Ctrl+Page↑ » donne « Ctrl », « Page↑ ». « + » reste une touche à lui seul.
+    /// </summary>
+    public static IReadOnlyList<string> KeyTokensOf(CompositionCommand command)
+    {
+        var keys = KeysOf(command);
+        return keys.Length > 1 ? keys.Split('+') : [keys];
+    }
 }

@@ -356,4 +356,83 @@
     <Style Selector="Ellipse.session-state.paused">
         <Setter Property="Fill" Value="{DynamicResource StatusWarningBrush}"/>
     </Style>
+
+    <!-- Le menu d'une source sur le canvas. Il reprend les menus de la page (12 px, lignes
+         arrondies, survol en AppSurface2) ; seules les touches ressortent, dessinées en
+         touches de clavier, en face de leur commande. Ces styles sont globaux parce que le
+         menu s'ouvre dans sa propre fenêtre, hors de l'arbre de l'aperçu. -->
+    <Style Selector="ContextMenu.composition-menu">
+        <Setter Property="Background" Value="{DynamicResource AppSurface}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="4"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="MinHeight" Value="0"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:pointerover /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:disabled">
+        <Setter Property="Opacity" Value="0.4"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu Separator">
+        <Setter Property="Background" Value="{DynamicResource AppBorder}"/>
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Margin" Value="8,4"/>
+    </Style>
+
+    <!-- La source que vise le menu, avec la pastille qu'elle a dans la liste. -->
+    <Style Selector="ContextMenu.composition-menu MenuItem.menu-title">
+        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Padding" Value="8,4,8,6"/>
+    </Style>
+
+    <Style Selector="ContextMenu.composition-menu Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource AppFg4}"/>
+        <Setter Property="StrokeThickness" Value="2"/>
+        <Setter Property="StrokeLineCap" Value="Round"/>
+        <Setter Property="StrokeJoin" Value="Round"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:pointerover Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource AppFg2}"/>
+    </Style>
+
+    <!-- Un mode tenu (le rognage) : la ligne qui en sort passe à l'accent. -->
+    <Style Selector="ContextMenu.composition-menu MenuItem.active">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.active:pointerover /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.active Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+
+    <!-- Une touche : un liseré plus épais en bas lui donne le relief d'une vraie touche. -->
+    <Style Selector="Border.keycap">
+        <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1,1,1,2"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="5,0"/>
+        <Setter Property="MinWidth" Value="20"/>
+        <Setter Property="Height" Value="19"/>
+    </Style>
+    <Style Selector="Border.keycap > TextBlock">
+        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
 </Styles>

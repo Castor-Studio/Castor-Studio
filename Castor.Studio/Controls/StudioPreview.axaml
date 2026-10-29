@@ -31,6 +31,29 @@
         <Style Selector="Button.composition-tool.active">
             <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
         </Style>
+        <!-- Sans source choisie, la barre s'efface d'un bloc, icônes comprises. -->
+        <Style Selector="Button.composition-tool:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+        <Style Selector="Button.composition-tool:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <!-- Les icônes du menu de la source, au même trait. -->
+        <Style Selector="Button.composition-tool Path.tool-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppFg4}"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+        </Style>
+        <Style Selector="Button.composition-tool:pointerover Path.tool-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppFg2}"/>
+        </Style>
+        <Style Selector="Button.composition-tool:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        </Style>
+        <Style Selector="Button.composition-tool.active Path.tool-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
+        </Style>
         <Style Selector="Rectangle.composition-tool-separator">
             <Setter Property="Width" Value="1"/>
             <Setter Property="Height" Value="16"/>
@@ -118,44 +141,6 @@
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0"
             Padding="6,4">
         <DockPanel>
-            <Button DockPanel.Dock="Right" Classes="composition-tool"
-                    Content="⌨ Raccourcis"
-                    ToolTip.Tip="Tous les raccourcis du canvas">
-                <Button.Flyout>
-                    <Flyout Placement="TopEdgeAlignedRight">
-                        <ItemsControl ItemsSource="{x:Static scenes:CompositionShortcuts.Help}" Margin="4" Width="380">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Spacing="12"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="scenes:CompositionShortcutGroup">
-                                    <StackPanel Spacing="4">
-                                        <TextBlock Text="{Binding Title}"
-                                                   FontSize="10" FontWeight="Bold" LetterSpacing="1"
-                                                   Foreground="{DynamicResource AppFg4}"/>
-                                        <ItemsControl ItemsSource="{Binding Shortcuts}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="scenes:CompositionShortcut">
-                                                    <Grid ColumnDefinitions="140, *" Margin="0,2">
-                                                        <TextBlock Grid.Column="0" Text="{Binding Keys}"
-                                                                   FontSize="12" FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource AppFg1}"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Label}"
-                                                                   FontSize="12" TextWrapping="Wrap"
-                                                                   Foreground="{DynamicResource AppFg3}"/>
-                                                    </Grid>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Flyout>
-                </Button.Flyout>
-            </Button>
 
             <!-- Rien de tout ça n'a de sens sans source choisie. -->
             <StackPanel Orientation="Horizontal" Spacing="2"
@@ -170,10 +155,10 @@
                         Tag="{x:Static scenes:CompositionCommand.ResetTransform}"
                         ToolTip.Tip="Réinitialiser la transformation"/>
                 <Rectangle Classes="composition-tool-separator"/>
-                <Button Classes="composition-tool" Content="↺" FontSize="14" Click="OnToolClick"
+                <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.RotateLeft}"
                         ToolTip.Tip="Pivoter de 90° à gauche"/>
-                <Button Classes="composition-tool" Content="↻" FontSize="14" Click="OnToolClick"
+                <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.RotateRight}"
                         ToolTip.Tip="Pivoter de 90° à droite"/>
                 <Button Classes="composition-tool" Content="Rogner" Click="OnToolClick"
@@ -181,16 +166,16 @@
                         Tag="{x:Static scenes:CompositionCommand.ToggleCrop}"
                         ToolTip.Tip="Rogner / terminer le rognage"/>
                 <Rectangle Classes="composition-tool-separator"/>
-                <Button Classes="composition-tool" Content="⤒" FontSize="14" Click="OnToolClick"
+                <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.BringToFront}"
                         ToolTip.Tip="Mettre au premier plan"/>
-                <Button Classes="composition-tool" Content="▲" FontSize="9" Click="OnToolClick"
+                <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.BringForward}"
                         ToolTip.Tip="Rapprocher du premier plan"/>
-                <Button Classes="composition-tool" Content="▼" FontSize="9" Click="OnToolClick"
+                <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.SendBackward}"
                         ToolTip.Tip="Reculer vers l'arrière-plan"/>
-                <Button Classes="composition-tool" Content="⤓" FontSize="14" Click="OnToolClick"
+                <Button Classes="composition-tool" Click="OnToolClick"
                         Tag="{x:Static scenes:CompositionCommand.SendToBack}"
                         ToolTip.Tip="Mettre à l'arrière-plan"/>
             </StackPanel>
