@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -326,77 +325,13 @@ public partial class StudioPreview : UserControl
         e.Handled = Execute(composition, action);
     }
 
-    /// <summary>
-    /// Ce que demande une touche, un bouton de la barre ou une ligne du menu : les trois
-    /// passent par ici, c'est ce qui leur garantit le même effet.
-    /// </summary>
-    /// <returns>
-    /// Si la commande a servi. Sinon la touche poursuit son chemin : Tab au-delà de la
-    /// dernière source rend le focus à la page, une flèche sans source choisie navigue.
-    /// </returns>
+    // Touche, bouton de la barre et ligne du menu passent tous par la composition : c'est ce
+    // qui leur garantit le même effet. L'aperçu montre aussitôt ce qui en résulte.
     private bool Execute(SceneCompositionViewModel composition, CompositionKeyAction action)
     {
-        switch (action.Command)
-        {
-            case CompositionCommand.SelectNext or CompositionCommand.SelectPrevious:
-                var selected = composition.SelectNext(action.Command == CompositionCommand.SelectNext ? 1 : -1);
-                NativePreview.ShowComposition();
-                return selected;
-            case var _ when !composition.HasSelection:
-                return false;
-            // En rognage, les flèches font glisser l'image zoomée sous son cadre, comme Alt +
-            // glisser à la souris ; sinon elles poussent le cadre.
-            case CompositionCommand.Nudge when composition.IsCropping && composition.Selected is { Zoom.IsZoomed: true }:
-                composition.NudgeSelectedZoom(Math.Sign(action.StepX), Math.Sign(action.StepY));
-                break;
-            case CompositionCommand.Nudge:
-                composition.NudgeSelected(action.StepX, action.StepY);
-                break;
-            case CompositionCommand.CenterSelected:
-                composition.CenterSelected();
-                break;
-            case CompositionCommand.FitSelected:
-                composition.FitSelected();
-                break;
-            case CompositionCommand.ResetTransform:
-                composition.ResetSelectedTransform();
-                break;
-            case CompositionCommand.RotateRight:
-                composition.RotateSelected(90);
-                break;
-            case CompositionCommand.RotateLeft:
-                composition.RotateSelected(-90);
-                break;
-            case CompositionCommand.ToggleCrop:
-                composition.ToggleCropMode();
-                break;
-            case CompositionCommand.ZoomIn:
-                composition.StepSelectedZoom(1);
-                break;
-            case CompositionCommand.ZoomOut:
-                composition.StepSelectedZoom(-1);
-                break;
-            case CompositionCommand.ResetZoom:
-                composition.ResetSelectedZoom();
-                break;
-            case CompositionCommand.BringForward:
-                composition.ArrangeSelected(SourceArrangement.Forward);
-                break;
-            case CompositionCommand.SendBackward:
-                composition.ArrangeSelected(SourceArrangement.Backward);
-                break;
-            case CompositionCommand.BringToFront:
-                composition.ArrangeSelected(SourceArrangement.ToFront);
-                break;
-            case CompositionCommand.SendToBack:
-                composition.ArrangeSelected(SourceArrangement.ToBack);
-                break;
-            default:
-                return false;
-        }
-
+        var done = composition.Execute(action);
         NativePreview.ShowComposition();
-        return true;
+        return done;
     }
 
     // Les boutons de la barre portent leur commande dans Tag. Ils ne prennent pas le
@@ -422,7 +357,7 @@ public partial class StudioPreview : UserControl
             if (ToolTip.GetTip(tool) is string tip)
                 ToolTip.SetTip(tool, CompositionShortcuts.Describe(tip, command));
 
-            var icon = MenuIcon(CompositionIcons.Of(command), "tool-icon", 15);
+            var icon = SourceMenu.Icon(CompositionIcons.Of(command), "tool-icon", 15);
             tool.Content = tool.Content switch
             {
                 string label => new StackPanel
@@ -483,78 +418,20 @@ public partial class StudioPreview : UserControl
         Readout.IsOpen = true;
     }
 
-    // Le menu de la source choisie. Ses commandes passent par le moteur comme un geste : un
-    // refus se dit sous la liste des sources, et l'aperçu revient à ce que le moteur détient.
+    /// <summary>
+    /// Ce que la page ajoute au menu d'une source, en dernier groupe : renommer, retirer…
+    /// Non renseigné, le menu ne porte que la composition.
+    /// </summary>
+    public Func<Guid, IEnumerable<Control>>? SourceActions { get; set; }
+
+    // Le menu de la source choisie : le même qu'au clic droit sur sa ligne dans la liste.
     private void OpenSourceMenu(SceneCompositionViewModel composition)
     {
-        var selected = composition.Selected!;
-
-        MenuItem Item(string header, string icon, Action action, bool isEnabled = true)
-        {
-            var item = new MenuItem
-            {
-                Icon = MenuIcon(icon),
-                Header = MenuRow(new TextBlock { Text = header }, null),
-                IsEnabled = isEnabled
-            };
-            item.Click += (_, _) =>
-            {
-                action();
-                NativePreview.ShowComposition();
-            };
-            return item;
-        }
-
-        // Une ligne qui a son raccourci passe par le même chemin que la touche, et la montre
-        // en face, dessinée en touches de clavier.
-        MenuItem Shortcut(string header, CompositionCommand command, bool isEnabled = true)
-        {
-            var item = new MenuItem
-            {
-                Icon = MenuIcon(CompositionIcons.Of(command)),
-                Header = MenuRow(new TextBlock { Text = header }, Keycaps(CompositionShortcuts.KeyTokensOf(command))),
-                IsEnabled = isEnabled
-            };
-            item.Click += (_, _) => Execute(composition, new CompositionKeyAction(command));
-            return item;
-        }
-
-        // Le rognage tenu se dit dans la ligne qui en sort : elle passe à l'accent.
-        var crop = Shortcut(
-            composition.IsCropMode ? "Terminer le rognage" : "Rogner",
-            CompositionCommand.ToggleCrop);
-        if (composition.IsCropMode) crop.Classes.Add("active");
-
-        var menu = new ContextMenu
-        {
-            Classes = { "composition-menu" },
-            // Libellés et touches partagent leur largeur d'une ligne à l'autre : les touches
-            // tombent en colonne, chacune en face de sa commande.
-            [Grid.IsSharedSizeScopeProperty] = true,
-            Items =
-            {
-                SourceTitle(selected.SourceId),
-                crop,
-                Item("Réinitialiser le rognage", CompositionIcons.Restore, composition.ResetSelectedCrop, selected.Crop != SourceCrop.None),
-                new Separator(),
-                Shortcut("Pivoter de 90° à droite", CompositionCommand.RotateRight),
-                Shortcut("Pivoter de 90° à gauche", CompositionCommand.RotateLeft),
-                Item("Pivoter de 180°", CompositionIcons.RotateHalf, () => composition.RotateSelected(180)),
-                Item("Réinitialiser la rotation", CompositionIcons.Restore, composition.ResetSelectedRotation, selected.Rotation != 0),
-                new Separator(),
-                Shortcut("Centrer dans le canvas", CompositionCommand.CenterSelected),
-                Shortcut("Ajuster au canvas", CompositionCommand.FitSelected),
-                Shortcut("Réinitialiser la transformation", CompositionCommand.ResetTransform),
-                new Separator(),
-                Shortcut("Mettre au premier plan", CompositionCommand.BringToFront),
-                Shortcut("Rapprocher du premier plan", CompositionCommand.BringForward),
-                Shortcut("Reculer vers l'arrière-plan", CompositionCommand.SendBackward),
-                Shortcut("Mettre à l'arrière-plan", CompositionCommand.SendToBack),
-                new Separator(),
-                ZoomItem(composition, selected.Zoom.Factor),
-                Shortcut("Réinitialiser le zoom", CompositionCommand.ResetZoom, selected.Zoom.IsZoomed)
-            }
-        };
+        var sourceId = composition.Selected!.SourceId;
+        var menu = SourceMenu.Create(
+            composition,
+            Scene?.Sources.FirstOrDefault(item => item.Id == sourceId),
+            SourceActions?.Invoke(sourceId) ?? []);
         menu.Closed += (_, _) =>
         {
             if (_sourceMenu == menu) _sourceMenu = null;
@@ -571,156 +448,6 @@ public partial class StudioPreview : UserControl
         var menu = _sourceMenu;
         _sourceMenu = null;
         menu?.Close();
-    }
-
-    // Le curseur du zoom vit dans le menu, qui reste ouvert pendant qu'on le tire : chaque
-    // cran part au moteur, et l'aperçu montre aussitôt ce qu'il en a fait.
-    private MenuItem ZoomItem(SceneCompositionViewModel composition, double factor)
-    {
-        // Le facteur prend la place des touches : à droite, en colonne avec elles.
-        var value = new TextBlock
-        {
-            Text = FormatZoom(factor),
-            Margin = new Thickness(MenuKeysGap, 0, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            FontWeight = FontWeight.SemiBold
-        };
-        var slider = new Slider
-        {
-            Minimum = SourceZoom.MinFactor,
-            Maximum = SourceZoom.MaxFactor,
-            Value = factor,
-            SmallChange = 0.1,
-            LargeChange = 0.5,
-            Width = 132,
-            Margin = new Thickness(0, -10),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        slider.ValueChanged += (_, e) =>
-        {
-            composition.ZoomSelected(e.NewValue);
-            value.Text = FormatZoom(composition.Selected?.Zoom.Factor ?? e.NewValue);
-            NativePreview.ShowComposition();
-        };
-
-        var item = new MenuItem
-        {
-            StaysOpenOnClick = true,
-            Icon = MenuIcon(CompositionIcons.Zoom),
-            Header = MenuRow(
-                new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Spacing = 12,
-                    Children =
-                    {
-                        new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center },
-                        slider
-                    }
-                },
-                value)
-        };
-        // Le menu enseigne le geste direct, plus rapide une fois connu.
-        ToolTip.SetTip(item, "Sur l'aperçu : Alt + molette pour zoomer vers le pointeur, Alt + glisser pour déplacer l'image.");
-        return item;
-    }
-
-    private static string FormatZoom(double factor) => $"×{factor:0.0}";
-
-    // L'écart entre un libellé et ses touches : assez pour que la colonne se lise à part.
-    private const double MenuKeysGap = 32;
-
-    // Une ligne du menu : le libellé, puis ce qui se tient en face (les touches, le facteur
-    // du zoom). Les deux colonnes partagent leur largeur dans tout le menu.
-    private static Grid MenuRow(Control label, Control? trailing)
-    {
-        label.VerticalAlignment = VerticalAlignment.Center;
-        var row = new Grid
-        {
-            ColumnDefinitions =
-            {
-                new ColumnDefinition(GridLength.Auto) { SharedSizeGroup = "MenuLabel" },
-                new ColumnDefinition(GridLength.Auto) { SharedSizeGroup = "MenuKeys" }
-            },
-            Children = { label }
-        };
-        if (trailing != null)
-        {
-            Grid.SetColumn(trailing, 1);
-            row.Children.Add(trailing);
-        }
-
-        return row;
-    }
-
-    // Chaque touche dessinée comme sur le clavier, alignées à droite de leur colonne.
-    private static StackPanel Keycaps(IReadOnlyList<string> keys)
-    {
-        var caps = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 3,
-            Margin = new Thickness(MenuKeysGap, 0, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        foreach (var key in keys)
-            caps.Children.Add(new Border { Classes = { "keycap" }, Child = new TextBlock { Text = key } });
-
-        return caps;
-    }
-
-    // Une icône au trait, comme celles de la liste des sources ; sa couleur vient du style
-    // du menu, qui la suit au survol et dans un mode tenu.
-    private static Viewbox MenuIcon(string data, string style = "menu-icon", double size = 16) => new()
-    {
-        Width = size,
-        Height = size,
-        VerticalAlignment = VerticalAlignment.Center,
-        Child = new Canvas
-        {
-            Width = 24,
-            Height = 24,
-            Children = { new Avalonia.Controls.Shapes.Path { Classes = { style }, Data = Geometry.Parse(data) } }
-        }
-    };
-
-    // La source que vise le menu, sous la pastille qu'elle porte dans la liste : sur des
-    // sources qui se chevauchent, c'est ce qui dit laquelle a été prise.
-    private MenuItem SourceTitle(Guid sourceId)
-    {
-        var source = Scene?.Sources.FirstOrDefault(item => item.Id == sourceId);
-        var dot = new Ellipse
-        {
-            Width = 8,
-            Height = 8,
-            VerticalAlignment = VerticalAlignment.Center,
-            Fill = Color.TryParse(source?.Color, out var color) ? new SolidColorBrush(color) : null
-        };
-
-        return new MenuItem
-        {
-            Classes = { "menu-title" },
-            IsHitTestVisible = false,
-            Focusable = false,
-            Header = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 8,
-                Children =
-                {
-                    dot,
-                    new TextBlock
-                    {
-                        Text = source?.Name ?? "Source",
-                        MaxWidth = 260,
-                        TextTrimming = TextTrimming.CharacterEllipsis,
-                        VerticalAlignment = VerticalAlignment.Center
-                    }
-                }
-            }
-        };
     }
 
     // Rattrape un pointeur qui s'arrête entre deux écritures : sans lui, la dernière

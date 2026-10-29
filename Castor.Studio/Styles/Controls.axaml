@@ -418,6 +418,24 @@
         <Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
     </Style>
 
+    <!-- Une action qui retire quelque chose se lit en rouge, icône comprise, comme
+         « Supprimer » dans le menu d'une scène. -->
+    <Style Selector="ContextMenu.composition-menu MenuItem.danger">
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.danger:pointerover /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.danger Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+
+    <!-- Une bascule (boucle) : la ligne tenue porte une coche à droite, en accent. -->
+    <Style Selector="ContextMenu.composition-menu TextBlock.menu-check">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
     <!-- Une touche : un liseré plus épais en bas lui donne le relief d'une vraie touche. -->
     <Style Selector="Border.keycap">
         <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>

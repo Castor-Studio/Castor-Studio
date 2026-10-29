@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using CastorApplication.Controls;
 using CastorApplication.ViewModels.Scenes;
 
 namespace CastorApplication.Views;
@@ -16,6 +17,42 @@ public partial class ScenesView : UserControl
     public ScenesView()
     {
         InitializeComponent();
+        // Le menu d'une source sur l'image porte aussi ce qui se fait depuis la liste : une
+        // source n'a qu'un menu, où qu'on clique.
+        ScenePreview.SourceActions = SourceListActions;
+    }
+
+    // Clic droit sur une ligne : la source est choisie sur l'aperçu, et son menu s'ouvre —
+    // le même que sur l'image, composition comprise quand le moteur la compose.
+    private void OnSourceContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not Control { DataContext: SourceItemViewModel source } row) return;
+        if (DataContext is not ScenesViewModel viewModel || source.IsRenaming) return;
+
+        var composition = viewModel.Composition;
+        composition.Select(source.Id);
+        SourceMenu.Create(composition, source, SourceListActions(source.Id)).Open(row);
+        e.Handled = true;
+    }
+
+    // Ce qui se fait depuis la liste : renommer, la boucle d'un fichier, retirer. Retirer en
+    // dernier et en rouge, comme « Supprimer » dans le menu d'une scène.
+    private IEnumerable<Control> SourceListActions(Guid sourceId)
+    {
+        if (DataContext is not ScenesViewModel viewModel) yield break;
+        if (viewModel.SelectedScene?.Sources.FirstOrDefault(item => item.Id == sourceId) is not { } source) yield break;
+
+        yield return SourceMenu.Item("Renommer", CompositionIcons.Rename,
+            () => viewModel.BeginRenameSourceCommand.Execute(source));
+        if (source.IsFileSource)
+        {
+            yield return SourceMenu.Item("Lire en boucle", CompositionIcons.Loop,
+                () => viewModel.ToggleMediaLoopCommand.Execute(source), isChecked: source.Loop);
+        }
+
+        yield return new Separator();
+        yield return SourceMenu.Item("Retirer de la scène", CompositionIcons.Remove,
+            () => viewModel.RemoveSourceCommand.Execute(source), isDanger: true);
     }
 
     private void OnSourceNameDoubleTapped(object? sender, TappedEventArgs e)

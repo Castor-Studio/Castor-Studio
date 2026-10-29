@@ -217,6 +217,101 @@ public partial class SceneCompositionViewModel : ViewModelBase
         return true;
     }
 
+    /// <summary>
+    /// Choisit cette source, si le moteur la compose : c'est ce que fait un clic droit sur
+    /// sa ligne dans la liste. Une source qu'il ne compose pas (masquée, audio) n'a pas de
+    /// cadre à choisir ; le choix précédent tombe alors, pour ne pas viser une autre source.
+    /// </summary>
+    /// <returns>Si la source est choisie sur le canvas.</returns>
+    public bool Select(Guid sourceId)
+    {
+        if (_gesture != null) return Selected?.SourceId == sourceId;
+
+        if (Find(Overlay.Sources, sourceId) == null)
+        {
+            ClearSelection();
+            return false;
+        }
+
+        if (sourceId != _selectedSourceId) _cropMode = false;
+        _selectedSourceId = sourceId;
+        Publish(Overlay.Sources);
+        return true;
+    }
+
+    /// <summary>
+    /// Ce que demande une touche, un bouton de la barre ou une ligne de menu : tous passent
+    /// par ici, c'est ce qui leur garantit le même effet.
+    /// </summary>
+    /// <returns>
+    /// Si la commande a servi. Sinon la touche poursuit son chemin : Tab au-delà de la
+    /// dernière source rend le focus à la page, une flèche sans source choisie navigue.
+    /// </returns>
+    public bool Execute(CompositionKeyAction action)
+    {
+        // Une commande au milieu d'un geste écrirait par-dessus ce que le pointeur demande.
+        if (_gesture != null) return false;
+
+        switch (action.Command)
+        {
+            case CompositionCommand.SelectNext or CompositionCommand.SelectPrevious:
+                return SelectNext(action.Command == CompositionCommand.SelectNext ? 1 : -1);
+            case var _ when !HasSelection:
+                return false;
+            // En rognage, les flèches font glisser l'image zoomée sous son cadre, comme Alt +
+            // glisser à la souris ; sinon elles poussent le cadre.
+            case CompositionCommand.Nudge when IsCropping && Selected is { Zoom.IsZoomed: true }:
+                NudgeSelectedZoom(Math.Sign(action.StepX), Math.Sign(action.StepY));
+                break;
+            case CompositionCommand.Nudge:
+                NudgeSelected(action.StepX, action.StepY);
+                break;
+            case CompositionCommand.CenterSelected:
+                CenterSelected();
+                break;
+            case CompositionCommand.FitSelected:
+                FitSelected();
+                break;
+            case CompositionCommand.ResetTransform:
+                ResetSelectedTransform();
+                break;
+            case CompositionCommand.RotateRight:
+                RotateSelected(90);
+                break;
+            case CompositionCommand.RotateLeft:
+                RotateSelected(-90);
+                break;
+            case CompositionCommand.ToggleCrop:
+                ToggleCropMode();
+                break;
+            case CompositionCommand.ZoomIn:
+                StepSelectedZoom(1);
+                break;
+            case CompositionCommand.ZoomOut:
+                StepSelectedZoom(-1);
+                break;
+            case CompositionCommand.ResetZoom:
+                ResetSelectedZoom();
+                break;
+            case CompositionCommand.BringForward:
+                ArrangeSelected(SourceArrangement.Forward);
+                break;
+            case CompositionCommand.SendBackward:
+                ArrangeSelected(SourceArrangement.Backward);
+                break;
+            case CompositionCommand.BringToFront:
+                ArrangeSelected(SourceArrangement.ToFront);
+                break;
+            case CompositionCommand.SendToBack:
+                ArrangeSelected(SourceArrangement.ToBack);
+                break;
+            default:
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>Ne choisit plus aucune source : l'overlay ne montre que les cadres.</summary>
     public void ClearSelection()
     {
@@ -855,7 +950,16 @@ public partial class SceneCompositionViewModel : ViewModelBase
             _notifiedZoomFactor = SelectedZoomFactor;
             OnPropertyChanged(nameof(SelectedZoomFactor));
         }
+
+        OverlayChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// L'overlay a changé : l'aperçu le redonne au moteur sans attendre sa relecture
+    /// périodique. C'est ce qui fait suivre les cadres d'un choix ou d'une commande venus
+    /// d'ailleurs que de l'image — la liste des sources, par exemple.
+    /// </summary>
+    public event EventHandler? OverlayChanged;
 
     // Pendant un geste, la source saisie est montrée là où il la demande, sans attendre
     // l'écriture suivante ni la relecture du moteur : c'est ce qui rend le cadre collé au

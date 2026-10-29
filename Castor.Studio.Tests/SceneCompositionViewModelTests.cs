@@ -1043,6 +1043,45 @@ public sealed class SceneCompositionViewModelTests
         Assert.Contains(nameof(SceneCompositionViewModel.SelectedZoomFactor), changes);
     }
 
+    [Fact]
+    public void Choosing_from_the_list_takes_a_composed_source_and_drops_one_that_is_not()
+    {
+        var scene = SceneWith("Caméra", "Micro");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360),
+            Transform(scene, "Micro", x: 0, y: 0, width: 0, height: 0));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        var changes = 0;
+        composition.OverlayChanged += (_, _) => changes++;
+
+        Assert.True(composition.Select(Id(scene, "Caméra")));
+        Assert.Equal(Id(scene, "Caméra"), composition.Selected?.SourceId);
+        Assert.True(changes > 0);
+
+        // Une source audio n'a pas de cadre : rien n'est choisi, pas même la précédente.
+        Assert.False(composition.Select(Id(scene, "Micro")));
+        Assert.False(composition.HasSelection);
+    }
+
+    [Fact]
+    public void A_command_needs_a_chosen_source_except_to_choose_one()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+
+        Assert.False(composition.Execute(new CompositionKeyAction(CompositionCommand.CenterSelected)));
+        Assert.Empty(runtime.Writes);
+
+        Assert.True(composition.Execute(new CompositionKeyAction(CompositionCommand.SelectNext)));
+        Assert.True(composition.Execute(new CompositionKeyAction(CompositionCommand.CenterSelected)));
+        Assert.Equal((640d, 360d), (composition.Selected!.X, composition.Selected.Y));
+    }
+
     private const double HandleTolerance = 6;
     private const double RotationReach = 24;
     private const double SnapReach = 10;
