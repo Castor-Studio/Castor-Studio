@@ -9,12 +9,19 @@ namespace CastorApplication.Models.Config
     public class AppConfig
     {
         public Dictionary<string, ProviderConfig> Providers { get; set; } = new();
-        public AiServerConfig AiServer { get; set; } = new();
+
+        // Older config files still carry "aiServer" (remote AI endpoint): unknown keys are
+        // ignored on load, so they keep working without any migration step.
+        public AiWorkerConfig AiWorker { get; set; } = new();
     }
 
-    public class AiServerConfig
+    /// <summary>Local AI worker (Castor.AI) started by the app.</summary>
+    public class AiWorkerConfig
     {
-        public string Endpoint { get; set; } = "http://127.0.0.1:50051";
-        public string MediaMtxRtmpBaseUrl { get; set; } = "rtmp://127.0.0.1:1935/live/";
+        /// <summary>"gpu" (DirectML, CPU fallback) or "cpu".</summary>
+        public string Device { get; set; } = "gpu";
+
+        /// <summary>DXGI adapter index used by DirectML, 0 = default display adapter.</summary>
+        public int GpuAdapter { get; set; }
     }
 }

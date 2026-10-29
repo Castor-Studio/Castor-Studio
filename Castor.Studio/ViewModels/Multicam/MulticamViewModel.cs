@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Threading;
+using Castor.AI.Providers;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services.Ai;
@@ -25,6 +26,8 @@ public sealed partial class MulticamSceneTile : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly Action<MulticamSceneTile>? _selectionChanged;
+    private readonly Action<MulticamSceneTile>? _aiSetupChanged;
+    private readonly Action? _sourcesChanged;
 
     public SceneItemViewModel Scene { get; }
     public string Name => Scene.Name;
@@ -66,6 +69,24 @@ public sealed partial class MulticamSceneTile : ViewModelBase
     public bool IsAiSelected => AiState == MulticamAiState.Selected;
     public bool IsAiConsidered => AiState == MulticamAiState.Considered;
 
+    // What the AI is told about this scene. Kept on the tile like its AI tick, so that it
+    // survives the grid being rebuilt.
+
+    /// <summary>Every audio source of the workspace, shared by all tiles.</summary>
+    public IReadOnlyList<MulticamMicrophoneOption> AiMicrophoneOptions { get; }
+
+    public IReadOnlyList<MulticamAiRoleOption> AiRoleOptions => MulticamAiRoleOption.Podcast;
+
+    [ObservableProperty] private MulticamMicrophoneOption _aiMicrophone = MulticamMicrophoneOption.None;
+    [ObservableProperty] private MulticamAiRoleOption _aiRole = MulticamAiRoleOption.Podcast[0];
+
+    // Roles only mean something to the podcast worker.
+    [ObservableProperty] private bool _isPodcastModule;
+
+    public bool ShowAiMicrophone => IsSelected;
+    public bool ShowAiRole => IsSelected && IsPodcastModule;
+    public bool ShowAiSetup => ShowAiMicrophone || ShowAiRole;
+
     public string PreviewPlaceholderText => !PreviewRuntime.IsAvailable
         ? PreviewRuntime.UnavailableMessage
         : !StudioWorkspaceViewModel.HasVideoSource(Scene)
@@ -74,7 +95,10 @@ public sealed partial class MulticamSceneTile : ViewModelBase
 
     internal MulticamSceneTile(SceneItemViewModel scene, StudioWorkspaceViewModel workspace,
         IScenePreviewRuntime previewRuntime, int baseCanvasWidth, int baseCanvasHeight,
-        Action<MulticamSceneTile>? selectionChanged = null)
+        Action<MulticamSceneTile>? selectionChanged = null,
+        IReadOnlyList<MulticamMicrophoneOption>? microphoneOptions = null,
+        Action<MulticamSceneTile>? aiSetupChanged = null,
+        Action? sourcesChanged = null)
     {
         Scene = scene;
         _workspace = workspace;
@@ -82,6 +106,9 @@ public sealed partial class MulticamSceneTile : ViewModelBase
         BaseCanvasWidth = baseCanvasWidth;
         BaseCanvasHeight = baseCanvasHeight;
         _selectionChanged = selectionChanged;
+        AiMicrophoneOptions = microphoneOptions ?? [MulticamMicrophoneOption.None];
+        _aiSetupChanged = aiSetupChanged;
+        _sourcesChanged = sourcesChanged;
         Scene.PropertyChanged += OnScenePropertyChanged;
         Scene.Sources.CollectionChanged += OnSourcesChanged;
     }
@@ -112,7 +139,43 @@ public sealed partial class MulticamSceneTile : ViewModelBase
         OnPropertyChanged(nameof(IsAiConsidered));
     }
 
-    partial void OnIsSelectedChanged(bool value) => _selectionChanged?.Invoke(this);
+    partial void OnIsSelectedChanged(bool value)
+    {
+        NotifyAiSetupVisibility();
+        _selectionChanged?.Invoke(this);
+    }
+
+    partial void OnIsPodcastModuleChanged(bool value) => NotifyAiSetupVisibility();
+
+    // A ComboBox briefly clears its selection while its items are rebuilt: never keep a null.
+    partial void OnAiMicrophoneChanged(MulticamMicrophoneOption value)
+    {
+        if (value is null)
+        {
+            AiMicrophone = MulticamMicrophoneOption.None;
+            return;
+        }
+
+        _aiSetupChanged?.Invoke(this);
+    }
+
+    partial void OnAiRoleChanged(MulticamAiRoleOption value)
+    {
+        if (value is null)
+        {
+            AiRole = MulticamAiRoleOption.Podcast[0];
+            return;
+        }
+
+        _aiSetupChanged?.Invoke(this);
+    }
+
+    private void NotifyAiSetupVisibility()
+    {
+        OnPropertyChanged(nameof(ShowAiMicrophone));
+        OnPropertyChanged(nameof(ShowAiRole));
+        OnPropertyChanged(nameof(ShowAiSetup));
+    }
 
     internal void ApplyBaseCanvas(int width, int height)
     {
@@ -131,6 +194,7 @@ public sealed partial class MulticamSceneTile : ViewModelBase
         OnPropertyChanged(nameof(SourceCountText));
         OnPropertyChanged(nameof(HasVideo));
         OnPropertyChanged(nameof(PreviewPlaceholderText));
+        _sourcesChanged?.Invoke();
     }
 }
 
@@ -149,6 +213,9 @@ public partial class MulticamViewModel : ViewModelBase
 
     /// <summary>The grid itself: one live tile per scene in the workspace.</summary>
     public ObservableCollection<MulticamSceneTile> Tiles { get; } = [];
+
+    /// <summary>Audio sources of every scene, which any AI scene can use as its microphone.</summary>
+    public ObservableCollection<MulticamMicrophoneOption> AiMicrophoneOptions { get; } = [MulticamMicrophoneOption.None];
 
     public bool HasScenes => Tiles.Count > 0;
 
@@ -237,6 +304,7 @@ public partial class MulticamViewModel : ViewModelBase
         _settingsService = settingsService;
         (BaseCanvasWidth, BaseCanvasHeight) = CurrentBaseCanvas();
         _aiAnalysisClient.SceneSwitchSuggested += OnSceneSwitchSuggested;
+        _aiAnalysisClient.SceneSwitchRequested += OnSceneSwitchRequested;
         _aiAnalysisClient.SessionStatusChanged += OnSessionStatusChanged;
         _aiAnalysisClient.ServerErrorReceived += OnServerErrorReceived;
         RefreshTiles();
@@ -272,7 +340,10 @@ public partial class MulticamViewModel : ViewModelBase
             if (existing == null)
             {
                 Tiles.Insert(index, new MulticamSceneTile(scene, _workspace, _previewRuntime, width, height,
-                    OnTileSelectionChanged));
+                    OnTileSelectionChanged, AiMicrophoneOptions, OnTileAiSetupChanged, RefreshMicrophoneOptions)
+                {
+                    IsPodcastModule = IsPodcastModule,
+                });
                 continue;
             }
 
@@ -283,6 +354,7 @@ public partial class MulticamViewModel : ViewModelBase
         // A scene that has left the workspace can no longer be the AI's pick.
         if (_aiSelectedScene != null && !Scenes.Contains(_aiSelectedScene)) _aiSelectedScene = null;
         ApplyAiFocus();
+        RefreshMicrophoneOptions();
 
         OnPropertyChanged(nameof(HasScenes));
         RebuildDockLayout();
@@ -308,6 +380,10 @@ public partial class MulticamViewModel : ViewModelBase
 
         if (e.PropertyName != nameof(StudioWorkspaceViewModel.ActiveScene)) return;
 
+        // Every cut, from this page or any other: the AI reasons about what is on air. Its own
+        // cuts in auto mode come back here too and are ignored by the client.
+        if (IsAiEnabled && _workspace.ActiveScene is { } onAir) _aiAnalysisClient.ReportOnAir(onAir.Id);
+
         foreach (var tile in Tiles) tile.NotifyOnAirChanged();
         OnPropertyChanged(nameof(SpotlightScene));
         OnPropertyChanged(nameof(SpotlightPlaceholderText));
@@ -324,6 +400,50 @@ public partial class MulticamViewModel : ViewModelBase
             return;
         }
         if (IsAiEnabled) _ = SynchronizeSelectedScenesAsync();
+    }
+
+    // Reconciled in place, like the tiles: an open ComboBox keeps its items.
+    private void RefreshMicrophoneOptions()
+    {
+        List<MulticamMicrophoneOption> wanted =
+        [
+            MulticamMicrophoneOption.None,
+            .. Scenes.SelectMany(scene => scene.Sources
+                .Where(source => source.Kind == SourceKind.Audio)
+                .Select(source => new MulticamMicrophoneOption(scene.Id, source.Id, $"{source.Name} ({scene.Name})"))),
+        ];
+
+        for (var index = AiMicrophoneOptions.Count - 1; index >= 0; index--)
+        {
+            if (!wanted.Contains(AiMicrophoneOptions[index])) AiMicrophoneOptions.RemoveAt(index);
+        }
+
+        for (var index = 0; index < wanted.Count; index++)
+        {
+            if (index < AiMicrophoneOptions.Count && AiMicrophoneOptions[index] == wanted[index]) continue;
+            var current = AiMicrophoneOptions.IndexOf(wanted[index]);
+            if (current >= 0) AiMicrophoneOptions.Move(current, index);
+            else AiMicrophoneOptions.Insert(index, wanted[index]);
+        }
+
+        // A microphone removed from its scene can no longer be listened to.
+        foreach (var tile in Tiles)
+        {
+            if (!AiMicrophoneOptions.Contains(tile.AiMicrophone)) tile.AiMicrophone = MulticamMicrophoneOption.None;
+        }
+    }
+
+    private bool IsPodcastModule => GetSelectedModuleName() == "podcast";
+
+    partial void OnSelectedAiModelIndexChanged(int value)
+    {
+        foreach (var tile in Tiles) tile.IsPodcastModule = IsPodcastModule;
+    }
+
+    // A new microphone or role only matters to the AI for a scene it reads.
+    private void OnTileAiSetupChanged(MulticamSceneTile tile)
+    {
+        if (tile.IsSelected) OnTileSelectionChanged(tile);
     }
 
     private void OnTileSelectionChanged(MulticamSceneTile tile)
@@ -465,13 +585,14 @@ public partial class MulticamViewModel : ViewModelBase
         IsAiBusy = true;
         AiError = "";
         AiSessionState = MulticamAiSessionState.Connecting;
-        AiStatusText = "Initialisation des flux IA...";
+        AiStatusText = "Démarrage de l'IA...";
         try
         {
             await _aiAnalysisClient.StopSessionAsync("mode_switch", CancellationToken.None);
             await _aiAnalysisClient.StartSessionAsync(
                 GetSelectedModuleName(), mode,
-                selectedScenes.Select(scene => scene.ToDefinition()).ToList(),
+                selectedScenes,
+                _workspace.ActiveScene?.Id,
                 CancellationToken.None);
 
             IsAiOff = false;
@@ -506,26 +627,37 @@ public partial class MulticamViewModel : ViewModelBase
         IsAiBusy = true;
         AiError = "";
         AiSessionState = MulticamAiSessionState.StartingStreams;
-        AiStatusText = "Synchronisation des flux IA...";
+        AiStatusText = "Redémarrage de l'IA avec les nouvelles scènes...";
         try
         {
             await _aiAnalysisClient.UpdateSourcesAsync(
-                selectedScenes.Select(scene => scene.ToDefinition()).ToList(), CancellationToken.None);
+                selectedScenes,
+                _workspace.ActiveScene?.Id,
+                CancellationToken.None);
+            // The AI starts again from scratch: a pick made on the old scene set is gone.
+            ClearAiSuggestion();
             AiSessionState = MulticamAiSessionState.Active;
             AiStatusText = $"IA active - {selectedScenes.Count} scène(s)";
         }
         catch (Exception exception)
         {
-            AiError = exception.Message;
+            // A failed restart leaves no session behind.
+            ClearAiSessionState();
             AiSessionState = MulticamAiSessionState.Error;
-            AiStatusText = "IA active - synchronisation en échec";
+            AiStatusText = "Erreur IA";
+            AiError = exception.Message;
         }
         finally { IsAiBusy = false; }
     }
 
-    private List<SceneItemViewModel> SelectedAiScenes() => Tiles
+    private List<AiSceneSetup> SelectedAiScenes() => Tiles
         .Where(tile => tile.IsSelected && StudioWorkspaceViewModel.HasVideoSource(tile.Scene))
-        .Select(tile => tile.Scene)
+        .Select(tile => new AiSceneSetup(
+            tile.Scene.ToDefinition(),
+            IsPodcastModule ? tile.AiRole.Value : "",
+            tile.AiMicrophone is { SceneId: { } sceneId, SourceId: { } sourceId }
+                ? new AiMicrophone(sceneId, sourceId)
+                : null))
         .ToList();
 
     private void ClearAiSessionState()
@@ -550,59 +682,94 @@ public partial class MulticamViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasAiSuggestion));
     }
 
+    // Agent mode: shown on the page, the operator decides.
     private void OnSceneSwitchSuggested(object? sender, AiSceneSwitchEvent aiEvent)
     {
-        if (!Guid.TryParse(aiEvent.SceneId, out var sceneId) ||
-            !_aiAnalysisClient.ActiveSceneIds.Contains(sceneId)) return;
+        if (!_aiAnalysisClient.ActiveSceneIds.Contains(aiEvent.SceneId)) return;
 
         void Apply()
         {
-            var scene = Scenes.FirstOrDefault(candidate => candidate.Id == sceneId);
+            if (!IsAiAgent) return;
+            var scene = Scenes.FirstOrDefault(candidate => candidate.Id == aiEvent.SceneId);
             if (scene == null) return;
             _aiSuggestionSceneId = scene.Id;
             AiSuggestionName = scene.Name;
             AiSuggestionConfidence = $"{aiEvent.Confidence:P0}";
             SetAiFocus(scene);
             OnPropertyChanged(nameof(HasAiSuggestion));
-
-            if (IsAiAuto)
-            {
-                _workspace.SelectScene(scene);
-                AiStatusText = $"Scène IA : {scene.Name} ({AiSuggestionConfidence})";
-                ClearAiSuggestion();
-            }
-            else
-            {
-                AiStatusText = $"Suggestion IA : {scene.Name} ({AiSuggestionConfidence})";
-            }
+            AiStatusText = $"Suggestion IA : {scene.Name} ({AiSuggestionConfidence})";
         }
 
-        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+        RunOnUiThread(Apply);
+    }
+
+    // Auto mode: the AI already took the scene, the output follows.
+    private void OnSceneSwitchRequested(object? sender, AiSceneSwitchEvent aiEvent)
+    {
+        if (!_aiAnalysisClient.ActiveSceneIds.Contains(aiEvent.SceneId)) return;
+
+        void Apply()
+        {
+            if (!IsAiAuto) return;
+            var scene = Scenes.FirstOrDefault(candidate => candidate.Id == aiEvent.SceneId);
+            if (scene == null) return;
+            _workspace.SelectScene(scene);
+            AiStatusText = $"Scène IA : {scene.Name} ({aiEvent.Confidence:P0})";
+            SetAiFocus(scene);
+        }
+
+        RunOnUiThread(Apply);
     }
 
     private void OnSessionStatusChanged(object? sender, AiSessionStatusEvent aiEvent)
     {
-        void Apply() => AiStatusText = string.IsNullOrWhiteSpace(aiEvent.Message)
-            ? $"IA : {aiEvent.State}" : aiEvent.Message;
-        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+        void Apply()
+        {
+            switch (aiEvent.State)
+            {
+                // Model download progress shows here ("downloading football/... 42 %").
+                case AiConnectionState.Starting:
+                    AiStatusText = $"Démarrage de l'IA : {aiEvent.Message}";
+                    break;
+                case AiConnectionState.Restarting:
+                    if (!IsAiEnabled) return;
+                    AiSessionState = MulticamAiSessionState.Connecting;
+                    AiStatusText = $"Le worker IA redémarre : {aiEvent.Message}";
+                    break;
+                case AiConnectionState.Running:
+                    if (!IsAiEnabled) return;
+                    AiSessionState = MulticamAiSessionState.Active;
+                    AiError = "";
+                    AiStatusText = $"IA active - {_aiAnalysisClient.ActiveSceneIds.Count} scène(s)";
+                    break;
+                case AiConnectionState.Faulted:
+                    if (IsAiEnabled) AiSessionState = MulticamAiSessionState.Error;
+                    break;
+            }
+        }
+
+        RunOnUiThread(Apply);
     }
 
     private void OnServerErrorReceived(object? sender, AiServerErrorEvent aiEvent)
     {
         void Apply()
         {
-            AiError = string.IsNullOrWhiteSpace(aiEvent.ErrorCode)
-                ? aiEvent.ErrorMessage : $"{aiEvent.ErrorCode}: {aiEvent.ErrorMessage}";
+            AiError = aiEvent.ErrorMessage;
             if (aiEvent.IsFatal)
             {
                 AiStatusText = "Erreur IA fatale";
                 _ = StopAiAfterFatalAsync();
             }
         }
-        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+
+        RunOnUiThread(Apply);
+    }
+
+    private static void RunOnUiThread(Action action)
+    {
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) action();
+        else Dispatcher.UIThread.Post(action);
     }
 
     private async Task StopAiAfterFatalAsync()
