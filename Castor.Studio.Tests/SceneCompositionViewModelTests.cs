@@ -885,6 +885,132 @@ public sealed class SceneCompositionViewModelTests
         Assert.Null(composition.Overlay.Hovered);
     }
 
+    [Fact]
+    public void Tab_walks_the_stack_from_the_front_and_lets_go_past_the_last_source()
+    {
+        var scene = SceneWith("Fond", "Caméra", "Overlay");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Overlay", x: 1400, y: 820, width: 480, height: 240),
+            Transform(scene, "Caméra", x: 960, y: 60, width: 640, height: 360),
+            Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+
+        // Dans l'ordre de la liste des sources : premier plan en tête.
+        Assert.True(composition.SelectNext(1));
+        Assert.Equal(Id(scene, "Overlay"), composition.Selected?.SourceId);
+        Assert.True(composition.SelectNext(1));
+        Assert.Equal(Id(scene, "Caméra"), composition.Selected?.SourceId);
+        Assert.True(composition.SelectNext(1));
+        Assert.Equal(Id(scene, "Fond"), composition.Selected?.SourceId);
+
+        // Au-delà de la dernière, plus rien n'est choisi : Tab peut quitter l'aperçu.
+        Assert.False(composition.SelectNext(1));
+        Assert.False(composition.HasSelection);
+
+        // En remontant sans sélection, on part de l'arrière-plan.
+        Assert.True(composition.SelectNext(-1));
+        Assert.Equal(Id(scene, "Fond"), composition.Selected?.SourceId);
+    }
+
+    [Fact]
+    public void Arrows_push_the_selected_source_by_canvas_pixels()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        composition.SelectAt(200, 200);
+
+        composition.NudgeSelected(-10, 1);
+
+        Assert.Equal((90d, 101d), (composition.Selected!.X, composition.Selected.Y));
+    }
+
+    [Fact]
+    public void Center_and_fit_place_the_selected_source_in_the_canvas()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        composition.SelectAt(10, 10);
+
+        composition.CenterSelected();
+        Assert.Equal((640d, 360d), (composition.Selected!.X, composition.Selected.Y));
+
+        // 640 × 360 tient trois fois dans 1920 × 1080 : la source le remplit.
+        composition.FitSelected();
+        var fitted = composition.Selected!;
+        Assert.Equal((0d, 0d, 1920d, 1080d), (fitted.X, fitted.Y, fitted.Width, fitted.Height));
+    }
+
+    [Fact]
+    public void Reset_puts_the_selected_source_back_to_its_original_placement()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 300, y: 200, width: 640, height: 360,
+            crop: new SourceCrop(20, 0, 20, 0)));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        composition.SelectAt(400, 300);
+        composition.RotateSelected(90);
+        composition.ZoomSelected(2);
+
+        composition.ResetSelectedTransform();
+
+        var reset = composition.Selected!;
+        Assert.Equal(new SourcePlacement(0, 0, 1, 1, SourceCrop.None), reset.Placement);
+        Assert.False(reset.Zoom.IsZoomed);
+    }
+
+    [Fact]
+    public void Arranging_asks_the_source_list_for_the_selected_source()
+    {
+        var scene = SceneWith("Fond", "Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene,
+            Transform(scene, "Caméra", x: 960, y: 60, width: 640, height: 360),
+            Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080));
+        var requests = new List<(Guid, SourceArrangement)>();
+        var composition = new SceneCompositionViewModel(runtime, arrange: (id, arrangement) => requests.Add((id, arrangement)));
+        composition.ShowScene(scene);
+
+        // Sans source choisie, rien n'est demandé.
+        composition.ArrangeSelected(SourceArrangement.ToFront);
+        Assert.Empty(requests);
+
+        composition.SelectAt(100, 900);
+        composition.ArrangeSelected(SourceArrangement.ToFront);
+        Assert.Equal([(Id(scene, "Fond"), SourceArrangement.ToFront)], requests);
+    }
+
+    [Fact]
+    public void The_toolbar_hears_of_a_selection_only_when_it_changes()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        var changes = new List<string?>();
+        composition.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+
+        composition.SelectAt(10, 10);
+        composition.Refresh();
+        composition.EnterCropMode();
+        composition.ClearSelection();
+
+        Assert.Equal(
+            [nameof(SceneCompositionViewModel.HasSelection), nameof(SceneCompositionViewModel.IsCropMode),
+             nameof(SceneCompositionViewModel.HasSelection), nameof(SceneCompositionViewModel.IsCropMode)],
+            changes.Where(name => name is nameof(SceneCompositionViewModel.HasSelection) or nameof(SceneCompositionViewModel.IsCropMode)));
+    }
+
     private const double HandleTolerance = 6;
     private const double RotationReach = 24;
     private const double SnapReach = 10;

@@ -10,6 +10,15 @@ namespace CastorApplication.ViewModels.Scenes;
 /// </summary>
 public readonly record struct CompositionTarget(CompositionGestureKind Kind, CompositionHandle? Handle);
 
+/// <summary>Où la source choisie va dans la pile de sa scène.</summary>
+public enum SourceArrangement
+{
+    Forward,
+    Backward,
+    ToFront,
+    ToBack
+}
+
 /// <summary>
 /// La composition d'une scène telle que le moteur la détient, relue en continu : quelles
 /// sources sont composées, et quel rectangle chacune occupe. Aucune de ces valeurs n'est
@@ -36,6 +45,13 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
     private readonly ISourceRuntime _sourceRuntime;
     private readonly TimeProvider _time;
+    // L'empilement n'est pas à la composition : la liste des sources le tient et le relit
+    // dans le moteur. Le canvas ne fait que le lui demander.
+    private readonly Action<Guid, SourceArrangement>? _arrange;
+    // Ce que les boutons de la barre ont reçu en dernier : ils ne sont prévenus que d'un
+    // vrai changement, pas à chaque mouvement du pointeur.
+    private bool _notifiedSelection;
+    private bool _notifiedCropMode;
     private SceneItemViewModel? _scene;
     private Guid? _selectedSourceId;
     private Gesture? _gesture;
@@ -96,10 +112,14 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
     [ObservableProperty] private string _status = "";
 
-    internal SceneCompositionViewModel(ISourceRuntime sourceRuntime, TimeProvider? time = null)
+    internal SceneCompositionViewModel(
+        ISourceRuntime sourceRuntime,
+        TimeProvider? time = null,
+        Action<Guid, SourceArrangement>? arrange = null)
     {
         _sourceRuntime = sourceRuntime;
         _time = time ?? TimeProvider.System;
+        _arrange = arrange;
     }
 
     /// <summary>Suit désormais cette scène, à partir de zéro.</summary>
@@ -154,6 +174,45 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
         _hoveredSourceId = sourceId;
         Publish(Overlay.Sources);
+        return true;
+    }
+
+    /// <summary>
+    /// Passe à la source suivante dans la pile — vers l'arrière-plan pour
+    /// <paramref name="direction"/> positif, vers le premier plan sinon —, dans l'ordre où la
+    /// liste des sources les range. Sans source choisie, on part du premier plan (ou de
+    /// l'arrière-plan en remontant).
+    /// </summary>
+    /// <returns>
+    /// Si une source est choisie au bout. Au-delà de la dernière, plus rien ne l'est : c'est
+    /// ce qui laisse Tab quitter l'aperçu au lieu d'y tourner en rond.
+    /// </returns>
+    public bool SelectNext(int direction)
+    {
+        if (_gesture != null || direction == 0) return HasSelection;
+
+        // La liste va de l'arrière-plan vers le premier plan : avancer dans la pile, c'est
+        // la remonter à l'envers.
+        var sources = Overlay.Sources;
+        var current = -1;
+        for (var index = 0; index < sources.Count; index++)
+        {
+            if (sources[index].Transform.SourceId == _selectedSourceId) current = index;
+        }
+
+        var next = current < 0
+            ? direction > 0 ? sources.Count - 1 : 0
+            : current - Math.Sign(direction);
+        if (next < 0 || next >= sources.Count)
+        {
+            ClearSelection();
+            return false;
+        }
+
+        var sourceId = sources[next].Transform.SourceId;
+        if (sourceId != _selectedSourceId) _cropMode = false;
+        _selectedSourceId = sourceId;
+        Publish(sources);
         return true;
     }
 
@@ -525,6 +584,58 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (Selected is { } selected) Apply(selected, CompositionGeometry.RotateBy(selected, degrees));
     }
 
+    /// <summary>
+    /// La source choisie se décale de <paramref name="deltaX"/>, <paramref name="deltaY"/>
+    /// pixels du canvas. Sans aimant : on pousse une source au pixel près justement pour la
+    /// poser là où l'aimant ne la mettrait pas.
+    /// </summary>
+    public void NudgeSelected(double deltaX, double deltaY)
+    {
+        if (Selected is { } selected) Apply(selected, CompositionGeometry.Move(selected, deltaX, deltaY));
+    }
+
+    /// <summary>La source choisie se pose au centre du canvas.</summary>
+    public void CenterSelected()
+    {
+        if (Selected is { } selected && HasCanvas)
+            Apply(selected, CompositionGeometry.CenterIn(selected, _canvasWidth, _canvasHeight));
+    }
+
+    /// <summary>
+    /// La source choisie prend la plus grande taille où elle tient entière dans le canvas,
+    /// au centre.
+    /// </summary>
+    public void FitSelected()
+    {
+        if (Selected is { } selected && HasCanvas)
+            Apply(selected, CompositionGeometry.Fit(selected, _canvasWidth, _canvasHeight));
+    }
+
+    /// <summary>
+    /// La source choisie reprend son placement d'origine : coin haut-gauche, taille de la
+    /// source, ni rotation, ni rognage, ni zoom.
+    /// </summary>
+    public void ResetSelectedTransform()
+    {
+        if (Selected is not { } selected) return;
+
+        Apply(selected, CompositionGeometry.Reset());
+        // Un placement refusé arrête là : le zoom ne part pas sur une source que le moteur
+        // n'a pas remise d'aplomb.
+        if (Status.Length == 0 && Selected is { Zoom.IsZoomed: true } reset) ApplyZoom(reset, SourceZoom.None);
+    }
+
+    /// <summary>
+    /// La source choisie change de plan. C'est la liste des sources qui l'écrit et relit
+    /// l'empilement : la composition suit dans la foulée.
+    /// </summary>
+    public void ArrangeSelected(SourceArrangement arrangement)
+    {
+        if (_gesture == null && Selected is { } selected) _arrange?.Invoke(selected.SourceId, arrangement);
+    }
+
+    private bool HasCanvas => _canvasWidth > 0 && _canvasHeight > 0;
+
     /// <summary>La source choisie se redresse, autour de son centre.</summary>
     public void ResetSelectedRotation()
     {
@@ -709,6 +820,18 @@ public partial class SceneCompositionViewModel : ViewModelBase
             selected != null && (_cropMode || _cropModifier),
             hovered,
             _gesture?.Guides ?? []);
+
+        if (_notifiedSelection != HasSelection)
+        {
+            _notifiedSelection = HasSelection;
+            OnPropertyChanged(nameof(HasSelection));
+        }
+
+        if (_notifiedCropMode != IsCropMode)
+        {
+            _notifiedCropMode = IsCropMode;
+            OnPropertyChanged(nameof(IsCropMode));
+        }
     }
 
     // Pendant un geste, la source saisie est montrée là où il la demande, sans attendre

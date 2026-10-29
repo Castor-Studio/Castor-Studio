@@ -372,6 +372,38 @@ public static class CompositionGeometry
         TurnedTo(start, start.Rotation + degrees);
 
     /// <summary>
+    /// La source se pose au centre du canvas, rotation comprise : seule sa position change.
+    /// </summary>
+    public static SourcePlacement CenterIn(SourceTransform start, double canvasWidth, double canvasHeight)
+    {
+        var (centerX, centerY) = Center(start);
+        return Move(start, canvasWidth / 2 - centerX, canvasHeight / 2 - centerY);
+    }
+
+    /// <summary>
+    /// La source prend la plus grande taille où elle tient entière dans le canvas, ses
+    /// proportions gardées, et s'y pose au centre. Une source tournée s'ajuste par le
+    /// rectangle droit qui l'englobe : c'est lui qui doit tenir dans l'image.
+    /// </summary>
+    public static SourcePlacement Fit(SourceTransform start, double canvasWidth, double canvasHeight)
+    {
+        var (left, top, right, bottom) = Bounds(start);
+        if (right - left <= 0 || bottom - top <= 0 || canvasWidth <= 0 || canvasHeight <= 0)
+            return start.Placement;
+
+        // Le rectangle englobant grandit comme l'échelle : il suffit d'un facteur.
+        var factor = Math.Min(canvasWidth / (right - left), canvasHeight / (bottom - top));
+        var scaled = start.Placement with { ScaleX = start.ScaleX * factor, ScaleY = start.ScaleY * factor };
+        return CenterIn(Preview(start, scaled), canvasWidth, canvasHeight);
+    }
+
+    /// <summary>
+    /// La source reprend le placement que libobs lui donne à l'ajout : dans le coin
+    /// haut-gauche, à sa taille, droite et sans rognage.
+    /// </summary>
+    public static SourcePlacement Reset() => new(0, 0, 1, 1, SourceCrop.None);
+
+    /// <summary>
     /// L'image zoomée glisse sous le cadre avec le pointeur, comme une photo qu'on pousse du
     /// doigt : le point visé part dans l'autre sens. Le déplacement se compte le long des
     /// bords de la source, et le point visé s'arrête là où la fenêtre zoomée touche le bord

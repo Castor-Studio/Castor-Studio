@@ -157,7 +157,7 @@ public partial class ScenesViewModel : ViewModelBase
         _dialogService = dialogService;
         _settingsService = settingsService;
         _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
-        Composition = new SceneCompositionViewModel(sourceRuntime);
+        Composition = new SceneCompositionViewModel(sourceRuntime, arrange: ArrangeSource);
         ApplyBaseCanvasResolution(settingsService?.Load() ?? new ApplicationSettings());
         SelectedScene = workspace.ActiveScene;
         RefreshDisplayedSources();
@@ -652,6 +652,25 @@ public partial class ScenesViewModel : ViewModelBase
         if (targetIndex < 0) return;
 
         MoveSourceTo(scene, moved, targetIndex);
+    }
+
+    // Le canvas demande un plan pour la source qu'il a choisie : il ne connaît d'elle que son
+    // identifiant, l'empilement se résout ici, comme pour les boutons de la liste.
+    private void ArrangeSource(Guid sourceId, SourceArrangement arrangement)
+    {
+        var scene = SelectedScene;
+        if (scene == null) return;
+
+        var index = IndexOfSource(scene, sourceId);
+        if (index < 0) return;
+
+        MoveSourceTo(scene, scene.Sources[index], arrangement switch
+        {
+            SourceArrangement.Forward => index - 1,
+            SourceArrangement.Backward => index + 1,
+            SourceArrangement.ToFront => 0,
+            _ => scene.Sources.Count - 1
+        });
     }
 
     private void MoveSourceBy(SourceItemViewModel source, int offset)
