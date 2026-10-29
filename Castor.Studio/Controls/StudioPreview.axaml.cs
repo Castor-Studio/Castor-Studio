@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -129,7 +130,9 @@ public partial class StudioPreview : UserControl
             CancelGesture();
             CloseSourceMenu();
         };
-        SizeChanged += (_, _) => UpdatePreviewViewport();
+        // L'image se cale dans la place que la barre lui laisse, pas dans tout le contrôle.
+        Picture.SizeChanged += (_, _) => UpdatePreviewViewport();
+        DescribeTools();
         PropertyChanged += (_, change) =>
         {
             if (change.Property == BaseCanvasWidthProperty || change.Property == BaseCanvasHeightProperty)
@@ -157,7 +160,7 @@ public partial class StudioPreview : UserControl
     {
         var composition = Composition;
         if (composition == null) return;
-        if (ToCanvas(e.GetPosition(this)) is not var (x, y)) return;
+        if (ToCanvas(e.GetPosition(Picture)) is not var (x, y)) return;
 
         // Tout clic sur l'aperçu lui donne le clavier : c'est là que zoom et flèches s'écoutent.
         // Il ferme aussi le menu resté ouvert, comme partout ailleurs.
@@ -165,7 +168,7 @@ public partial class StudioPreview : UserControl
         CloseSourceMenu();
 
         var properties = e.GetCurrentPoint(this).Properties;
-        var onPicture = NativePreview.Bounds.Contains(e.GetPosition(this));
+        var onPicture = NativePreview.Bounds.Contains(e.GetPosition(Picture));
 
         if (properties.IsRightButtonPressed)
         {
@@ -220,7 +223,7 @@ public partial class StudioPreview : UserControl
         var composition = Composition;
         if (composition == null) return;
 
-        var point = e.GetPosition(this);
+        var point = e.GetPosition(Picture);
         if (ToCanvas(point) is not var (x, y)) return;
 
         // Alt peut s'enfoncer pendant que la page n'a pas le focus clavier : le pointeur le
@@ -272,7 +275,7 @@ public partial class StudioPreview : UserControl
         var composition = Composition;
         if (composition == null) return;
 
-        var point = e.GetPosition(this);
+        var point = e.GetPosition(Picture);
         if (!NativePreview.Bounds.Contains(point) || ToCanvas(point) is not var (x, y)) return;
 
         UpdateCropModifier(composition, e.KeyModifiers);
@@ -294,48 +297,126 @@ public partial class StudioPreview : UserControl
 
         UpdateCropModifier(composition, e.KeyModifiers);
 
+        // Échap défait une chose à la fois : le geste en cours, puis le rognage, puis la
+        // sélection. Sans rien de tout ça, il laisse passer la touche à qui l'attend.
         switch (e.Key)
         {
-            // Échap annule d'abord le geste en cours ; sans geste, il quitte le rognage.
             case Key.Escape when composition.IsGesturing:
                 CancelGesture();
-                break;
+                e.Handled = true;
+                return;
             case Key.Escape or Key.Enter when composition.IsCropMode:
                 composition.ExitCropMode();
                 NativePreview.ShowComposition();
-                break;
-            // + et - zooment la source choisie, 0 rend son image entière : ces touches n'ont
-            // aucun sens pour le cadre, elles n'ont pas besoin d'Alt.
-            case var _ when !composition.HasSelection || composition.IsGesturing:
+                e.Handled = true;
                 return;
-            case Key.Add or Key.OemPlus:
-            case var _ when e.KeySymbol == "+":
-                composition.StepSelectedZoom(1);
+            case Key.Escape when composition.HasSelection:
+                composition.ClearSelection();
                 NativePreview.ShowComposition();
-                break;
-            case Key.Subtract or Key.OemMinus:
-            case var _ when e.KeySymbol == "-":
-                composition.StepSelectedZoom(-1);
-                NativePreview.ShowComposition();
-                break;
-            case Key.NumPad0:
-            case var _ when e.KeySymbol == "0":
-                composition.ResetSelectedZoom();
-                NativePreview.ShowComposition();
-                break;
-            // Les flèches, elles, pourraient un jour pousser le cadre : faire glisser l'image
-            // demande Alt, comme à la souris.
-            case Key.Left or Key.Right or Key.Up or Key.Down when composition.IsCropping:
-                composition.NudgeSelectedZoom(
-                    e.Key switch { Key.Left => -1, Key.Right => 1, _ => 0 },
-                    e.Key switch { Key.Up => -1, Key.Down => 1, _ => 0 });
-                NativePreview.ShowComposition();
-                break;
-            default:
+                e.Handled = true;
                 return;
         }
 
-        e.Handled = true;
+        // Une commande au milieu d'un geste écrirait par-dessus ce que le pointeur demande.
+        if (composition.IsGesturing) return;
+        if (CompositionShortcuts.Resolve(e.Key, e.KeyModifiers, e.KeySymbol) is not { } action) return;
+
+        e.Handled = Execute(composition, action);
+    }
+
+    /// <summary>
+    /// Ce que demande une touche, un bouton de la barre ou une ligne du menu : les trois
+    /// passent par ici, c'est ce qui leur garantit le même effet.
+    /// </summary>
+    /// <returns>
+    /// Si la commande a servi. Sinon la touche poursuit son chemin : Tab au-delà de la
+    /// dernière source rend le focus à la page, une flèche sans source choisie navigue.
+    /// </returns>
+    private bool Execute(SceneCompositionViewModel composition, CompositionKeyAction action)
+    {
+        switch (action.Command)
+        {
+            case CompositionCommand.SelectNext or CompositionCommand.SelectPrevious:
+                var selected = composition.SelectNext(action.Command == CompositionCommand.SelectNext ? 1 : -1);
+                NativePreview.ShowComposition();
+                return selected;
+            case var _ when !composition.HasSelection:
+                return false;
+            // En rognage, les flèches font glisser l'image zoomée sous son cadre, comme Alt +
+            // glisser à la souris ; sinon elles poussent le cadre.
+            case CompositionCommand.Nudge when composition.IsCropping && composition.Selected is { Zoom.IsZoomed: true }:
+                composition.NudgeSelectedZoom(Math.Sign(action.StepX), Math.Sign(action.StepY));
+                break;
+            case CompositionCommand.Nudge:
+                composition.NudgeSelected(action.StepX, action.StepY);
+                break;
+            case CompositionCommand.CenterSelected:
+                composition.CenterSelected();
+                break;
+            case CompositionCommand.FitSelected:
+                composition.FitSelected();
+                break;
+            case CompositionCommand.ResetTransform:
+                composition.ResetSelectedTransform();
+                break;
+            case CompositionCommand.RotateRight:
+                composition.RotateSelected(90);
+                break;
+            case CompositionCommand.RotateLeft:
+                composition.RotateSelected(-90);
+                break;
+            case CompositionCommand.ToggleCrop:
+                composition.ToggleCropMode();
+                break;
+            case CompositionCommand.ZoomIn:
+                composition.StepSelectedZoom(1);
+                break;
+            case CompositionCommand.ZoomOut:
+                composition.StepSelectedZoom(-1);
+                break;
+            case CompositionCommand.ResetZoom:
+                composition.ResetSelectedZoom();
+                break;
+            case CompositionCommand.BringForward:
+                composition.ArrangeSelected(SourceArrangement.Forward);
+                break;
+            case CompositionCommand.SendBackward:
+                composition.ArrangeSelected(SourceArrangement.Backward);
+                break;
+            case CompositionCommand.BringToFront:
+                composition.ArrangeSelected(SourceArrangement.ToFront);
+                break;
+            case CompositionCommand.SendToBack:
+                composition.ArrangeSelected(SourceArrangement.ToBack);
+                break;
+            default:
+                return false;
+        }
+
+        NativePreview.ShowComposition();
+        return true;
+    }
+
+    // Les boutons de la barre portent leur commande dans Tag. Ils ne prennent pas le
+    // clavier : l'aperçu le garde, et les raccourcis continuent de répondre après un clic.
+    private void OnToolClick(object? sender, RoutedEventArgs e)
+    {
+        if (Composition is not { } composition || sender is not Control { Tag: CompositionCommand command }) return;
+
+        CloseSourceMenu();
+        Execute(composition, new CompositionKeyAction(command));
+        Focus();
+    }
+
+    // Chaque bulle de la barre dit aussi la touche qui fait la même chose : c'est par là
+    // qu'on apprend les raccourcis, sans ouvrir l'aide.
+    private void DescribeTools()
+    {
+        foreach (var tool in Toolbar.GetLogicalDescendants().OfType<Button>())
+        {
+            if (tool is { Tag: CompositionCommand command } && ToolTip.GetTip(tool) is string label)
+                ToolTip.SetTip(tool, CompositionShortcuts.Describe(label, command));
+        }
     }
 
     private void OnPictureKeyUp(object? sender, KeyEventArgs e)
@@ -396,17 +477,50 @@ public partial class StudioPreview : UserControl
             return item;
         }
 
+        // Une ligne qui a son raccourci passe par le même chemin que la touche, et l'affiche.
+        MenuItem Shortcut(string header, CompositionCommand command)
+        {
+            var item = new MenuItem
+            {
+                Header = new DockPanel
+                {
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            [DockPanel.DockProperty] = Avalonia.Controls.Dock.Right,
+                            Text = CompositionShortcuts.KeysOf(command),
+                            Margin = new Thickness(24, 0, 0, 0),
+                            Foreground = this.FindResource("AppFg4") as IBrush
+                        },
+                        new TextBlock { Text = header }
+                    }
+                }
+            };
+            item.Click += (_, _) => Execute(composition, new CompositionKeyAction(command));
+            return item;
+        }
+
         var menu = new ContextMenu
         {
             Items =
             {
-                Item(composition.IsCropMode ? "Terminer le rognage" : "Rogner", composition.ToggleCropMode),
+                Shortcut(composition.IsCropMode ? "Terminer le rognage" : "Rogner", CompositionCommand.ToggleCrop),
                 Item("Réinitialiser le rognage", composition.ResetSelectedCrop, selected.Crop != SourceCrop.None),
                 new Separator(),
-                Item("Pivoter de 90° à droite", () => composition.RotateSelected(90)),
-                Item("Pivoter de 90° à gauche", () => composition.RotateSelected(-90)),
+                Shortcut("Pivoter de 90° à droite", CompositionCommand.RotateRight),
+                Shortcut("Pivoter de 90° à gauche", CompositionCommand.RotateLeft),
                 Item("Pivoter de 180°", () => composition.RotateSelected(180)),
                 Item("Réinitialiser la rotation", composition.ResetSelectedRotation, selected.Rotation != 0),
+                new Separator(),
+                Shortcut("Centrer dans le canvas", CompositionCommand.CenterSelected),
+                Shortcut("Ajuster au canvas", CompositionCommand.FitSelected),
+                Shortcut("Réinitialiser la transformation", CompositionCommand.ResetTransform),
+                new Separator(),
+                Shortcut("Mettre au premier plan", CompositionCommand.BringToFront),
+                Shortcut("Rapprocher du premier plan", CompositionCommand.BringForward),
+                Shortcut("Reculer vers l'arrière-plan", CompositionCommand.SendBackward),
+                Shortcut("Mettre à l'arrière-plan", CompositionCommand.SendToBack),
                 new Separator(),
                 ZoomItem(composition, selected.Zoom.Factor),
                 Item("Réinitialiser le zoom", composition.ResetSelectedZoom, selected.Zoom.IsZoomed)
@@ -593,10 +707,11 @@ public partial class StudioPreview : UserControl
 
     private void UpdatePreviewViewport()
     {
-        if (BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0 || Bounds.Width <= 0 || Bounds.Height <= 0)
+        var area = Picture.Bounds;
+        if (BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0 || area.Width <= 0 || area.Height <= 0)
             return;
 
-        var scale = Math.Min(Bounds.Width / BaseCanvasWidth, Bounds.Height / BaseCanvasHeight);
+        var scale = Math.Min(area.Width / BaseCanvasWidth, area.Height / BaseCanvasHeight);
         NativePreview.Width = Math.Max(1, Math.Round(BaseCanvasWidth * scale));
         NativePreview.Height = Math.Max(1, Math.Round(BaseCanvasHeight * scale));
     }
