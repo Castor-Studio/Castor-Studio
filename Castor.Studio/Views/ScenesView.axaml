@@ -580,7 +580,7 @@
                                             DragDrop.AllowDrop="True"
                                             DragDrop.DragOver="OnSourceDragOver"
                                             DragDrop.Drop="OnSourceDrop">
-										<Grid ColumnDefinitions="18, 16, *, Auto, Auto, Auto, Auto, Auto">
+										<Grid ColumnDefinitions="18, 16, *, Auto, Auto, Auto">
 											<Border Grid.Column="0" Background="Transparent" Cursor="SizeAll"
                                                     PointerPressed="OnSourceHandlePointerPressed"
                                                     ToolTip.Tip="Glisser pour changer le plan de cette source">
@@ -624,25 +624,8 @@
 											<TextBlock Grid.Column="3" Text="{Binding Type}"
                                                        Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                        VerticalAlignment="Center" Margin="0,0,4,0"/>
-											<!-- Équivalent clavier du glisser-déposer -->
-											<Button Grid.Column="4"
-                                                    Content="▲"
-                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
-                                                    BorderThickness="0" FontSize="9" Padding="4,2"
-                                                    Cursor="Hand"
-                                                    ToolTip.Tip="Rapprocher du premier plan"
-                                                    Command="{Binding #ScenesRoot.DataContext.RaiseSourceCommand}"
-                                                    CommandParameter="{Binding}"/>
-											<Button Grid.Column="5"
-                                                    Content="▼"
-                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
-                                                    BorderThickness="0" FontSize="9" Padding="4,2"
-                                                    Cursor="Hand"
-                                                    ToolTip.Tip="Reculer vers l'arrière-plan"
-                                                    Command="{Binding #ScenesRoot.DataContext.LowerSourceCommand}"
-                                                    CommandParameter="{Binding}"/>
 											<!-- Bouton boucle — visible uniquement pour les sources fichier -->
-							<ToggleButton Grid.Column="6"
+							<ToggleButton Grid.Column="4"
                                                           IsVisible="{Binding IsFileSource}"
                                                           IsChecked="{Binding Loop, Mode=OneWay}"
                                                           Command="{Binding #ScenesRoot.DataContext.ToggleMediaLoopCommand}"
@@ -662,7 +645,7 @@
 												</ToggleButton.Styles>
 												<TextBlock Text="⟳" FontSize="14"/>
 											</ToggleButton>
-											<Button Grid.Column="7"
+											<Button Grid.Column="5"
                                                     Content="✕"
                                                     Background="Transparent" Foreground="{DynamicResource AppFg5}"
                                                     BorderThickness="0" FontSize="11" Padding="4,2"
