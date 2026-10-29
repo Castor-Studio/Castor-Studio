@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Threading;
+using Castor.AI.Providers;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services.Ai;
@@ -237,6 +238,7 @@ public partial class MulticamViewModel : ViewModelBase
         _settingsService = settingsService;
         (BaseCanvasWidth, BaseCanvasHeight) = CurrentBaseCanvas();
         _aiAnalysisClient.SceneSwitchSuggested += OnSceneSwitchSuggested;
+        _aiAnalysisClient.SceneSwitchRequested += OnSceneSwitchRequested;
         _aiAnalysisClient.SessionStatusChanged += OnSessionStatusChanged;
         _aiAnalysisClient.ServerErrorReceived += OnServerErrorReceived;
         RefreshTiles();
@@ -307,6 +309,10 @@ public partial class MulticamViewModel : ViewModelBase
         }
 
         if (e.PropertyName != nameof(StudioWorkspaceViewModel.ActiveScene)) return;
+
+        // Every cut, from this page or any other: the AI reasons about what is on air. Its own
+        // cuts in auto mode come back here too and are ignored by the client.
+        if (IsAiEnabled && _workspace.ActiveScene is { } onAir) _aiAnalysisClient.ReportOnAir(onAir.Id);
 
         foreach (var tile in Tiles) tile.NotifyOnAirChanged();
         OnPropertyChanged(nameof(SpotlightScene));
@@ -465,13 +471,14 @@ public partial class MulticamViewModel : ViewModelBase
         IsAiBusy = true;
         AiError = "";
         AiSessionState = MulticamAiSessionState.Connecting;
-        AiStatusText = "Initialisation des flux IA...";
+        AiStatusText = "Démarrage de l'IA...";
         try
         {
             await _aiAnalysisClient.StopSessionAsync("mode_switch", CancellationToken.None);
             await _aiAnalysisClient.StartSessionAsync(
                 GetSelectedModuleName(), mode,
                 selectedScenes.Select(scene => scene.ToDefinition()).ToList(),
+                _workspace.ActiveScene?.Id,
                 CancellationToken.None);
 
             IsAiOff = false;
@@ -506,19 +513,25 @@ public partial class MulticamViewModel : ViewModelBase
         IsAiBusy = true;
         AiError = "";
         AiSessionState = MulticamAiSessionState.StartingStreams;
-        AiStatusText = "Synchronisation des flux IA...";
+        AiStatusText = "Redémarrage de l'IA avec les nouvelles scènes...";
         try
         {
             await _aiAnalysisClient.UpdateSourcesAsync(
-                selectedScenes.Select(scene => scene.ToDefinition()).ToList(), CancellationToken.None);
+                selectedScenes.Select(scene => scene.ToDefinition()).ToList(),
+                _workspace.ActiveScene?.Id,
+                CancellationToken.None);
+            // The AI starts again from scratch: a pick made on the old scene set is gone.
+            ClearAiSuggestion();
             AiSessionState = MulticamAiSessionState.Active;
             AiStatusText = $"IA active - {selectedScenes.Count} scène(s)";
         }
         catch (Exception exception)
         {
-            AiError = exception.Message;
+            // A failed restart leaves no session behind.
+            ClearAiSessionState();
             AiSessionState = MulticamAiSessionState.Error;
-            AiStatusText = "IA active - synchronisation en échec";
+            AiStatusText = "Erreur IA";
+            AiError = exception.Message;
         }
         finally { IsAiBusy = false; }
     }
@@ -550,59 +563,94 @@ public partial class MulticamViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasAiSuggestion));
     }
 
+    // Agent mode: shown on the page, the operator decides.
     private void OnSceneSwitchSuggested(object? sender, AiSceneSwitchEvent aiEvent)
     {
-        if (!Guid.TryParse(aiEvent.SceneId, out var sceneId) ||
-            !_aiAnalysisClient.ActiveSceneIds.Contains(sceneId)) return;
+        if (!_aiAnalysisClient.ActiveSceneIds.Contains(aiEvent.SceneId)) return;
 
         void Apply()
         {
-            var scene = Scenes.FirstOrDefault(candidate => candidate.Id == sceneId);
+            if (!IsAiAgent) return;
+            var scene = Scenes.FirstOrDefault(candidate => candidate.Id == aiEvent.SceneId);
             if (scene == null) return;
             _aiSuggestionSceneId = scene.Id;
             AiSuggestionName = scene.Name;
             AiSuggestionConfidence = $"{aiEvent.Confidence:P0}";
             SetAiFocus(scene);
             OnPropertyChanged(nameof(HasAiSuggestion));
-
-            if (IsAiAuto)
-            {
-                _workspace.SelectScene(scene);
-                AiStatusText = $"Scène IA : {scene.Name} ({AiSuggestionConfidence})";
-                ClearAiSuggestion();
-            }
-            else
-            {
-                AiStatusText = $"Suggestion IA : {scene.Name} ({AiSuggestionConfidence})";
-            }
+            AiStatusText = $"Suggestion IA : {scene.Name} ({AiSuggestionConfidence})";
         }
 
-        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+        RunOnUiThread(Apply);
+    }
+
+    // Auto mode: the AI already took the scene, the output follows.
+    private void OnSceneSwitchRequested(object? sender, AiSceneSwitchEvent aiEvent)
+    {
+        if (!_aiAnalysisClient.ActiveSceneIds.Contains(aiEvent.SceneId)) return;
+
+        void Apply()
+        {
+            if (!IsAiAuto) return;
+            var scene = Scenes.FirstOrDefault(candidate => candidate.Id == aiEvent.SceneId);
+            if (scene == null) return;
+            _workspace.SelectScene(scene);
+            AiStatusText = $"Scène IA : {scene.Name} ({aiEvent.Confidence:P0})";
+            SetAiFocus(scene);
+        }
+
+        RunOnUiThread(Apply);
     }
 
     private void OnSessionStatusChanged(object? sender, AiSessionStatusEvent aiEvent)
     {
-        void Apply() => AiStatusText = string.IsNullOrWhiteSpace(aiEvent.Message)
-            ? $"IA : {aiEvent.State}" : aiEvent.Message;
-        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+        void Apply()
+        {
+            switch (aiEvent.State)
+            {
+                // Model download progress shows here ("downloading football/... 42 %").
+                case AiConnectionState.Starting:
+                    AiStatusText = $"Démarrage de l'IA : {aiEvent.Message}";
+                    break;
+                case AiConnectionState.Restarting:
+                    if (!IsAiEnabled) return;
+                    AiSessionState = MulticamAiSessionState.Connecting;
+                    AiStatusText = $"Le worker IA redémarre : {aiEvent.Message}";
+                    break;
+                case AiConnectionState.Running:
+                    if (!IsAiEnabled) return;
+                    AiSessionState = MulticamAiSessionState.Active;
+                    AiError = "";
+                    AiStatusText = $"IA active - {_aiAnalysisClient.ActiveSceneIds.Count} scène(s)";
+                    break;
+                case AiConnectionState.Faulted:
+                    if (IsAiEnabled) AiSessionState = MulticamAiSessionState.Error;
+                    break;
+            }
+        }
+
+        RunOnUiThread(Apply);
     }
 
     private void OnServerErrorReceived(object? sender, AiServerErrorEvent aiEvent)
     {
         void Apply()
         {
-            AiError = string.IsNullOrWhiteSpace(aiEvent.ErrorCode)
-                ? aiEvent.ErrorMessage : $"{aiEvent.ErrorCode}: {aiEvent.ErrorMessage}";
+            AiError = aiEvent.ErrorMessage;
             if (aiEvent.IsFatal)
             {
                 AiStatusText = "Erreur IA fatale";
                 _ = StopAiAfterFatalAsync();
             }
         }
-        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) Apply();
-        else Dispatcher.UIThread.Post(Apply);
+
+        RunOnUiThread(Apply);
+    }
+
+    private static void RunOnUiThread(Action action)
+    {
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) action();
+        else Dispatcher.UIThread.Post(action);
     }
 
     private async Task StopAiAfterFatalAsync()

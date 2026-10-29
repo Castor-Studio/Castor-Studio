@@ -1,7 +1,7 @@
 ﻿{
-  "aiServer": {
-    "endpoint": "http://127.0.0.1:50051",
-    "mediaMtxRtmpBaseUrl": "rtmp://127.0.0.1:1935/live/"
+  "aiWorker": {
+    "device": "gpu",
+    "gpuAdapter": 0
   },
   "providers": {
     "twitch": {
