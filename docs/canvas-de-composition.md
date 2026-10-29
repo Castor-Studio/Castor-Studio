@@ -253,6 +253,19 @@ y porte son icône, et sa touche en face, dessinée en touche de clavier, dans u
 commune à tout le menu. Il s'ouvre sur le nom de la source visée, sous la pastille qu'elle a
 dans la liste.
 
+Une source n'a qu'un menu (`SourceMenu`), qu'on l'ouvre sur l'image ou sur sa ligne dans la
+liste des sources. Sur une ligne, le clic droit choisit d'abord la source sur l'aperçu
+(`SceneCompositionViewModel.Select`). Le menu porte ensuite :
+
+- les commandes de composition, si le moteur compose la source — une source masquée ou
+  audio n'a rien à placer ;
+- ce qui se fait depuis la liste : renommer, lire en boucle (un fichier), et retirer de la
+  scène, en dernier et en rouge.
+
+Les cadres suivent un choix ou une commande venus de la liste sans attendre la relecture
+périodique : la composition prévient l'aperçu à chaque changement de son overlay
+(`OverlayChanged`).
+
 La **barre** sous l'image porte les mêmes commandes à la souris, rangées par ce qu'elles
 modifient :
 
