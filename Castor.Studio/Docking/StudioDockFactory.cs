@@ -86,7 +86,7 @@ public sealed partial class StudioDockFactory(object? paneContext, Func<IHostWin
         {
             Id = StudioDockIds.BottomBar,
             Orientation = Orientation.Vertical,
-            Proportion = 0.18,
+            Proportion = 0.30,
             VisibleDockables = CreateList<IDockable>(sceneSelectorDock, new ProportionalDockSplitter(), controlsRow),
         };
 

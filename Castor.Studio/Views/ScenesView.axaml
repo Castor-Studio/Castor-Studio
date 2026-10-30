@@ -261,6 +261,9 @@
 
 				<Rectangle Grid.Row="4" Fill="{DynamicResource AppBorder}"/>
 
+				<TextBlock Grid.Row="5" Text="Aucune scène" IsVisible="{Binding !Scenes.Count}"
+                               Margin="16,18" FontSize="13.5" Foreground="{DynamicResource AppFg5}"/>
+
 				<!-- Dynamic scene list -->
 				<ScrollViewer Grid.Row="5">
 					<ItemsControl ItemsSource="{Binding Scenes}">
@@ -485,9 +488,8 @@
 							</controls:EmptyState.Action>
 						</controls:EmptyState>
 
-						<Border IsVisible="{Binding ShowNoVideoSource}" Margin="16"
-                                Background="{DynamicResource AppBg}"
-                                BorderBrush="{DynamicResource AppAccentFill}" BorderThickness="1">
+						<controls:AspectFrame IsVisible="{Binding ShowNoVideoSource}" Margin="16" RatioWidth="{Binding BaseCanvasWidth}" RatioHeight="{Binding BaseCanvasHeight}">
+						<Border Background="{DynamicResource AppBg}" BorderBrush="{DynamicResource AppAccentFill}" BorderThickness="1">
 							<Panel>
 								<controls:EmptyState Title="Aucune source vidéo"
                                                      Description="Ajoutez une caméra, une capture d'écran ou une fenêtre pour afficher votre scène."
@@ -506,6 +508,7 @@
 								</Border>
 							</Panel>
 						</Border>
+						</controls:AspectFrame>
 					</Panel>
 				</Grid>
 			</Border>
@@ -600,7 +603,7 @@
 					<Grid Grid.Row="0" ColumnDefinitions="*, Auto, Auto">
 						<StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
 							<StackPanel Orientation="Horizontal" Spacing="8">
-								<TextBlock Text="SOURCES"
+								<TextBlock Text="SOURCES" ToolTip.Tip="Premier plan en haut, arrière-plan en bas"
                                        FontSize="13.5" FontWeight="SemiBold" LetterSpacing="0.4" Foreground="{DynamicResource AppFg2}"
                                        VerticalAlignment="Center"/>
 								<Border Background="{DynamicResource AppBadgeBg}" CornerRadius="10" Padding="7,1"
@@ -610,9 +613,7 @@
                                            FontSize="12" Foreground="{DynamicResource AppFg3}"/>
 								</Border>
 							</StackPanel>
-							<TextBlock Text="Premier plan en haut, arrière-plan en bas"
-                                       FontSize="11" Foreground="{DynamicResource AppFg5}"
-                                       IsVisible="{Binding !IsSourceListCustomized}"/>
+							
 						</StackPanel>
 
 						<!-- Trier / filtrer : ne change que l'affichage, jamais l'ordre de composition.

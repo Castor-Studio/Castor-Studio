@@ -889,6 +889,55 @@ public sealed class SceneCompositionViewModelTests
     private const double RotationReach = 24;
     private const double SnapReach = 10;
 
+    [Fact]
+    public void Toolbar_commands_write_to_the_engine_and_follow_its_answer()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+
+        composition.CenterSelected();
+        Assert.Empty(runtime.Writes);
+
+        composition.SelectAt(10, 10);
+        Assert.True(composition.HasSelection);
+
+        composition.CenterSelected();
+        Assert.Equal((640d, 360d), (composition.Selected!.X, composition.Selected.Y));
+
+        composition.FitSelected();
+        Assert.Equal((0d, 0d, 1920d, 1080d),
+            (composition.Selected!.X, composition.Selected.Y, composition.Selected.Width, composition.Selected.Height));
+
+        composition.RotateSelected(90);
+        Assert.Equal(90, composition.Selected!.Rotation);
+
+        composition.ResetSelected();
+        Assert.Equal(0, composition.Selected!.Rotation);
+        Assert.Equal(SourceCrop.None, composition.Selected.Crop);
+        Assert.Equal((0d, 0d, 1920d, 1080d),
+            (composition.Selected.X, composition.Selected.Y, composition.Selected.Width, composition.Selected.Height));
+    }
+
+    [Fact]
+    public void A_refused_toolbar_command_says_so_and_keeps_what_the_engine_holds()
+    {
+        var scene = SceneWith("Caméra");
+        var runtime = new FakeCompositionRuntime(scene.Id);
+        runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360));
+        var composition = new SceneCompositionViewModel(runtime);
+        composition.ShowScene(scene);
+        composition.SelectAt(10, 10);
+        runtime.Rejection = _ => "Refusé";
+
+        composition.CenterSelected();
+
+        Assert.Equal("Refusé", composition.Status);
+        Assert.Equal(0, composition.Selected!.X);
+    }
+
     private static SceneItemViewModel SceneWith(params string[] sourceNames) =>
         new(new SceneDefinition
         {

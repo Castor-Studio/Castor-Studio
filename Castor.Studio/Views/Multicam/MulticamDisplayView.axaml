@@ -41,18 +41,27 @@
 		<!-- Repère de sortie de la barre d'outils : la scène qui part, lisible sans
 		     chercher sa tuile dans le mur, avec le même code couleur que le tally. -->
 		<Style Selector="Border.output-chip">
-			<Setter Property="Background" Value="{DynamicResource AppLiveBg}"/>
-			<Setter Property="BorderBrush" Value="{DynamicResource AppLiveBorder}"/>
+			<Setter Property="Background" Value="{DynamicResource AppChipBg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppChipBorder}"/>
+		</Style>
+		<Style Selector="Border.output-chip TextBlock">
+			<Setter Property="Foreground" Value="{DynamicResource AppChipFg}"/>
 		</Style>
 		<Style Selector="Border.output-chip TextBlock.state">
-			<Setter Property="Foreground" Value="{DynamicResource StatusOkBrush}"/>
+			<Setter Property="Foreground" Value="{DynamicResource AppChipFg}"/>
 		</Style>
 		<Style Selector="Border.output-chip Ellipse">
-			<Setter Property="Fill" Value="{DynamicResource StatusOkBrush}"/>
+			<Setter Property="Fill" Value="{DynamicResource AppChipFg}"/>
 		</Style>
 		<Style Selector="Border.output-chip.live">
 			<Setter Property="Background" Value="{DynamicResource AppStopBg}"/>
 			<Setter Property="BorderBrush" Value="{DynamicResource AppStopBorder}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live TextBlock.state">
+			<Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+		</Style>
+		<Style Selector="Border.output-chip.live TextBlock">
+			<Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
 		</Style>
 		<Style Selector="Border.output-chip.live TextBlock.state">
 			<Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>

@@ -224,7 +224,7 @@
                                                                        Foreground="{DynamicResource AppFg4}" TextTrimming="CharacterEllipsis"/>
 														</StackPanel>
 														<StackPanel Grid.Row="0" Grid.Column="1" Spacing="1" HorizontalAlignment="Right">
-															<TextBlock Text="{Binding TimerText}" FontSize="12" FontFamily="Consolas"
+															<TextBlock Text="{Binding TimerText}" FontSize="12" FontWeight="Medium" FontFamily="{StaticResource AppMonoFont}"
                                                                        HorizontalAlignment="Right"
                                                                        Classes="session-state" Classes.live="{Binding IsActive}" Classes.paused="{Binding IsPaused}"/>
 															<TextBlock Text="{Binding StateText}" FontSize="10" HorizontalAlignment="Right"

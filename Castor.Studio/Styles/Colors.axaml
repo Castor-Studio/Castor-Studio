@@ -71,6 +71,14 @@
             <!-- Texte posé sur un aplat d'état (DÉMARRER, badge LIVE, suppression). -->
             <SolidColorBrush x:Key="AppOnStatusFg" Color="#07090e"/>
 
+            <!-- « Prête » : teinté en sombre, plein en clair. Le panneau Scène active n'a de pastille qu'en clair. -->
+            <SolidColorBrush x:Key="AppChipBg" Color="#0f2a22"/>
+            <SolidColorBrush x:Key="AppChipBorder" Color="#1c4a3a"/>
+            <SolidColorBrush x:Key="AppChipFg" Color="#3ddc9a"/>
+            <SolidColorBrush x:Key="AppReadyFg" Color="#2ecc8f"/>
+            <SolidColorBrush x:Key="AppReadyPillBg" Color="Transparent"/>
+            <SolidColorBrush x:Key="AppReadyPillBorder" Color="Transparent"/>
+
             <SolidColorBrush x:Key="AppLiveBg" Color="#0f2a22"/>
             <SolidColorBrush x:Key="AppLiveBorder" Color="#1c4a3a"/>
             <SolidColorBrush x:Key="AppStopBg" Color="#251218"/>
@@ -83,6 +91,8 @@
             <SolidColorBrush x:Key="AppErrorBorder" Color="#7f1d1d"/>
 
             <!-- Fluent lit ces clés pour ses cases et ses curseurs. -->
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#101320"/>
             <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#e5231b"/>
             <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#e5231b"/>
             <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="#e5231b"/>
@@ -112,7 +122,7 @@
             <SolidColorBrush x:Key="AppSurface" Color="#ffffff"/>
             <SolidColorBrush x:Key="AppChromeBg" Color="#ffffff"/>
             <SolidColorBrush x:Key="AppSurface3" Color="#fafbfd"/>
-            <SolidColorBrush x:Key="AppPanelBg" Color="#fafbfd"/>
+            <SolidColorBrush x:Key="AppPanelBg" Color="#f1f3f9"/>
             <SolidColorBrush x:Key="AppBg" Color="#f6f7fb"/>
             <SolidColorBrush x:Key="AppSidebarBg" Color="#eef0f6"/>
             <SolidColorBrush x:Key="AppAccentBg2" Color="#e6eeff"/>
@@ -151,6 +161,13 @@
             <SolidColorBrush x:Key="StatusRecBrush" Color="#b3201a"/>
             <SolidColorBrush x:Key="AppOnStatusFg" Color="#ffffff"/>
 
+            <SolidColorBrush x:Key="AppChipBg" Color="#0b6b46"/>
+            <SolidColorBrush x:Key="AppChipBorder" Color="#8fd3b5"/>
+            <SolidColorBrush x:Key="AppChipFg" Color="#e3f6ed"/>
+            <SolidColorBrush x:Key="AppReadyFg" Color="#e3f6ed"/>
+            <SolidColorBrush x:Key="AppReadyPillBg" Color="#0b6b46"/>
+            <SolidColorBrush x:Key="AppReadyPillBorder" Color="#8fd3b5"/>
+
             <SolidColorBrush x:Key="AppLiveBg" Color="#d6f3e6"/>
             <SolidColorBrush x:Key="AppLiveBorder" Color="#8fd3b5"/>
             <SolidColorBrush x:Key="AppStopBg" Color="#fce8e8"/>
@@ -163,6 +180,8 @@
             <SolidColorBrush x:Key="AppErrorBorder" Color="#e8a9a5"/>
 
             <!-- Fluent lit ces clés pour ses cases et ses curseurs. -->
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#2f5de0"/>
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#ffffff"/>
             <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#b3201a"/>
             <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#b3201a"/>
             <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="#b3201a"/>

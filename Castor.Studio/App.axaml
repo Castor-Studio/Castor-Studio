@@ -46,6 +46,8 @@
             <!-- Defaults for the "show dock titles" setting; AvaloniaDockChromeService
                  rewrites both at runtime. Declared here (not in a Styles file) so the
                  runtime write lands in the same dictionary the defaults come from. -->
+            <FontFamily x:Key="AppMonoFont">avares://Castor-Studio/Assets/Fonts#JetBrains Mono</FontFamily>
+
             <x:Boolean x:Key="CastorDockShowTitles">True</x:Boolean>
             <x:Boolean x:Key="DockDocumentControlTabStripVisible">True</x:Boolean>
 

@@ -79,6 +79,23 @@
 			<Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
 		</Style>
 
+		<!-- La pastille « Prêt » : plein en clair, simple texte vert en sombre. -->
+		<Style Selector="Border.ready-pill">
+			<Setter Property="CornerRadius" Value="14"/>
+			<Setter Property="Padding" Value="12,4"/>
+			<Setter Property="BorderThickness" Value="1"/>
+		</Style>
+		<Style Selector="Border.ready-pill.ready">
+			<Setter Property="Background" Value="{DynamicResource AppReadyPillBg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppReadyPillBorder}"/>
+		</Style>
+		<Style Selector="Border.ready-pill.ready TextBlock.session-state.ready">
+			<Setter Property="Foreground" Value="{DynamicResource AppReadyFg}"/>
+		</Style>
+		<Style Selector="Border.ready-pill.ready Ellipse.session-state.ready">
+			<Setter Property="Fill" Value="{DynamicResource AppReadyFg}"/>
+		</Style>
+
 		<Style Selector="TextBlock.duration">
 			<Setter Property="FontSize" Value="13"/>
 			<Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
@@ -121,11 +138,11 @@
                             Value="{Binding TransitionDurationStep}" VerticalAlignment="Center"/>
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
-				<StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+				<Border Grid.Column="4" Classes="ready-pill" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"><StackPanel Orientation="Horizontal" Spacing="6">
 					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
 					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
                                FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
-				</StackPanel>
+				</StackPanel></Border>
 			</Grid>
 
 			<!-- Portrait: the same controls stacked, full width. -->
@@ -154,11 +171,11 @@
                             Value="{Binding TransitionDurationStep}" VerticalAlignment="Center"/>
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
-				<StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+				<Border Classes="ready-pill" Classes.ready="{Binding !IsOnAir}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal" Spacing="6">
 					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
 					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
                                FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
-				</StackPanel>
+				</StackPanel></Border>
 			</StackPanel>
 
 		</Panel>

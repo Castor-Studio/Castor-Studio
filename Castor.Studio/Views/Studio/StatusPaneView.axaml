@@ -18,7 +18,7 @@
 			<Grid ColumnDefinitions="Auto, *, Auto, *, Auto"
                   IsVisible="{Binding #PaneRoot.Bounds, Converter={x:Static converters:IsLandscapeConverter.Instance}}">
 
-				<Border Grid.Column="0" Padding="8,4" CornerRadius="8" Margin="0,0,12,0" MinWidth="86" MinHeight="44"
+				<Border Grid.Column="0" Padding="8,4" CornerRadius="8" Margin="0,0,12,0" MinWidth="86" MaxHeight="108"
                         Background="{DynamicResource AppBg}" BorderBrush="{DynamicResource AppBorderStrong}" BorderThickness="1">
 					<StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center">
 						<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsStreaming}" VerticalAlignment="Center"/>
@@ -30,7 +30,7 @@
 
 				<TextBlock Grid.Column="2" Text="{Binding StreamTimerText}"
                            Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
-                           FontSize="15" FontFamily="Consolas"
+                           FontSize="15" FontWeight="Medium" LetterSpacing="0.6" FontFamily="{StaticResource AppMonoFont}"
                            Margin="12,0" VerticalAlignment="Center"/>
 
 				<TextBlock Grid.Column="4" Text="{Binding OutputInfoText}"
@@ -55,7 +55,7 @@
 
 				<TextBlock Text="{Binding StreamTimerText}"
                            Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
-                           FontSize="15" FontFamily="Consolas"
+                           FontSize="15" FontWeight="Medium" LetterSpacing="0.6" FontFamily="{StaticResource AppMonoFont}"
                            HorizontalAlignment="Center"/>
 
 				<TextBlock Text="{Binding OutputInfoText}"
