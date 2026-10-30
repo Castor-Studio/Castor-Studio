@@ -19,6 +19,9 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
     private readonly IAiAudioCaptureRuntime _audio;
     private readonly SemaphoreSlim _sync = new(1, 1);
 
+    // Cancelled by a stop: a start can last as long as a download, and holds _sync meanwhile.
+    private CancellationTokenSource _stopRequested = new();
+
     private string _moduleName = "";
     private AiDecisionMode _mode;
     private FrozenDictionary<Guid, string> _cameraIds = FrozenDictionary<Guid, string>.Empty;
@@ -96,6 +99,7 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
 
     public async Task StopSessionAsync(string reason, CancellationToken cancellationToken)
     {
+        await Interlocked.Exchange(ref _stopRequested, new CancellationTokenSource()).CancelAsync();
         await _sync.WaitAsync(cancellationToken);
         try
         {
@@ -169,10 +173,11 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
         _starting = true;
         _lastStartingDetail = "";
         _gpuFallbackReported = false;
+        using var start = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopRequested.Token);
         try
         {
-            if (restart) await _client.RestartAsync(session, cancellationToken);
-            else await _client.StartAsync(session, cancellationToken);
+            if (restart) await _client.RestartAsync(session, start.Token);
+            else await _client.StartAsync(session, start.Token);
         }
         catch (Exception exception)
         {
@@ -245,8 +250,12 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
 
     private string DescribeStartFailure(Exception exception)
     {
+        if (exception is AiWorkerInstallException)
+            return exception.Message;
+        if (exception is OperationCanceledException)
+            return "Démarrage de l'IA annulé.";
         if (exception is FileNotFoundException)
-            return $"Worker IA introuvable. Réinstallez Castor Studio ou définissez CASTOR_WORKER_PATH. ({exception.Message})";
+            return $"Worker IA introuvable. Vérifiez CASTOR_WORKER_PATH. ({exception.Message})";
         if (_lastStartingDetail.StartsWith("downloading", StringComparison.OrdinalIgnoreCase))
             return $"Échec du téléchargement des modèles IA ({_lastStartingDetail}) : {exception.Message}";
         if (exception is TimeoutException)

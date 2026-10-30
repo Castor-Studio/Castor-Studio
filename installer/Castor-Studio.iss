@@ -36,10 +36,11 @@ UninstallDisplayIcon={app}\{#AppExeName}
 Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
-Source: "..\artifacts\publish\*"; Excludes: "\ai"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Local AI worker (scripts\fetch-ai-worker.ps1), without models: it downloads them on first use.
-; Listed on its own so that a publish without the worker fails to compile.
-Source: "..\artifacts\publish\ai\*"; DestDir: "{app}\ai"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\artifacts\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+; Worker bundled by earlier versions: the app now downloads it to the user's profile.
+Type: filesandordirs; Name: "{app}\ai"
 
 [Tasks]
 Name: "desktopicon"; Description: "Créer un raccourci sur le bureau"; GroupDescription: "Options supplémentaires:"

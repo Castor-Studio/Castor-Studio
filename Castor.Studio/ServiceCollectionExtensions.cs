@@ -1,6 +1,7 @@
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Castor.AI;
+using Castor.AI.Providers;
 using Castor.AI.Providers.Local;
 using CastorApplication.Models.Config;
 using CastorApplication.Services;
@@ -136,42 +137,35 @@ public static class ServiceCollectionExtensions
 
     private static void AddLocalAi(IServiceCollection services)
     {
-        // Registered before AddCastorAI, which keeps it: the device comes from the app config.
-        services.AddSingleton(provider =>
-            CreateAiWorkerOptions(provider.GetRequiredService<IConfigService>().Config.AiWorker));
-        services.AddCastorAI(options =>
-            options.Client = new AiClientOptions { Dispatch = action => Dispatcher.UIThread.Post(action) });
+        services.AddSingleton(provider => new AiClient(
+            CreateAiProvider(
+                provider.GetRequiredService<IConfigService>().Config.AiWorker,
+                provider.GetRequiredService<HttpClient>()),
+            new AiClientOptions { Dispatch = action => Dispatcher.UIThread.Post(action) }));
 
         services.AddSingleton<IAiSceneFrameRuntime>(provider =>
             new LibObsAiSceneFrameRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
         services.AddSingleton<IAiAudioCaptureRuntime>(provider =>
             new LibObsAiAudioCaptureRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
-        services.AddSingleton<IAiAnalysisClient>(provider =>
-        {
-            var worker = provider.GetRequiredService<LocalWorkerOptions>();
-            try { WorkerLocator.Find(worker.WorkerPath); }
-            catch (FileNotFoundException exception)
-            {
-                return new UnavailableAiAnalysisClient($"Worker IA introuvable : {exception.Message}");
-            }
-
-            return new LocalAiAnalysisClient(
-                provider.GetRequiredService<AiClient>(),
-                provider.GetRequiredService<IAiSceneFrameRuntime>(),
-                provider.GetRequiredService<IAiAudioCaptureRuntime>());
-        });
+        services.AddSingleton<IAiAnalysisClient>(provider => new LocalAiAnalysisClient(
+            provider.GetRequiredService<AiClient>(),
+            provider.GetRequiredService<IAiSceneFrameRuntime>(),
+            provider.GetRequiredService<IAiAudioCaptureRuntime>()));
     }
 
-    private static LocalWorkerOptions CreateAiWorkerOptions(AiWorkerConfig config)
+    private static IAiProvider CreateAiProvider(AiWorkerConfig config, HttpClient http)
     {
-        // Shipped next to the app by scripts/build-dotnet.ps1 and the installer. Missing in dev:
-        // the SDK then looks at CASTOR_WORKER_PATH, then next to the app.
-        var bundled = Path.Combine(AppContext.BaseDirectory, "ai", "Castor.AI.Worker.exe");
-        return new LocalWorkerOptions
+        LocalWorkerProvider CreateWorker(string? path) => new(new LocalWorkerOptions
         {
-            WorkerPath = File.Exists(bundled) ? bundled : null,
+            WorkerPath = path,
             Device = string.Equals(config.Device?.Trim(), "cpu", StringComparison.OrdinalIgnoreCase) ? "cpu" : "gpu",
             GpuAdapter = Math.Max(0, config.GpuAdapter),
-        };
+        });
+
+        // Dev override: the SDK reads CASTOR_WORKER_PATH when it gets no path.
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CASTOR_WORKER_PATH")))
+            return CreateWorker(null);
+
+        return new InstallingWorkerProvider(new AiWorkerInstaller(http), CreateWorker);
     }
 }

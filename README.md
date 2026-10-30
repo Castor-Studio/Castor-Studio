@@ -23,11 +23,11 @@ Les paquets `LibObs` et `Castor.AI` viennent de GitHub Packages (source `castor-
 `nuget.config`) : déclarer dans sa configuration NuGet utilisateur un jeton avec `read:packages`
 pour cette source. Aucun jeton dans le repo.
 
-`build-dotnet.ps1` installe aussi le worker de l'IA locale (`Castor.AI.Worker.exe`, release
-`v<version>` de `Castor-Studio/Castor-AI-Worker`, même version que le paquet `Castor.AI`) dans
-`<sortie de l'app>/ai`. Sans lui, la page multicam signale que l'IA est indisponible ; en dev,
-`CASTOR_WORKER_PATH` peut pointer vers un worker compilé à part. Le worker télécharge ses modèles
-au premier démarrage d'un domaine (`%LOCALAPPDATA%\Castor\models`).
+Au premier démarrage de l'IA, l'app télécharge le worker de l'IA locale (`Castor.AI.Worker.exe`,
+release `v<version>` de `Castor-Studio/Castor-AI-Worker`, même version que le paquet `Castor.AI`)
+dans `%LOCALAPPDATA%\Castor\worker\<version>`. En dev, `CASTOR_WORKER_PATH` peut pointer vers un
+worker compilé à part. Le worker télécharge ses modèles au premier démarrage d'un domaine
+(`%LOCALAPPDATA%\Castor\models`).
 
 La création, le renommage et la suppression des scènes sont synchronisés avec LibObs.
 La preview, l'enregistrement et le direct Twitch utilisent également le runtime natif LibObs.
