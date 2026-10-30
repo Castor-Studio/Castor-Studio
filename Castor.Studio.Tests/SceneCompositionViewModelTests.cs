@@ -897,7 +897,7 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime);
         composition.ShowScene(scene);
 
-        // Dans l'ordre de la liste des sources : premier plan en tête.
+        // In source list order: foreground first.
         Assert.True(composition.SelectNext(1));
         Assert.Equal(Id(scene, "Overlay"), composition.Selected?.SourceId);
         Assert.True(composition.SelectNext(1));
@@ -905,11 +905,11 @@ public sealed class SceneCompositionViewModelTests
         Assert.True(composition.SelectNext(1));
         Assert.Equal(Id(scene, "Fond"), composition.Selected?.SourceId);
 
-        // Au-delà de la dernière, plus rien n'est choisi : Tab peut quitter l'aperçu.
+        // Past the last one, nothing is selected: Tab can leave the preview.
         Assert.False(composition.SelectNext(1));
         Assert.False(composition.HasSelection);
 
-        // En remontant sans sélection, on part de l'arrière-plan.
+        // Going backwards with no selection starts from the background.
         Assert.True(composition.SelectNext(-1));
         Assert.Equal(Id(scene, "Fond"), composition.Selected?.SourceId);
     }
@@ -942,7 +942,7 @@ public sealed class SceneCompositionViewModelTests
         composition.CenterSelected();
         Assert.Equal((640d, 360d), (composition.Selected!.X, composition.Selected.Y));
 
-        // 640 × 360 tient trois fois dans 1920 × 1080 : la source le remplit.
+        // 640 × 360 fits three times in 1920 × 1080: the source fills it.
         composition.FitSelected();
         var fitted = composition.Selected!;
         Assert.Equal((0d, 0d, 1920d, 1080d), (fitted.X, fitted.Y, fitted.Width, fitted.Height));
@@ -980,7 +980,7 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime, arrange: (id, arrangement) => requests.Add((id, arrangement)));
         composition.ShowScene(scene);
 
-        // Sans source choisie, rien n'est demandé.
+        // With no selected source, nothing is requested.
         composition.ArrangeSelected(SourceArrangement.ToFront);
         Assert.Empty(requests);
 
@@ -1022,7 +1022,7 @@ public sealed class SceneCompositionViewModelTests
         var changes = new List<string?>();
         composition.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
 
-        // Sans source, le curseur est à ×1 et n'écrit rien.
+        // With no source, the slider sits at ×1 and writes nothing.
         composition.SelectedZoomFactor = 2;
         Assert.Empty(runtime.ZoomWrites);
         Assert.Equal(1d, composition.SelectedZoomFactor);
@@ -1032,11 +1032,11 @@ public sealed class SceneCompositionViewModelTests
         Assert.Equal(2d, composition.SelectedZoomFactor);
         Assert.Contains(nameof(SceneCompositionViewModel.SelectedZoomFactor), changes);
 
-        // Le curseur renvoie la valeur qu'on vient de lui donner : rien de plus n'est écrit.
+        // The slider sends back the value it was just given: nothing more is written.
         composition.SelectedZoomFactor = 2;
         Assert.Single(runtime.ZoomWrites);
 
-        // Un zoom donné au clavier le fait suivre.
+        // A zoom given from the keyboard makes it follow.
         changes.Clear();
         composition.ResetSelectedZoom();
         Assert.Equal(1d, composition.SelectedZoomFactor);
@@ -1060,7 +1060,7 @@ public sealed class SceneCompositionViewModelTests
         Assert.Equal(Id(scene, "Caméra"), composition.Selected?.SourceId);
         Assert.True(changes > 0);
 
-        // Une source audio n'a pas de cadre : rien n'est choisi, pas même la précédente.
+        // An audio source has no frame: nothing is selected, not even the previous source.
         Assert.False(composition.Select(Id(scene, "Micro")));
         Assert.False(composition.HasSelection);
     }

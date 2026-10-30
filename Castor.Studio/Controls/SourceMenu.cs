@@ -9,23 +9,23 @@ using CastorApplication.ViewModels.Scenes;
 namespace CastorApplication.Controls;
 
 /// <summary>
-/// Le menu d'une source, le même qu'on l'ouvre sur l'image ou sur sa ligne dans la liste :
-/// une source n'a qu'un menu, où qu'on clique. Il s'ouvre sur son nom, porte ses commandes
-/// de composition quand le moteur la compose, puis ce qui se fait depuis la liste.
+/// The menu of a source, the same whether opened on the picture or on its row in the list: a
+/// source has one menu, wherever it is clicked. It opens on the source name, carries the
+/// composition commands when the engine composes the source, then the list actions.
 /// </summary>
 /// <remarks>
-/// Chaque commande passe par la composition comme un geste : un refus se dit sous la liste
-/// des sources, et l'aperçu suit ce que le moteur détient (voir
+/// Every command goes through the composition like a gesture: a refusal shows under the source
+/// list, and the preview follows what the engine holds (see
 /// <see cref="SceneCompositionViewModel.OverlayChanged"/>).
 /// </remarks>
 internal static class SourceMenu
 {
-    // L'écart entre un libellé et ses touches : assez pour que la colonne se lise à part.
+    // The gap between a label and its keys: enough for the column to read on its own.
     private const double KeysGap = 32;
 
-    /// <param name="source">La source visée, telle que la liste la nomme.</param>
+    /// <param name="source">The targeted source, as the list names it.</param>
     /// <param name="actions">
-    /// Ce qui se fait depuis la liste (renommer, retirer…), posé en dernier groupe.
+    /// What can be done from the list (rename, remove…), placed as the last group.
     /// </param>
     public static ContextMenu Create(
         SceneCompositionViewModel composition,
@@ -35,13 +35,13 @@ internal static class SourceMenu
         var menu = new ContextMenu
         {
             Classes = { "composition-menu" },
-            // Libellés et touches partagent leur largeur d'une ligne à l'autre : les touches
-            // tombent en colonne, chacune en face de sa commande.
+            // Labels and keys share their width across rows: the keys line up in a column, each
+            // one facing its command.
             [Grid.IsSharedSizeScopeProperty] = true
         };
         menu.Items.Add(Title(source));
 
-        // Une source que le moteur ne compose pas (masquée, audio) n'a rien à placer.
+        // A source the engine does not compose (hidden, audio) has nothing to place.
         if (composition.Selected is { } selected && selected.SourceId == source?.Id)
         {
             foreach (var item in CompositionItems(composition, selected)) menu.Items.Add(item);
@@ -58,12 +58,11 @@ internal static class SourceMenu
         return menu;
     }
 
-    /// <summary>Une ligne sans raccourci : son icône, son libellé, ce qu'elle fait.</summary>
+    /// <summary>A row with no shortcut: its icon, its label, what it does.</summary>
     /// <param name="isChecked">
-    /// Pour une bascule : tenue, elle porte une coche en face, là où les autres lignes ont
-    /// leurs touches.
+    /// For a toggle: when on, it shows a check mark where the other rows show their keys.
     /// </param>
-    /// <param name="isDanger">Une action qui retire quelque chose : elle se lit en rouge.</param>
+    /// <param name="isDanger">An action that removes something: it reads in red.</param>
     public static MenuItem Item(
         string header,
         string icon,
@@ -93,8 +92,8 @@ internal static class SourceMenu
     }
 
     /// <summary>
-    /// Une icône au trait, comme celles de la liste des sources ; sa couleur vient du style
-    /// qui porte la classe <paramref name="style"/>, qui la suit au survol et dans un mode tenu.
+    /// A stroke icon, like those of the source list. Its color comes from the style carrying the
+    /// <paramref name="style"/> class, which follows hover and held modes.
     /// </summary>
     public static Viewbox Icon(string data, string style = "menu-icon", double size = 16) => new()
     {
@@ -111,7 +110,7 @@ internal static class SourceMenu
 
     private static IEnumerable<Control> CompositionItems(SceneCompositionViewModel composition, SourceTransform selected)
     {
-        // Le rognage tenu se dit dans la ligne qui en sort : elle passe à l'accent.
+        // A held crop shows in the row that leaves it: it takes the accent color.
         var crop = Shortcut(
             composition,
             composition.IsCropMode ? "Terminer le rognage" : "Rogner",
@@ -142,8 +141,8 @@ internal static class SourceMenu
         ];
     }
 
-    // Une ligne qui a son raccourci passe par le même chemin que la touche, et la montre en
-    // face, dessinée en touches de clavier.
+    // A row with a shortcut takes the same path as the key, and shows it opposite, drawn as
+    // keycaps.
     private static MenuItem Shortcut(
         SceneCompositionViewModel composition,
         string header,
@@ -160,11 +159,11 @@ internal static class SourceMenu
         return item;
     }
 
-    // Le curseur du zoom vit dans le menu, qui reste ouvert pendant qu'on le tire : chaque
-    // cran part au moteur, et l'aperçu montre aussitôt ce qu'il en a fait.
+    // The zoom slider lives in the menu, which stays open while it is dragged: each step goes
+    // to the engine, and the preview shows the result at once.
     private static MenuItem ZoomItem(SceneCompositionViewModel composition, double factor)
     {
-        // Le facteur prend la place des touches : à droite, en colonne avec elles.
+        // The factor takes the place of the keys: on the right, in their column.
         var value = new TextBlock
         {
             Text = FormatZoom(factor),
@@ -207,15 +206,15 @@ internal static class SourceMenu
                 },
                 value)
         };
-        // Le menu enseigne le geste direct, plus rapide une fois connu.
+        // The menu teaches the direct gesture, faster once known.
         ToolTip.SetTip(item, "Sur l'aperçu : Alt + molette pour zoomer vers le pointeur, Alt + glisser pour déplacer l'image.");
         return item;
     }
 
     private static string FormatZoom(double factor) => $"×{factor:0.0}";
 
-    // Une ligne du menu : le libellé, puis ce qui se tient en face (les touches, le facteur
-    // du zoom). Les deux colonnes partagent leur largeur dans tout le menu.
+    // A menu row: the label, then what stands opposite it (the keys, the zoom factor). Both
+    // columns share their width across the whole menu.
     private static Grid Row(Control label, Control? trailing)
     {
         label.VerticalAlignment = VerticalAlignment.Center;
@@ -237,7 +236,7 @@ internal static class SourceMenu
         return row;
     }
 
-    // Chaque touche dessinée comme sur le clavier, alignées à droite de leur colonne.
+    // Each key drawn as on a keyboard, right-aligned in their column.
     private static StackPanel Keycaps(IReadOnlyList<string> keys)
     {
         var caps = new StackPanel
@@ -254,8 +253,8 @@ internal static class SourceMenu
         return caps;
     }
 
-    // La source que vise le menu, sous la pastille qu'elle porte dans la liste : sur des
-    // sources qui se chevauchent, c'est ce qui dit laquelle a été prise.
+    // The source the menu targets, with the dot it has in the list: on overlapping sources,
+    // this tells which one was picked.
     private static MenuItem Title(SourceItemViewModel? source)
     {
         var dot = new Ellipse

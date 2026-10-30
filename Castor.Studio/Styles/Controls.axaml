@@ -357,10 +357,10 @@
         <Setter Property="Fill" Value="{DynamicResource StatusWarningBrush}"/>
     </Style>
 
-    <!-- Le menu d'une source sur le canvas. Il reprend les menus de la page (12 px, lignes
-         arrondies, survol en AppSurface2) ; seules les touches ressortent, dessinées en
-         touches de clavier, en face de leur commande. Ces styles sont globaux parce que le
-         menu s'ouvre dans sa propre fenêtre, hors de l'arbre de l'aperçu. -->
+    <!-- The source menu on the canvas. It follows the page's menus (12 px, rounded rows,
+         AppSurface2 hover); only the keys stand out, drawn as keycaps facing their command.
+         These styles are global because the menu opens in its own window, outside the
+         preview's tree. -->
     <Style Selector="ContextMenu.composition-menu">
         <Setter Property="Background" Value="{DynamicResource AppSurface}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
@@ -390,7 +390,7 @@
         <Setter Property="Margin" Value="8,4"/>
     </Style>
 
-    <!-- La source que vise le menu, avec la pastille qu'elle a dans la liste. -->
+    <!-- The source the menu targets, with the dot it has in the list. -->
     <Style Selector="ContextMenu.composition-menu MenuItem.menu-title">
         <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
         <Setter Property="FontSize" Value="11"/>
@@ -407,7 +407,7 @@
         <Setter Property="Stroke" Value="{DynamicResource AppFg2}"/>
     </Style>
 
-    <!-- Un mode tenu (le rognage) : la ligne qui en sort passe à l'accent. -->
+    <!-- A held mode (crop): the row that leaves it takes the accent color. -->
     <Style Selector="ContextMenu.composition-menu MenuItem.active">
         <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
     </Style>
@@ -418,8 +418,8 @@
         <Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
     </Style>
 
-    <!-- Une action qui retire quelque chose se lit en rouge, icône comprise, comme
-         « Supprimer » dans le menu d'une scène. -->
+    <!-- An action that removes something reads in red, icon included, like "Supprimer" in
+         a scene's menu. -->
     <Style Selector="ContextMenu.composition-menu MenuItem.danger">
         <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
@@ -430,13 +430,13 @@
         <Setter Property="Stroke" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
 
-    <!-- Une bascule (boucle) : la ligne tenue porte une coche à droite, en accent. -->
+    <!-- A toggle (loop): when on, the row shows an accent check mark on the right. -->
     <Style Selector="ContextMenu.composition-menu TextBlock.menu-check">
         <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
-    <!-- Une touche : un liseré plus épais en bas lui donne le relief d'une vraie touche. -->
+    <!-- A key: a thicker bottom edge gives it the relief of a real key. -->
     <Style Selector="Border.keycap">
         <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>

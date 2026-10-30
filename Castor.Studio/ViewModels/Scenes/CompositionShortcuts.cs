@@ -2,7 +2,7 @@ using Avalonia.Input;
 
 namespace CastorApplication.ViewModels.Scenes;
 
-/// <summary>Ce qu'une touche, un bouton ou une ligne du menu demande au canvas.</summary>
+/// <summary>What a key, a button or a menu row asks of the canvas.</summary>
 public enum CompositionCommand
 {
     SelectNext,
@@ -24,24 +24,25 @@ public enum CompositionCommand
 }
 
 /// <summary>
-/// Une touche résolue : la commande, et pour <see cref="CompositionCommand.Nudge"/> le pas
-/// en pixels du canvas sur chaque axe.
+/// A resolved key: the command and, for <see cref="CompositionCommand.Nudge"/>, the step in
+/// canvas pixels on each axis.
 /// </summary>
 public readonly record struct CompositionKeyAction(CompositionCommand Command, int StepX = 0, int StepY = 0);
 
 /// <summary>
-/// Les raccourcis clavier du canvas de composition, écrits à un seul endroit : la touche
-/// qui déclenche une commande est celle que le menu et les bulles des boutons affichent. Les combinaisons reprennent celles d'OBS là où elles existent (Ctrl+D, Ctrl+F,
-/// Ctrl+R) : un opérateur qui vient d'OBS n'a rien à réapprendre.
+/// The keyboard shortcuts of the composition canvas, written in one place: the key that
+/// triggers a command is the one the menu and the button tooltips show. Combinations follow
+/// OBS where it has them (Ctrl+D, Ctrl+F, Ctrl+R): an operator coming from OBS has nothing to
+/// relearn.
 /// </summary>
 /// <remarks>
-/// Ces touches ne s'écoutent que sur l'aperçu, quand il a le clavier : une lettre seule
-/// (R, C) ne vole donc rien à un champ texte.
+/// These keys are only heard on the preview, while it has the keyboard: a single letter
+/// (R, C) therefore steals nothing from a text field.
 /// </remarks>
 public static class CompositionShortcuts
 {
-    // Un pas de flèche, et un pas avec Maj : le pixel près, puis de quoi traverser le canvas
-    // sans y passer la journée.
+    // An arrow step, and a step with Shift: pixel precision, then enough to cross the canvas
+    // without spending the day on it.
     public const int NudgeStep = 1;
     public const int LargeNudgeStep = 10;
 
@@ -64,10 +65,9 @@ public static class CompositionShortcuts
     ];
 
     /// <summary>
-    /// La commande qu'une touche demande, ou rien. Alt ne compte pas : il tient le rognage,
-    /// et une commande doit répondre pareil qu'on rogne ou non. Pour le zoom, c'est le
-    /// caractère tapé qui compte, pas la touche : « + » n'est pas au même endroit sur tous
-    /// les claviers.
+    /// The command a key asks for, or nothing. Alt does not count: it holds the crop, and a
+    /// command must answer the same whether cropping or not. For zoom, the typed character
+    /// counts, not the key: "+" is not in the same place on every keyboard.
     /// </summary>
     public static CompositionKeyAction? Resolve(Key key, KeyModifiers modifiers, string? symbol = null)
     {
@@ -87,7 +87,7 @@ public static class CompositionShortcuts
             if (binding.Key == key && binding.Modifiers == held) return new CompositionKeyAction(binding.Command);
         }
 
-        // Le zoom ne demande aucun modificateur, mais Maj peut être nécessaire pour taper « + ».
+        // Zoom needs no modifier, but Shift may be required to type "+".
         if ((held & ~KeyModifiers.Shift) != 0) return null;
 
         if (key is Key.Add or Key.OemPlus || symbol == "+") return new CompositionKeyAction(CompositionCommand.ZoomIn);
@@ -97,7 +97,7 @@ public static class CompositionShortcuts
         return null;
     }
 
-    /// <summary>Les touches d'une commande, en clair, telles que les affichent menu et bulles.</summary>
+    /// <summary>A command's keys in plain text, as the menu and tooltips show them.</summary>
     public static string KeysOf(CompositionCommand command) => command switch
     {
         CompositionCommand.ZoomIn => "+",
@@ -107,12 +107,12 @@ public static class CompositionShortcuts
         _ => Bindings.First(binding => binding.Command == command).Keys
     };
 
-    /// <summary>Une bulle de bouton : ce qu'il fait, puis la touche qui fait la même chose.</summary>
+    /// <summary>A button tooltip: what it does, then the key that does the same.</summary>
     public static string Describe(string label, CompositionCommand command) => $"{label} ({KeysOf(command)})";
 
     /// <summary>
-    /// Les touches d'une commande une à une, pour les dessiner en touches de clavier :
-    /// « Ctrl+Page↑ » donne « Ctrl », « Page↑ ». « + » reste une touche à lui seul.
+    /// A command's keys one by one, to draw them as keycaps: "Ctrl+Page↑" gives "Ctrl",
+    /// "Page↑". "+" stays a key of its own.
     /// </summary>
     public static IReadOnlyList<string> KeyTokensOf(CompositionCommand command)
     {

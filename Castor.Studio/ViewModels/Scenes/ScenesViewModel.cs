@@ -714,8 +714,8 @@ public partial class ScenesViewModel : ViewModelBase
         MoveSourceTo(scene, moved, targetIndex);
     }
 
-    // Le canvas demande un plan pour la source qu'il a choisie : il ne connaît d'elle que son
-    // identifiant, l'empilement se résout ici, comme pour les boutons de la liste.
+    // The canvas asks for a layer for its selected source: it only knows the source's id, so
+    // the stacking is resolved here.
     private void ArrangeSource(Guid sourceId, SourceArrangement arrangement)
     {
         var scene = SelectedScene;

@@ -29,14 +29,14 @@ public sealed class CompositionShortcutsTests
             CompositionShortcuts.Resolve(Key.Left, KeyModifiers.None));
         Assert.Equal(new CompositionKeyAction(CompositionCommand.Nudge, 0, 10),
             CompositionShortcuts.Resolve(Key.Down, KeyModifiers.Shift));
-        // Ctrl+flèche n'est à personne ici : la touche poursuit son chemin.
+        // Ctrl+arrow belongs to nothing here: the key carries on.
         Assert.Null(CompositionShortcuts.Resolve(Key.Left, KeyModifiers.Control));
     }
 
     [Fact]
     public void Alt_holds_the_crop_and_changes_no_command()
     {
-        // Alt enfoncé pour rogner, R tourne toujours la source.
+        // Alt held for cropping: R still rotates the source.
         Assert.Equal(CompositionCommand.RotateRight, CompositionShortcuts.Resolve(Key.R, KeyModifiers.Alt)?.Command);
         Assert.Equal(new CompositionKeyAction(CompositionCommand.Nudge, 1, 0),
             CompositionShortcuts.Resolve(Key.Right, KeyModifiers.Alt));
@@ -45,7 +45,7 @@ public sealed class CompositionShortcutsTests
     [Fact]
     public void Zoom_follows_the_typed_character_whatever_the_layout()
     {
-        // Sur un clavier AZERTY, « + » se tape avec Maj.
+        // On an AZERTY keyboard, "+" is typed with Shift.
         Assert.Equal(CompositionCommand.ZoomIn, CompositionShortcuts.Resolve(Key.OemPlus, KeyModifiers.Shift, "+")?.Command);
         Assert.Equal(CompositionCommand.ZoomOut, CompositionShortcuts.Resolve(Key.Subtract, KeyModifiers.None)?.Command);
         Assert.Equal(CompositionCommand.ResetZoom, CompositionShortcuts.Resolve(Key.D0, KeyModifiers.Shift, "0")?.Command);
@@ -62,7 +62,7 @@ public sealed class CompositionShortcutsTests
     [Fact]
     public void A_rotated_source_fits_by_the_box_that_holds_it()
     {
-        // 640 × 360 tournée d'un quart de tour occupe 360 × 640 : c'est la hauteur qui borne.
+        // 640 × 360 turned a quarter takes up 360 × 640: the height is what limits it.
         var source = new SourceTransform(Guid.NewGuid(), 500, 100, 640, 360, 1, 1, SourceCrop.None, 640, 360, true, 90);
 
         var fitted = CompositionGeometry.Preview(source, CompositionGeometry.Fit(source, 1920, 1080));

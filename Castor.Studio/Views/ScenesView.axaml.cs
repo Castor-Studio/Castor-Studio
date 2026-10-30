@@ -17,13 +17,13 @@ public partial class ScenesView : UserControl
     public ScenesView()
     {
         InitializeComponent();
-        // Le menu d'une source sur l'image porte aussi ce qui se fait depuis la liste : une
-        // source n'a qu'un menu, où qu'on clique.
+        // A source's menu on the picture also carries the list actions: a source has one menu,
+        // wherever it is clicked.
         ScenePreview.SourceActions = SourceListActions;
     }
 
-    // Clic droit sur une ligne : la source est choisie sur l'aperçu, et son menu s'ouvre —
-    // le même que sur l'image, composition comprise quand le moteur la compose.
+    // Right-click on a row: the source is selected on the preview and its menu opens, the same
+    // as on the picture, composition commands included when the engine composes it.
     private void OnSourceContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         if (sender is not Control { DataContext: SourceItemViewModel source } row) return;
@@ -35,8 +35,8 @@ public partial class ScenesView : UserControl
         e.Handled = true;
     }
 
-    // Ce qui se fait depuis la liste : renommer, la boucle d'un fichier, retirer. Retirer en
-    // dernier et en rouge, comme « Supprimer » dans le menu d'une scène.
+    // What can be done from the list: rename, a file's loop, remove. Remove comes last and in
+    // red, like "Supprimer" in a scene's menu.
     private IEnumerable<Control> SourceListActions(Guid sourceId)
     {
         if (DataContext is not ScenesViewModel viewModel) yield break;

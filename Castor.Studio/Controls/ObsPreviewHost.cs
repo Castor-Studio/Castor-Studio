@@ -223,8 +223,8 @@ public sealed class ObsPreviewHost : NativeControlHost
         if (_isAttached && Composition != null) _compositionTimer.Start();
         else _compositionTimer.Stop();
 
-        // La composition vit plus longtemps que cette vue : on ne l'écoute que tant qu'on est
-        // affiché, sans quoi elle retiendrait une vue disparue.
+        // The composition outlives this view: listen to it only while displayed, or it would
+        // keep a dead view alive.
         var observed = _isAttached ? Composition : null;
         if (observed == _observedComposition) return;
 
@@ -233,8 +233,8 @@ public sealed class ObsPreviewHost : NativeControlHost
         if (observed != null) observed.OverlayChanged += OnOverlayChanged;
     }
 
-    // Un choix ou une commande venus d'ailleurs que de l'image (la liste des sources) : les
-    // cadres suivent sans attendre la relecture périodique.
+    // A selection or command from somewhere other than the picture (the source list): the
+    // frames follow without waiting for the periodic read.
     private void OnOverlayChanged(object? sender, EventArgs e) => ShowComposition();
 
     // The interface reads the composition, the engine draws it: a native surface cannot be

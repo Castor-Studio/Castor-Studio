@@ -10,7 +10,7 @@ namespace CastorApplication.ViewModels.Scenes;
 /// </summary>
 public readonly record struct CompositionTarget(CompositionGestureKind Kind, CompositionHandle? Handle);
 
-/// <summary>Où la source choisie va dans la pile de sa scène.</summary>
+/// <summary>Where the selected source goes in its scene's stack.</summary>
 public enum SourceArrangement
 {
     Forward,
@@ -45,11 +45,11 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
     private readonly ISourceRuntime _sourceRuntime;
     private readonly TimeProvider _time;
-    // L'empilement n'est pas à la composition : la liste des sources le tient et le relit
-    // dans le moteur. Le canvas ne fait que le lui demander.
+    // Stacking does not belong to the composition: the source list holds it and reads it back
+    // from the engine. The canvas only asks it to.
     private readonly Action<Guid, SourceArrangement>? _arrange;
-    // Ce que les boutons de la barre ont reçu en dernier : ils ne sont prévenus que d'un
-    // vrai changement, pas à chaque mouvement du pointeur.
+    // What the toolbar buttons last received: they only hear of a real change, not of every
+    // pointer move.
     private bool _notifiedSelection;
     private bool _notifiedCropMode;
     private double _notifiedZoomFactor = SourceZoom.None.Factor;
@@ -179,21 +179,20 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Passe à la source suivante dans la pile — vers l'arrière-plan pour
-    /// <paramref name="direction"/> positif, vers le premier plan sinon —, dans l'ordre où la
-    /// liste des sources les range. Sans source choisie, on part du premier plan (ou de
-    /// l'arrière-plan en remontant).
+    /// Moves to the next source in the stack, in source list order: towards the background for a
+    /// positive <paramref name="direction"/>, towards the foreground otherwise. With no selected
+    /// source, it starts from the foreground (or from the background when going backwards).
     /// </summary>
     /// <returns>
-    /// Si une source est choisie au bout. Au-delà de la dernière, plus rien ne l'est : c'est
-    /// ce qui laisse Tab quitter l'aperçu au lieu d'y tourner en rond.
+    /// Whether a source ends up selected. Past the last one, nothing is: that is what lets Tab
+    /// leave the preview instead of going round in circles.
     /// </returns>
     public bool SelectNext(int direction)
     {
         if (_gesture != null || direction == 0) return HasSelection;
 
-        // La liste va de l'arrière-plan vers le premier plan : avancer dans la pile, c'est
-        // la remonter à l'envers.
+        // The list runs from background to foreground: moving forward in the stack means walking
+        // it backwards.
         var sources = Overlay.Sources;
         var current = -1;
         for (var index = 0; index < sources.Count; index++)
@@ -218,11 +217,11 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Choisit cette source, si le moteur la compose : c'est ce que fait un clic droit sur
-    /// sa ligne dans la liste. Une source qu'il ne compose pas (masquée, audio) n'a pas de
-    /// cadre à choisir ; le choix précédent tombe alors, pour ne pas viser une autre source.
+    /// Selects this source if the engine composes it: that is what a right-click on its list row
+    /// does. A source it does not compose (hidden, audio) has no frame to select; the previous
+    /// selection is then dropped, so as not to target another source.
     /// </summary>
-    /// <returns>Si la source est choisie sur le canvas.</returns>
+    /// <returns>Whether the source is selected on the canvas.</returns>
     public bool Select(Guid sourceId)
     {
         if (_gesture != null) return Selected?.SourceId == sourceId;
@@ -240,16 +239,16 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Ce que demande une touche, un bouton de la barre ou une ligne de menu : tous passent
-    /// par ici, c'est ce qui leur garantit le même effet.
+    /// What a key, a toolbar button or a menu row asks for: they all go through here, which
+    /// guarantees them the same effect.
     /// </summary>
     /// <returns>
-    /// Si la commande a servi. Sinon la touche poursuit son chemin : Tab au-delà de la
-    /// dernière source rend le focus à la page, une flèche sans source choisie navigue.
+    /// Whether the command was used. Otherwise the key carries on: Tab past the last source gives
+    /// focus back to the page, an arrow with no selected source navigates.
     /// </returns>
     public bool Execute(CompositionKeyAction action)
     {
-        // Une commande au milieu d'un geste écrirait par-dessus ce que le pointeur demande.
+        // A command in the middle of a gesture would overwrite what the pointer is asking for.
         if (_gesture != null) return false;
 
         switch (action.Command)
@@ -258,8 +257,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
                 return SelectNext(action.Command == CompositionCommand.SelectNext ? 1 : -1);
             case var _ when !HasSelection:
                 return false;
-            // En rognage, les flèches font glisser l'image zoomée sous son cadre, comme Alt +
-            // glisser à la souris ; sinon elles poussent le cadre.
+            // While cropping, arrows slide the zoomed image under its frame, like Alt + drag with
+            // the mouse; otherwise they push the frame.
             case CompositionCommand.Nudge when IsCropping && Selected is { Zoom.IsZoomed: true }:
                 NudgeSelectedZoom(Math.Sign(action.StepX), Math.Sign(action.StepY));
                 break;
@@ -681,16 +680,16 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// La source choisie se décale de <paramref name="deltaX"/>, <paramref name="deltaY"/>
-    /// pixels du canvas. Sans aimant : on pousse une source au pixel près justement pour la
-    /// poser là où l'aimant ne la mettrait pas.
+    /// The selected source shifts by <paramref name="deltaX"/>, <paramref name="deltaY"/> canvas
+    /// pixels. No snapping: a source is pushed pixel by pixel precisely to put it where snapping
+    /// would not.
     /// </summary>
     public void NudgeSelected(double deltaX, double deltaY)
     {
         if (Selected is { } selected) Apply(selected, CompositionGeometry.Move(selected, deltaX, deltaY));
     }
 
-    /// <summary>La source choisie se pose au centre du canvas.</summary>
+    /// <summary>The selected source goes to the center of the canvas.</summary>
     public void CenterSelected()
     {
         if (Selected is { } selected && HasCanvas)
@@ -698,8 +697,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// La source choisie prend la plus grande taille où elle tient entière dans le canvas,
-    /// au centre.
+    /// The selected source takes the largest size at which it fits whole in the canvas, centered.
     /// </summary>
     public void FitSelected()
     {
@@ -708,22 +706,22 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// La source choisie reprend son placement d'origine : coin haut-gauche, taille de la
-    /// source, ni rotation, ni rognage, ni zoom.
+    /// The selected source goes back to its original placement: top-left corner, source size, no
+    /// rotation, crop or zoom.
     /// </summary>
     public void ResetSelectedTransform()
     {
         if (Selected is not { } selected) return;
 
         Apply(selected, CompositionGeometry.Reset());
-        // Un placement refusé arrête là : le zoom ne part pas sur une source que le moteur
-        // n'a pas remise d'aplomb.
+        // A refused placement stops here: the zoom is not sent for a source the engine has not
+        // put back.
         if (Status.Length == 0 && Selected is { Zoom.IsZoomed: true } reset) ApplyZoom(reset, SourceZoom.None);
     }
 
     /// <summary>
-    /// La source choisie change de plan. C'est la liste des sources qui l'écrit et relit
-    /// l'empilement : la composition suit dans la foulée.
+    /// The selected source changes layer. The source list writes it and reads the stack back:
+    /// the composition follows right after.
     /// </summary>
     public void ArrangeSelected(SourceArrangement arrangement)
     {
@@ -754,17 +752,16 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Le zoom de l'image de la source choisie, tel que le moteur le détient — ×1 sans
-    /// source. C'est le curseur de la barre : l'écrire demande ce zoom au moteur, et la
-    /// valeur lue ensuite est celle qu'il a confirmée. Un zoom donné ailleurs (molette,
-    /// clavier, menu) le fait suivre.
+    /// The selected source's image zoom as the engine holds it, ×1 with no source. This is the
+    /// toolbar slider: writing it asks the engine for that zoom, and the value read afterwards
+    /// is the one it confirmed. Zoom given elsewhere (wheel, keyboard, menu) makes it follow.
     /// </summary>
     public double SelectedZoomFactor
     {
         get => Selected?.Zoom.Factor ?? SourceZoom.None.Factor;
         set
         {
-            // Le curseur renvoie la valeur qu'on vient de lui donner : rien à écrire alors.
+            // The slider sends back the value it was just given: nothing to write then.
             if (Selected is { } selected && Math.Abs(value - selected.Zoom.Factor) > 0.001) ZoomSelected(value);
         }
     }
@@ -955,9 +952,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// L'overlay a changé : l'aperçu le redonne au moteur sans attendre sa relecture
-    /// périodique. C'est ce qui fait suivre les cadres d'un choix ou d'une commande venus
-    /// d'ailleurs que de l'image — la liste des sources, par exemple.
+    /// The overlay changed: the preview hands it to the engine without waiting for its periodic
+    /// read. This is what makes frames follow a selection or command from somewhere other than
+    /// the picture, such as the source list.
     /// </summary>
     public event EventHandler? OverlayChanged;
 

@@ -131,7 +131,7 @@ public partial class StudioPreview : UserControl
             CancelGesture();
             CloseSourceMenu();
         };
-        // L'image se cale dans la place que la barre lui laisse, pas dans tout le contrôle.
+        // The picture fits the room the toolbar leaves it, not the whole control.
         Picture.SizeChanged += (_, _) => UpdatePreviewViewport();
         DescribeTools();
         PropertyChanged += (_, change) =>
@@ -298,8 +298,8 @@ public partial class StudioPreview : UserControl
 
         UpdateCropModifier(composition, e.KeyModifiers);
 
-        // Échap défait une chose à la fois : le geste en cours, puis le rognage, puis la
-        // sélection. Sans rien de tout ça, il laisse passer la touche à qui l'attend.
+        // Escape undoes one thing at a time: the current gesture, then the crop, then the
+        // selection. With none of those, the key goes on to whoever is waiting for it.
         switch (e.Key)
         {
             case Key.Escape when composition.IsGesturing:
@@ -318,15 +318,15 @@ public partial class StudioPreview : UserControl
                 return;
         }
 
-        // Une commande au milieu d'un geste écrirait par-dessus ce que le pointeur demande.
+        // A command in the middle of a gesture would overwrite what the pointer is asking for.
         if (composition.IsGesturing) return;
         if (CompositionShortcuts.Resolve(e.Key, e.KeyModifiers, e.KeySymbol) is not { } action) return;
 
         e.Handled = Execute(composition, action);
     }
 
-    // Touche, bouton de la barre et ligne du menu passent tous par la composition : c'est ce
-    // qui leur garantit le même effet. L'aperçu montre aussitôt ce qui en résulte.
+    // Keys, toolbar buttons and menu rows all go through the composition, which guarantees
+    // them the same effect. The preview shows the result at once.
     private bool Execute(SceneCompositionViewModel composition, CompositionKeyAction action)
     {
         var done = composition.Execute(action);
@@ -334,8 +334,8 @@ public partial class StudioPreview : UserControl
         return done;
     }
 
-    // Les boutons de la barre portent leur commande dans Tag. Ils ne prennent pas le
-    // clavier : l'aperçu le garde, et les raccourcis continuent de répondre après un clic.
+    // Toolbar buttons carry their command in Tag. They do not take the keyboard: the preview
+    // keeps it, so shortcuts still answer after a click.
     private void OnToolClick(object? sender, RoutedEventArgs e)
     {
         if (Composition is not { } composition || sender is not Control { Tag: CompositionCommand command }) return;
@@ -345,9 +345,9 @@ public partial class StudioPreview : UserControl
         Focus();
     }
 
-    // Chaque outil de la barre prend l'icône que sa commande porte dans le menu, devant son
-    // libellé s'il en a un ; sa bulle dit aussi la touche qui fait la même chose. Un outil
-    // qui montre déjà autre chose (le facteur du zoom) le garde.
+    // Each toolbar tool takes the icon its command has in the menu, before its label if it has
+    // one; its tooltip also names the key that does the same. A tool already showing something
+    // else (the zoom factor) keeps it.
     private void DescribeTools()
     {
         foreach (var tool in Toolbar.GetLogicalDescendants().OfType<Button>().ToList())
@@ -372,8 +372,8 @@ public partial class StudioPreview : UserControl
         }
     }
 
-    // Le curseur écrit son zoom par la composition (liaison) ; il reste à montrer au moteur
-    // l'overlay qui en découle, la mini-carte d'une source zoomée comprise.
+    // The slider writes its zoom through the composition (binding); what is left is to show the
+    // engine the resulting overlay, a zoomed source's mini-map included.
     private void OnZoomSliderChanged(object? sender, RangeBaseValueChangedEventArgs e) =>
         NativePreview.ShowComposition();
 
@@ -419,12 +419,12 @@ public partial class StudioPreview : UserControl
     }
 
     /// <summary>
-    /// Ce que la page ajoute au menu d'une source, en dernier groupe : renommer, retirer…
-    /// Non renseigné, le menu ne porte que la composition.
+    /// What the page adds to a source's menu, as the last group: rename, remove…
+    /// Left unset, the menu carries the composition commands only.
     /// </summary>
     public Func<Guid, IEnumerable<Control>>? SourceActions { get; set; }
 
-    // Le menu de la source choisie : le même qu'au clic droit sur sa ligne dans la liste.
+    // The selected source's menu: the same as a right-click on its row in the list.
     private void OpenSourceMenu(SceneCompositionViewModel composition)
     {
         var sourceId = composition.Selected!.SourceId;

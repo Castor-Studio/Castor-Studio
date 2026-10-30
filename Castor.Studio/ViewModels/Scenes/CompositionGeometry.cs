@@ -372,7 +372,7 @@ public static class CompositionGeometry
         TurnedTo(start, start.Rotation + degrees);
 
     /// <summary>
-    /// La source se pose au centre du canvas, rotation comprise : seule sa position change.
+    /// The source goes to the center of the canvas, rotation included: only its position changes.
     /// </summary>
     public static SourcePlacement CenterIn(SourceTransform start, double canvasWidth, double canvasHeight)
     {
@@ -381,9 +381,9 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// La source prend la plus grande taille où elle tient entière dans le canvas, ses
-    /// proportions gardées, et s'y pose au centre. Une source tournée s'ajuste par le
-    /// rectangle droit qui l'englobe : c'est lui qui doit tenir dans l'image.
+    /// The source takes the largest size at which it fits whole in the canvas, keeping its
+    /// proportions, and goes to the center. A rotated source fits by its upright bounding
+    /// rectangle: that is what has to fit in the picture.
     /// </summary>
     public static SourcePlacement Fit(SourceTransform start, double canvasWidth, double canvasHeight)
     {
@@ -391,15 +391,15 @@ public static class CompositionGeometry
         if (right - left <= 0 || bottom - top <= 0 || canvasWidth <= 0 || canvasHeight <= 0)
             return start.Placement;
 
-        // Le rectangle englobant grandit comme l'échelle : il suffit d'un facteur.
+        // The bounding rectangle grows with the scale: one factor is enough.
         var factor = Math.Min(canvasWidth / (right - left), canvasHeight / (bottom - top));
         var scaled = start.Placement with { ScaleX = start.ScaleX * factor, ScaleY = start.ScaleY * factor };
         return CenterIn(Preview(start, scaled), canvasWidth, canvasHeight);
     }
 
     /// <summary>
-    /// La source reprend le placement que libobs lui donne à l'ajout : dans le coin
-    /// haut-gauche, à sa taille, droite et sans rognage.
+    /// The source goes back to the placement libobs gives it when added: in the top-left corner,
+    /// at its own size, upright and uncropped.
     /// </summary>
     public static SourcePlacement Reset() => new(0, 0, 1, 1, SourceCrop.None);
 
