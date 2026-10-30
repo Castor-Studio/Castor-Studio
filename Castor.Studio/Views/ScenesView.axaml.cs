@@ -10,8 +10,8 @@ namespace CastorApplication.Views;
 
 public partial class ScenesView : UserControl
 {
-    // La source en cours de glissement. Le presse-papier de drag ne transporte que du texte,
-    // et le drop a besoin du ViewModel lui-même, pas d'un identifiant à re-résoudre.
+    // The source being dragged. The drag clipboard only carries text, and the drop needs the
+    // ViewModel itself, not an id to resolve again.
     private SourceItemViewModel? _draggedSource;
 
     public ScenesView()
@@ -84,8 +84,8 @@ public partial class ScenesView : UserControl
             viewModel.ConfirmRenameSourceCommand.Execute(null);
     }
 
-    // Seule la poignée déclenche le glissement : le reste de la ligne garde ses boutons
-    // cliquables (boucle, retrait, montée/descente).
+    // Only the handle starts a drag: the rest of the row keeps its buttons clickable (loop,
+    // remove).
     private async void OnSourceHandlePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control { DataContext: SourceItemViewModel source }) return;

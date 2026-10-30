@@ -83,9 +83,9 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="*, Auto">
-    <!-- Le pointeur ne peut pas atterrir sur la surface native : elle se déclare
-         transparente aux tests de survol, et l'hôte ne teste pas le survol. Il tombe donc
-         ici, sur le fond, qui le ramène dans le repère du canvas. -->
+    <!-- The pointer cannot land on the native surface: it declares itself transparent to
+         hit tests, and the host does not hit-test. So it falls here, on the background, which
+         brings it back to canvas coordinates. -->
     <Panel x:Name="Picture"
            Grid.Row="0"
            Background="Black"
@@ -129,8 +129,8 @@
                        Foreground="{DynamicResource VideoFgBrush}" FontSize="12" FontWeight="SemiBold"/>
         </Border>
 
-        <!-- Ce que le geste en cours écrit, près du pointeur. Une fenêtre à elle, et non une
-             couche de la page : c'est ce qui la laisse passer au-dessus de la surface native. -->
+        <!-- What the current gesture writes, near the pointer. A window of its own rather than a
+             page layer: that is what lets it pass over the native surface. -->
         <Popup x:Name="Readout"
                PlacementTarget="{Binding #Picture}"
                Placement="AnchorAndGravity"

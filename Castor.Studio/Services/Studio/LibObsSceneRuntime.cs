@@ -18,8 +18,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         bool IsMedia,
         bool ProvidesVideo)
     {
-        // libobs ne connaît qu'un rognage : celui de l'opérateur et celui du zoom y sont
-        // additionnés. On retient ce que le zoom y a ajouté pour rendre l'un sans l'autre.
+        // libobs knows a single crop: the operator's and the zoom's are added up in it. What the
+        // zoom added is kept to return one without the other.
         public SourceZoom Zoom { get; set; } = SourceZoom.None;
         public SourceCrop ZoomCrop { get; set; } = SourceCrop.None;
     }
@@ -29,9 +29,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     // taking turns on a single global one.
     private sealed class PreviewSession
     {
-        // Le thread graphique de libobs lit ce champ à chaque image pendant que le thread de
-        // l'interface le remplace : une référence s'échange d'un bloc, sans verrou — en
-        // prendre un ici s'interbloquerait avec les opérations qui attendent ce même thread.
+        // libobs's graphics thread reads this field every frame while the UI thread replaces it: a
+        // reference swaps atomically, with no lock. Taking one here would deadlock with the
+        // operations waiting on that same thread.
         private volatile CompositionOverlay _overlay = CompositionOverlay.Empty;
 
         public required ObsView View { get; init; }
@@ -41,7 +41,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         public required uint CanvasHeight { get; init; }
         public required ObsDisplay Display { get; init; }
 
-        /// <summary>Ce qui est peint par-dessus l'image de cette session.</summary>
+        /// <summary>What is painted over this session's picture.</summary>
         public CompositionOverlay Overlay
         {
             get => _overlay;
@@ -84,8 +84,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStarted;
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStopped;
     private bool _streamingStopRequested;
-    // Le canal programme (0) ne porte jamais une scène en direct : il porte cette transition,
-    // qui montre la scène du live ou de l'enregistrement et anime le passage à la suivante.
+    // The program channel (0) never carries a scene directly: it carries this transition, which
+    // shows the live or recording scene and animates the change to the next one.
     private ObsTransition? _programTransition;
     private SceneTransitionKind _programTransitionKind;
     private SceneTransition _transition = SceneTransition.Default;
@@ -387,9 +387,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                // libobs numérote ses scene items de l'arrière-plan (0) vers le premier plan,
-                // soit l'inverse du rang manipulé par l'opérateur. Le compte suivi ici est
-                // tenu en phase avec la scène native par AddSource/RemoveSource, sous ce verrou.
+                // libobs numbers its scene items from background (0) to foreground, the reverse of the rank
+                // the operator handles. The count kept here stays in step with the native scene through
+                // AddSource/RemoveSource, under this lock.
                 source.Item.SetOrderPosition(sources.Count - 1 - layerIndex);
                 return SourceRuntimeResult.Success(source.Source.Name);
             }
@@ -412,8 +412,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                // Une seule prise sous le verrou : ordre et transformations décrivent le même
-                // instant du moteur, jamais deux états entremêlés.
+                // One take under the lock: order and transforms describe the same moment of the engine,
+                // never two states mixed together.
                 var transforms = new List<SourceTransform>(sources.Count);
                 foreach (var sourceId in ReadLayerOrder(scene, sources))
                 {
@@ -447,8 +447,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
                 return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
 
-            // Une source qui n'a pas encore d'image (une caméra qui démarre) n'a pas de
-            // taille connue : son rognage ne peut être borné que par le bas.
+            // A source with no image yet (a camera starting up) has no known size: its crop can only
+            // be bounded from below.
             var crop = placement.Crop;
             var sourceWidth = (int)source.Source.Width;
             var sourceHeight = (int)source.Source.Height;
@@ -456,8 +456,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 (sourceHeight > 0 && crop.Top + crop.Bottom >= sourceHeight))
                 return SourceTransformResult.Failure("Ce rognage ne laisserait plus rien de la source.");
 
-            // Le zoom appartient à l'image, pas au cadre : il suit le cadre qu'on déplace,
-            // étire ou rogne.
+            // Zoom belongs to the image, not the frame: it follows the frame being moved, stretched or
+            // cropped.
             return Compose(sourceId, source, placement, source.Zoom, "Transformation");
         }
     }
@@ -475,8 +475,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
                 return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
 
-            // Sans image (une source audio, une caméra qui démarre), il n'y a rien à agrandir ;
-            // revenir à l'image entière, lui, reste toujours possible.
+            // With no image (an audio source, a camera starting up), there is nothing to enlarge;
+            // going back to the full image always remains possible.
             if (zoom.IsZoomed && (!source.ProvidesVideo || source.Source.Width == 0 || source.Source.Height == 0))
                 return SourceTransformResult.Failure("Cette source n'a pas d'image à zoomer.");
 
@@ -485,11 +485,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    // Écrit le cadre et le zoom d'un seul tenant, sous le verrou. Sans zoom, l'item n'a pas de
-    // bounds : sa taille est celle de la source rognée, mise à l'échelle. Avec un zoom, le
-    // rognage gagne la fenêtre zoomée et des bounds « stretch » de la taille du cadre y
-    // ramènent l'image : le cadre ne bouge pas d'un pixel. L'échelle de l'item reste celle de
-    // l'opérateur ; libobs l'ignore tant que les bounds sont posés.
+    // Writes the frame and the zoom in one go, under the lock. Without zoom, the item has no
+    // bounds: its size is the cropped source, scaled. With a zoom, the crop takes in the zoomed
+    // window and "stretch" bounds of the frame's size bring the image back: the frame does not
+    // move a pixel. The item's scale stays the operator's; libobs ignores it while bounds are set.
     private static SourceTransformResult Compose(
         Guid sourceId,
         NativeSource source,
@@ -510,9 +509,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         var previousZoomCrop = source.ZoomCrop;
         try
         {
-            // Position, échelle, rotation et bounds partent d'un bloc (obs_sceneitem_set_info2) ;
-            // l'alignement reste celui que l'item a déjà. Le rognage, lui, n'en fait pas partie
-            // dans libobs : il suit.
+            // Position, scale, rotation and bounds go together (obs_sceneitem_set_info2); alignment
+            // stays what the item already has. Crop is not part of it in libobs: it follows.
             item.ApplyTransform(previousTransform with
             {
                 Position = new ObsVector2((float)placement.X, (float)placement.Y),
@@ -534,8 +532,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
         catch (Exception exception)
         {
-            // Deux écritures côté libobs : une qui échoue après l'autre laisserait la
-            // source dans un état que personne n'a demandé. On rend l'ancien, tel quel.
+            // Two writes on the libobs side: one failing after the other would leave the source in a
+            // state nobody asked for. The old one is returned as is.
             try
             {
                 item.ApplyTransform(previousTransform);
@@ -551,8 +549,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    // Refusé avant d'approcher le moteur, comme un placement : un nombre non fini n'a aucun
-    // sens pour libobs, et un centre hors de l'image ne viserait rien.
+    // Refused before reaching the engine, like a placement: a non-finite number means nothing
+    // to libobs, and a center outside the image would aim at nothing.
     private static string? ValidateZoom(SourceZoom zoom)
     {
         if (!double.IsFinite(zoom.Factor) || zoom.Factor < SourceZoom.MinFactor || zoom.Factor > SourceZoom.MaxFactor)
@@ -564,8 +562,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         return null;
     }
 
-    // Refusé avant d'approcher le moteur : une échelle nulle ou négative ferait disparaître
-    // ou retourner la source, un nombre non fini n'a aucun sens pour libobs.
+    // Refused before reaching the engine: a zero or negative scale would make the source vanish
+    // or flip, a non-finite number means nothing to libobs.
     private static string? ValidatePlacement(SourcePlacement placement)
     {
         if (!double.IsFinite(placement.X) || !double.IsFinite(placement.Y))
@@ -583,10 +581,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         return null;
     }
 
-    // Le rectangle composé se déduit ici, au contact du moteur : c'est sa règle (taille de la
-    // source, moins le rognage, mise à l'échelle de l'item), et elle n'a rien à faire dans
-    // l'interface qui se contente ensuite de poser ce rectangle. Le rognage rendu est celui de
-    // l'opérateur : ce que le zoom a ajouté à celui de libobs en est retiré.
+    // The composed rectangle is deduced here, next to the engine: it is its rule (source size,
+    // minus the crop, item scale), and it has no place in the interface, which just places that
+    // rectangle. The crop returned is the operator's: what the zoom added to libobs's is
+    // removed from it.
     private static SourceTransform ReadTransform(Guid sourceId, NativeSource native)
     {
         var position = native.Item.Position;
@@ -621,8 +619,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         };
     }
 
-    // libobs énumère ses items de l'arrière-plan vers le premier plan ; on rend l'inverse, et
-    // traduit en identifiants applicatifs pour qu'aucun handle natif ne sorte du runtime.
+    // libobs lists its items from background to foreground; the reverse is returned, translated
+    // to application ids so no native handle leaves the runtime.
     private static IReadOnlyList<Guid> ReadLayerOrder(ObsScene scene, Dictionary<Guid, NativeSource> sources)
     {
         var sourceIdsByItemId = new Dictionary<long, Guid>(sources.Count);
@@ -643,7 +641,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
         finally
         {
-            // GetItems() prend une référence sur chaque item : à nous de les relâcher.
+            // GetItems() takes a reference on each item: releasing them is up to us.
             foreach (var item in items) item.Dispose();
         }
     }
@@ -656,8 +654,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         lock (_gate)
         {
             if (!IsAvailable) return;
-            // Contrairement à la vidéo, la transition se change en plein live : elle vaut dès
-            // le prochain changement de scène.
+            // Unlike video, the transition can change during a live: it applies from the next scene
+            // change.
             _transition = settings.ToSceneTransition();
             if (_recordings.Count > 0 || _streamingOutput != null)
             {
@@ -1303,8 +1301,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             if (_initialized)
             {
-                // Les aperçus sont fermés : les textures de leurs pastilles partent avant le
-                // contexte graphique qui les porte.
+                // Previews are closed: their badge textures go before the graphics context holding them.
                 try
                 {
                     ObsPreviewGraphics.ReleaseTextures();
@@ -1319,15 +1316,15 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    // Début d'un live ou d'un enregistrement : la scène s'affiche d'emblée, sans animation.
+    // Start of a live or recording: the scene shows at once, with no animation.
     private void ShowOnProgram(ObsScene scene)
     {
         using var sceneSource = scene.Source;
         ReplaceProgramTransition(sceneSource);
     }
 
-    // Changement de scène pendant un live ou un enregistrement : la transition choisie
-    // l'anime. Si elle a changé depuis, la nouvelle reprend la scène affichée avant de partir.
+    // Scene change during a live or recording: the selected transition animates it. If it has
+    // changed since, the new one picks up the displayed scene before starting.
     private void TransitionProgramTo(ObsScene scene)
     {
         if (_programTransition == null || _programTransitionKind != _transition.Kind)
@@ -1337,7 +1334,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
 
         using var sceneSource = scene.Source;
-        // libobs refuse de démarrer vers la scène déjà affichée : elle y est, rien à animer.
+        // libobs refuses to start towards the scene already shown: it is there, nothing to animate.
         if (!_transition.IsAnimated || !_programTransition!.Start(sceneSource, _transition.DurationMs))
             _programTransition!.Set(sceneSource);
     }
@@ -1378,7 +1375,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         try
         {
-            // Les scènes sont à la taille du canevas : la transition aussi, sinon elle les recadre.
+            // Scenes are canvas-sized: so is the transition, or it would reframe them.
             transition.SetSize(_videoSettings?.BaseWidth ?? 1920, _videoSettings?.BaseHeight ?? 1080);
             return transition;
         }
@@ -1529,7 +1526,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         try
         {
             output = ObsOutput.Create(FfmpegOutputId, $"castor-record-output-{sessionId:N}", settings);
-            // Une sortie ffmpeg brute ne crée ses pistes audio que pour les mixes demandés.
+            // A raw ffmpeg output only creates its audio tracks for the requested mixes.
             output.Mixers = 1;
             return new(output, null, null);
         }

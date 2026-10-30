@@ -3,9 +3,8 @@ using CastorApplication.Models.Studio;
 namespace CastorApplication.ViewModels.Scenes;
 
 /// <summary>
-/// Les huit poignées d'une source, dans l'ordre où le moteur les peint : dans le sens des
-/// aiguilles d'une montre depuis le coin haut-gauche (voir
-/// <c>ObsPreviewGraphics.HandleRects</c>).
+/// The eight handles of a source, in the order the engine paints them: clockwise from the
+/// top-left corner (see <c>ObsPreviewGraphics.HandleRects</c>).
 /// </summary>
 public enum CompositionHandle
 {
@@ -20,9 +19,9 @@ public enum CompositionHandle
 }
 
 /// <summary>
-/// Ce qu'un geste sur le canvas fait à une source : la déplacer, l'étirer par une poignée,
-/// la rogner par une poignée, la faire tourner par un de ses coins, faire glisser son
-/// image zoomée sous son cadre, ou viser un point de cette image sur sa mini-carte.
+/// What a gesture on the canvas does to a source: move it, stretch it by a handle, crop it by
+/// a handle, rotate it by a corner, slide its zoomed image under its frame, or aim at a point
+/// of that image on its mini-map.
 /// </summary>
 public enum CompositionGestureKind
 {
@@ -35,32 +34,32 @@ public enum CompositionGestureKind
 }
 
 /// <summary>
-/// Le placement qu'un geste demande au moteur. Tout part de la transformation lue au
-/// début du geste et de la position du pointeur depuis : un geste recalculé depuis son
-/// origine à chaque mouvement ne dérive pas, quel que soit le nombre de mouvements.
+/// The placement a gesture requests from the engine. Everything starts from the transform
+/// read at the start of the gesture and the pointer position since: a gesture recomputed from
+/// its origin on every move does not drift, however many moves there are.
 /// </summary>
 /// <remarks>
-/// Une source tourne autour de son point (X, Y), le coin haut-gauche, comme libobs la
-/// compose. Étirer et rogner se comptent donc dans le repère de la source — le long de ses
-/// propres bords, pas de ceux du canvas — puis reviennent au canvas par la même rotation.
+/// A source turns around its point (X, Y), the top-left corner, as libobs composes it.
+/// Stretching and cropping therefore count in the source's coordinates, along its own edges
+/// rather than the canvas's, then return to the canvas by the same rotation.
 /// <para>
-/// Rien ici n'est retenu : c'est une proposition, que le moteur confirme ou refuse. Les
-/// sources retournées (échelle négative) ne sont pas composées, donc jamais saisies.
+/// Nothing is kept here: this is a proposal, which the engine confirms or refuses. Flipped
+/// sources (negative scale) are not composed, so never grabbed.
 /// </para>
 /// </remarks>
 public static class CompositionGeometry
 {
     /// <summary>
-    /// Plus petit côté, en pixels du canvas, auquel un étirement peut réduire une source :
-    /// en dessous, ses poignées se recouvrent et elle ne se saisit plus.
+    /// Smallest side, in canvas pixels, a stretch can reduce a source to: below it, its handles
+    /// overlap and it can no longer be grabbed.
     /// </summary>
     public const double MinimumExtent = 8;
 
-    /// <summary>Pas d'une rotation contrainte, en degrés.</summary>
+    /// <summary>Step of a constrained rotation, in degrees.</summary>
     public const double RotationStep = 15;
 
-    // Les angles d'abord : sur une source assez petite pour que les poignées se chevauchent,
-    // c'est l'angle qui l'emporte, puisqu'il tire les deux bords à la fois.
+    // Corners first: on a source small enough for handles to overlap, the corner wins, since it
+    // pulls both edges at once.
     private static readonly CompositionHandle[] HitOrder =
     [
         CompositionHandle.TopLeft,
@@ -82,8 +81,7 @@ public static class CompositionGeometry
     ];
 
     /// <summary>
-    /// La poignée de cette source sous ce point du canvas, à <paramref name="tolerance"/>
-    /// près, ou aucune.
+    /// This source's handle under this canvas point, within <paramref name="tolerance"/>, or none.
     /// </summary>
     public static CompositionHandle? HandleAt(SourceTransform source, double x, double y, double tolerance)
     {
@@ -99,9 +97,9 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// Le coin dont ce point du canvas tombe dans la zone de rotation : à l'extérieur de la
-    /// source, à moins de <paramref name="reach"/> de ce coin. À l'intérieur de la source,
-    /// le même point la déplace ; c'est ce qui sépare les deux gestes sans rien peindre.
+    /// The corner whose rotation area this canvas point falls in: outside the source, within
+    /// <paramref name="reach"/> of that corner. Inside the source, the same point moves it; that
+    /// separates the two gestures without painting anything.
     /// </summary>
     public static CompositionHandle? RotationCornerAt(SourceTransform source, double x, double y, double reach)
     {
@@ -118,29 +116,29 @@ public static class CompositionGeometry
         return null;
     }
 
-    /// <summary>Si ce point du canvas tombe dans le rectangle composé de la source.</summary>
+    /// <summary>Whether this canvas point falls in the source's composed rectangle.</summary>
     public static bool Contains(SourceTransform source, double x, double y)
     {
         var (u, v) = ToLocal(source, x, y);
         return u >= 0 && u <= source.Width && v >= 0 && v <= source.Height;
     }
 
-    /// <summary>Le centre de la source dans le canvas, autour duquel elle tourne à la main.</summary>
+    /// <summary>The source's center in the canvas, around which it turns by hand.</summary>
     public static (double X, double Y) Center(SourceTransform source) =>
         ToCanvas(source, source.Width / 2, source.Height / 2);
 
     /// <summary>
-    /// Accroche une source qu'on déplace aux lignes qui comptent : bords et centre du
-    /// canvas, bords et centres des autres sources. Sur chaque axe, le bord ou le centre de
-    /// la source le plus proche d'une ligne, à moins de <paramref name="reach"/>, s'y pose.
+    /// Snaps a moving source to the lines that matter: canvas edges and center, edges and centers
+    /// of the other sources. On each axis, the source edge or center closest to a line, within
+    /// <paramref name="reach"/>, lands on it.
     /// </summary>
     /// <returns>
-    /// Le placement accroché, et les lignes sur lesquelles la source tombe désormais : ce
-    /// sont elles que l'overlay trace en guides.
+    /// The snapped placement, and the lines the source now falls on: those are what the overlay
+    /// draws as guides.
     /// </returns>
     /// <remarks>
-    /// Une source tournée s'accroche par le rectangle droit qui l'englobe : c'est ce que
-    /// l'œil aligne. Seule la position change ; un aimant ne redimensionne rien.
+    /// A rotated source snaps by its upright bounding rectangle: that is what the eye aligns. Only
+    /// the position changes; a snap resizes nothing.
     /// </remarks>
     public static (SourcePlacement Placement, IReadOnlyList<CompositionGuide> Guides) Snap(
         SourceTransform start,
@@ -183,8 +181,8 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// Le rectangle droit qui englobe la source dans le canvas, rotation comprise : gauche,
-    /// haut, droite, bas.
+    /// The upright rectangle bounding the source in the canvas, rotation included: left, top,
+    /// right, bottom.
     /// </summary>
     public static (double Left, double Top, double Right, double Bottom) Bounds(SourceTransform source)
     {
@@ -206,8 +204,8 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// La direction, en degrés dans le canvas, dans laquelle tire cette poignée : 0 vers la
-    /// droite, 90 vers le bas. Elle tourne avec la source — c'est ce qui choisit le curseur.
+    /// The direction, in canvas degrees, this handle pulls in: 0 to the right, 90 down. It turns
+    /// with the source: this is what picks the cursor.
     /// </summary>
     public static double PullDirection(CompositionHandle handle, double rotation)
     {
@@ -215,8 +213,8 @@ public static class CompositionGeometry
         return NormalizeDegrees(Math.Atan2(sideY, sideX) * 180 / Math.PI + rotation);
     }
 
-    // Le plus petit déplacement qui pose un des repères de la source sur une ligne, à
-    // moins de reach ; aucun si rien n'est assez près.
+    // The smallest move putting one of the source's markers on a line, within reach; none if
+    // nothing is close enough.
     private static double? Nearest(double[] features, List<double> lines, double reach)
     {
         double? best = null;
@@ -233,8 +231,8 @@ public static class CompositionGeometry
         return best;
     }
 
-    // Toutes les lignes sur lesquelles la source tombe une fois accrochée : un centre et un
-    // bord peuvent s'aligner en même temps, chacun mérite son guide.
+    // All the lines the source falls on once snapped: a center and an edge can align at the same
+    // time, each deserves its guide.
     private static void AddGuides(
         List<CompositionGuide> guides,
         bool isVertical,
@@ -257,14 +255,14 @@ public static class CompositionGeometry
         }
     }
 
-    /// <summary>La source suit le pointeur ; échelle, rognage et rotation ne bougent pas.</summary>
+    /// <summary>The source follows the pointer; scale, crop and rotation do not move.</summary>
     public static SourcePlacement Move(SourceTransform start, double deltaX, double deltaY) =>
         start.Placement with { X = start.X + deltaX, Y = start.Y + deltaY };
 
     /// <summary>
-    /// La poignée tirée emmène son ou ses bords, le bord opposé reste où il est. Un angle
-    /// garde les proportions de la source, sauf si <paramref name="keepAspectRatio"/> est
-    /// faux ; un côté n'étire que son axe.
+    /// The pulled handle takes its edge or edges with it, the opposite edge stays where it is. A
+    /// corner keeps the source's proportions, unless <paramref name="keepAspectRatio"/> is false;
+    /// a side only stretches its own axis.
     /// </summary>
     public static SourcePlacement Resize(
         SourceTransform start,
@@ -282,15 +280,15 @@ public static class CompositionGeometry
 
         if (keepAspectRatio && sideX != 0 && sideY != 0)
         {
-            // Le bord le plus tiré décide : c'est lui que l'opérateur est en train de viser.
+            // The most pulled edge decides: that is the one the operator is aiming at.
             var factor = Math.Max(width / start.Width, height / start.Height);
             factor = Math.Max(factor, MinimumExtent / Math.Min(start.Width, start.Height));
             width = start.Width * factor;
             height = start.Height * factor;
         }
 
-        // Le coin d'origine glisse d'autant que le bord gauche ou haut a avancé, dans le
-        // repère de la source : c'est ce qui laisse le bord opposé en place, même tournée.
+        // The origin corner slides as far as the left or top edge advanced, in source coordinates:
+        // that keeps the opposite edge in place, even when rotated.
         var (x, y) = ToCanvas(start,
             sideX < 0 ? start.Width - width : 0,
             sideY < 0 ? start.Height - height : 0);
@@ -305,9 +303,9 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// La poignée tirée rogne ou rend l'image de son côté, sans changer l'échelle : le bord
-    /// suit le pointeur et l'image reste en place sous lui. Le rognage ne descend jamais sous
-    /// zéro et laisse toujours au moins un pixel de la source.
+    /// The pulled handle crops or gives back the image on its side, without changing the scale:
+    /// the edge follows the pointer and the image stays in place under it. The crop never goes
+    /// below zero and always leaves at least one source pixel.
     /// </summary>
     public static SourcePlacement Crop(
         SourceTransform start,
@@ -321,7 +319,7 @@ public static class CompositionGeometry
         var (deltaU, deltaV) = Turn(deltaX, deltaY, -start.Rotation);
         var crop = start.Crop;
 
-        // Le rognage se compte en pixels de la source, avant mise à l'échelle.
+        // Crop counts in source pixels, before scaling.
         var sourceDeltaX = (int)Math.Round(deltaU / start.ScaleX);
         var sourceDeltaY = (int)Math.Round(deltaV / start.ScaleY);
 
@@ -339,16 +337,16 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// Ôte tout rognage, sans rien décaler de ce qui était visible : la source reprend sa
-    /// taille entière, la partie déjà montrée reste où elle était.
+    /// Removes all crop without shifting what was visible: the source returns to its full size,
+    /// the part already shown stays where it was.
     /// </summary>
     public static SourcePlacement ResetCrop(SourceTransform start) =>
         WithCropOrigin(start, start.Placement with { Crop = SourceCrop.None });
 
     /// <summary>
-    /// La source tourne autour de son centre, de l'angle que le pointeur a parcouru autour
-    /// de ce centre depuis <paramref name="originX"/>, <paramref name="originY"/>.
-    /// <paramref name="constrain"/> ramène l'angle au pas de <see cref="RotationStep"/>.
+    /// The source turns around its center, by the angle the pointer traveled around that center
+    /// since <paramref name="originX"/>, <paramref name="originY"/>.
+    /// <paramref name="constrain"/> brings the angle to the <see cref="RotationStep"/> step.
     /// </summary>
     public static SourcePlacement Rotate(
         SourceTransform start,
@@ -367,7 +365,7 @@ public static class CompositionGeometry
         return TurnedTo(start, rotation);
     }
 
-    /// <summary>La source tourne de <paramref name="degrees"/> autour de son centre.</summary>
+    /// <summary>The source turns by <paramref name="degrees"/> around its center.</summary>
     public static SourcePlacement RotateBy(SourceTransform start, double degrees) =>
         TurnedTo(start, start.Rotation + degrees);
 
@@ -404,10 +402,9 @@ public static class CompositionGeometry
     public static SourcePlacement Reset() => new(0, 0, 1, 1, SourceCrop.None);
 
     /// <summary>
-    /// L'image zoomée glisse sous le cadre avec le pointeur, comme une photo qu'on pousse du
-    /// doigt : le point visé part dans l'autre sens. Le déplacement se compte le long des
-    /// bords de la source, et le point visé s'arrête là où la fenêtre zoomée touche le bord
-    /// de l'image.
+    /// The zoomed image slides under the frame with the pointer, like a photo pushed with a
+    /// finger: the aimed point goes the other way. The move counts along the source's edges, and
+    /// the aimed point stops where the zoomed window touches the edge of the image.
     /// </summary>
     public static SourceZoom Pan(SourceTransform start, double deltaX, double deltaY)
     {
@@ -415,8 +412,8 @@ public static class CompositionGeometry
         if (!zoom.IsZoomed || start.Width <= 0 || start.Height <= 0) return zoom;
 
         var (u, v) = Turn(deltaX, deltaY, -start.Rotation);
-        // Le cadre montre 1 / Factor de l'image : un cadre entier parcouru en déplace autant.
-        // Le glissement part du point que le moteur montre vraiment, pas d'un point hors d'atteinte.
+        // The frame shows 1 / Factor of the image: crossing a whole frame moves it by that much. The
+        // slide starts from the point the engine really shows, not an out-of-reach point.
         var shown = zoom.Aimed(zoom.CenterX, zoom.CenterY);
         return shown.Aimed(
             shown.CenterX - u / start.Width / zoom.Factor,
@@ -424,22 +421,22 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// Le zoom passe à <paramref name="factor"/> en gardant fixe le point de l'image qui est
-    /// sous (<paramref name="x"/>, <paramref name="y"/>) dans le canvas, comme une carte qu'on
-    /// zoome vers le pointeur. Le point visé reste là où la fenêtre zoomée tient dans l'image.
+    /// The zoom goes to <paramref name="factor"/>, holding fixed the image point under
+    /// (<paramref name="x"/>, <paramref name="y"/>) in the canvas, like a map zoomed towards the
+    /// pointer. The aimed point stays where the zoomed window fits in the image.
     /// </summary>
     public static SourceZoom ZoomAt(SourceTransform start, double x, double y, double factor)
     {
         if (factor <= SourceZoom.MinFactor) return SourceZoom.None;
         if (start.Width <= 0 || start.Height <= 0) return start.Zoom with { Factor = factor };
 
-        // Où tombe le pointeur dans le cadre, de 0 à 1 le long de ses bords.
+        // Where the pointer falls in the frame, from 0 to 1 along its edges.
         var (u, v) = ToLocal(start, x, y);
         var frameX = Math.Clamp(u / start.Width, 0, 1);
         var frameY = Math.Clamp(v / start.Height, 0, 1);
 
-        // Le point de l'image sous le pointeur se lit dans la fenêtre d'avant ; la nouvelle se
-        // pose autour de lui pour le garder au même endroit du cadre.
+        // The image point under the pointer is read in the previous window; the new one is placed
+        // around it to keep it at the same spot of the frame.
         var before = start.Zoom.Aimed(start.Zoom.CenterX, start.Zoom.CenterY);
         var imageX = before.CenterX + (frameX - 0.5) / before.Factor;
         var imageY = before.CenterY + (frameY - 0.5) / before.Factor;
@@ -448,7 +445,7 @@ public static class CompositionGeometry
             imageY - (frameY - 0.5) / factor);
     }
 
-    /// <summary>Un angle ramené dans ]-180, 180] : un tour complet ne tourne rien.</summary>
+    /// <summary>An angle brought into ]-180, 180]: a full turn turns nothing.</summary>
     public static double NormalizeDegrees(double degrees)
     {
         var normalized = Math.IEEERemainder(degrees, 360);
@@ -456,9 +453,9 @@ public static class CompositionGeometry
     }
 
     /// <summary>
-    /// Ce que le moteur composera pour ce placement, à la même règle que lui (taille de la
-    /// source, moins le rognage, mise à l'échelle, puis rotation). Sert à montrer le geste
-    /// avant que le moteur ne l'ait confirmé ; c'est sa réponse, ensuite, qui fait foi.
+    /// What the engine will compose for this placement, by its own rule (source size, minus the
+    /// crop, scaled, then rotated). Used to show the gesture before the engine confirms it; its
+    /// answer is what counts afterwards.
     /// </summary>
     public static SourceTransform Preview(SourceTransform start, SourcePlacement placement)
     {
@@ -478,20 +475,20 @@ public static class CompositionGeometry
         };
     }
 
-    /// <summary>Ce point du canvas, dans le repère de la source : origine au point (X, Y).</summary>
+    /// <summary>This canvas point, in source coordinates: origin at point (X, Y).</summary>
     public static (double U, double V) ToLocal(SourceTransform source, double x, double y) =>
         Turn(x - source.X, y - source.Y, -source.Rotation);
 
-    /// <summary>Ce point du repère de la source, dans le canvas.</summary>
+    /// <summary>This source-coordinate point, in the canvas.</summary>
     public static (double X, double Y) ToCanvas(SourceTransform source, double u, double v)
     {
         var (x, y) = Turn(u, v, source.Rotation);
         return (source.X + x, source.Y + y);
     }
 
-    // Le point d'origine suit le bord gauche et le bord haut : rogner ou rendre ces bords
-    // déplace l'origine d'autant, dans le repère de la source, pour que l'image reste en
-    // place sous le bord qui bouge.
+    // The origin point follows the left and top edges: cropping or giving back those edges moves
+    // the origin by as much, in source coordinates, so the image stays in place under the moving
+    // edge.
     private static SourcePlacement WithCropOrigin(SourceTransform start, SourcePlacement placement)
     {
         var (x, y) = ToCanvas(start,
@@ -500,7 +497,7 @@ public static class CompositionGeometry
         return placement with { X = x, Y = y };
     }
 
-    // Le centre reste où il est : c'est l'origine qui tourne autour de lui.
+    // The center stays where it is: the origin is what turns around it.
     private static SourcePlacement TurnedTo(SourceTransform start, double rotation)
     {
         rotation = NormalizeDegrees(rotation);
@@ -509,8 +506,8 @@ public static class CompositionGeometry
         return start.Placement with { X = centerX - halfX, Y = centerY - halfY, Rotation = rotation };
     }
 
-    // Une rotation de degrés dans le repère du canvas, dont l'axe vertical descend : un angle
-    // positif tourne dans le sens des aiguilles d'une montre, comme dans libobs.
+    // A rotation in degrees in canvas coordinates, whose vertical axis points down: a positive
+    // angle turns clockwise, as in libobs.
     private static (double X, double Y) Turn(double x, double y, double degrees)
     {
         if (degrees == 0) return (x, y);
@@ -521,8 +518,8 @@ public static class CompositionGeometry
         return (x * cos - y * sin, x * sin + y * cos);
     }
 
-    // Quels bords une poignée emmène : -1 le bord gauche ou haut, +1 le bord droit ou bas,
-    // 0 aucun sur cet axe.
+    // Which edges a handle takes along: -1 the left or top edge, +1 the right or bottom edge,
+    // 0 none on that axis.
     private static (int X, int Y) Sides(CompositionHandle handle) => handle switch
     {
         CompositionHandle.TopLeft => (-1, -1),
@@ -535,7 +532,7 @@ public static class CompositionGeometry
         _ => (-1, 0)
     };
 
-    // Le point d'une poignée dans le repère de la source.
+    // A handle's point in source coordinates.
     private static (double U, double V) HandlePoint(SourceTransform source, CompositionHandle handle)
     {
         var (sideX, sideY) = Sides(handle);

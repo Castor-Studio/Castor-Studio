@@ -112,43 +112,42 @@ internal interface ISourceRuntime
     SourceRuntimeResult RenameSource(Guid sceneId, Guid sourceId, string requestedName);
 
     /// <summary>
-    /// Ordre d'empilement que le moteur détient pour cette scène, du premier plan vers
-    /// l'arrière-plan. C'est la seule vérité sur l'ordre : rien ne doit le recalculer ailleurs.
+    /// Stacking order the engine holds for this scene, from foreground to background. This is
+    /// the only truth about order: nothing else must compute it.
     /// </summary>
     SourceOrderResult GetSourceOrder(Guid sceneId);
 
     /// <summary>
-    /// Place une source au rang <paramref name="layerIndex"/> de cet ordre, où 0 est le
-    /// premier plan. Le moteur reste seul à connaître sa propre numérotation interne.
+    /// Places a source at rank <paramref name="layerIndex"/> of this order, where 0 is the
+    /// foreground. Only the engine knows its own internal numbering.
     /// </summary>
     SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex);
 
     /// <summary>
-    /// Composition que le moteur rend pour cette scène : la taille de son canvas et la
-    /// transformation de chaque source, dans l'ordre d'empilement (rang 0 = premier plan).
-    /// Tout est lu d'un seul tenant, pour que l'interface dessine un état cohérent plutôt
-    /// qu'un assemblage de lectures prises à des instants différents.
+    /// Composition the engine returns for this scene: its canvas size and each source's
+    /// transform, in stacking order (rank 0 = foreground). Everything is read in one go, so the
+    /// interface draws a consistent state rather than reads taken at different moments.
     /// </summary>
     SceneCompositionResult GetSceneComposition(Guid sceneId);
 
     /// <summary>
-    /// Donne à une source ce placement — position, échelle, rognage — d'un seul tenant, et
-    /// rend la transformation que le moteur compose ensuite. C'est cette valeur confirmée, et
-    /// non celle demandée, qui décrit ce qui est rendu.
+    /// Gives a source this placement (position, scale, crop) in one go, and returns the transform
+    /// the engine then composes. That confirmed value, not the requested one, describes what is
+    /// rendered.
     /// </summary>
     /// <remarks>
-    /// Un placement refusé ne touche à rien : la source garde exactement la transformation
-    /// qu'elle avait, jamais un mélange de l'ancienne et de la nouvelle.
+    /// A refused placement touches nothing: the source keeps exactly the transform it had, never
+    /// a mix of the old and the new.
     /// </remarks>
     SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement);
 
     /// <summary>
-    /// Zoome l'image d'une source dans son cadre, sans toucher au cadre lui-même, et rend la
-    /// transformation confirmée. Le zoom suit ensuite la source : déplacer, étirer ou rogner
-    /// le cadre le garde. <see cref="SourceZoom.None"/> rend l'image entière.
+    /// Zooms a source's image inside its frame, without touching the frame itself, and returns
+    /// the confirmed transform. The zoom then follows the source: moving, stretching or cropping
+    /// the frame keeps it. <see cref="SourceZoom.None"/> gives back the full image.
     /// </summary>
     /// <remarks>
-    /// Un zoom refusé ne touche à rien, comme un placement refusé.
+    /// A refused zoom touches nothing, like a refused placement.
     /// </remarks>
     SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom);
 }
