@@ -75,7 +75,7 @@
 		</Style>
 	</Border.Styles>
 
-	<Grid RowDefinitions="Auto, *, Auto">
+	<Grid RowDefinitions="Auto, *, Auto, Auto">
 
 		<!-- Le titre tient dans un bandeau réservé, jamais en surimpression : la surface
 		     native est une fenêtre enfant Win32, Windows la compose au-dessus de tout ce
@@ -129,9 +129,29 @@
 			</StackPanel>
 		</Panel>
 
+		<!-- Ce que l'IA sait de la scène, tant qu'elle la lit : le micro de la personne filmée et,
+		     en podcast, son rôle. Hors de l'aperçu : la surface native passerait par-dessus. -->
+		<Border Grid.Row="2" IsVisible="{Binding ShowAiSetup}"
+                Background="{DynamicResource AppSurface3}" Padding="8,5,8,0">
+			<Grid ColumnDefinitions="*, Auto">
+				<ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
+                          IsVisible="{Binding ShowAiMicrophone}"
+                          ItemsSource="{Binding AiMicrophoneOptions}"
+                          SelectedItem="{Binding AiMicrophone}"
+                          ToolTip.Tip="Micro de la personne filmée, écouté par l'IA"
+                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="11"/>
+				<ComboBox Grid.Column="1" MinWidth="120" Margin="6,0,0,0"
+                          IsVisible="{Binding ShowAiRole}"
+                          ItemsSource="{Binding AiRoleOptions}"
+                          SelectedItem="{Binding AiRole}"
+                          ToolTip.Tip="Rôle de la personne filmée dans le podcast"
+                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="11"/>
+			</Grid>
+		</Border>
+
 		<!-- Le pied appartient à l'IA : la pastille qui inclut la scène dans l'analyse et,
 		     en mode agent, la suggestion à valider, là où se trouve la scène proposée. -->
-		<Border Grid.Row="2" Classes="foot"
+		<Border Grid.Row="3" Classes="foot"
                 Background="{DynamicResource AppSurface3}" Padding="12,5,8,5" MinHeight="34"
                 CornerRadius="0,0,7,7">
 			<Grid ColumnDefinitions="*, Auto, Auto">

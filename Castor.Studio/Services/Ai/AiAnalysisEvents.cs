@@ -1,7 +1,8 @@
-using Castor.IA.Proto;
+using Castor.AI.Providers;
 
 namespace CastorApplication.Services.Ai;
 
-internal sealed record AiSceneSwitchEvent(string SceneId, float Confidence);
-internal sealed record AiSessionStatusEvent(SessionState State, string Message);
+/// <summary>A scene picked by the AI, with how sure it is.</summary>
+internal sealed record AiSceneSwitchEvent(Guid SceneId, float Confidence);
+internal sealed record AiSessionStatusEvent(AiConnectionState State, string Message);
 internal sealed record AiServerErrorEvent(string ErrorCode, string ErrorMessage, bool IsFatal);

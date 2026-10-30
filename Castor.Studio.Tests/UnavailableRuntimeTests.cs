@@ -21,9 +21,9 @@ public sealed class UnavailableRuntimeTests
     [Fact]
     public void Ai_client_is_explicitly_unavailable()
     {
-        var client = new UnavailableAiAnalysisClient();
+        var client = new UnavailableAiAnalysisClient("Worker IA introuvable");
 
         Assert.False(client.IsAvailable);
-        Assert.Contains("LibObs", client.UnavailableMessage);
+        Assert.Equal("Worker IA introuvable", client.UnavailableMessage);
     }
 }

@@ -41,7 +41,10 @@ public partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 _services.GetRequiredService<StudioDockViewModel>().SaveLayout();
-                ShutdownServicesAsync(_services).GetAwaiter().GetResult();
+                // Off the UI thread: blocking it here while the shutdown awaits a continuation
+                // posted back to it (stopping the AI worker does) would never return.
+                var services = _services;
+                Task.Run(() => ShutdownServicesAsync(services)).GetAwaiter().GetResult();
                 _services = null;
             };
         }
@@ -51,11 +54,9 @@ public partial class App : Application
 
     private static async Task ShutdownServicesAsync(ServiceProvider services)
     {
-        // Keep this order: the AI session owns the auxiliary outputs, and libobs must
-        // not be shut down while recording or an AI output still holds native handles.
+        // Keep this order: the AI session owns the scene renders it reads, and libobs must
+        // not be shut down while recording or an AI render still holds native handles.
         try { await services.GetRequiredService<IAiAnalysisClient>().StopSessionAsync("desktop_exit", CancellationToken.None); }
-        catch { }
-        try { await services.GetRequiredService<IAiSceneStreamRuntime>().StopAllAsync(CancellationToken.None); }
         catch { }
 
         var workspace = services.GetRequiredService<ViewModels.Studio.StudioWorkspaceViewModel>();
@@ -72,6 +73,7 @@ public partial class App : Application
 
         try { await services.GetRequiredService<IAiAnalysisClient>().DisposeAsync(); }
         catch { }
-        services.Dispose();
+        // AiClient (Castor.AI) is only IAsyncDisposable: a synchronous Dispose would throw.
+        await services.DisposeAsync();
     }
 }

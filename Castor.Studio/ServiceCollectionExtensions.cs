@@ -1,4 +1,8 @@
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using Castor.AI;
+using Castor.AI.Providers.Local;
+using CastorApplication.Models.Config;
 using CastorApplication.Services;
 using CastorApplication.Services.Ai;
 using CastorApplication.Services.Auth;
@@ -57,15 +61,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStreamingRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<IScenePreviewRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<ISceneCollectionService, SceneCollectionService>();
-        services.AddSingleton<IIndependentSceneOutputRuntime>(provider =>
-            new LibObsIndependentSceneOutputRuntime(
-                provider.GetRequiredService<IAiSceneSourceProvider>()));
-        services.AddSingleton<IAiSceneStreamRuntime, LibObsAiSceneStreamRuntime>();
-        services.AddSingleton<IAiAnalysisClient, GrpcAiAnalysisClient>();
+        AddLocalAi(services);
         services.AddSingleton<IAiZoomEntryPoint, AiZoomEntryPoint>();
         services.AddSingleton<IAddSourceDialogService, AddSourceDialogService>();
         services.AddSingleton<ISceneTransferDialogService, SceneTransferDialogService>();
         services.AddSingleton<ICancelRecordingDialogService, CancelRecordingDialogService>();
+        services.AddSingleton<IUnsavedScenesDialogService, UnsavedScenesDialogService>();
         services.AddSingleton<IRtmpDiscoveryService, RtmpDiscoveryService>();
         services.AddSingleton<IAddSourceDialogViewModelFactory, AddSourceDialogViewModelFactory>();
         services.AddSingleton<StudioWorkspaceViewModel>();
@@ -105,7 +106,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<ISceneTransferDialogService>(),
             provider.GetRequiredService<SettingsService>(),
             provider.GetRequiredService<VideoCanvasResolutionResolver>(),
-            provider.GetRequiredService<StatusMessageService>()
+            provider.GetRequiredService<StatusMessageService>(),
+            SceneCollectionService.DefaultCollectionPath
         ));
 
         services.AddSingleton(provider => new MulticamViewModel(
@@ -127,7 +129,49 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<SettingsViewModel>(),
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
             provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>(),
-            provider.GetRequiredService<StatusMessageService>()
+            provider.GetRequiredService<StatusMessageService>(),
+            provider.GetRequiredService<IUnsavedScenesDialogService>()
         ));
+    }
+
+    private static void AddLocalAi(IServiceCollection services)
+    {
+        // Registered before AddCastorAI, which keeps it: the device comes from the app config.
+        services.AddSingleton(provider =>
+            CreateAiWorkerOptions(provider.GetRequiredService<IConfigService>().Config.AiWorker));
+        services.AddCastorAI(options =>
+            options.Client = new AiClientOptions { Dispatch = action => Dispatcher.UIThread.Post(action) });
+
+        services.AddSingleton<IAiSceneFrameRuntime>(provider =>
+            new LibObsAiSceneFrameRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
+        services.AddSingleton<IAiAudioCaptureRuntime>(provider =>
+            new LibObsAiAudioCaptureRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
+        services.AddSingleton<IAiAnalysisClient>(provider =>
+        {
+            var worker = provider.GetRequiredService<LocalWorkerOptions>();
+            try { WorkerLocator.Find(worker.WorkerPath); }
+            catch (FileNotFoundException exception)
+            {
+                return new UnavailableAiAnalysisClient($"Worker IA introuvable : {exception.Message}");
+            }
+
+            return new LocalAiAnalysisClient(
+                provider.GetRequiredService<AiClient>(),
+                provider.GetRequiredService<IAiSceneFrameRuntime>(),
+                provider.GetRequiredService<IAiAudioCaptureRuntime>());
+        });
+    }
+
+    private static LocalWorkerOptions CreateAiWorkerOptions(AiWorkerConfig config)
+    {
+        // Shipped next to the app by scripts/build-dotnet.ps1 and the installer. Missing in dev:
+        // the SDK then looks at CASTOR_WORKER_PATH, then next to the app.
+        var bundled = Path.Combine(AppContext.BaseDirectory, "ai", "Castor.AI.Worker.exe");
+        return new LocalWorkerOptions
+        {
+            WorkerPath = File.Exists(bundled) ? bundled : null,
+            Device = string.Equals(config.Device?.Trim(), "cpu", StringComparison.OrdinalIgnoreCase) ? "cpu" : "gpu",
+            GpuAdapter = Math.Max(0, config.GpuAdapter),
+        };
     }
 }

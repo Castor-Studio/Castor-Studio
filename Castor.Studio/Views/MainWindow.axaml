@@ -19,6 +19,7 @@
 		<KeyBinding Gesture="Escape" Command="{Binding CloseSettingsCommand}"/>
 		<!-- Kept in sync with StudioViewModel.PauseShortcutText, shown in the tooltip. -->
 		<KeyBinding Gesture="Ctrl+Shift+P" Command="{Binding TogglePauseRecordingCommand}"/>
+		<KeyBinding Gesture="Ctrl+Q" Command="{Binding QuitCommand}"/>
 	</Window.KeyBindings>
 
 	<!-- Maximized, Windows pushes the frame past the screen edges: OffScreenMargin pulls the
@@ -49,7 +50,7 @@
 					<Separator/>
 					<MenuItem Header="_Paramètres" Command="{Binding ShowSettingsCommand}"/>
 					<Separator/>
-					<MenuItem Header="_Quitter" Command="{Binding QuitCommand}"/>
+					<MenuItem Header="_Quitter" Command="{Binding QuitCommand}" InputGesture="Ctrl+Q"/>
 				</MenuItem>
 				<MenuItem Header="_Affichage">
 					<MenuItem Header="_Studio" Command="{Binding ShowStudioCommand}"/>

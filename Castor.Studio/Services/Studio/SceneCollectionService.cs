@@ -9,6 +9,11 @@ internal sealed class SceneCollectionService : ISceneCollectionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
+    // The operator's scenes between sessions: written when they choose to save on closing,
+    // read back at startup. Same format as an export, so it can be imported elsewhere too.
+    public static string DefaultCollectionPath { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "castor-studio", "scenes.json");
+
     public Task SaveAsync(string path, IReadOnlyCollection<SceneDefinition> scenes, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -16,6 +21,8 @@ internal sealed class SceneCollectionService : ISceneCollectionService
         {
             Scenes = scenes.Select(SceneExportMapper.ToExport).ToList()
         };
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
         SettingsService.WriteFileAtomically(path, JsonSerializer.Serialize(export, JsonOptions));
         return Task.CompletedTask;
     }

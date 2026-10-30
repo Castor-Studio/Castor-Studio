@@ -19,6 +19,16 @@ ou directement :
 dotnet build Castor-Studio.sln -c Debug
 ```
 
+Les paquets `LibObs` et `Castor.AI` viennent de GitHub Packages (source `castor-github` de
+`nuget.config`) : déclarer dans sa configuration NuGet utilisateur un jeton avec `read:packages`
+pour cette source. Aucun jeton dans le repo.
+
+`build-dotnet.ps1` installe aussi le worker de l'IA locale (`Castor.AI.Worker.exe`, release
+`v<version>` de `Castor-Studio/Castor-AI-Worker`, même version que le paquet `Castor.AI`) dans
+`<sortie de l'app>/ai`. Sans lui, la page multicam signale que l'IA est indisponible ; en dev,
+`CASTOR_WORKER_PATH` peut pointer vers un worker compilé à part. Le worker télécharge ses modèles
+au premier démarrage d'un domaine (`%LOCALAPPDATA%\Castor\models`).
+
 La création, le renommage et la suppression des scènes sont synchronisés avec LibObs.
 La preview, l'enregistrement et le direct Twitch utilisent également le runtime natif LibObs.
 Le live Twitch nécessite un compte connecté dans `Paramètres → Comptes`.
@@ -128,5 +138,4 @@ destination et au compte connecté.
 Le sélecteur de sources énumère les écrans, fenêtres, caméras, périphériques audio et
 fichiers média, et autorise plusieurs sources dans une scène. L'enregistrement produit
 des fichiers MP4, MKV ou WebM depuis la scène active dans le dossier configuré.
-Les flux réseau et l'analyse IA restent indisponibles tant que leurs runtimes respectifs
-ne sont pas implémentés.
+Les flux réseau restent indisponibles tant que leur runtime n'est pas implémenté.

@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Text.Json;
+using CastorApplication.Models.Export;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services;
@@ -26,6 +28,10 @@ public partial class ScenesViewModel : ViewModelBase
     private readonly ISceneTransferDialogService _transferDialogService;
     private readonly SettingsService? _settingsService;
     private readonly VideoCanvasResolutionResolver _resolutionResolver;
+    private readonly string? _savedScenesPath;
+    // The scenes as last read from or written to _savedScenesPath, in the file's own format:
+    // anything the file would not keep (selection, live state) is not a change worth saving.
+    private string _savedScenesSnapshot;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
 
@@ -142,9 +148,11 @@ public partial class ScenesViewModel : ViewModelBase
         ISceneTransferDialogService transferDialogService,
         SettingsService? settingsService = null,
         VideoCanvasResolutionResolver? resolutionResolver = null,
-        StatusMessageService? messages = null)
+        StatusMessageService? messages = null,
+        string? savedScenesPath = null)
     {
         SceneIoStatus = (messages ?? new StatusMessageService()).Create();
+        _savedScenesPath = savedScenesPath;
         _transferDialogService = transferDialogService;
         _workspace = workspace;
         _runtime = runtime;
@@ -161,9 +169,58 @@ public partial class ScenesViewModel : ViewModelBase
         ApplyBaseCanvasResolution(settingsService?.Load() ?? new ApplicationSettings());
         SelectedScene = workspace.ActiveScene;
         RefreshDisplayedSources();
+        _savedScenesSnapshot = TakeScenesSnapshot();
         workspace.PropertyChanged += OnWorkspacePropertyChanged;
         if (_settingsService != null)
             _settingsService.SettingsSaved += OnSettingsSaved;
+    }
+
+    public bool HasUnsavedSceneChanges => _savedScenesPath != null && TakeScenesSnapshot() != _savedScenesSnapshot;
+
+    private string TakeScenesSnapshot() =>
+        JsonSerializer.Serialize(Scenes.Select(scene => SceneExportMapper.ToExport(scene.ToDefinition())));
+
+    // Startup: the scenes saved at the end of the previous session come back. No file yet is
+    // a first launch, not a failure.
+    public async Task LoadSavedScenesAsync(CancellationToken cancellationToken = default)
+    {
+        if (_savedScenesPath == null) return;
+
+        try
+        {
+            var saved = await _sceneCollectionService.LoadAsync(_savedScenesPath, cancellationToken);
+            ImportDefinitions(saved, announceSuccess: false);
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            SceneIoStatus.ShowError($"Scènes enregistrées illisibles : {exception.Message}");
+        }
+
+        _savedScenesSnapshot = TakeScenesSnapshot();
+    }
+
+    // Every scene, in their current order. False when the file could not be written: the error
+    // is on the Scenes page and nothing is considered saved.
+    public async Task<bool> SaveScenesAsync(CancellationToken cancellationToken = default)
+    {
+        if (_savedScenesPath == null) return true;
+
+        try
+        {
+            var snapshot = TakeScenesSnapshot();
+            await _sceneCollectionService.SaveAsync(
+                _savedScenesPath, Scenes.Select(scene => scene.ToDefinition()).ToArray(), cancellationToken);
+            _savedScenesSnapshot = snapshot;
+            return true;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            SceneIoStatus.ShowError($"Enregistrement des scènes impossible : {exception.Message}");
+            return false;
+        }
     }
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -507,7 +564,7 @@ public partial class ScenesViewModel : ViewModelBase
         ImportDefinitions(imported);
     }
 
-    private void ImportDefinitions(IReadOnlyList<SceneDefinition> imported)
+    private void ImportDefinitions(IReadOnlyList<SceneDefinition> imported, bool announceSuccess = true)
     {
         try
         {
@@ -553,8 +610,11 @@ public partial class ScenesViewModel : ViewModelBase
             if (failed > 0) details.Add($"{failed} scène(s) refusée(s) ({firstFailure})");
             if (sourceFailures > 0) details.Add($"{sourceFailures} source(s) refusée(s) ({firstSourceFailure})");
             // Anything left behind has to be read before it goes away: it stays like an error.
-            if (details.Count == 0) SceneIoStatus.ShowInfo($"{importedCount} scène(s) importée(s).");
-            else SceneIoStatus.ShowError($"{importedCount} scène(s) importée(s), {string.Join(", ", details)}.");
+            // Restoring the saved scenes at startup only speaks up when something was left behind.
+            if (details.Count > 0)
+                SceneIoStatus.ShowError($"{importedCount} scène(s) importée(s), {string.Join(", ", details)}.");
+            else if (announceSuccess)
+                SceneIoStatus.ShowInfo($"{importedCount} scène(s) importée(s).");
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
