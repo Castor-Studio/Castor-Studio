@@ -433,12 +433,12 @@
 		<Rectangle Grid.Column="1" Fill="{DynamicResource AppBorder}"/>
 
 		<!-- ═══ RIGHT PANEL ═══ -->
-		<Grid Grid.Column="2" RowDefinitions="*, Auto, 200" RowSpacing="12" Margin="14,10,14,14">
+		<Grid Grid.Column="2" RowDefinitions="*, 200" RowSpacing="12" Margin="14,10,14,14">
 
-			<!-- Scene preview. Le canvas de composition, c'est cette image : le moteur y
-			     trace le cadre de chaque source composée. Rien d'autre ne peut se poser
-			     au-dessus, sa surface est une fenêtre Windows : les écrans vides prennent
-			     sa place plutôt que de se poser dessus. -->
+			<!-- Scene preview. This picture is the composition canvas: the engine draws
+			     each composed source's frame on it. Nothing else can sit
+			     on top, its surface is a Windows window: empty screens take
+			     its place rather than sitting on it. -->
 			<Border Grid.Row="0"
                     Background="{DynamicResource AppSurface}" CornerRadius="6"
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
@@ -463,12 +463,11 @@
 					</Border>
 
 					<Panel Grid.Row="1" Background="{DynamicResource AppCanvasDots}">
-						<controls:StudioPreview x:Name="ScenePreview"
+						<controls:StudioPreview x:Name="ScenePreview" Classes="canvas"
                                                 IsVisible="{Binding ShowScenePreview}"
                                                 Background="Transparent"
                                                 ShowCanvasFrame="True"
                                                 IsActualSize="{Binding IsPreviewActualSize}"
-                                                Margin="16"
                                                 Scene="{Binding SelectedScene}"
                                                 PreviewRuntime="{Binding PreviewRuntime}"
                                                 Composition="{Binding Composition}"
@@ -513,90 +512,8 @@
 				</Grid>
 			</Border>
 
-			<!-- Outils de la source choisie sur le canvas : les mêmes commandes que son menu,
-			     à portée de main. Sans source choisie, ils restent visibles mais inactifs. -->
-			<Border Grid.Row="1" IsVisible="{Binding ShowScenePreview}"
-                    Background="{DynamicResource AppChromeBg}" CornerRadius="8" Padding="14,6"
-                    BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
-				<Grid ColumnDefinitions="*, Auto" IsEnabled="{Binding Composition.HasSelection}">
-					<WrapPanel Grid.Column="0" VerticalAlignment="Center">
-						<Button Classes="tool" Click="OnCenterSourceClick" ToolTip.Tip="Centrer la source sur le canvas">
-							<StackPanel Orientation="Horizontal" Spacing="8">
-								<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></Canvas></Viewbox>
-								<TextBlock Text="Centrer" VerticalAlignment="Center"/>
-							</StackPanel>
-						</Button>
-						<Button Classes="tool" Click="OnFitSourceClick" ToolTip.Tip="Ajuster la source au canvas">
-							<StackPanel Orientation="Horizontal" Spacing="8">
-								<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5M9 9l-5-5M15 9l5-5M9 15l-5 5M15 15l5 5"/></Canvas></Viewbox>
-								<TextBlock Text="Ajuster" VerticalAlignment="Center"/>
-							</StackPanel>
-						</Button>
-						<ToggleButton Classes="tool" IsChecked="{Binding Composition.IsCropMode, Mode=OneWay}"
-                                      Click="OnCropSourceClick" ToolTip.Tip="Rogner la source">
-							<StackPanel Orientation="Horizontal" Spacing="8">
-								<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M7 3v14h14M3 7h14v14"/></Canvas></Viewbox>
-								<TextBlock Text="Rogner" VerticalAlignment="Center"/>
-							</StackPanel>
-						</ToggleButton>
-						<Button Classes="tool" Click="OnResetSourceClick" ToolTip.Tip="Retirer le rognage, la rotation et le zoom, et ajuster la source au canvas">
-							<StackPanel Orientation="Horizontal" Spacing="8">
-								<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M4 12a8 8 0 1 0 2.6-5.9L4 8.5M4 4v4.5h4.5"/></Canvas></Viewbox>
-								<TextBlock Text="Réinitialiser" VerticalAlignment="Center"/>
-							</StackPanel>
-						</Button>
-
-						<Rectangle Width="1" Height="18" Margin="6,0" VerticalAlignment="Center" Fill="{DynamicResource AppBorder2}"/>
-						<TextBlock Text="Pivoter" Margin="6,0" FontSize="13.5" VerticalAlignment="Center" Foreground="{DynamicResource AppFg5}"/>
-						<Button Classes="tool" Click="OnRotateRightClick" ToolTip.Tip="Pivoter de 90° à droite" AutomationProperties.Name="Pivoter à droite">
-							<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M20 12a8 8 0 1 1-2.6-5.9L20 8.5M20 4v4.5h-4.5"/></Canvas></Viewbox>
-						</Button>
-						<Button Classes="tool" Click="OnRotateLeftClick" ToolTip.Tip="Pivoter de 90° à gauche" AutomationProperties.Name="Pivoter à gauche">
-							<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M4 12a8 8 0 1 0 2.6-5.9L4 8.5M4 4v4.5h4.5"/></Canvas></Viewbox>
-						</Button>
-
-						<Rectangle Width="1" Height="18" Margin="6,0" VerticalAlignment="Center" Fill="{DynamicResource AppBorder2}"/>
-						<TextBlock Text="Plan" Margin="6,0" FontSize="13.5" VerticalAlignment="Center" Foreground="{DynamicResource AppFg5}"/>
-						<Button Classes="tool" Command="{Binding MoveSelectedSourceLayerCommand}" CommandParameter="front" ToolTip.Tip="Premier plan" AutomationProperties.Name="Premier plan">
-							<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M5 4h14M12 20V9M7 13l5-5 5 5"/></Canvas></Viewbox>
-						</Button>
-						<Button Classes="tool" Command="{Binding MoveSelectedSourceLayerCommand}" CommandParameter="forward" ToolTip.Tip="Avancer" AutomationProperties.Name="Avancer">
-							<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M6 15l6-6 6 6"/></Canvas></Viewbox>
-						</Button>
-						<Button Classes="tool" Command="{Binding MoveSelectedSourceLayerCommand}" CommandParameter="backward" ToolTip.Tip="Reculer" AutomationProperties.Name="Reculer">
-							<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M6 9l6 6 6-6"/></Canvas></Viewbox>
-						</Button>
-						<Button Classes="tool" Command="{Binding MoveSelectedSourceLayerCommand}" CommandParameter="back" ToolTip.Tip="Arrière-plan" AutomationProperties.Name="Arrière-plan">
-							<Viewbox Width="16" Height="16"><Canvas Width="24" Height="24"><Path Data="M5 20h14M12 4v11M7 11l5 5 5-5"/></Canvas></Viewbox>
-						</Button>
-					</WrapPanel>
-
-					<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-						<Slider x:Name="ZoomSlider" Width="160" VerticalAlignment="Center"
-                                Minimum="1" Maximum="4" SmallChange="0.1" LargeChange="0.5"
-                                Value="{Binding Composition.SelectedZoomFactor, Mode=OneWay}"
-                                ValueChanged="OnZoomSliderChanged"
-                                ToolTip.Tip="Zoom dans l'image de la source">
-							<Slider.Resources>
-								<GridLength x:Key="SliderPreContentMargin">0</GridLength>
-								<GridLength x:Key="SliderPostContentMargin">0</GridLength>
-								<SolidColorBrush x:Key="SliderThumbBackground" Color="#5b7cf5"/>
-								<SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#5b7cf5"/>
-								<SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#5b7cf5"/>
-								<SolidColorBrush x:Key="SliderTrackValueFill" Color="#5b7cf5"/>
-								<SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#5b7cf5"/>
-								<SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#5b7cf5"/>
-							</Slider.Resources>
-						</Slider>
-						<TextBlock Text="{Binding Composition.SelectedZoomFactor, StringFormat='×{0:0.0}'}" MinWidth="34" TextAlignment="Right"
-                                   FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource AppFg2}"/>
-					</StackPanel>
-				</Grid>
-			</Border>
-
 <!-- Sources of selected scene -->
-			<Border Grid.Row="2" Background="{DynamicResource AppPanelBg}" CornerRadius="8" Padding="16,14"
+			<Border Grid.Row="1" Background="{DynamicResource AppPanelBg}" CornerRadius="8" Padding="16,14"
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1">
 				<Grid RowDefinitions="Auto, 10, *, Auto">
 
@@ -616,9 +533,9 @@
 							
 						</StackPanel>
 
-						<!-- Trier / filtrer : ne change que l'affichage, jamais l'ordre de composition.
-						     Même flyout que « Trier » sur les scènes ; teinté quand un tri ou un filtre
-						     est actif, pour qu'une liste incomplète ne passe pas inaperçue. -->
+						<!-- Sort / filter: only changes the display, never the composition order. Same flyout as
+						     "Trier" on scenes; tinted when a sort or filter is active, so an incomplete list does not
+						     go unnoticed. -->
 						<Button Grid.Column="1" Margin="0,0,6,0"
                                 BorderThickness="0" Padding="8,5" CornerRadius="5" Cursor="Hand"
                                 Background="Transparent"
@@ -693,7 +610,7 @@
 							</Button.Flyout>
 						</Button>
 
-						<!-- Ouvre le dialogue « Ajouter une source » -->
+						<!-- Opens the "Ajouter une source" dialog -->
 						<Button Grid.Column="2" Classes="add" Padding="14,0"
                                 Content="+   Ajouter une source"
                                 Command="{Binding OpenAddSourceCommand}"
@@ -704,7 +621,7 @@
 
 					<Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
 
-					<!-- Dynamic source list, empilée du premier plan vers l'arrière-plan -->
+					<!-- Dynamic source list, stacked from foreground to background -->
 					<TextBlock Grid.Row="2" Text="{Binding SourceListPlaceholder}"
                                IsVisible="{Binding SourceListPlaceholder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                Foreground="{DynamicResource AppFg5}" FontSize="13.5"
@@ -717,8 +634,9 @@
 									<Border Background="{DynamicResource AppBadgeBg}" CornerRadius="6" Padding="10,7" Margin="0,2"
                                             DragDrop.AllowDrop="True"
                                             DragDrop.DragOver="OnSourceDragOver"
-                                            DragDrop.Drop="OnSourceDrop">
-										<Grid ColumnDefinitions="18, 16, *, Auto, Auto, Auto, Auto, Auto">
+                                            DragDrop.Drop="OnSourceDrop"
+                                            ContextRequested="OnSourceContextRequested">
+										<Grid ColumnDefinitions="18, 16, *, Auto, Auto, Auto">
 											<Border Grid.Column="0" Background="Transparent" Cursor="SizeAll"
                                                     PointerPressed="OnSourceHandlePointerPressed"
                                                     ToolTip.Tip="Glisser pour changer le plan de cette source">
@@ -726,7 +644,7 @@
                                                            Foreground="{DynamicResource AppFg5}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
 											</Border>
-											<!-- Icône du type de source, dans la couleur de la source -->
+											<!-- Source type icon, in the source's color -->
 											<Viewbox Grid.Column="1" Width="16" Height="16" VerticalAlignment="Center">
 												<Canvas Width="24" Height="24">
 													<Path Data="{Binding IconPath}"
@@ -734,8 +652,8 @@
                                                           StrokeLineCap="Round" StrokeJoin="Round"/>
 												</Canvas>
 											</Viewbox>
-											<!-- Double-clic sur le nom : renommage en place. Entrée ou sortie du champ
-											     valide, Échap annule. -->
+											<!-- Double-click on the name: rename in place. Enter or leaving the field confirms,
+											     Escape cancels. -->
 											<TextBlock Grid.Column="2" Text="{Binding Name}"
                                                        IsVisible="{Binding !IsRenaming}"
                                                        Background="Transparent"
@@ -762,25 +680,8 @@
 											<TextBlock Grid.Column="3" Text="{Binding Type}"
                                                        Foreground="{DynamicResource AppFg5}" FontSize="13"
                                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
-											<!-- Équivalent clavier du glisser-déposer -->
-											<Button Grid.Column="4"
-                                                    Content="▲"
-                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
-                                                    BorderThickness="0" FontSize="9" Padding="4,2"
-                                                    Cursor="Hand"
-                                                    ToolTip.Tip="Rapprocher du premier plan"
-                                                    Command="{Binding #ScenesRoot.DataContext.RaiseSourceCommand}"
-                                                    CommandParameter="{Binding}"/>
-											<Button Grid.Column="5"
-                                                    Content="▼"
-                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
-                                                    BorderThickness="0" FontSize="9" Padding="4,2"
-                                                    Cursor="Hand"
-                                                    ToolTip.Tip="Reculer vers l'arrière-plan"
-                                                    Command="{Binding #ScenesRoot.DataContext.LowerSourceCommand}"
-                                                    CommandParameter="{Binding}"/>
-											<!-- Bouton boucle — visible uniquement pour les sources fichier -->
-							<ToggleButton Grid.Column="6"
+											<!-- Loop button, visible for file sources only -->
+							<ToggleButton Grid.Column="4"
                                                           IsVisible="{Binding IsFileSource}"
                                                           IsChecked="{Binding Loop, Mode=OneWay}"
                                                           Command="{Binding #ScenesRoot.DataContext.ToggleMediaLoopCommand}"
@@ -800,7 +701,7 @@
 												</ToggleButton.Styles>
 												<TextBlock Text="⟳" FontSize="14"/>
 											</ToggleButton>
-											<Button Grid.Column="7"
+											<Button Grid.Column="5"
                                                     Content="✕"
                                                     Background="Transparent" Foreground="{DynamicResource AppFg5}"
                                                     BorderThickness="0" FontSize="11" Padding="4,2"
@@ -817,8 +718,8 @@
 					<StackPanel Grid.Row="3" Margin="2,6,2,0" Spacing="6">
 						<controls:MessageBar Text="{Binding SourceOperationStatus}"/>
 
-						<!-- Un refus de lecture de la composition fige les cadres sur
-						     l'aperçu : il doit se voir plutôt que passer pour un aperçu figé. -->
+						<!-- A refused composition read freezes the frames on the preview: it must show rather
+						     than pass for a frozen preview. -->
 						<controls:MessageBar Text="{Binding Composition.Status}"/>
 					</StackPanel>
 				</Grid>

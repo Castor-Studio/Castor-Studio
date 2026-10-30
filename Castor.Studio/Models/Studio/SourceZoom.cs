@@ -1,11 +1,11 @@
 namespace CastorApplication.Models.Studio;
 
 /// <summary>
-/// Zoom numérique d'une source à l'intérieur de son cadre : le cadre reste où il est et garde
-/// sa taille, seule l'image qu'il montre s'agrandit. <see cref="Factor"/> vaut 1 pour l'image
-/// entière. (<see cref="CenterX"/>, <see cref="CenterY"/>) est le point visé, entre 0 et 1 dans
-/// la partie de la source que le rognage laisse visible : il vient au centre du cadre, tant que
-/// la fenêtre zoomée ne sort pas de l'image.
+/// Digital zoom of a source inside its frame: the frame stays where it is and keeps its size,
+/// only the image it shows gets larger. <see cref="Factor"/> is 1 for the full image.
+/// (<see cref="CenterX"/>, <see cref="CenterY"/>) is the aimed point, between 0 and 1 in the
+/// part of the source the crop leaves visible: it comes to the center of the frame, as long
+/// as the zoomed window stays inside the image.
 /// </summary>
 public readonly record struct SourceZoom(double Factor, double CenterX = 0.5, double CenterY = 0.5)
 {
@@ -14,12 +14,12 @@ public readonly record struct SourceZoom(double Factor, double CenterX = 0.5, do
 
     public static SourceZoom None { get; } = new(MinFactor);
 
-    /// <summary>Si l'image est réellement agrandie.</summary>
+    /// <summary>Whether the image is really enlarged.</summary>
     public bool IsZoomed => Factor > MinFactor;
 
     /// <summary>
-    /// Ce zoom, visant (<paramref name="centerX"/>, <paramref name="centerY"/>) : le point est
-    /// ramené là où la fenêtre zoomée tient entière dans l'image, comme le moteur la cale.
+    /// This zoom, aimed at (<paramref name="centerX"/>, <paramref name="centerY"/>): the point is
+    /// brought to where the zoomed window fits whole in the image, as the engine pins it.
     /// </summary>
     public SourceZoom Aimed(double centerX, double centerY)
     {
@@ -32,9 +32,9 @@ public readonly record struct SourceZoom(double Factor, double CenterX = 0.5, do
     }
 
     /// <summary>
-    /// Rognage que ce zoom ajoute dans une image visible de <paramref name="width"/> ×
-    /// <paramref name="height"/> pixels : ce qu'il faut retirer de chaque bord pour n'en garder
-    /// que la fenêtre zoomée. La fenêtre est poussée contre le bord plutôt que d'en sortir.
+    /// Crop this zoom adds in a visible image of <paramref name="width"/> ×
+    /// <paramref name="height"/> pixels: what to remove from each edge to keep only the zoomed
+    /// window. The window is pushed against the edge rather than leaving the image.
     /// </summary>
     public SourceCrop CropWithin(int width, int height)
     {

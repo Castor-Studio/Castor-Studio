@@ -4,14 +4,14 @@
     <Style Selector=":is(Button)">
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
-    <!-- Les champs de l'app : même hauteur, même contour, partout. -->
+    <!-- The app's fields: same height, same outline, everywhere. -->
     <Style Selector="ComboBox">
         <Setter Property="MinHeight" Value="38"/>
         <Setter Property="CornerRadius" Value="6"/>
         <Setter Property="Background" Value="{DynamicResource AppChromeBg}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrong}"/>
     </Style>
-    <!-- Action principale d'un écran vide. -->
+    <!-- Main action of an empty screen. -->
     <Style Selector="Button.primary">
         <Setter Property="Height" Value="36"/>
         <Setter Property="Padding" Value="20,0"/>
@@ -28,7 +28,7 @@
         <Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
         <Setter Property="Opacity" Value="0.88"/>
     </Style>
-    <!-- Ajouter : une scène, une source. -->
+    <!-- Add: a scene, a source. -->
     <Style Selector="Button.add">
         <Setter Property="Height" Value="34"/>
         <Setter Property="MinWidth" Value="36"/>
@@ -46,7 +46,7 @@
         <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
     </Style>
-    <!-- Bouton à contour discret (barre du canvas). -->
+    <!-- Button with a discreet outline (canvas bar). -->
     <Style Selector="Button.outline">
         <Setter Property="Height" Value="28"/>
         <Setter Property="Padding" Value="12,0"/>
@@ -58,7 +58,7 @@
         <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <!-- Barre d'outils de la source choisie. -->
+    <!-- Toolbar of the selected source. -->
     <Style Selector="Button.tool, ToggleButton.tool">
         <Setter Property="Height" Value="32"/>
         <Setter Property="MinWidth" Value="34"/>
@@ -89,7 +89,7 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Opacity" Value="0.5"/>
     </Style>
-    <!-- Enregistrer, au pied des Paramètres. -->
+    <!-- Save, at the foot of Settings. -->
     <Style Selector="Button.save">
         <Setter Property="Height" Value="34"/>
         <Setter Property="Padding" Value="38,0"/>
@@ -229,11 +229,11 @@
     <Style Selector="Button.scene-toolbar-item.danger, Button.scene-menu-item.danger">
         <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
     </Style>
-    <!-- Choix exclusif entre quelques options (mode de l'IA, disposition du multicam) :
-         une rainure, l'option choisie y est posée en relief. Des RadioButton plutôt que des
-         paires de boutons montrés / cachés, pour que le groupe se lise comme un seul choix,
-         au clavier comme au lecteur d'écran. L'option déjà choisie ne réagit plus : la
-         recliquer relancerait sa commande (redémarrer une session IA, par exemple). -->
+    <!-- Exclusive choice between a few options (AI mode, multicam layout): a groove, with the
+         chosen option raised in it. RadioButtons rather than pairs of shown / hidden buttons, so
+         the group reads as a single choice, by keyboard as by screen reader. The option already
+         chosen no longer reacts: clicking it again would rerun its command (restarting an AI
+         session, for example). -->
     <Style Selector="Border.segmented">
         <Setter Property="Background" Value="{DynamicResource AppChromeBg}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
@@ -281,9 +281,9 @@
     <Style Selector="RadioButton.segment:focus-visible /template/ Border#PART_FocusRing">
         <Setter Property="IsVisible" Value="True"/>
     </Style>
-    <!-- La sélection d'une scène pour l'IA, sur les tuiles du multicam. Une pastille plutôt
-         qu'une case à cocher : elle porte son propre libellé, donc on sait à quoi elle sert
-         sans la survoler, et elle se lit à la même distance que les autres pastilles. -->
+    <!-- Selecting a scene for the AI, on multicam tiles. A pill rather than a checkbox: it
+         carries its own label, so its purpose is clear without hovering, and it reads at the same
+         distance as the other pills. -->
     <Style Selector="ToggleButton.ai-pick">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
@@ -364,9 +364,9 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
-    <!-- Navigation des Paramètres : normal, survol, ouverte, ouverte survolée. La barre
-         d'accent à gauche existe dans tous les états (transparente hors sélection) pour que
-         le libellé ne bouge pas quand la section s'ouvre. -->
+    <!-- Settings navigation: normal, hover, open, open and hovered. The accent bar on the left
+         exists in every state (transparent when not selected) so the label does not move when the
+         section opens. -->
     <Style Selector="RadioButton.settings-nav">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderBrush" Value="Transparent"/>
@@ -392,7 +392,7 @@
                                           VerticalAlignment="Center"
                                           Foreground="{TemplateBinding Foreground}"/>
                     </Border>
-                    <!-- Repère du focus clavier, distinct du survol. -->
+                    <!-- Keyboard focus marker, distinct from hover. -->
                     <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFill}"
                             BorderThickness="1" IsVisible="False"/>
                 </Panel>
@@ -444,9 +444,9 @@
         <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
     </Style>
 
-    <!-- État de session (barre du haut, panneaux Statut et Scène active) : éteint par défaut,
-         rouge à l'antenne (classe live), vert quand tout est prêt (classe ready). Des styles
-         plutôt que des couleurs calculées dans les ViewModels, pour suivre le thème. -->
+    <!-- Session state (top bar, Statut and Scène active panels): off by default, red on air
+         (live class), green when all is ready (ready class). Styles rather than colors computed in
+         ViewModels, to follow the theme. -->
     <Style Selector="TextBlock.session-state">
         <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
     </Style>
@@ -472,5 +472,102 @@
     </Style>
     <Style Selector="Ellipse.session-state.paused">
         <Setter Property="Fill" Value="{DynamicResource StatusWarningBrush}"/>
+    </Style>
+
+    <!-- The source menu on the canvas. It follows the page's menus (12 px, rounded rows,
+         AppSurface2 hover); only the keys stand out, drawn as keycaps facing their command.
+         These styles are global because the menu opens in its own window, outside the
+         preview's tree. -->
+    <Style Selector="ContextMenu.composition-menu">
+        <Setter Property="Background" Value="{DynamicResource AppSurface}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="4"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="MinHeight" Value="0"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:pointerover /template/ Border#PART_LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:pointerover /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:disabled">
+        <Setter Property="Opacity" Value="0.4"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu Separator">
+        <Setter Property="Background" Value="{DynamicResource AppBorder}"/>
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Margin" Value="8,4"/>
+    </Style>
+
+    <!-- The source the menu targets, with the dot it has in the list. -->
+    <Style Selector="ContextMenu.composition-menu MenuItem.menu-title">
+        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Padding" Value="8,4,8,6"/>
+    </Style>
+
+    <Style Selector="ContextMenu.composition-menu Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource AppFg4}"/>
+        <Setter Property="StrokeThickness" Value="2"/>
+        <Setter Property="StrokeLineCap" Value="Round"/>
+        <Setter Property="StrokeJoin" Value="Round"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem:pointerover Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource AppFg2}"/>
+    </Style>
+
+    <!-- A held mode (crop): the row that leaves it takes the accent color. -->
+    <Style Selector="ContextMenu.composition-menu MenuItem.active">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.active:pointerover /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.active Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+
+    <!-- An action that removes something reads in red, icon included, like "Supprimer" in
+         a scene's menu. -->
+    <Style Selector="ContextMenu.composition-menu MenuItem.danger">
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.danger:pointerover /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+    <Style Selector="ContextMenu.composition-menu MenuItem.danger Path.menu-icon">
+        <Setter Property="Stroke" Value="{DynamicResource StatusErrorBrush}"/>
+    </Style>
+
+    <!-- A toggle (loop): when on, the row shows an accent check mark on the right. -->
+    <Style Selector="ContextMenu.composition-menu TextBlock.menu-check">
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <!-- A key: a thicker bottom edge gives it the relief of a real key. -->
+    <Style Selector="Border.keycap">
+        <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="BorderThickness" Value="1,1,1,2"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="5,0"/>
+        <Setter Property="MinWidth" Value="20"/>
+        <Setter Property="Height" Value="19"/>
+    </Style>
+    <Style Selector="Border.keycap > TextBlock">
+        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 </Styles>

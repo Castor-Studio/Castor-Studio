@@ -321,8 +321,8 @@ public sealed class ScenesViewModelRuntimeTests
         await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(option));
 
         Assert.Equal(2, viewModel.SelectedScene!.Sources.Count);
-        // La liste suit l'empilement du moteur, premier plan en tête : la source la plus
-        // récemment ajoutée passe devant les précédentes.
+        // The list follows the engine's stack, foreground first: the most recently added source
+        // goes in front of the previous ones.
         Assert.Equal(["Navigateur 2", "Navigateur"], viewModel.SelectedScene.Sources.Select(source => source.Name));
         Assert.Equal(2, sourceRuntime.AddedRequests.Count);
     }
@@ -338,12 +338,12 @@ public sealed class ScenesViewModelRuntimeTests
         var scene = viewModel.SelectedScene!;
         Assert.Equal(["Overlay", "Écran", "Caméra"], Names(scene));
 
-        // Glisser-déposer : lâcher une source sur une autre lui prend son rang.
+        // Drag and drop: dropping a source on another takes its rank.
         viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
         Assert.Equal(["Caméra", "Overlay", "Écran"], Names(scene));
         Assert.Equal(0, sourceRuntime.RequestedLayerIndexes[^1]);
 
-        // Équivalent clavier : un plan en arrière, puis un plan en avant.
+        // Keyboard equivalent: one layer back, then one layer forward.
         viewModel.LowerSourceCommand.Execute(scene.Sources[0]);
         Assert.Equal(["Overlay", "Caméra", "Écran"], Names(scene));
         Assert.Equal(1, sourceRuntime.RequestedLayerIndexes[^1]);
@@ -367,8 +367,8 @@ public sealed class ScenesViewModelRuntimeTests
         viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
         var engineOrder = Names(scene);
 
-        // Une liste locale qui dériverait n'est pas une source de vérité : la scène rouverte
-        // se recale sur ce que le moteur détient.
+        // A local list that drifted is not a source of truth: the reopened scene realigns on what
+        // the engine holds.
         scene.Sources.Move(0, 2);
         Assert.NotEqual(engineOrder, Names(scene));
 
@@ -426,8 +426,8 @@ public sealed class ScenesViewModelRuntimeTests
         var before = Names(scene);
         sourceRuntime.OrderIsUnreadable = true;
 
-        // Le moteur accepte le déplacement mais ne sait plus rendre l'ordre : la liste reste
-        // en arrière, ce qui doit se voir plutôt que passer pour un geste sans effet.
+        // The engine accepts the move but can no longer return the order: the list lags behind,
+        // which must show rather than pass for a gesture with no effect.
         viewModel.LowerSourceCommand.Execute(scene.Sources[0]);
 
         Assert.Equal(before, Names(scene));
@@ -996,8 +996,8 @@ public sealed class ScenesViewModelRuntimeTests
         public List<int> RequestedLayerIndexes { get; } = [];
         public bool OrderIsUnreadable { get; set; }
 
-        // Empilement tenu par le faux moteur, du premier plan vers l'arrière-plan, pour que
-        // les tests exercent la relecture plutôt qu'un ordre supposé côté ViewModel.
+        // Stack held by the fake engine, from foreground to background, so tests exercise the read
+        // rather than an order assumed on the ViewModel side.
         private readonly Dictionary<Guid, List<Guid>> _layers = [];
 
         public bool IsAvailable => true;
@@ -1010,7 +1010,7 @@ public sealed class ScenesViewModelRuntimeTests
         {
             AddedRequests.Add(request);
             var result = Add(sceneId, request);
-            // Comme libobs, une source ajoutée se place au premier plan.
+            // Like libobs, an added source goes to the foreground.
             if (result.IsSuccess) Layers(sceneId).Insert(0, request.SourceId);
             return result;
         }
@@ -1044,8 +1044,8 @@ public sealed class ScenesViewModelRuntimeTests
                 ? SourceOrderResult.Failure("ordre illisible")
                 : SourceOrderResult.Success(Layers(sceneId).ToArray());
 
-        // La composition elle-même est éprouvée par SceneCompositionViewModelTests ; ici, il
-        // suffit que la scène en rende une pour que le canvas suive les gestes.
+        // The composition itself is covered by SceneCompositionViewModelTests; here, the scene
+        // only has to return one for the canvas to follow gestures.
         public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
             SceneCompositionResult.Success(new SceneComposition(1920, 1080, []));
 

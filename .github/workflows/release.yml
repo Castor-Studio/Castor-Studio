@@ -60,11 +60,6 @@ jobs:
             --output artifacts/publish `
             -p:Version="$env:VERSION"
 
-      - name: Bundle the AI worker
-        shell: pwsh
-        run: |
-          ./scripts/fetch-ai-worker.ps1 -Destination artifacts/publish
-
       - name: Install Inno Setup
         shell: pwsh
         run: |

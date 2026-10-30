@@ -213,6 +213,76 @@ un refus est une lecture du moteur.
 en plein geste mènent au même retour : sans relâcher, rien ne dit où l'opérateur voulait
 finir.
 
+## Raccourcis clavier et barre du canvas
+
+Les raccourcis sont écrits à un seul endroit, `CompositionShortcuts` : la touche qui
+déclenche une commande est celle que le menu et les bulles des boutons affichent.
+Touche, bouton et ligne de menu passent ensuite par le même chemin
+(`StudioPreview.Execute`) — ils ne peuvent pas diverger.
+
+| Touches | Effet |
+| --- | --- |
+| Tab / Maj+Tab | source suivante / précédente, dans l'ordre de la liste (premier plan en tête) |
+| Échap | annule le geste, puis quitte le rognage, puis ne choisit plus rien |
+| Flèches / Maj+Flèches | déplace la source de 1 / 10 px du canvas, sans aimant |
+| Ctrl+D | centre la source dans le canvas |
+| Ctrl+F | l'ajuste au canvas, proportions gardées, au centre |
+| Ctrl+R | réinitialise sa transformation : coin haut-gauche, échelle 1, ni rotation, ni rognage, ni zoom |
+| R / Maj+R | pivote de 90° à droite / à gauche |
+| C, Entrée | entre en rognage ou en sort ; Entrée en sort |
+| + / − / 0 | zoome, dézoome l'image, la rend entière |
+| Page↑ / Page↓ | rapproche du premier plan / recule d'un plan |
+| Ctrl+Page↑ / Ctrl+Page↓ | met au premier plan / à l'arrière-plan |
+
+- Ctrl+D, Ctrl+F et Ctrl+R sont ceux d'OBS : un opérateur qui en vient n'a rien à réapprendre.
+- Les touches ne s'écoutent que sur l'aperçu, quand il a le clavier (un clic sur l'image le
+  lui donne). Une lettre seule ne vole donc rien à un champ texte.
+- Alt ne change aucune commande : il tient le rognage, R tourne toujours la source. En
+  rognage, les flèches font glisser l'image zoomée sous son cadre plutôt que le cadre.
+- Une touche sans emploi poursuit son chemin : Tab au-delà de la dernière source rend le
+  focus à la page, une flèche sans source choisie navigue comme ailleurs.
+- Aucune commande ne part pendant un geste : elle écrirait par-dessus ce que le pointeur
+  demande.
+
+L'empilement n'est pas à la composition : le canvas demande un plan
+(`SceneCompositionViewModel.ArrangeSelected`), la liste des sources l'écrit et relit l'ordre
+du moteur, comme pour ses propres boutons.
+
+Le **menu** d'une source (clic droit) est là où les raccourcis s'apprennent : chaque commande
+y porte son icône, et sa touche en face, dessinée en touche de clavier, dans une colonne
+commune à tout le menu. Il s'ouvre sur le nom de la source visée, sous la pastille qu'elle a
+dans la liste.
+
+Une source n'a qu'un menu (`SourceMenu`), qu'on l'ouvre sur l'image ou sur sa ligne dans la
+liste des sources. Sur une ligne, le clic droit choisit d'abord la source sur l'aperçu
+(`SceneCompositionViewModel.Select`). Le menu porte ensuite :
+
+- les commandes de composition, si le moteur compose la source — une source masquée ou
+  audio n'a rien à placer ;
+- ce qui se fait depuis la liste : renommer, lire en boucle (un fichier), et retirer de la
+  scène, en dernier et en rouge.
+
+Les cadres suivent un choix ou une commande venus de la liste sans attendre la relecture
+périodique : la composition prévient l'aperçu à chaque changement de son overlay
+(`OverlayChanged`).
+
+La **barre** sous l'image porte les mêmes commandes à la souris, rangées par ce qu'elles
+modifient :
+
+- **le cadre** : centrer, ajuster, rogner, puis réinitialiser, en dernier puisqu'il défait
+  tout ce qui précède ;
+- **Pivoter** et **Plan** : des icônes seules, sous un nom de groupe qui dit sur quoi elles
+  agissent. Le nom complet et la touche sont dans la bulle ;
+- **le zoom de l'image**, à part à droite, parce qu'il ne touche pas au cadre : la loupe
+  zoome d'un cran, le curseur règle le facteur, et un clic sur le facteur rend l'image
+  entière. Le curseur suit un zoom donné ailleurs (molette, clavier, menu) :
+  `SceneCompositionViewModel.SelectedZoomFactor` est le zoom que le moteur détient.
+
+Elle est sous l'image et non dessus, rien ne pouvant se poser sur la surface native ; ses
+boutons ne prennent pas le clavier, qui reste à l'aperçu. Sans source choisie, elle s'efface
+d'un bloc. Elle n'existe que là où l'aperçu compose : ni le panneau Studio ni le multicam
+n'en ont.
+
 ## Rester en phase avec le moteur
 
 Rien ne prévient l'interface qu'une transformation a changé du côté du moteur. La composition
