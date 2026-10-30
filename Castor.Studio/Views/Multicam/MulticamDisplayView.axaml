@@ -17,6 +17,9 @@
 		<Style Selector="Border.band">
 			<Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
 		</Style>
+		<Style Selector="Border.band TextBlock">
+			<Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+		</Style>
 		<Style Selector="Border.spotlight.onAir">
 			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
 			<Setter Property="BorderThickness" Value="2"/>
@@ -121,8 +124,7 @@
 						<Rectangle Width="1" Height="12" Fill="{DynamicResource AppBorder2}" VerticalAlignment="Center"/>
 						<TextBlock Text="{Binding SpotlightScene.Name, FallbackValue=''}"
                                    MaxWidth="220" TextTrimming="CharacterEllipsis"
-                                   FontSize="13" FontWeight="Bold" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource AppFg1}"/>
+                                   FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
 					</StackPanel>
 				</Border>
 
@@ -188,8 +190,7 @@
 								<TextBlock Grid.Column="0" Text="{Binding SpotlightScene.Name, FallbackValue=''}"
                                            IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
                                            TextTrimming="CharacterEllipsis"
-                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource AppFg1}"/>
+                                           FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
 								<TextBlock Grid.Column="0" Text="Aucune scène en sortie"
                                            IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNull}}"
                                            FontSize="14" VerticalAlignment="Center"
