@@ -19,11 +19,10 @@
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch" />
 
-		<!-- Recouvre StudioPreview quand rien ne peut être affiché. StudioPreview a son
-		     propre message interne pour "pas de scène"/"moteur indisponible", mais pas pour
-		     "scène sans source vidéo" (ScenesViewModel n'a pas ce cas) : ce panneau reste
-		     nécessaire pour ce message-là, qui recouvre alors un rendu natif vide plutôt
-		     qu'absent. -->
+		<!-- Covers StudioPreview when nothing can be shown. StudioPreview has its own internal
+		     message for "no scene"/"engine unavailable", but not for "scene with no video source"
+		     (ScenesViewModel does not have that case): this panel stays needed for that message,
+		     which then covers an empty native render rather than a missing one. -->
 		<StackPanel IsVisible="{Binding ShowPreviewPlaceholder}"
                     HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="6">

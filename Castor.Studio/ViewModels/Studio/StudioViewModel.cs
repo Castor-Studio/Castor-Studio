@@ -68,8 +68,8 @@ public partial class StudioViewModel : ViewModelBase
 
     public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
 
-    // Passage d'une scène à l'autre sur le live et l'enregistrement. La preview, elle, coupe
-    // toujours sec : elle montre la scène active, pas la sortie programme.
+    // Change from one scene to another on live and recording. The preview always hard-cuts: it
+    // shows the active scene, not the program output.
     public IReadOnlyList<SceneTransitionOption> TransitionOptions => SceneTransitionOption.All;
     public IReadOnlyList<int> TransitionDurations => SceneTransitionOption.Durations;
 
@@ -81,11 +81,11 @@ public partial class StudioViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(TransitionDurationStep), nameof(TransitionDurationText))]
     private int _transitionDurationMs = SceneTransition.DefaultDurationMs;
 
-    // Une coupe n'a pas de durée : le curseur de durée se grise.
+    // A cut has no duration: the duration slider grays out.
     public bool IsTransitionAnimated => SelectedTransition?.Kind != SceneTransitionKind.Cut;
 
-    // Le curseur avance de durée prête en durée prête, pas de milliseconde en milliseconde :
-    // un glissé n'écrit les settings qu'à chaque cran, et tombe toujours sur une valeur ronde.
+    // The slider moves from preset to preset, not millisecond by millisecond: a drag only writes
+    // settings on each step, and always lands on a round value.
     public double TransitionDurationStep
     {
         get => SceneTransitionOption.StepOf(TransitionDurationMs);
@@ -286,8 +286,8 @@ public partial class StudioViewModel : ViewModelBase
         RefreshTransition();
     }
 
-    // Le type et la durée se rechargent l'un après l'autre : sans ce garde, le premier
-    // s'enregistrerait avec l'ancienne valeur du second.
+    // Type and duration reload one after the other: without this guard, the first would be saved
+    // with the second's old value.
     private void RefreshTransition()
     {
         _loadingTransition = true;
@@ -307,11 +307,11 @@ public partial class StudioViewModel : ViewModelBase
 
     partial void OnTransitionDurationMsChanged(int value) => SaveTransition();
 
-    // Le runtime relit la transition à chaque sauvegarde : le prochain changement de scène
-    // l'emploie, live en cours compris.
+    // The runtime rereads the transition on every save: the next scene change uses it, a running
+    // live included.
     private void SaveTransition()
     {
-        // Une ComboBox qui se vide pousse null : rien de choisi, rien à enregistrer.
+        // A ComboBox being emptied pushes null: nothing chosen, nothing to save.
         if (_loadingTransition || SelectedTransition == null) return;
 
         var settings = _settingsService.Load();

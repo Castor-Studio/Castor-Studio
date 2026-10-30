@@ -4,8 +4,8 @@
              x:Class="CastorApplication.Views.Shell.StudioDockView"
              x:DataType="vm:StudioDockViewModel">
 
-	<!-- L'espace ancrable est la seule page qui garde une marge : elle détache les panneaux
-	     des bords pour qu'ils se lisent comme des panneaux flottants. -->
+	<!-- The dockable space is the only page keeping a margin: it detaches panels from the
+	     edges so they read as floating panels. -->
 	<DockControl Layout="{Binding Layout}" Background="{DynamicResource AppBg}" Margin="12"/>
 
 </UserControl>

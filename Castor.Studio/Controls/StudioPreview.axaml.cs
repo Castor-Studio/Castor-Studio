@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -85,26 +87,26 @@ public partial class StudioPreview : UserControl
         set => SetValue(BaseCanvasHeightProperty, value);
     }
 
-    // Demi-côté de la zone de prise d'une poignée, en pixels de l'écran : les poignées sont
-    // peintes sur 10 px, on les saisit d'un peu plus loin.
+    // Half-side of a handle's grab area, in screen pixels: handles are painted at 10 px and can
+    // be grabbed from a little further away.
     private const double HandleReach = 7;
 
-    // Jusqu'où, hors d'un coin de la source choisie, le pointeur la fait tourner, en pixels
-    // de l'écran. Rien n'y est peint : c'est le curseur qui l'annonce.
+    // How far outside a corner of the selected source the pointer rotates it, in screen pixels.
+    // Nothing is painted there: the cursor announces it.
     private const double RotationReach = 24;
 
-    // Écart entre le pointeur et la bulle qui dit ce que le geste écrit, en pixels de
-    // l'écran : assez pour ne pas cacher ce qu'on vise.
+    // Gap between the pointer and the bubble saying what the gesture writes, in screen pixels:
+    // enough not to hide the target.
     private const double ReadoutOffset = 18;
 
-    // Distance, en pixels de l'écran, à laquelle une source déplacée s'accroche à un bord ou
-    // un centre : assez pour qu'on la sente, assez peu pour pouvoir passer à côté.
+    // Distance, in screen pixels, at which a moved source snaps to an edge or center: enough to
+    // feel it, little enough to be able to pass by.
     private const double SnapReach = 8;
 
     private static readonly Cursor SizeAllCursor = new(StandardCursorType.SizeAll);
     private static readonly Cursor HandCursor = new(StandardCursorType.Hand);
     private static readonly Cursor AimCursor = new(StandardCursorType.Cross);
-    // Les quatre axes d'étirement : ↔, ↘↖, ↕, ↗↙.
+    // The four stretch axes: ↔, ↘↖, ↕, ↗↙.
     private static readonly Cursor HorizontalCursor = new(StandardCursorType.SizeWestEast);
     private static readonly Cursor DescendingDiagonalCursor = new(StandardCursorType.TopLeftCorner);
     private static readonly Cursor VerticalCursor = new(StandardCursorType.SizeNorthSouth);
@@ -122,14 +124,16 @@ public partial class StudioPreview : UserControl
             Interval = SceneCompositionViewModel.WriteInterval
         };
         _flushTimer.Tick += OnFlushTick;
-        // Quitter la vue au milieu d'un geste ne doit pas laisser une source à mi-chemin.
-        // Le menu de la source, lui, n'a plus rien à viser.
+        // Leaving the view mid-gesture must not leave a source halfway. The source menu, for its
+        // part, has nothing left to target.
         DetachedFromVisualTree += (_, _) =>
         {
             CancelGesture();
             CloseSourceMenu();
         };
-        SizeChanged += (_, _) => UpdatePreviewViewport();
+        // The picture fits the room the toolbar leaves it, not the whole control.
+        Picture.SizeChanged += (_, _) => UpdatePreviewViewport();
+        DescribeTools();
         PropertyChanged += (_, change) =>
         {
             if (change.Property == BaseCanvasWidthProperty || change.Property == BaseCanvasHeightProperty)
@@ -137,41 +141,41 @@ public partial class StudioPreview : UserControl
         };
         UpdatePreviewViewport();
 
-        // Écoutés en descente, et même déjà traités : les flèches et Alt servent ailleurs à
-        // la navigation au clavier, qui les prendrait avant qu'ils ne remontent jusqu'ici.
+        // Listened to while tunneling, even when already handled: arrows and Alt serve keyboard
+        // navigation elsewhere, which would take them before they bubble up here.
         AddHandler(KeyDownEvent, OnPictureKeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyUpEvent, OnPictureKeyUp, RoutingStrategies.Tunnel, handledEventsToo: true);
 
-        // Les pastilles posées sur l'image sont rendues ici, à l'échelle de cet écran.
+        // Badges placed on the picture are rendered here, at this screen's scale.
         AttachedToVisualTree += (_, _) => PreviewBadgeRenderer.Attach(TopLevel.GetTopLevel(this)?.RenderScaling ?? 1);
     }
 
     /// <summary>
-    /// Ramène le clic dans le repère du canvas et y commence un geste : sur une poignée de
-    /// la source choisie, l'étirer — ou la rogner, en mode rognage ou Alt enfoncé ; juste
-    /// hors d'un de ses coins, la faire tourner ; sur une source, la choisir et la déplacer.
-    /// Un double-clic sur la source choisie entre en mode rognage ou en sort ; un clic droit
-    /// ouvre son menu. Sans composition, la vue ne fait que montrer : un clic n'y saisit rien.
+    /// Brings the click into canvas coordinates and starts a gesture there: on a handle of the
+    /// selected source, stretch it, or crop it in crop mode or with Alt held; just outside one
+    /// of its corners, rotate it; on a source, select and move it. A double-click on the selected
+    /// source enters or leaves crop mode; a right-click opens its menu. Without a composition,
+    /// the view only shows: a click grabs nothing.
     /// </summary>
     private void OnPicturePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var composition = Composition;
         if (composition == null) return;
-        if (ToCanvas(e.GetPosition(this)) is not var (x, y)) return;
+        if (ToCanvas(e.GetPosition(Picture)) is not var (x, y)) return;
 
-        // Tout clic sur l'aperçu lui donne le clavier : c'est là que zoom et flèches s'écoutent.
-        // Il ferme aussi le menu resté ouvert, comme partout ailleurs.
+        // Any click on the preview gives it the keyboard: that is where zoom and arrows are heard.
+        // It also closes a menu left open, as everywhere else.
         Focus();
         CloseSourceMenu();
 
         var properties = e.GetCurrentPoint(this).Properties;
-        var onPicture = NativePreview.Bounds.Contains(e.GetPosition(this));
+        var onPicture = NativePreview.Bounds.Contains(e.GetPosition(Picture));
 
         if (properties.IsRightButtonPressed)
         {
             if (composition.IsGesturing) return;
 
-            // Le menu porte sur ce qui est sous le pointeur, comme partout ailleurs.
+            // The menu applies to what is under the pointer, as everywhere else.
             if (onPicture) composition.SelectAt(x, y);
             else composition.ClearSelection();
 
@@ -183,7 +187,7 @@ public partial class StudioPreview : UserControl
 
         if (!properties.IsLeftButtonPressed) return;
 
-        // Le premier clic a déjà choisi la source ; le second, sur elle, bascule le rognage.
+        // The first click already selected the source; the second, on it, toggles crop.
         if (e.ClickCount == 2 && onPicture && IsOverSelected(composition, x, y))
         {
             composition.ToggleCropMode();
@@ -198,14 +202,13 @@ public partial class StudioPreview : UserControl
 
         if (target == null)
         {
-            // Cliquer à côté de l'image ou de toute source, c'est ne viser aucune source.
+            // Clicking beside the picture or any source means targeting no source.
             composition.ClearSelection();
         }
         else
         {
-            // Capturé, le geste continue même quand le pointeur sort de l'image : une
-            // source se pousse en partie hors du canvas, et un relâcher hors du panneau
-            // termine quand même ce qu'il a commencé.
+            // Captured, the gesture goes on even when the pointer leaves the picture: a source can be
+            // pushed partly off the canvas, and a release outside the panel still ends what it started.
             e.Pointer.Capture(Picture);
             Focus();
             _flushTimer.Start();
@@ -220,17 +223,17 @@ public partial class StudioPreview : UserControl
         var composition = Composition;
         if (composition == null) return;
 
-        var point = e.GetPosition(this);
+        var point = e.GetPosition(Picture);
         if (ToCanvas(point) is not var (x, y)) return;
 
-        // Alt peut s'enfoncer pendant que la page n'a pas le focus clavier : le pointeur le
-        // relit à chaque mouvement.
+        // Alt may go down while the page does not have keyboard focus: the pointer reads it again
+        // on every move.
         UpdateCropModifier(composition, e.KeyModifiers);
 
         if (!composition.IsGesturing)
         {
-            // Au survol, le curseur annonce ce qu'un clic saisirait, et la source visée se
-            // montre au poids qu'elle aura une fois prise.
+            // On hover, the cursor announces what a click would grab, and the targeted source shows at
+            // the weight it will have once taken.
             var onPicture = NativePreview.Bounds.Contains(point);
             Picture.Cursor = onPicture
                 ? CursorFor(
@@ -242,8 +245,8 @@ public partial class StudioPreview : UserControl
             return;
         }
 
-        // Maj libère les proportions d'un angle, et contraint une rotation au pas de 15°.
-        // Ctrl coupe l'aimant, pour poser une source au pixel près d'un bord.
+        // Shift frees a corner's proportions, and constrains a rotation to the 15° step.
+        // Ctrl turns snapping off, to place a source to the pixel near an edge.
         var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
         var snap = e.KeyModifiers.HasFlag(KeyModifiers.Control) ? 0 : SnapTolerance;
         composition.UpdateGesture(x, y, keepAspectRatio: !shift, constrainRotation: shift, snapReach: snap);
@@ -265,14 +268,14 @@ public partial class StudioPreview : UserControl
         e.Handled = true;
     }
 
-    // Alt + molette zoome l'image de la source visée vers le pointeur ; sans Alt ni mode
-    // rognage, la molette ne fait rien ici.
+    // Alt + wheel zooms the targeted source's image towards the pointer; without Alt or crop
+    // mode, the wheel does nothing here.
     private void OnPicturePointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         var composition = Composition;
         if (composition == null) return;
 
-        var point = e.GetPosition(this);
+        var point = e.GetPosition(Picture);
         if (!NativePreview.Bounds.Contains(point) || ToCanvas(point) is not var (x, y)) return;
 
         UpdateCropModifier(composition, e.KeyModifiers);
@@ -283,8 +286,8 @@ public partial class StudioPreview : UserControl
         e.Handled = true;
     }
 
-    // Une capture perdue sans relâcher (une fenêtre qui passe devant, un Alt+Tab) ne sait
-    // pas où l'opérateur voulait finir : la source reprend son placement d'avant le geste.
+    // A capture lost without a release (a window coming to the front, Alt+Tab) cannot tell where
+    // the operator meant to finish: the source returns to its pre-gesture placement.
     private void OnPicturePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e) => CancelGesture();
 
     private void OnPictureKeyDown(object? sender, KeyEventArgs e)
@@ -294,57 +297,92 @@ public partial class StudioPreview : UserControl
 
         UpdateCropModifier(composition, e.KeyModifiers);
 
+        // Escape undoes one thing at a time: the current gesture, then the crop, then the
+        // selection. With none of those, the key goes on to whoever is waiting for it.
         switch (e.Key)
         {
-            // Échap annule d'abord le geste en cours ; sans geste, il quitte le rognage.
             case Key.Escape when composition.IsGesturing:
                 CancelGesture();
-                break;
+                e.Handled = true;
+                return;
             case Key.Escape or Key.Enter when composition.IsCropMode:
                 composition.ExitCropMode();
                 NativePreview.ShowComposition();
-                break;
-            // + et - zooment la source choisie, 0 rend son image entière : ces touches n'ont
-            // aucun sens pour le cadre, elles n'ont pas besoin d'Alt.
-            case var _ when !composition.HasSelection || composition.IsGesturing:
+                e.Handled = true;
                 return;
-            case Key.Add or Key.OemPlus:
-            case var _ when e.KeySymbol == "+":
-                composition.StepSelectedZoom(1);
+            case Key.Escape when composition.HasSelection:
+                composition.ClearSelection();
                 NativePreview.ShowComposition();
-                break;
-            case Key.Subtract or Key.OemMinus:
-            case var _ when e.KeySymbol == "-":
-                composition.StepSelectedZoom(-1);
-                NativePreview.ShowComposition();
-                break;
-            case Key.NumPad0:
-            case var _ when e.KeySymbol == "0":
-                composition.ResetSelectedZoom();
-                NativePreview.ShowComposition();
-                break;
-            // Les flèches, elles, pourraient un jour pousser le cadre : faire glisser l'image
-            // demande Alt, comme à la souris.
-            case Key.Left or Key.Right or Key.Up or Key.Down when composition.IsCropping:
-                composition.NudgeSelectedZoom(
-                    e.Key switch { Key.Left => -1, Key.Right => 1, _ => 0 },
-                    e.Key switch { Key.Up => -1, Key.Down => 1, _ => 0 });
-                NativePreview.ShowComposition();
-                break;
-            default:
+                e.Handled = true;
                 return;
         }
 
-        e.Handled = true;
+        // A command in the middle of a gesture would overwrite what the pointer is asking for.
+        if (composition.IsGesturing) return;
+        if (CompositionShortcuts.Resolve(e.Key, e.KeyModifiers, e.KeySymbol) is not { } action) return;
+
+        e.Handled = Execute(composition, action);
     }
+
+    // Keys, toolbar buttons and menu rows all go through the composition, which guarantees
+    // them the same effect. The preview shows the result at once.
+    private bool Execute(SceneCompositionViewModel composition, CompositionKeyAction action)
+    {
+        var done = composition.Execute(action);
+        NativePreview.ShowComposition();
+        return done;
+    }
+
+    // Toolbar buttons carry their command in Tag. They do not take the keyboard: the preview
+    // keeps it, so shortcuts still answer after a click.
+    private void OnToolClick(object? sender, RoutedEventArgs e)
+    {
+        if (Composition is not { } composition || sender is not Control { Tag: CompositionCommand command }) return;
+
+        CloseSourceMenu();
+        Execute(composition, new CompositionKeyAction(command));
+        Focus();
+    }
+
+    // Each toolbar tool takes the icon its command has in the menu, before its label if it has
+    // one; its tooltip also names the key that does the same. A tool already showing something
+    // else (the zoom factor) keeps it.
+    private void DescribeTools()
+    {
+        foreach (var tool in Toolbar.GetLogicalDescendants().OfType<Button>().ToList())
+        {
+            if (tool.Tag is not CompositionCommand command) continue;
+
+            if (ToolTip.GetTip(tool) is string tip)
+                ToolTip.SetTip(tool, CompositionShortcuts.Describe(tip, command));
+
+            var icon = SourceMenu.Icon(CompositionIcons.Of(command), "tool-icon", 15);
+            tool.Content = tool.Content switch
+            {
+                string label => new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6,
+                    Children = { icon, new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center } }
+                },
+                null => icon,
+                var content => content
+            };
+        }
+    }
+
+    // The slider writes its zoom through the composition (binding); what is left is to show the
+    // engine the resulting overlay, a zoomed source's mini-map included.
+    private void OnZoomSliderChanged(object? sender, RangeBaseValueChangedEventArgs e) =>
+        NativePreview.ShowComposition();
 
     private void OnPictureKeyUp(object? sender, KeyEventArgs e)
     {
         if (Composition is { } composition) UpdateCropModifier(composition, e.KeyModifiers);
     }
 
-    // Tant qu'Alt est enfoncé, la source choisie se montre en rognage ; le moteur n'en est
-    // prévenu que si l'apparence change vraiment.
+    // While Alt is held, the selected source shows as cropping; the engine is only told if the
+    // appearance really changes.
     private void UpdateCropModifier(SceneCompositionViewModel composition, KeyModifiers modifiers)
     {
         var wasCropping = composition.IsCropping;
@@ -363,8 +401,8 @@ public partial class StudioPreview : UserControl
         NativePreview.ShowComposition();
     }
 
-    // La bulle est une fenêtre à elle : c'est ce qui la laisse passer au-dessus de la
-    // surface native, où rien de ce que dessine la page ne peut se poser.
+    // The bubble is a window of its own: that is what lets it pass over the native surface,
+    // where nothing the page draws can sit.
     private void ShowReadout(SceneCompositionViewModel composition, Point pointer)
     {
         var text = composition.GestureReadout;
@@ -379,39 +417,20 @@ public partial class StudioPreview : UserControl
         Readout.IsOpen = true;
     }
 
-    // Le menu de la source choisie. Ses commandes passent par le moteur comme un geste : un
-    // refus se dit sous la liste des sources, et l'aperçu revient à ce que le moteur détient.
+    /// <summary>
+    /// What the page adds to a source's menu, as the last group: rename, remove…
+    /// Left unset, the menu carries the composition commands only.
+    /// </summary>
+    public Func<Guid, IEnumerable<Control>>? SourceActions { get; set; }
+
+    // The selected source's menu: the same as a right-click on its row in the list.
     private void OpenSourceMenu(SceneCompositionViewModel composition)
     {
-        var selected = composition.Selected!;
-
-        MenuItem Item(string header, Action action, bool isEnabled = true)
-        {
-            var item = new MenuItem { Header = header, IsEnabled = isEnabled };
-            item.Click += (_, _) =>
-            {
-                action();
-                NativePreview.ShowComposition();
-            };
-            return item;
-        }
-
-        var menu = new ContextMenu
-        {
-            Items =
-            {
-                Item(composition.IsCropMode ? "Terminer le rognage" : "Rogner", composition.ToggleCropMode),
-                Item("Réinitialiser le rognage", composition.ResetSelectedCrop, selected.Crop != SourceCrop.None),
-                new Separator(),
-                Item("Pivoter de 90° à droite", () => composition.RotateSelected(90)),
-                Item("Pivoter de 90° à gauche", () => composition.RotateSelected(-90)),
-                Item("Pivoter de 180°", () => composition.RotateSelected(180)),
-                Item("Réinitialiser la rotation", composition.ResetSelectedRotation, selected.Rotation != 0),
-                new Separator(),
-                ZoomItem(composition, selected.Zoom.Factor),
-                Item("Réinitialiser le zoom", composition.ResetSelectedZoom, selected.Zoom.IsZoomed)
-            }
-        };
+        var sourceId = composition.Selected!.SourceId;
+        var menu = SourceMenu.Create(
+            composition,
+            Scene?.Sources.FirstOrDefault(item => item.Id == sourceId),
+            SourceActions?.Invoke(sourceId) ?? []);
         menu.Closed += (_, _) =>
         {
             if (_sourceMenu == menu) _sourceMenu = null;
@@ -420,9 +439,9 @@ public partial class StudioPreview : UserControl
         menu.Open(Picture);
     }
 
-    // Le menu ouvert sur la surface native ne se ferme pas de lui-même quand on clique
-    // ailleurs dans l'aperçu : le clic n'atteint jamais sa fenêtre. On le ferme donc ici,
-    // avant d'en ouvrir un autre ou de commencer quoi que ce soit d'autre.
+    // A menu open over the native surface does not close by itself when clicking elsewhere in
+    // the preview: the click never reaches its window. So it is closed here, before opening
+    // another one or starting anything else.
     private void CloseSourceMenu()
     {
         var menu = _sourceMenu;
@@ -430,64 +449,15 @@ public partial class StudioPreview : UserControl
         menu?.Close();
     }
 
-    // Le curseur du zoom vit dans le menu, qui reste ouvert pendant qu'on le tire : chaque
-    // cran part au moteur, et l'aperçu montre aussitôt ce qu'il en a fait.
-    private MenuItem ZoomItem(SceneCompositionViewModel composition, double factor)
-    {
-        var value = new TextBlock
-        {
-            Text = FormatZoom(factor),
-            MinWidth = 36,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        var slider = new Slider
-        {
-            Minimum = SourceZoom.MinFactor,
-            Maximum = SourceZoom.MaxFactor,
-            Value = factor,
-            SmallChange = 0.1,
-            LargeChange = 0.5,
-            Width = 160,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        slider.ValueChanged += (_, e) =>
-        {
-            composition.ZoomSelected(e.NewValue);
-            value.Text = FormatZoom(composition.Selected?.Zoom.Factor ?? e.NewValue);
-            NativePreview.ShowComposition();
-        };
-
-        var item = new MenuItem
-        {
-            StaysOpenOnClick = true,
-            Header = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 10,
-                Children =
-                {
-                    new TextBlock { Text = "Zoom", VerticalAlignment = VerticalAlignment.Center },
-                    slider,
-                    value
-                }
-            }
-        };
-        // Le menu enseigne le geste direct, plus rapide une fois connu.
-        ToolTip.SetTip(item, "Sur l'aperçu : Alt + molette pour zoomer vers le pointeur, Alt + glisser pour déplacer l'image.");
-        return item;
-    }
-
-    private static string FormatZoom(double factor) => $"×{factor:0.0}";
-
-    // Rattrape un pointeur qui s'arrête entre deux écritures : sans lui, la dernière
-    // position attendrait le mouvement suivant ou le relâcher pour atteindre le moteur.
+    // Catches a pointer stopping between two writes: without it, the last position would wait
+    // for the next move or the release to reach the engine.
     private void OnFlushTick(object? sender, EventArgs e)
     {
         var composition = Composition;
         if (composition is { IsGesturing: true }) composition.FlushGesture();
 
-        // Un refus pendant le rattrapage arrête le geste : l'overlay revient à ce que le
-        // moteur détient, et la bulle n'a plus rien à dire.
+        // A refusal during catch-up stops the gesture: the overlay returns to what the engine holds,
+        // and the bubble has nothing left to say.
         if (composition is not { IsGesturing: true })
         {
             _flushTimer.Stop();
@@ -497,9 +467,9 @@ public partial class StudioPreview : UserControl
         NativePreview.ShowComposition();
     }
 
-    // L'image occupe exactement le rectangle de la surface native : un point de l'écran s'y
-    // ramène par le seul rapport des deux tailles. C'est le changement de repère du moteur,
-    // pris à l'envers, et le seul endroit où il est écrit.
+    // The picture exactly fills the native surface's rectangle: a screen point maps to it by the
+    // ratio of the two sizes alone. This is the engine's coordinate change, reversed, and the
+    // only place it is written.
     private (double X, double Y)? ToCanvas(Point point)
     {
         if (!TryGetCanvasScale(out var scaleX, out var scaleY)) return null;
@@ -522,22 +492,22 @@ public partial class StudioPreview : UserControl
         return true;
     }
 
-    // Une poignée se vise à la souris : sa zone de prise est pensée en pixels de l'écran,
-    // un peu plus large que le carré peint, puis convertie dans le repère du canvas. La zone
-    // de rotation, de même.
+    // A handle is aimed with the mouse: its grab area is thought in screen pixels, a little
+    // wider than the painted square, then converted to canvas coordinates. Same for the
+    // rotation area.
     private double HandleTolerance => TryGetCanvasScale(out var scaleX, out _) ? HandleReach * scaleX : 0;
 
     private double RotationTolerance => TryGetCanvasScale(out var scaleX, out _) ? RotationReach * scaleX : 0;
 
     private double SnapTolerance => TryGetCanvasScale(out var scaleX, out _) ? SnapReach * scaleX : 0;
 
-    // La mini-carte se pense en pixels physiques de l'écran, comme le moteur la peint dans sa
-    // surface native : elle tombe ainsi au même endroit pour le clic et pour l'œil, quelle
-    // que soit la mise à l'échelle de Windows.
+    // The mini-map is thought in physical screen pixels, as the engine paints it in its native
+    // surface: it lands in the same place for the click and the eye, whatever the Windows
+    // scaling.
     private double CanvasPerScreenPixel =>
         TryGetCanvasScale(out var scaleX, out _) ? scaleX / (TopLevel.GetTopLevel(this)?.RenderScaling ?? 1) : 0;
 
-    // Le pointeur quitte l'image : plus rien n'est survolé.
+    // The pointer leaves the picture: nothing is hovered any more.
     private void OnPicturePointerExited(object? sender, PointerEventArgs e)
     {
         if (Composition is { } composition && composition.ClearHover()) NativePreview.ShowComposition();
@@ -559,8 +529,8 @@ public partial class StudioPreview : UserControl
         _ => null
     };
 
-    // Une poignée tire dans la direction de son bord, qui tourne avec la source : le curseur
-    // suit cette direction, ramenée au plus proche des quatre axes que Windows sait dessiner.
+    // A handle pulls in the direction of its edge, which turns with the source: the cursor
+    // follows that direction, brought to the nearest of the four axes Windows can draw.
     private static Cursor PullCursor(double direction)
     {
         var axis = (int)Math.Round((direction + 360) % 180 / 45) % 4;
@@ -573,8 +543,8 @@ public partial class StudioPreview : UserControl
         };
     }
 
-    // Windows n'a pas de curseur de rotation : il est dessiné une fois, une flèche en arc
-    // claire sur un liseré sombre, lisible sur n'importe quelle image.
+    // Windows has no rotation cursor: it is drawn once, a light arc arrow on a dark outline,
+    // readable on any image.
     private static Cursor RotateCursor => _rotateCursor ??= CreateRotateCursor();
 
     private static Cursor CreateRotateCursor()
@@ -593,10 +563,11 @@ public partial class StudioPreview : UserControl
 
     private void UpdatePreviewViewport()
     {
-        if (BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0 || Bounds.Width <= 0 || Bounds.Height <= 0)
+        var area = Picture.Bounds;
+        if (BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0 || area.Width <= 0 || area.Height <= 0)
             return;
 
-        var scale = Math.Min(Bounds.Width / BaseCanvasWidth, Bounds.Height / BaseCanvasHeight);
+        var scale = Math.Min(area.Width / BaseCanvasWidth, area.Height / BaseCanvasHeight);
         NativePreview.Width = Math.Max(1, Math.Round(BaseCanvasWidth * scale));
         NativePreview.Height = Math.Max(1, Math.Round(BaseCanvasHeight * scale));
     }

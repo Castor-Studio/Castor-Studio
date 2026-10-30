@@ -3,19 +3,56 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using CastorApplication.Controls;
 using CastorApplication.ViewModels.Scenes;
 
 namespace CastorApplication.Views;
 
 public partial class ScenesView : UserControl
 {
-    // La source en cours de glissement. Le presse-papier de drag ne transporte que du texte,
-    // et le drop a besoin du ViewModel lui-même, pas d'un identifiant à re-résoudre.
+    // The source being dragged. The drag clipboard only carries text, and the drop needs the
+    // ViewModel itself, not an id to resolve again.
     private SourceItemViewModel? _draggedSource;
 
     public ScenesView()
     {
         InitializeComponent();
+        // A source's menu on the picture also carries the list actions: a source has one menu,
+        // wherever it is clicked.
+        ScenePreview.SourceActions = SourceListActions;
+    }
+
+    // Right-click on a row: the source is selected on the preview and its menu opens, the same
+    // as on the picture, composition commands included when the engine composes it.
+    private void OnSourceContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not Control { DataContext: SourceItemViewModel source } row) return;
+        if (DataContext is not ScenesViewModel viewModel || source.IsRenaming) return;
+
+        var composition = viewModel.Composition;
+        composition.Select(source.Id);
+        SourceMenu.Create(composition, source, SourceListActions(source.Id)).Open(row);
+        e.Handled = true;
+    }
+
+    // What can be done from the list: rename, a file's loop, remove. Remove comes last and in
+    // red, like "Supprimer" in a scene's menu.
+    private IEnumerable<Control> SourceListActions(Guid sourceId)
+    {
+        if (DataContext is not ScenesViewModel viewModel) yield break;
+        if (viewModel.SelectedScene?.Sources.FirstOrDefault(item => item.Id == sourceId) is not { } source) yield break;
+
+        yield return SourceMenu.Item("Renommer", CompositionIcons.Rename,
+            () => viewModel.BeginRenameSourceCommand.Execute(source));
+        if (source.IsFileSource)
+        {
+            yield return SourceMenu.Item("Lire en boucle", CompositionIcons.Loop,
+                () => viewModel.ToggleMediaLoopCommand.Execute(source), isChecked: source.Loop);
+        }
+
+        yield return new Separator();
+        yield return SourceMenu.Item("Retirer de la scène", CompositionIcons.Remove,
+            () => viewModel.RemoveSourceCommand.Execute(source), isDanger: true);
     }
 
     private void OnSourceNameDoubleTapped(object? sender, TappedEventArgs e)
@@ -47,8 +84,8 @@ public partial class ScenesView : UserControl
             viewModel.ConfirmRenameSourceCommand.Execute(null);
     }
 
-    // Seule la poignée déclenche le glissement : le reste de la ligne garde ses boutons
-    // cliquables (boucle, retrait, montée/descente).
+    // Only the handle starts a drag: the rest of the row keeps its buttons clickable (loop,
+    // remove).
     private async void OnSourceHandlePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control { DataContext: SourceItemViewModel source }) return;

@@ -7,14 +7,14 @@
              x:DataType="vm:StudioViewModel">
 
 	<UserControl.Resources>
-		<!-- Le Slider Fluent réserve 15 px au-dessus et au-dessous de sa piste (place d'un
-		     en-tête et de graduations qu'on n'affiche pas) : dans une barre basse, la piste
-		     tombait sous l'axe des autres contrôles. Sans ces marges, elle se centre. -->
+		<!-- The Fluent Slider reserves 15 px above and below its track (room for a header and
+		     ticks not shown here): in a low bar, the track fell below the other controls' axis.
+		     Without these margins, it centers. -->
 		<GridLength x:Key="SliderPreContentMargin">0</GridLength>
 		<GridLength x:Key="SliderPostContentMargin">0</GridLength>
 
-		<!-- Une scène dans la liste : sa pastille de couleur, son nom, et un rappel quand elle
-		     n'a pas d'image — l'envoyer à l'antenne enverrait du noir. -->
+		<!-- A scene in the list: its color dot, its name, and a reminder when it has no image, as
+		     sending it on air would send black. -->
 		<DataTemplate x:Key="SceneItemTemplate" x:DataType="scenes:SceneItemViewModel">
 			<StackPanel Orientation="Horizontal" Spacing="7">
 				<Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center"/>
@@ -26,7 +26,7 @@
 			</StackPanel>
 		</DataTemplate>
 
-		<!-- Une transition = une icône. Son nom est porté par la case entière (style plus bas). -->
+		<!-- One transition = one icon. Its name is carried by the whole cell (style below). -->
 		<DataTemplate x:Key="TransitionIconTemplate" x:DataType="vm:SceneTransitionOption">
 			<Viewbox Width="16" Height="16">
 				<Canvas Width="24" Height="24">
@@ -38,7 +38,7 @@
 	</UserControl.Resources>
 
 	<UserControl.Styles>
-		<!-- Choix de la transition : une rangée d'icônes jointives, la choisie en accent. -->
+		<!-- Transition choice: a row of adjoining icons, the chosen one in accent. -->
 		<Style Selector="ListBox.segmented">
 			<Setter Property="Background" Value="Transparent"/>
 			<Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
@@ -49,8 +49,8 @@
 			<Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
 			<Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
 		</Style>
-		<!-- Infobulle et nom accessible sur toute la case, pas seulement sur le trait de l'icône :
-		     sinon le survol des marges n'affiche rien. -->
+		<!-- Tooltip and accessible name on the whole cell, not just the icon's stroke: otherwise
+		     hovering the margins shows nothing. -->
 		<Style Selector="ListBox.segmented ListBoxItem" x:DataType="vm:SceneTransitionOption">
 			<Setter Property="ToolTip.Tip" Value="{Binding Label}"/>
 			<Setter Property="AutomationProperties.Name" Value="{Binding Label}"/>

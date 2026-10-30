@@ -1,14 +1,93 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:CastorApplication.Controls"
+             xmlns:scenes="using:CastorApplication.ViewModels.Scenes"
+             xmlns:models="using:CastorApplication.Models.Studio"
              x:Class="CastorApplication.Controls.StudioPreview"
              x:Name="PreviewRoot"
              x:DataType="controls:StudioPreview"
              Focusable="True">
-    <!-- Le pointeur ne peut pas atterrir sur la surface native : elle se déclare
-         transparente aux tests de survol, et l'hôte ne teste pas le survol. Il tombe donc
-         ici, sur le fond, qui le ramène dans le repère du canvas. -->
+    <UserControl.Styles>
+        <!-- Tools never take the keyboard: it stays on the preview, where shortcuts are heard. -->
+        <Style Selector="Button.composition-tool">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.composition-tool:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppSurface2}"/>
+        </Style>
+        <Style Selector="Button.composition-tool.active /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        </Style>
+        <Style Selector="Button.composition-tool.active">
+            <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        </Style>
+        <!-- With no selected source, the bar fades as one: buttons, group names and slider. -->
+        <Style Selector="DockPanel.composition-tools:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+        <Style Selector="Button.composition-tool:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <!-- The source menu icons, with the same stroke. -->
+        <Style Selector="Button.composition-tool Path.tool-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppFg4}"/>
+            <Setter Property="StrokeThickness" Value="2"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+        </Style>
+        <Style Selector="Button.composition-tool:pointerover Path.tool-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppFg2}"/>
+        </Style>
+        <Style Selector="Button.composition-tool:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        </Style>
+        <Style Selector="Button.composition-tool.active Path.tool-icon">
+            <Setter Property="Stroke" Value="{DynamicResource AppAccentFg}"/>
+        </Style>
+        <Style Selector="Rectangle.composition-tool-separator">
+            <Setter Property="Width" Value="1"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Margin" Value="6,0"/>
+            <Setter Property="Fill" Value="{DynamicResource AppBorder}"/>
+        </Style>
+        <!-- The name of an icon group: it says what they act on. Subdued, with no background or
+             hover, so it does not pass for a button. -->
+        <Style Selector="TextBlock.composition-group">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="{DynamicResource AppFg5}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="4,0,2,0"/>
+        </Style>
+        <!-- The zoom factor: a number to click to return to the full image. -->
+        <Style Selector="Button.composition-tool.zoom-value">
+            <Setter Property="MinWidth" Value="44"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Slider.composition-zoom">
+            <Setter Property="Width" Value="120"/>
+            <Setter Property="Margin" Value="4,-10"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="*, Auto">
+    <!-- The pointer cannot land on the native surface: it declares itself transparent to
+         hit tests, and the host does not hit-test. So it falls here, on the background, which
+         brings it back to canvas coordinates. -->
     <Panel x:Name="Picture"
+           Grid.Row="0"
            Background="Black"
            PointerPressed="OnPicturePointerPressed"
            PointerMoved="OnPicturePointerMoved"
@@ -50,8 +129,8 @@
                        Foreground="{DynamicResource VideoFgBrush}" FontSize="12" FontWeight="SemiBold"/>
         </Border>
 
-        <!-- Ce que le geste en cours écrit, près du pointeur. Une fenêtre à elle, et non une
-             couche de la page : c'est ce qui la laisse passer au-dessus de la surface native. -->
+        <!-- What the current gesture writes, near the pointer. A window of its own rather than a
+             page layer: that is what lets it pass over the native surface. -->
         <Popup x:Name="Readout"
                PlacementTarget="{Binding #Picture}"
                Placement="AnchorAndGravity"
@@ -70,4 +149,84 @@
             </Border>
         </Popup>
     </Panel>
+
+    <!-- The canvas toolbar: the selected source's commands, within mouse reach. Under the
+         picture rather than on it, since nothing can sit on the native surface. Each button
+         takes the same path as its shortcut, and its tooltip names it. Only a composing
+         preview (the Scenes page) has one. -->
+    <Border x:Name="Toolbar"
+            Grid.Row="1"
+            IsVisible="{Binding #PreviewRoot.Composition, Converter={x:Static ObjectConverters.IsNotNull}}"
+            Background="{DynamicResource AppSurface}"
+            BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0"
+            Padding="6,4">
+        <!-- Ordered by what each command changes: the frame, its orientation, its place in the
+             stack, then apart the image it shows. None of it means anything with no selected
+             source. -->
+        <DockPanel Classes="composition-tools"
+                   IsEnabled="{Binding #PreviewRoot.Composition.HasSelection, FallbackValue=False}">
+
+            <!-- The image in the frame: apart, on the right, because it does not move the frame.
+                 The slider follows zoom given elsewhere (wheel, keyboard, menu). -->
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="2">
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.ZoomIn}"
+                        ToolTip.Tip="Zoomer dans l'image"/>
+                <Slider Classes="composition-zoom"
+                        Minimum="{x:Static models:SourceZoom.MinFactor}"
+                        Maximum="{x:Static models:SourceZoom.MaxFactor}"
+                        SmallChange="0.1" LargeChange="0.5"
+                        Value="{Binding #PreviewRoot.Composition.SelectedZoomFactor, FallbackValue=1}"
+                        ValueChanged="OnZoomSliderChanged"
+                        ToolTip.Tip="Zoom dans l'image. Sur l'aperçu, Alt + molette zoome vers le pointeur."/>
+                <Button Classes="composition-tool zoom-value" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.ResetZoom}"
+                        ToolTip.Tip="Revenir à l'image entière">
+                    <TextBlock Text="{Binding #PreviewRoot.Composition.SelectedZoomFactor, StringFormat='×{0:0.0}', FallbackValue='×1,0'}"/>
+                </Button>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="2">
+                <Button Classes="composition-tool" Content="Centrer" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.CenterSelected}"
+                        ToolTip.Tip="Centrer dans le canvas"/>
+                <Button Classes="composition-tool" Content="Ajuster" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.FitSelected}"
+                        ToolTip.Tip="Ajuster au canvas"/>
+                <Button Classes="composition-tool" Content="Rogner" Click="OnToolClick"
+                        Classes.active="{Binding #PreviewRoot.Composition.IsCropMode, FallbackValue=False}"
+                        Tag="{x:Static scenes:CompositionCommand.ToggleCrop}"
+                        ToolTip.Tip="Rogner / terminer le rognage"/>
+                <!-- Last: it undoes everything before it. -->
+                <Button Classes="composition-tool" Content="Réinitialiser" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.ResetTransform}"
+                        ToolTip.Tip="Réinitialiser la transformation"/>
+
+                <Rectangle Classes="composition-tool-separator"/>
+                <TextBlock Classes="composition-group" Text="Pivoter"/>
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.RotateLeft}"
+                        ToolTip.Tip="Pivoter de 90° à gauche"/>
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.RotateRight}"
+                        ToolTip.Tip="Pivoter de 90° à droite"/>
+
+                <Rectangle Classes="composition-tool-separator"/>
+                <TextBlock Classes="composition-group" Text="Plan"/>
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.BringToFront}"
+                        ToolTip.Tip="Mettre au premier plan"/>
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.BringForward}"
+                        ToolTip.Tip="Rapprocher du premier plan"/>
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.SendBackward}"
+                        ToolTip.Tip="Reculer vers l'arrière-plan"/>
+                <Button Classes="composition-tool" Click="OnToolClick"
+                        Tag="{x:Static scenes:CompositionCommand.SendToBack}"
+                        ToolTip.Tip="Mettre à l'arrière-plan"/>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+    </Grid>
 </UserControl>

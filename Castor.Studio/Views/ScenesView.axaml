@@ -97,7 +97,7 @@
 					</Button>
 				</Grid>
 
-				<!-- Toolbar: sort + fichier + selection mode -->
+				<!-- Toolbar: sort + file + selection mode -->
 				<StackPanel Grid.Row="1" Margin="8,0,8,8" Spacing="1">
 
 					<Button Classes="scene-toolbar-item">
@@ -432,15 +432,15 @@
 		<!-- ═══ RIGHT PANEL ═══ -->
 		<Grid Grid.Column="2" RowDefinitions="*, 8, 200" Margin="8">
 
-			<!-- Scene preview. Le canvas de composition, c'est cette image : le moteur y
-			     trace le cadre de chaque source composée. Rien d'autre ne peut se poser
-			     au-dessus, sa surface est une fenêtre Windows. -->
+			<!-- Scene preview. This picture is the composition canvas: the engine draws each composed
+			     source's frame on it. Nothing else can sit on top, its surface is a Windows window. -->
 			<Border Grid.Row="0"
                     Background="Black" CornerRadius="8"
                     BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"
                     ClipToBounds="True">
 				<Panel>
-				<controls:StudioPreview Scene="{Binding SelectedScene}"
+				<controls:StudioPreview x:Name="ScenePreview"
+                                            Scene="{Binding SelectedScene}"
                                             PreviewRuntime="{Binding PreviewRuntime}"
                                             Composition="{Binding Composition}"
                                             BaseCanvasWidth="{Binding BaseCanvasWidth}"
@@ -475,9 +475,9 @@
                                        IsVisible="{Binding !IsSourceListCustomized}"/>
 						</StackPanel>
 
-						<!-- Trier / filtrer : ne change que l'affichage, jamais l'ordre de composition.
-						     Même flyout que « Trier » sur les scènes ; teinté quand un tri ou un filtre
-						     est actif, pour qu'une liste incomplète ne passe pas inaperçue. -->
+						<!-- Sort / filter: only changes the display, never the composition order. Same flyout as
+						     "Trier" on scenes; tinted when a sort or filter is active, so an incomplete list does not
+						     go unnoticed. -->
 						<Button Grid.Column="1" Margin="0,0,6,0"
                                 BorderThickness="0" Padding="8,5" CornerRadius="5" Cursor="Hand"
                                 Background="Transparent"
@@ -552,7 +552,7 @@
 							</Button.Flyout>
 						</Button>
 
-						<!-- Ouvre le dialogue « Ajouter une source » -->
+						<!-- Opens the "Ajouter une source" dialog -->
 						<Button Grid.Column="2"
                                 Content="+"
                                 Command="{Binding OpenAddSourceCommand}"
@@ -566,7 +566,7 @@
 
 					<Rectangle Grid.Row="1" Height="1" Fill="{DynamicResource AppBorder}"/>
 
-					<!-- Dynamic source list, empilée du premier plan vers l'arrière-plan -->
+					<!-- Dynamic source list, stacked from foreground to background -->
 					<TextBlock Grid.Row="2" Text="{Binding SourceListPlaceholder}"
                                IsVisible="{Binding SourceListPlaceholder, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                Foreground="{DynamicResource AppFg5}" FontSize="11"
@@ -579,8 +579,9 @@
 									<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,7" Margin="0,2"
                                             DragDrop.AllowDrop="True"
                                             DragDrop.DragOver="OnSourceDragOver"
-                                            DragDrop.Drop="OnSourceDrop">
-										<Grid ColumnDefinitions="18, 16, *, Auto, Auto, Auto, Auto, Auto">
+                                            DragDrop.Drop="OnSourceDrop"
+                                            ContextRequested="OnSourceContextRequested">
+										<Grid ColumnDefinitions="18, 16, *, Auto, Auto, Auto">
 											<Border Grid.Column="0" Background="Transparent" Cursor="SizeAll"
                                                     PointerPressed="OnSourceHandlePointerPressed"
                                                     ToolTip.Tip="Glisser pour changer le plan de cette source">
@@ -588,7 +589,7 @@
                                                            Foreground="{DynamicResource AppFg5}"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
 											</Border>
-											<!-- Icône du type de source, dans la couleur de la source -->
+											<!-- Source type icon, in the source's color -->
 											<Viewbox Grid.Column="1" Width="16" Height="16" VerticalAlignment="Center">
 												<Canvas Width="24" Height="24">
 													<Path Data="{Binding IconPath}"
@@ -596,8 +597,8 @@
                                                           StrokeLineCap="Round" StrokeJoin="Round"/>
 												</Canvas>
 											</Viewbox>
-											<!-- Double-clic sur le nom : renommage en place. Entrée ou sortie du champ
-											     valide, Échap annule. -->
+											<!-- Double-click on the name: rename in place. Enter or leaving the field confirms,
+											     Escape cancels. -->
 											<TextBlock Grid.Column="2" Text="{Binding Name}"
                                                        IsVisible="{Binding !IsRenaming}"
                                                        Background="Transparent"
@@ -624,25 +625,8 @@
 											<TextBlock Grid.Column="3" Text="{Binding Type}"
                                                        Foreground="{DynamicResource AppFg4}" FontSize="10"
                                                        VerticalAlignment="Center" Margin="0,0,4,0"/>
-											<!-- Équivalent clavier du glisser-déposer -->
-											<Button Grid.Column="4"
-                                                    Content="▲"
-                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
-                                                    BorderThickness="0" FontSize="9" Padding="4,2"
-                                                    Cursor="Hand"
-                                                    ToolTip.Tip="Rapprocher du premier plan"
-                                                    Command="{Binding #ScenesRoot.DataContext.RaiseSourceCommand}"
-                                                    CommandParameter="{Binding}"/>
-											<Button Grid.Column="5"
-                                                    Content="▼"
-                                                    Background="Transparent" Foreground="{DynamicResource AppFg5}"
-                                                    BorderThickness="0" FontSize="9" Padding="4,2"
-                                                    Cursor="Hand"
-                                                    ToolTip.Tip="Reculer vers l'arrière-plan"
-                                                    Command="{Binding #ScenesRoot.DataContext.LowerSourceCommand}"
-                                                    CommandParameter="{Binding}"/>
-											<!-- Bouton boucle — visible uniquement pour les sources fichier -->
-							<ToggleButton Grid.Column="6"
+											<!-- Loop button, visible for file sources only -->
+							<ToggleButton Grid.Column="4"
                                                           IsVisible="{Binding IsFileSource}"
                                                           IsChecked="{Binding Loop, Mode=OneWay}"
                                                           Command="{Binding #ScenesRoot.DataContext.ToggleMediaLoopCommand}"
@@ -662,7 +646,7 @@
 												</ToggleButton.Styles>
 												<TextBlock Text="⟳" FontSize="14"/>
 											</ToggleButton>
-											<Button Grid.Column="7"
+											<Button Grid.Column="5"
                                                     Content="✕"
                                                     Background="Transparent" Foreground="{DynamicResource AppFg5}"
                                                     BorderThickness="0" FontSize="11" Padding="4,2"
@@ -679,8 +663,8 @@
 					<StackPanel Grid.Row="3" Margin="2,6,2,0" Spacing="6">
 						<controls:MessageBar Text="{Binding SourceOperationStatus}"/>
 
-						<!-- Un refus de lecture de la composition fige les cadres sur
-						     l'aperçu : il doit se voir plutôt que passer pour un aperçu figé. -->
+						<!-- A refused composition read freezes the frames on the preview: it must show rather
+						     than pass for a frozen preview. -->
 						<controls:MessageBar Text="{Binding Composition.Status}"/>
 					</StackPanel>
 				</Grid>

@@ -37,6 +37,7 @@ public sealed class ObsPreviewHost : NativeControlHost
     private readonly DispatcherTimer _compositionTimer;
     private CancellationTokenSource? _refreshCancellation;
     private IScenePreviewRuntime? _observedRuntime;
+    private SceneCompositionViewModel? _observedComposition;
     private Guid? _runningSceneId;
     private int _refreshVersion;
     private bool _isAttached;
@@ -103,7 +104,7 @@ public sealed class ObsPreviewHost : NativeControlHost
         {
             _isAttached = false;
             ObserveRuntime(null);
-            _compositionTimer.Stop();
+            UpdateCompositionTimer();
             StopRunningPreview();
         };
         SizeChanged += (_, _) => ResizeRunningPreview();
@@ -221,7 +222,20 @@ public sealed class ObsPreviewHost : NativeControlHost
     {
         if (_isAttached && Composition != null) _compositionTimer.Start();
         else _compositionTimer.Stop();
+
+        // The composition outlives this view: listen to it only while displayed, or it would
+        // keep a dead view alive.
+        var observed = _isAttached ? Composition : null;
+        if (observed == _observedComposition) return;
+
+        if (_observedComposition != null) _observedComposition.OverlayChanged -= OnOverlayChanged;
+        _observedComposition = observed;
+        if (observed != null) observed.OverlayChanged += OnOverlayChanged;
     }
+
+    // A selection or command from somewhere other than the picture (the source list): the
+    // frames follow without waiting for the periodic read.
+    private void OnOverlayChanged(object? sender, EventArgs e) => ShowComposition();
 
     // The interface reads the composition, the engine draws it: a native surface cannot be
     // drawn over, so the overlay is handed back to it and painted in the same frame as the

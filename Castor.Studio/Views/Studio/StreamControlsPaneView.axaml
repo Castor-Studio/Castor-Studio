@@ -44,14 +44,15 @@
 							<TextBlock Text="DÉMARRER LE STREAM"
                                        FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
 							<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
-							<!-- Destination et compte seulement : la scène qui part est déjà dans la barre
-							     d'état, et se choisit au sélecteur « Scène active ». -->
+							<!-- Destination and account only: the outgoing scene is already in the status bar, and is
+							     chosen in the "Scène active" selector. -->
 							<StackPanel Spacing="4">
 								<TextBlock Text="Destination" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
 								<TextBlock Text="{Binding DestinationLabel}" Foreground="{DynamicResource AppFg1}"
                                            FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
 							</StackPanel>
-							<!-- Compte connecté : son nom, comme avant. Sinon : de quoi le connecter, ici même. -->
+							<!-- Connected account: its name, as before. Otherwise: what it takes to connect one, right
+							     here. -->
 							<Border IsVisible="{Binding IsAccountConnected}"
                                     Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,8"
                                     BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
@@ -257,9 +258,8 @@
 
 		</UniformGrid>
 
-		<!-- Plus de panneau avant l'enregistrement, mais un échec doit encore se voir :
-		     cette bulle s'ouvre au-dessus des boutons dès que RecordError se remplit
-		     (StreamControlsPaneView.axaml.cs). -->
+		<!-- No panel before recording any more, but a failure must still show: this bubble opens
+		     above the buttons as soon as RecordError fills in (StreamControlsPaneView.axaml.cs). -->
 		<FlyoutBase.AttachedFlyout>
 			<Flyout Placement="Top">
 				<StackPanel Width="280" Spacing="8" Margin="4">
