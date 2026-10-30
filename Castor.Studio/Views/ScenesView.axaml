@@ -457,7 +457,7 @@
 								<Button Classes="outline" Content="Ajuster" Command="{Binding FitPreviewCommand}"
                                         ToolTip.Tip="Ajuster le canvas à la fenêtre"/>
 								<Button Classes="outline" Content="100 %" Command="{Binding ShowPreviewActualSizeCommand}"
-                                        ToolTip.Tip="Afficher le canvas à sa taille réelle, dans la limite de la place disponible"/>
+                                        ToolTip.Tip="Afficher le canvas pixel pour pixel. La molette y promène ; avec Maj, de gauche à droite."/>
 							</StackPanel>
 						</Grid>
 					</Border>

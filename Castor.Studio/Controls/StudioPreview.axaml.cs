@@ -134,6 +134,11 @@ public partial class StudioPreview : UserControl
     private static readonly Cursor AscendingDiagonalCursor = new(StandardCursorType.TopRightCorner);
     private static Cursor? _rotateCursor;
 
+    // Ce que déplace un cran de molette dans un canvas en taille réelle, en unités de la page.
+    private const double WheelPanStep = 60;
+
+    private Rect? _pictureArea;
+    private Vector _pan;
     private readonly DispatcherTimer _flushTimer;
     private ContextMenu? _sourceMenu;
 
@@ -189,7 +194,7 @@ public partial class StudioPreview : UserControl
         CloseSourceMenu();
 
         var properties = e.GetCurrentPoint(this).Properties;
-        var onPicture = NativePreview.Bounds.Contains(e.GetPosition(this));
+        var onPicture = IsOnPicture(e.GetPosition(this));
 
         if (properties.IsRightButtonPressed)
         {
@@ -255,7 +260,7 @@ public partial class StudioPreview : UserControl
         {
             // Au survol, le curseur annonce ce qu'un clic saisirait, et la source visée se
             // montre au poids qu'elle aura une fois prise.
-            var onPicture = NativePreview.Bounds.Contains(point);
+            var onPicture = IsOnPicture(point);
             Picture.Cursor = onPicture
                 ? CursorFor(
                     composition.TargetAt(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance, CanvasPerScreenPixel),
@@ -297,10 +302,23 @@ public partial class StudioPreview : UserControl
         if (composition == null) return;
 
         var point = e.GetPosition(this);
-        if (!NativePreview.Bounds.Contains(point) || ToCanvas(point) is not var (x, y)) return;
+        if (!IsOnPicture(point) || ToCanvas(point) is not var (x, y)) return;
 
         UpdateCropModifier(composition, e.KeyModifiers);
-        if (!composition.ZoomAt(x, y, e.Delta.Y)) return;
+        if (!composition.ZoomAt(x, y, e.Delta.Y))
+        {
+            // Hors rognage, la molette promène dans un canvas plus grand que la zone ; Maj,
+            // de gauche à droite.
+            if (_pictureArea == null) return;
+
+            var horizontal = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            _pan += new Vector(
+                (horizontal ? e.Delta.Y : e.Delta.X) * WheelPanStep,
+                (horizontal ? 0 : e.Delta.Y) * WheelPanStep);
+            UpdatePreviewViewport();
+            e.Handled = true;
+            return;
+        }
 
         Focus();
         NativePreview.ShowComposition();
@@ -531,13 +549,22 @@ public partial class StudioPreview : UserControl
     {
         if (!TryGetCanvasScale(out var scaleX, out var scaleY)) return null;
 
-        var picture = NativePreview.Bounds;
+        var picture = PictureBounds;
         return ((point.X - picture.X) * scaleX, (point.Y - picture.Y) * scaleY);
     }
 
+    // Le canvas entier : il déborde de la surface visible quand il s'affiche en taille réelle.
+    private Rect PictureBounds => _pictureArea is { } area
+        ? new Rect(NativePreview.Bounds.Position + area.Position, area.Size)
+        : NativePreview.Bounds;
+
+    // Seul ce qui est visible se vise : ce qui déborde est coupé par la surface.
+    private bool IsOnPicture(Point point) =>
+        NativePreview.Bounds.Contains(point) && PictureBounds.Contains(point);
+
     private bool TryGetCanvasScale(out double scaleX, out double scaleY)
     {
-        var picture = NativePreview.Bounds;
+        var picture = PictureBounds;
         if (picture.Width <= 0 || picture.Height <= 0 || BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0)
         {
             scaleX = scaleY = 0;
@@ -625,10 +652,38 @@ public partial class StudioPreview : UserControl
 
         // Le liseré se pose autour de la surface : elle lui laisse sa place dans la zone.
         var frame = ShowCanvasFrame ? 2 : 0;
-        var scale = Math.Min((Bounds.Width - frame) / BaseCanvasWidth, (Bounds.Height - frame) / BaseCanvasHeight);
-        if (IsActualSize) scale = Math.Min(scale, 1 / (TopLevel.GetTopLevel(this)?.RenderScaling ?? 1));
-        NativePreview.Width = Math.Max(1, Math.Round(BaseCanvasWidth * scale));
-        NativePreview.Height = Math.Max(1, Math.Round(BaseCanvasHeight * scale));
+        var availableWidth = Math.Max(1, Bounds.Width - frame);
+        var availableHeight = Math.Max(1, Bounds.Height - frame);
+        var scale = Math.Min(availableWidth / BaseCanvasWidth, availableHeight / BaseCanvasHeight);
+        _pictureArea = null;
+        if (IsActualSize)
+        {
+            // Un pixel du canvas pour un pixel de l'écran. Ce qui ne tient pas reste dans la
+            // surface native, qui le coupe : la molette y promène, le centre d'abord.
+            scale = 1 / (TopLevel.GetTopLevel(this)?.RenderScaling ?? 1);
+            var pictureWidth = BaseCanvasWidth * scale;
+            var pictureHeight = BaseCanvasHeight * scale;
+            var visibleWidth = Math.Min(availableWidth, pictureWidth);
+            var visibleHeight = Math.Min(availableHeight, pictureHeight);
+            if (pictureWidth > visibleWidth || pictureHeight > visibleHeight)
+            {
+                var overflowX = (pictureWidth - visibleWidth) / 2;
+                var overflowY = (pictureHeight - visibleHeight) / 2;
+                _pan = new Vector(Math.Clamp(_pan.X, -overflowX, overflowX), Math.Clamp(_pan.Y, -overflowY, overflowY));
+                _pictureArea = new Rect(_pan.X - overflowX, _pan.Y - overflowY, pictureWidth, pictureHeight);
+            }
+
+            NativePreview.Width = Math.Max(1, Math.Round(visibleWidth));
+            NativePreview.Height = Math.Max(1, Math.Round(visibleHeight));
+        }
+        else
+        {
+            _pan = default;
+            NativePreview.Width = Math.Max(1, Math.Round(BaseCanvasWidth * scale));
+            NativePreview.Height = Math.Max(1, Math.Round(BaseCanvasHeight * scale));
+        }
+
+        NativePreview.SetPictureArea(_pictureArea);
         CanvasFrame.Width = NativePreview.Width + frame;
         CanvasFrame.Height = NativePreview.Height + frame;
     }
