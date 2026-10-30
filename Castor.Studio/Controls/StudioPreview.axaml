@@ -6,18 +6,23 @@
              x:Class="CastorApplication.Controls.StudioPreview"
              x:Name="PreviewRoot"
              x:DataType="controls:StudioPreview"
+             Background="Black"
              Focusable="True">
     <UserControl.Styles>
+        <!-- On the composition canvas, the picture stands off the edges, over the dot pattern. -->
+        <Style Selector="controls|StudioPreview.canvas Panel#Picture">
+            <Setter Property="Margin" Value="16"/>
+        </Style>
         <!-- Tools never take the keyboard: it stays on the preview, where shortcuts are heard. -->
         <Style Selector="Button.composition-tool">
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Padding" Value="9,6"/>
             <Setter Property="MinWidth" Value="28"/>
             <Setter Property="CornerRadius" Value="5"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -88,13 +93,20 @@
          brings it back to canvas coordinates. -->
     <Panel x:Name="Picture"
            Grid.Row="0"
-           Background="Black"
+           Background="{Binding #PreviewRoot.Background}"
            PointerPressed="OnPicturePointerPressed"
            PointerMoved="OnPicturePointerMoved"
            PointerReleased="OnPicturePointerReleased"
            PointerCaptureLost="OnPicturePointerCaptureLost"
            PointerWheelChanged="OnPicturePointerWheelChanged"
            PointerExited="OnPicturePointerExited">
+        <!-- The canvas frame, one pixel around the native surface, which covers it otherwise. -->
+        <Border x:Name="CanvasFrame"
+                IsVisible="{Binding #PreviewRoot.ShowCanvasFrame}"
+                IsHitTestVisible="False"
+                BorderBrush="{DynamicResource AppAccentFill}" BorderThickness="1"
+                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
         <controls:ObsPreviewHost x:Name="NativePreview"
                                  IsHitTestVisible="False"
                                  Scene="{Binding #PreviewRoot.Scene}"
@@ -157,9 +169,17 @@
     <Border x:Name="Toolbar"
             Grid.Row="1"
             IsVisible="{Binding #PreviewRoot.Composition, Converter={x:Static ObjectConverters.IsNotNull}}"
-            Background="{DynamicResource AppSurface}"
+            Background="{DynamicResource AppChromeBg}"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,1,0,0"
-            Padding="6,4">
+            Padding="14,6">
+        <Border.Resources>
+            <SolidColorBrush x:Key="SliderThumbBackground" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="SliderTrackValueFill" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#5b7cf5"/>
+        </Border.Resources>
         <!-- Ordered by what each command changes: the frame, its orientation, its place in the
              stack, then apart the image it shows. None of it means anything with no selected
              source. -->

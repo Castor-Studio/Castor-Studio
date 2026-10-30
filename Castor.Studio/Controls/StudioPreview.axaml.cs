@@ -45,6 +45,29 @@ public partial class StudioPreview : UserControl
     public static readonly StyledProperty<bool> ShowSceneNameProperty =
         AvaloniaProperty.Register<StudioPreview, bool>(nameof(ShowSceneName), true);
 
+    /// <summary>Whether a thin frame marks the edges of the canvas.</summary>
+    public static readonly StyledProperty<bool> ShowCanvasFrameProperty =
+        AvaloniaProperty.Register<StudioPreview, bool>(nameof(ShowCanvasFrame));
+
+    /// <summary>
+    /// Shows the canvas pixel for pixel rather than fitted, as far as the area allows: the
+    /// native surface cannot be clipped by the page, so it never grows past the area.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsActualSizeProperty =
+        AvaloniaProperty.Register<StudioPreview, bool>(nameof(IsActualSize));
+
+    public bool ShowCanvasFrame
+    {
+        get => GetValue(ShowCanvasFrameProperty);
+        set => SetValue(ShowCanvasFrameProperty, value);
+    }
+
+    public bool IsActualSize
+    {
+        get => GetValue(IsActualSizeProperty);
+        set => SetValue(IsActualSizeProperty, value);
+    }
+
     public bool ShowSceneName
     {
         get => GetValue(ShowSceneNameProperty);
@@ -113,6 +136,11 @@ public partial class StudioPreview : UserControl
     private static readonly Cursor AscendingDiagonalCursor = new(StandardCursorType.TopRightCorner);
     private static Cursor? _rotateCursor;
 
+    // How far one wheel notch moves an actual-size canvas, in page units.
+    private const double WheelPanStep = 60;
+
+    private Rect? _pictureArea;
+    private Vector _pan;
     private readonly DispatcherTimer _flushTimer;
     private ContextMenu? _sourceMenu;
 
@@ -136,7 +164,8 @@ public partial class StudioPreview : UserControl
         DescribeTools();
         PropertyChanged += (_, change) =>
         {
-            if (change.Property == BaseCanvasWidthProperty || change.Property == BaseCanvasHeightProperty)
+            if (change.Property == BaseCanvasWidthProperty || change.Property == BaseCanvasHeightProperty
+                || change.Property == IsActualSizeProperty)
                 UpdatePreviewViewport();
         };
         UpdatePreviewViewport();
@@ -169,7 +198,7 @@ public partial class StudioPreview : UserControl
         CloseSourceMenu();
 
         var properties = e.GetCurrentPoint(this).Properties;
-        var onPicture = NativePreview.Bounds.Contains(e.GetPosition(Picture));
+        var onPicture = IsOnPicture(e.GetPosition(Picture));
 
         if (properties.IsRightButtonPressed)
         {
@@ -232,9 +261,9 @@ public partial class StudioPreview : UserControl
 
         if (!composition.IsGesturing)
         {
-            // On hover, the cursor announces what a click would grab, and the targeted source shows at
-            // the weight it will have once taken.
-            var onPicture = NativePreview.Bounds.Contains(point);
+            // On hover, the cursor announces what a click would grab, and the targeted source
+            // shows with the weight it will have once taken.
+            var onPicture = IsOnPicture(point);
             Picture.Cursor = onPicture
                 ? CursorFor(
                     composition.TargetAt(x, y, HandleTolerance, IsCrop(e.KeyModifiers), RotationTolerance, CanvasPerScreenPixel),
@@ -276,10 +305,23 @@ public partial class StudioPreview : UserControl
         if (composition == null) return;
 
         var point = e.GetPosition(Picture);
-        if (!NativePreview.Bounds.Contains(point) || ToCanvas(point) is not var (x, y)) return;
+        if (!IsOnPicture(point) || ToCanvas(point) is not var (x, y)) return;
 
         UpdateCropModifier(composition, e.KeyModifiers);
-        if (!composition.ZoomAt(x, y, e.Delta.Y)) return;
+        if (!composition.ZoomAt(x, y, e.Delta.Y))
+        {
+            // Outside cropping, the wheel pans a canvas larger than the area; with Shift,
+            // left to right.
+            if (_pictureArea == null) return;
+
+            var horizontal = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+            _pan += new Vector(
+                (horizontal ? e.Delta.Y : e.Delta.X) * WheelPanStep,
+                (horizontal ? 0 : e.Delta.Y) * WheelPanStep);
+            UpdatePreviewViewport();
+            e.Handled = true;
+            return;
+        }
 
         Focus();
         NativePreview.ShowComposition();
@@ -474,13 +516,22 @@ public partial class StudioPreview : UserControl
     {
         if (!TryGetCanvasScale(out var scaleX, out var scaleY)) return null;
 
-        var picture = NativePreview.Bounds;
+        var picture = PictureBounds;
         return ((point.X - picture.X) * scaleX, (point.Y - picture.Y) * scaleY);
     }
 
+    // The whole canvas: it overflows the visible surface when shown at actual size.
+    private Rect PictureBounds => _pictureArea is { } area
+        ? new Rect(NativePreview.Bounds.Position + area.Position, area.Size)
+        : NativePreview.Bounds;
+
+    // Only what is visible can be targeted: what overflows is cut by the surface.
+    private bool IsOnPicture(Point point) =>
+        NativePreview.Bounds.Contains(point) && PictureBounds.Contains(point);
+
     private bool TryGetCanvasScale(out double scaleX, out double scaleY)
     {
-        var picture = NativePreview.Bounds;
+        var picture = PictureBounds;
         if (picture.Width <= 0 || picture.Height <= 0 || BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0)
         {
             scaleX = scaleY = 0;
@@ -567,8 +618,41 @@ public partial class StudioPreview : UserControl
         if (BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0 || area.Width <= 0 || area.Height <= 0)
             return;
 
-        var scale = Math.Min(area.Width / BaseCanvasWidth, area.Height / BaseCanvasHeight);
-        NativePreview.Width = Math.Max(1, Math.Round(BaseCanvasWidth * scale));
-        NativePreview.Height = Math.Max(1, Math.Round(BaseCanvasHeight * scale));
+        // The frame sits around the surface, which leaves it room in the area.
+        var frame = ShowCanvasFrame ? 2 : 0;
+        var availableWidth = Math.Max(1, area.Width - frame);
+        var availableHeight = Math.Max(1, area.Height - frame);
+        var scale = Math.Min(availableWidth / BaseCanvasWidth, availableHeight / BaseCanvasHeight);
+        _pictureArea = null;
+        if (IsActualSize)
+        {
+            // One canvas pixel per screen pixel. What does not fit stays in the native surface,
+            // which cuts it: the wheel pans there, starting from the center.
+            scale = 1 / (TopLevel.GetTopLevel(this)?.RenderScaling ?? 1);
+            var pictureWidth = BaseCanvasWidth * scale;
+            var pictureHeight = BaseCanvasHeight * scale;
+            var visibleWidth = Math.Min(availableWidth, pictureWidth);
+            var visibleHeight = Math.Min(availableHeight, pictureHeight);
+            if (pictureWidth > visibleWidth || pictureHeight > visibleHeight)
+            {
+                var overflowX = (pictureWidth - visibleWidth) / 2;
+                var overflowY = (pictureHeight - visibleHeight) / 2;
+                _pan = new Vector(Math.Clamp(_pan.X, -overflowX, overflowX), Math.Clamp(_pan.Y, -overflowY, overflowY));
+                _pictureArea = new Rect(_pan.X - overflowX, _pan.Y - overflowY, pictureWidth, pictureHeight);
+            }
+
+            NativePreview.Width = Math.Max(1, Math.Round(visibleWidth));
+            NativePreview.Height = Math.Max(1, Math.Round(visibleHeight));
+        }
+        else
+        {
+            _pan = default;
+            NativePreview.Width = Math.Max(1, Math.Round(BaseCanvasWidth * scale));
+            NativePreview.Height = Math.Max(1, Math.Round(BaseCanvasHeight * scale));
+        }
+
+        NativePreview.SetPictureArea(_pictureArea);
+        CanvasFrame.Width = NativePreview.Width + frame;
+        CanvasFrame.Height = NativePreview.Height + frame;
     }
 }

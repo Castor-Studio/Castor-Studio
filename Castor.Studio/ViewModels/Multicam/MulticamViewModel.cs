@@ -219,6 +219,12 @@ public partial class MulticamViewModel : ViewModelBase
 
     public bool HasScenes => Tiles.Count > 0;
 
+    // The empty wall leads to the Scenes page, where scenes are made (MainViewModel).
+    public event EventHandler? ScenesPageRequested;
+
+    [RelayCommand]
+    private void OpenScenes() => ScenesPageRequested?.Invoke(this, EventArgs.Empty);
+
     // A multiview fills the page rather than flowing cards: the column count follows
     // the scene count so every tile stays as large as it can be.
     public int GridColumns => ColumnChoice > 0

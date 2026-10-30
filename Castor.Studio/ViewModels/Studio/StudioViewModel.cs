@@ -68,8 +68,15 @@ public partial class StudioViewModel : ViewModelBase
 
     public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
 
-    // Change from one scene to another on live and recording. The preview always hard-cuts: it
-    // shows the active scene, not the program output.
+    // The preview's empty screens. An unavailable engine is not one: the preview itself
+    // says what is wrong.
+    public bool ShowNoScene => _previewRuntime.IsAvailable && ActiveScene == null;
+    public bool ShowNoVideoSource => _previewRuntime.IsAvailable && ActiveScene != null
+        && !StudioWorkspaceViewModel.HasVideoSource(ActiveScene);
+    public bool ShowEmptyPreview => ShowNoScene || ShowNoVideoSource;
+
+    // Change from one scene to another on live and recording. The preview always hard-cuts:
+    // it shows the active scene, not the program output.
     public IReadOnlyList<SceneTransitionOption> TransitionOptions => SceneTransitionOption.All;
     public IReadOnlyList<int> TransitionDurations => SceneTransitionOption.Durations;
 
@@ -123,6 +130,12 @@ public partial class StudioViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenAccountSettings() => AccountSettingsRequested?.Invoke(this, EventArgs.Empty);
+
+    // The empty preview leads to the Scenes page, where scenes and sources are made (MainViewModel).
+    public event EventHandler? ScenesPageRequested;
+
+    [RelayCommand]
+    private void OpenScenes() => ScenesPageRequested?.Invoke(this, EventArgs.Empty);
 
     // Errors only: they stay until dismissed (closing their flyout) or until the scene or the
     // page changes, so a failure from an earlier attempt is not shown as a current one.
@@ -793,6 +806,9 @@ public partial class StudioViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(PreviewPlaceholderText));
         OnPropertyChanged(nameof(ShowPreviewPlaceholder));
+        OnPropertyChanged(nameof(ShowNoScene));
+        OnPropertyChanged(nameof(ShowNoVideoSource));
+        OnPropertyChanged(nameof(ShowEmptyPreview));
     }
 
     private void NotifySessionStateChanged()

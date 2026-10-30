@@ -4,7 +4,7 @@
              x:Class="CastorApplication.Views.Settings.Sections.AccountsSettingsView"
              x:DataType="vm:AccountsSettingsViewModel">
 
-    <StackPanel Margin="28,20"
+    <StackPanel Margin="33,24"
                 Spacing="28">
 
         <StackPanel Spacing="14">
@@ -35,7 +35,7 @@
                                 Height="36"
                                 ClipToBounds="True">
 
-                            <Image Source="/Assets/twitch-logo.png"
+                            <Image Source="/Assets/Platforms/twitch-logo.png"
                                    Width="36"
                                    Height="36"
                                    Stretch="UniformToFill"/>
@@ -84,7 +84,7 @@
                                 Height="36"
                                 ClipToBounds="True">
 
-                            <Image Source="/Assets/youtube-logo.png"
+                            <Image Source="/Assets/Platforms/youtube-logo.png"
                                    Width="36"
                                    Height="36"
                                    Stretch="UniformToFill"/>
@@ -133,7 +133,7 @@
                                 Height="36"
                                 ClipToBounds="True">
 
-                            <Image Source="/Assets/facebook-logo.png"
+                            <Image Source="/Assets/Platforms/facebook-logo.png"
                                    Width="36"
                                    Height="36"
                                    Stretch="UniformToFill"/>

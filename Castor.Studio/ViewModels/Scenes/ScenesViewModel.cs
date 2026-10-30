@@ -101,12 +101,12 @@ public partial class ScenesViewModel : ViewModelBase
     // the source + stays disabled with the same reason on hover.
     public string SourceListPlaceholder => SelectedScene == null
         ? Scenes.Count == 0
-            ? "Aucune scène. Créez-en une avec + dans la colonne Scènes."
+            ? "Sélectionnez ou créez une scène pour ajouter des sources."
             : "Sélectionnez une scène pour voir ses sources."
         : DisplayedSources.Count > 0
             ? ""
             : SelectedScene.Sources.Count == 0
-                ? "Aucune source. Ajoutez-en une avec +."
+                ? "Aucune source dans cette scène. Utilisez « Ajouter une source » pour commencer."
                 : "Aucune source de ce type.";
 
     public string AddSourceToolTip => SelectedScene == null
@@ -129,6 +129,39 @@ public partial class ScenesViewModel : ViewModelBase
         : SelectedScene == null
             ? "Aucune scène sélectionnée."
             : "";
+
+    // What the canvas area shows. An unavailable engine is not an empty screen:
+    // the preview itself says what is wrong.
+    public bool ShowNoScene => _previewRuntime.IsAvailable && SelectedScene == null;
+    public bool ShowNoVideoSource => _previewRuntime.IsAvailable && SelectedScene != null
+        && !StudioWorkspaceViewModel.HasVideoSource(SelectedScene);
+    public bool ShowScenePreview => !ShowNoScene && !ShowNoVideoSource;
+
+    /// <summary>The canvas size and its reduced proportions: 1920 × 1080, 16:9.</summary>
+    public string CanvasRatioText
+    {
+        get
+        {
+            var divisor = (int)System.Numerics.BigInteger.GreatestCommonDivisor(BaseCanvasWidth, BaseCanvasHeight);
+            return divisor == 0 ? "" : $"{BaseCanvasWidth / divisor}:{BaseCanvasHeight / divisor}";
+        }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PreviewScaleText))]
+    private bool _isPreviewActualSize;
+
+    public string PreviewScaleText => IsPreviewActualSize ? "Taille réelle" : "Ajusté à la fenêtre";
+
+    [RelayCommand]
+    private void FitPreview() => IsPreviewActualSize = false;
+
+    [RelayCommand]
+    private void ShowPreviewActualSize() => IsPreviewActualSize = true;
+
+    partial void OnBaseCanvasWidthChanged(int value) => OnPropertyChanged(nameof(CanvasRatioText));
+
+    partial void OnBaseCanvasHeightChanged(int value) => OnPropertyChanged(nameof(CanvasRatioText));
 
     public static IReadOnlyList<string> SceneColorPalette { get; } =
     [
@@ -288,6 +321,9 @@ public partial class ScenesViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSourceListCustomized));
         OnPropertyChanged(nameof(SourceListSummary));
         OnPropertyChanged(nameof(SourceListPlaceholder));
+        OnPropertyChanged(nameof(ShowNoScene));
+        OnPropertyChanged(nameof(ShowNoVideoSource));
+        OnPropertyChanged(nameof(ShowScenePreview));
     }
 
     [RelayCommand]

@@ -1,114 +1,210 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- WCAG 2.x contrasts (relative luminance). Thresholds: 4.5:1 for text, 3:1 for an icon
-         or a meaningful outline. Each foreground color is measured on its real background; "min"
-         is the worst background it sits on (badges, hover, selection).
-         Castor.Studio.Tests/ColorContrastTests.cs repeats the measurement: changing a value here
-         without meeting the thresholds fails the tests. -->
+    <!-- WCAG 2.x contrasts (relative luminance). Thresholds: 4.5:1 for text, 3:1 for an
+         icon or a meaningful outline. Each foreground color is measured on
+         its real background. Castor.Studio.Tests/ColorContrastTests.cs redoes the measure: changing
+         a value here without meeting the thresholds fails the tests. -->
 
-    <!-- Text placed on the video image (previews, multicam tiles): the background is black in
-         both themes, so these two do not follow the theme. -->
-    <SolidColorBrush x:Key="VideoFgBrush" Color="#c4c4d4"/>      <!-- 12.19:1 on noir -->
-    <SolidColorBrush x:Key="VideoFgMutedBrush" Color="#9a9ab2"/> <!-- 7.64:1 on noir -->
-    <SolidColorBrush x:Key="VideoErrorBrush" Color="#F87171"/>   <!-- 7.59:1 on noir -->
+    <!-- Text on the video picture (previews, multicam tiles): the background is black in both
+         themes, so these two do not follow the theme. -->
+    <SolidColorBrush x:Key="VideoFgBrush" Color="#c9cddb"/>
+    <SolidColorBrush x:Key="VideoFgMutedBrush" Color="#a3a9bd"/>
+    <SolidColorBrush x:Key="VideoErrorBrush" Color="#F87171"/>
+
+    <!-- The two big Studio buttons: same fills in both themes. -->
+    <SolidColorBrush x:Key="AppGoLiveFill" Color="#0b6b46"/>
+    <SolidColorBrush x:Key="AppGoLiveBorder" Color="#8fd3b5"/>
+    <SolidColorBrush x:Key="AppGoLiveFg" Color="#e3f6ed"/>
+    <SolidColorBrush x:Key="AppRecFill" Color="#b3201a"/>
+    <SolidColorBrush x:Key="AppRecFillBorder" Color="#e8a9a5"/>
+    <SolidColorBrush x:Key="AppRecFillFg" Color="#fdeceb"/>
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Dark">
             <!-- Backgrounds text sits on, from darkest to lightest. -->
-            <SolidColorBrush x:Key="AppSurface3" Color="#09090f"/>
-            <SolidColorBrush x:Key="AppBg" Color="#0b0b12"/>
-            <SolidColorBrush x:Key="AppSurface" Color="#13131c"/>
-            <SolidColorBrush x:Key="AppSurface2" Color="#1c1c28"/>
-            <SolidColorBrush x:Key="AppNavHoverBg" Color="#1c1c28"/>
-            <SolidColorBrush x:Key="AppAccentBg2" Color="#141c30"/>
-            <SolidColorBrush x:Key="AppAccentBg" Color="#162040"/>
-            <SolidColorBrush x:Key="AppNavBadgeBg" Color="#24242f"/>
-            <SolidColorBrush x:Key="AppBadgeBg" Color="#24242f"/>
-            <!-- Dock editing area background; no longer used as a text color. -->
-            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#07070d"/>
+            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#07090e"/>
+            <SolidColorBrush x:Key="AppBg" Color="#0a0c12"/>
+            <SolidColorBrush x:Key="AppSidebarBg" Color="#0b0d13"/>
+            <SolidColorBrush x:Key="AppPanelBg" Color="#0e1017"/>
+            <SolidColorBrush x:Key="AppSurface3" Color="#0f1119"/>
+            <SolidColorBrush x:Key="AppChromeBg" Color="#101320"/>
+            <SolidColorBrush x:Key="AppSurface" Color="#151925"/>
+            <SolidColorBrush x:Key="AppNavHoverBg" Color="#171a26"/>
+            <SolidColorBrush x:Key="AppBadgeBg" Color="#171a26"/>
+            <SolidColorBrush x:Key="AppSurface2" Color="#1b2030"/>
+            <SolidColorBrush x:Key="AppAccentBg2" Color="#14203d"/>
+            <SolidColorBrush x:Key="AppAccentBg" Color="#16224a"/>
+            <SolidColorBrush x:Key="AppNavBadgeBg" Color="#242a3b"/>
+            <!-- Under an empty preview screen: black like the picture it replaces. -->
+            <SolidColorBrush x:Key="AppPreviewEmptyBg" Color="#000000"/>
 
-            <!-- Text scale: on AppSurface · min on the backgrounds above. AppFg6 joins AppFg5 at the
-                 4.5:1 floor; below it, text is no longer readable. -->
-            <SolidColorBrush x:Key="AppFg1" Color="#eaeaf0"/> <!-- 15.41:1 · min 12.81:1 (AppBadgeBg) -->
-            <SolidColorBrush x:Key="AppFg2" Color="#ccccd8"/> <!-- 11.60:1 · min 9.64:1 (AppBadgeBg) -->
-            <SolidColorBrush x:Key="AppFg3" Color="#b0b0c4"/> <!-- 8.66:1 · min 7.20:1 (AppBadgeBg) -->
-            <SolidColorBrush x:Key="AppFg4" Color="#9a9ab2"/> <!-- 6.72:1 · min 5.58:1 (AppBadgeBg); was 2.84:1 -->
-            <SolidColorBrush x:Key="AppFg5" Color="#8a8aa2"/> <!-- 5.48:1 · min 4.56:1 (AppBadgeBg); was 1.71:1 -->
-            <SolidColorBrush x:Key="AppFg6" Color="#8a8aa2"/> <!-- 5.48:1 · min 4.56:1 (AppBadgeBg); was 1.57:1 -->
 
-            <SolidColorBrush x:Key="AppAccentFg" Color="#5b8def"/>   <!-- 5.71:1 · min 4.75:1 (AppBadgeBg) -->
-            <SolidColorBrush x:Key="AppOnAccentFg" Color="#07070d"/> <!-- 6.22:1 on AppAccentFg as background -->
+            <!-- Text scale. AppFg6 meets AppFg5: below that, text is no longer readable. -->
+            <SolidColorBrush x:Key="AppFg1" Color="#e7e9f0"/>
+            <SolidColorBrush x:Key="AppFg2" Color="#c9cddb"/>
+            <SolidColorBrush x:Key="AppFg3" Color="#c2c7d6"/>
+            <SolidColorBrush x:Key="AppFg4" Color="#b4bacb"/>
+            <SolidColorBrush x:Key="AppFg5" Color="#a3a9bd"/>
+            <SolidColorBrush x:Key="AppFg6" Color="#a3a9bd"/>
 
-            <!-- Decorative outlines and separators: a control's limit reads from its background and
-                 label, not this stroke. Outside the thresholds; their visibility falls under #129. -->
-            <SolidColorBrush x:Key="AppBorder" Color="#2a2a38"/>  <!-- 1.31:1 on AppSurface -->
-            <SolidColorBrush x:Key="AppBorder2" Color="#36364a"/> <!-- 1.57:1 on AppSurface -->
+            <!-- AppAccentFg for text or an icon, AppAccentFill for a fill or a stroke. -->
+            <SolidColorBrush x:Key="AppAccentFg" Color="#8fabff"/>
+            <SolidColorBrush x:Key="AppAccentFill" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="AppOnAccentFg" Color="#0a0c12"/>
+            <!-- Checked box and slider: the brand red, not the Windows accent. -->
+            <SolidColorBrush x:Key="AppBrandRed" Color="#e5231b"/>
+            <!-- Settings Save button: tinted in dark, solid in light. -->
+            <SolidColorBrush x:Key="AppSaveBg" Color="#16224a"/>
+            <SolidColorBrush x:Key="AppSaveFg" Color="#8fabff"/>
+
+            <!-- Decorative outlines and separators; AppBorderStrong surrounds a field. -->
+            <SolidColorBrush x:Key="AppBorder" Color="#2d3347"/>
+            <SolidColorBrush x:Key="AppBorder2" Color="#363d54"/>
+            <SolidColorBrush x:Key="AppBorderStrong" Color="#6b7392"/>
 
             <!-- States. Measured on their real background, not on AppBg. -->
-            <SolidColorBrush x:Key="StatusOkBrush" Color="#34D399"/>      <!-- 9.60:1 · min 7.98:1 (AppBadgeBg) · 8.46:1 on AppLiveBg -->
-            <SolidColorBrush x:Key="StatusWarningBrush" Color="#FBBF24"/> <!-- 11.06:1 · min 9.19:1 (AppBadgeBg) -->
-            <SolidColorBrush x:Key="StatusErrorBrush" Color="#F87171"/>   <!-- 6.67:1 · min 5.55:1 (AppBadgeBg) · 6.44:1 on AppStopBg · 5.90:1 on AppErrorBg -->
-            <SolidColorBrush x:Key="StatusRecBrush" Color="#EF4444"/>     <!-- 4.62:1 on AppRecBg -->
-            <!-- Text placed on a state fill (DÉMARRER, LIVE badge, deletion). -->
-            <SolidColorBrush x:Key="AppOnStatusFg" Color="#07070d"/>      <!-- 10.45:1 on StatusOk · 7.26:1 on StatusError -->
+            <SolidColorBrush x:Key="StatusOkBrush" Color="#2ecc8f"/>
+            <SolidColorBrush x:Key="StatusWarningBrush" Color="#FBBF24"/>
+            <SolidColorBrush x:Key="StatusErrorBrush" Color="#F87171"/>
+            <SolidColorBrush x:Key="StatusRecBrush" Color="#F87171"/>
+            <!-- Text on a state fill (DÉMARRER, LIVE badge, delete). -->
+            <SolidColorBrush x:Key="AppOnStatusFg" Color="#07090e"/>
 
-            <SolidColorBrush x:Key="AppLiveBg" Color="#0e2420"/>
-            <SolidColorBrush x:Key="AppLiveBorder" Color="#142e25"/>
+            <!-- "Prête": tinted in dark, solid in light. The active scene panel has a pill only in light. -->
+            <SolidColorBrush x:Key="AppChipBg" Color="#0f2a22"/>
+            <SolidColorBrush x:Key="AppChipBorder" Color="#1c4a3a"/>
+            <SolidColorBrush x:Key="AppChipFg" Color="#3ddc9a"/>
+            <SolidColorBrush x:Key="AppReadyFg" Color="#2ecc8f"/>
+            <SolidColorBrush x:Key="AppReadyPillBg" Color="Transparent"/>
+            <SolidColorBrush x:Key="AppReadyPillBorder" Color="Transparent"/>
+
+            <SolidColorBrush x:Key="AppLiveBg" Color="#0f2a22"/>
+            <SolidColorBrush x:Key="AppLiveBorder" Color="#1c4a3a"/>
             <SolidColorBrush x:Key="AppStopBg" Color="#251218"/>
             <SolidColorBrush x:Key="AppStopBorder" Color="#2f1820"/>
             <SolidColorBrush x:Key="AppRecBg" Color="#2d1212"/>
             <SolidColorBrush x:Key="AppRecBorder" Color="#3d1a1a"/>
-            <SolidColorBrush x:Key="AppPauseBg" Color="#2a2110"/>     <!-- StatusWarning on top: 9.5:1 -->
+            <SolidColorBrush x:Key="AppPauseBg" Color="#2a2110"/>
             <SolidColorBrush x:Key="AppPauseBorder" Color="#3a2e14"/>
             <SolidColorBrush x:Key="AppErrorBg" Color="#3b1219"/>
             <SolidColorBrush x:Key="AppErrorBorder" Color="#7f1d1d"/>
+
+            <!-- Fluent reads these keys for its checkboxes and sliders. -->
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#5b7cf5"/>
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#101320"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#e5231b"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#e5231b"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="#e5231b"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#e5231b"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#e5231b"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#e5231b"/>
+            <SolidColorBrush x:Key="SliderThumbBackground" Color="#e5231b"/>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#e5231b"/>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#e5231b"/>
+            <SolidColorBrush x:Key="SliderTrackValueFill" Color="#e5231b"/>
+            <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#e5231b"/>
+            <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#e5231b"/>
+
+            <!-- The dot pattern under the composition canvas (Scenes). -->
+            <DrawingBrush x:Key="AppCanvasDots" TileMode="Tile" Stretch="None" DestinationRect="0,0,20,20">
+                <DrawingBrush.Drawing>
+                    <GeometryDrawing Brush="#363d54">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="10,10" RadiusX="1" RadiusY="1"/>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingBrush.Drawing>
+            </DrawingBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
             <!-- Backgrounds text sits on, from lightest to darkest. -->
-            <SolidColorBrush x:Key="AppSurface" Color="#f6f6fc"/>
-            <SolidColorBrush x:Key="AppBg" Color="#eeeef6"/>
-            <SolidColorBrush x:Key="AppAccentBg2" Color="#e2ebff"/>
-            <SolidColorBrush x:Key="AppSurface2" Color="#eaeaf4"/>
-            <SolidColorBrush x:Key="AppSurface3" Color="#e2e2ee"/>
-            <SolidColorBrush x:Key="AppNavHoverBg" Color="#e0e0f0"/>
-            <SolidColorBrush x:Key="AppAccentBg" Color="#dce8ff"/>
-            <SolidColorBrush x:Key="AppBadgeBg" Color="#dcdcee"/>
-            <!-- Was #2a2a3a: a dark background under dark text (1.24:1 with AppFg1). -->
-            <SolidColorBrush x:Key="AppNavBadgeBg" Color="#d6d6ea"/>
-            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#d4d4e8"/>
+            <SolidColorBrush x:Key="AppSurface" Color="#ffffff"/>
+            <SolidColorBrush x:Key="AppChromeBg" Color="#ffffff"/>
+            <SolidColorBrush x:Key="AppSurface3" Color="#fafbfd"/>
+            <SolidColorBrush x:Key="AppPanelBg" Color="#f1f3f9"/>
+            <SolidColorBrush x:Key="AppBg" Color="#f6f7fb"/>
+            <SolidColorBrush x:Key="AppSidebarBg" Color="#eef0f6"/>
+            <SolidColorBrush x:Key="AppAccentBg2" Color="#e6eeff"/>
+            <SolidColorBrush x:Key="AppSurface2" Color="#eef0f6"/>
+            <SolidColorBrush x:Key="AppNavHoverBg" Color="#e6e9f2"/>
+            <SolidColorBrush x:Key="AppBadgeBg" Color="#e6e9f2"/>
+            <SolidColorBrush x:Key="AppPreviewEmptyBg" Color="#e6e9f2"/>
+            <SolidColorBrush x:Key="AppAccentBg" Color="#dbe6ff"/>
+            <SolidColorBrush x:Key="AppNavBadgeBg" Color="#d9dde9"/>
+            <SolidColorBrush x:Key="AppVeryDarkBg" Color="#d9dde9"/>
 
-            <SolidColorBrush x:Key="AppFg1" Color="#18182a"/> <!-- 16.22:1 · min 12.19:1 (AppNavBadgeBg) -->
-            <SolidColorBrush x:Key="AppFg2" Color="#282844"/> <!-- 13.20:1 · min 9.93:1 (AppNavBadgeBg) -->
-            <SolidColorBrush x:Key="AppFg3" Color="#3a3a66"/> <!-- 9.87:1 · min 7.42:1 (AppNavBadgeBg) -->
-            <SolidColorBrush x:Key="AppFg4" Color="#4a4a7a"/> <!-- 7.64:1 · min 5.75:1 (AppNavBadgeBg); was 4.79:1 -->
-            <SolidColorBrush x:Key="AppFg5" Color="#58588a"/> <!-- 6.14:1 · min 4.62:1 (AppNavBadgeBg); was 3.12:1 -->
-            <SolidColorBrush x:Key="AppFg6" Color="#58588a"/> <!-- 6.14:1 · min 4.62:1 (AppNavBadgeBg); was 2.35:1 -->
 
-            <SolidColorBrush x:Key="AppAccentFg" Color="#2b56a8"/>   <!-- 6.50:1 · min 4.89:1 (AppNavBadgeBg) -->
-            <SolidColorBrush x:Key="AppOnAccentFg" Color="#ffffff"/> <!-- 7.00:1 on AppAccentFg as background -->
+            <SolidColorBrush x:Key="AppFg1" Color="#141824"/>
+            <SolidColorBrush x:Key="AppFg2" Color="#2a3040"/>
+            <SolidColorBrush x:Key="AppFg3" Color="#2a3040"/>
+            <SolidColorBrush x:Key="AppFg4" Color="#394057"/>
+            <SolidColorBrush x:Key="AppFg5" Color="#4a5168"/>
+            <SolidColorBrush x:Key="AppFg6" Color="#4a5168"/>
 
-            <SolidColorBrush x:Key="AppBorder" Color="#ccccde"/>  <!-- 1.47:1 on AppSurface, decorative -->
-            <SolidColorBrush x:Key="AppBorder2" Color="#bcbcd2"/> <!-- 1.73:1 on AppSurface, decorative -->
+            <SolidColorBrush x:Key="AppAccentFg" Color="#1d4ed8"/>
+            <SolidColorBrush x:Key="AppAccentFill" Color="#2f5de0"/>
+            <SolidColorBrush x:Key="AppOnAccentFg" Color="#ffffff"/>
+            <SolidColorBrush x:Key="AppBrandRed" Color="#b3201a"/>
+            <SolidColorBrush x:Key="AppSaveBg" Color="#2f5de0"/>
+            <SolidColorBrush x:Key="AppSaveFg" Color="#ffffff"/>
 
-            <!-- The dark theme's vivid hues drop below 3.5:1 on a light background: use the darker
-                 shades of the same family. -->
-            <SolidColorBrush x:Key="StatusOkBrush" Color="#065f46"/>      <!-- 7.14:1 · min 5.37:1 (AppNavBadgeBg) · 6.55:1 on AppLiveBg -->
-            <SolidColorBrush x:Key="StatusWarningBrush" Color="#92400e"/> <!-- 6.59:1 · min 4.95:1 (AppNavBadgeBg) -->
-            <SolidColorBrush x:Key="StatusErrorBrush" Color="#b91c1c"/>   <!-- 6.01:1 · min 4.52:1 (AppNavBadgeBg) · 5.50:1 on AppStopBg · 5.51:1 on AppErrorBg -->
-            <SolidColorBrush x:Key="StatusRecBrush" Color="#b91c1c"/>     <!-- 5.50:1 on AppRecBg -->
-            <SolidColorBrush x:Key="AppOnStatusFg" Color="#ffffff"/>      <!-- 7.68:1 on StatusOk · 6.47:1 on StatusError -->
+            <SolidColorBrush x:Key="AppBorder" Color="#cfd4e3"/>
+            <SolidColorBrush x:Key="AppBorder2" Color="#c3c9db"/>
+            <SolidColorBrush x:Key="AppBorderStrong" Color="#6b7392"/>
 
-            <SolidColorBrush x:Key="AppLiveBg" Color="#d0f5e8"/>
-            <SolidColorBrush x:Key="AppLiveBorder" Color="#6ee7b7"/>
+            <!-- The dark theme's vivid hues fall below 3.5:1 on a light background: use
+                 the dark shades of the same family. -->
+            <SolidColorBrush x:Key="StatusOkBrush" Color="#0b6b46"/>
+            <SolidColorBrush x:Key="StatusWarningBrush" Color="#92400e"/>
+            <SolidColorBrush x:Key="StatusErrorBrush" Color="#b3201a"/>
+            <SolidColorBrush x:Key="StatusRecBrush" Color="#b3201a"/>
+            <SolidColorBrush x:Key="AppOnStatusFg" Color="#ffffff"/>
+
+            <SolidColorBrush x:Key="AppChipBg" Color="#0b6b46"/>
+            <SolidColorBrush x:Key="AppChipBorder" Color="#8fd3b5"/>
+            <SolidColorBrush x:Key="AppChipFg" Color="#e3f6ed"/>
+            <SolidColorBrush x:Key="AppReadyFg" Color="#e3f6ed"/>
+            <SolidColorBrush x:Key="AppReadyPillBg" Color="#0b6b46"/>
+            <SolidColorBrush x:Key="AppReadyPillBorder" Color="#8fd3b5"/>
+
+            <SolidColorBrush x:Key="AppLiveBg" Color="#d6f3e6"/>
+            <SolidColorBrush x:Key="AppLiveBorder" Color="#8fd3b5"/>
             <SolidColorBrush x:Key="AppStopBg" Color="#fce8e8"/>
-            <SolidColorBrush x:Key="AppStopBorder" Color="#f0a0a0"/>
+            <SolidColorBrush x:Key="AppStopBorder" Color="#e8a9a5"/>
             <SolidColorBrush x:Key="AppRecBg" Color="#fce8e8"/>
-            <SolidColorBrush x:Key="AppRecBorder" Color="#f0a0a0"/>
-            <SolidColorBrush x:Key="AppPauseBg" Color="#fdf3dc"/>     <!-- StatusWarning on top: 6.43:1 -->
+            <SolidColorBrush x:Key="AppRecBorder" Color="#e8a9a5"/>
+            <SolidColorBrush x:Key="AppPauseBg" Color="#fdf3dc"/>
             <SolidColorBrush x:Key="AppPauseBorder" Color="#f2c46d"/>
             <SolidColorBrush x:Key="AppErrorBg" Color="#fde8e8"/>
-            <SolidColorBrush x:Key="AppErrorBorder" Color="#f0a0a0"/>
+            <SolidColorBrush x:Key="AppErrorBorder" Color="#e8a9a5"/>
+
+            <!-- Fluent reads these keys for its checkboxes and sliders. -->
+            <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#2f5de0"/>
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#ffffff"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#b3201a"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#b3201a"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="#b3201a"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="#b3201a"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver" Color="#b3201a"/>
+            <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed" Color="#b3201a"/>
+            <SolidColorBrush x:Key="SliderThumbBackground" Color="#b3201a"/>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#b3201a"/>
+            <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#b3201a"/>
+            <SolidColorBrush x:Key="SliderTrackValueFill" Color="#b3201a"/>
+            <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#b3201a"/>
+            <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#b3201a"/>
+
+            <!-- The dot pattern under the composition canvas (Scenes). -->
+            <DrawingBrush x:Key="AppCanvasDots" TileMode="Tile" Stretch="None" DestinationRect="0,0,20,20">
+                <DrawingBrush.Drawing>
+                    <GeometryDrawing Brush="#c3c9db">
+                        <GeometryDrawing.Geometry>
+                            <EllipseGeometry Center="10,10" RadiusX="1" RadiusY="1"/>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingBrush.Drawing>
+            </DrawingBrush>
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

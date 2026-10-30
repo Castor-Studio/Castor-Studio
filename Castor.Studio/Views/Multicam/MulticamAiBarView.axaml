@@ -5,16 +5,16 @@
              x:Class="CastorApplication.Views.Multicam.MulticamAiBarView"
              x:DataType="vm:MulticamViewModel">
 
-	<!-- Bottom of the panel card: the dock bar rounds the top (DockTheme.axaml). Only the AI
-	     settings remain here: its suggestion shows on the proposed scene's tile
-	     (MulticamTileView), where the operator is already looking. -->
-	<Border Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="12,8"
+	<!-- Bottom of the panel card: the dock bar rounds the top (DockTheme.axaml).
+	     Only the AI settings remain here: its suggestion shows on the proposed scene's
+	     tile (MulticamTileView), where the operator is already looking. -->
+	<Border Background="{DynamicResource AppSurface}" CornerRadius="0,0,6,6" Padding="14,6,14,14"
 	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 		<StackPanel Spacing="8" VerticalAlignment="Center">
 			<Grid ColumnDefinitions="Auto, Auto, *, Auto">
 
 				<TextBlock Grid.Column="0" Text="IA" Margin="0,0,10,0"
-                           FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppFg2}"
+                           FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"
                            VerticalAlignment="Center"/>
 
 				<Border Grid.Column="1" Classes="segmented" VerticalAlignment="Center">
@@ -38,23 +38,23 @@
 
 				<StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="7" Margin="16,0"
                             VerticalAlignment="Center">
-					<Ellipse Width="7" Height="7" Fill="{DynamicResource AppAccentFg}" VerticalAlignment="Center"
+					<Ellipse Width="7" Height="7" Fill="{DynamicResource AppAccentFill}" VerticalAlignment="Center"
                              IsVisible="{Binding IsAiEnabled}"/>
 					<TextBlock Text="{Binding AiStatusText}" Foreground="{DynamicResource AppFg3}"
                                TextTrimming="CharacterEllipsis"
-                               FontSize="12" VerticalAlignment="Center"/>
+                               FontSize="14" VerticalAlignment="Center"/>
 				</StackPanel>
 
 				<StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8"
                             VerticalAlignment="Center">
 					<TextBlock Text="Modèle" Foreground="{DynamicResource AppFg3}"
-                               FontSize="12" VerticalAlignment="Center"/>
-					<ComboBox MinWidth="140"
+                               FontSize="14" VerticalAlignment="Center"/>
+					<ComboBox MinWidth="164"
                               SelectedIndex="{Binding SelectedAiModelIndex}"
                               IsEnabled="{Binding !IsAiEnabled}"
                               ToolTip.Tip="Désactivez l'IA pour changer de modèle"
                               ToolTip.ShowOnDisabled="True"
-                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="12">
+                              FontSize="14">
 						<ComboBoxItem Content="Football"/>
 						<ComboBoxItem Content="Podcast"/>
 					</ComboBox>

@@ -7,11 +7,14 @@
 
 	<!-- Same card as the other panels: the dock bar rounds the top, this border the bottom.
 	     In a fullscreen window the card flattens to the bare picture (Styles/DockTheme.axaml). -->
-	<Border Classes="preview-card" Background="Black" CornerRadius="0,0,8,8" ClipToBounds="True"
+	<Border Classes="preview-card" Background="Black" CornerRadius="0,0,6,6" ClipToBounds="True"
 	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 	<Panel Background="Black">
 
+		<!-- The native surface goes above everything the page paints: it steps aside
+		     while the empty screen has something to say in its place. -->
 		<controls:StudioPreview Scene="{Binding ActiveScene}"
+                                IsVisible="{Binding !ShowEmptyPreview}"
                                 PreviewRuntime="{Binding PreviewRuntime}"
                                 BaseCanvasWidth="{Binding BaseCanvasWidth}"
                                 BaseCanvasHeight="{Binding BaseCanvasHeight}"
@@ -19,23 +22,26 @@
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch" />
 
-		<!-- Covers StudioPreview when nothing can be shown. StudioPreview has its own internal
-		     message for "no scene"/"engine unavailable", but not for "scene with no video source"
-		     (ScenesViewModel does not have that case): this panel stays needed for that message,
-		     which then covers an empty native render rather than a missing one. -->
-		<StackPanel IsVisible="{Binding ShowPreviewPlaceholder}"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Spacing="6">
-			<TextBlock Text="APERÇU"
-                       Foreground="{DynamicResource VideoFgBrush}"
-                       FontSize="13" FontWeight="Bold" LetterSpacing="2"
-                       HorizontalAlignment="Center"/>
-			<TextBlock Text="{Binding PreviewPlaceholderText}"
-                       Foreground="{DynamicResource VideoFgMutedBrush}"
-                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                       MaxWidth="380" HorizontalAlignment="Center"/>
-		</StackPanel>
-	</Panel>
+		<Panel Background="{DynamicResource AppPreviewEmptyBg}" IsVisible="{Binding ShowNoScene}">
+			<controls:EmptyState Title="Aucune scène pour l'instant"
+                                 Description="Créez une scène pour afficher votre direct ici."
+                                 MascotHeight="190">
+				<controls:EmptyState.Action>
+					<Button Classes="primary" Content="Créer une scène" Command="{Binding OpenScenesCommand}"/>
+				</controls:EmptyState.Action>
+			</controls:EmptyState>
+		</Panel>
+
+		<Panel Background="{DynamicResource AppPreviewEmptyBg}" IsVisible="{Binding ShowNoVideoSource}">
+			<controls:EmptyState Kind="NoSource" Title="Aucune source vidéo"
+                                 Description="Ajoutez une caméra, une capture d'écran ou une fenêtre pour afficher votre scène."
+                                 MascotHeight="190">
+				<controls:EmptyState.Action>
+					<Button Classes="primary" Content="Ajouter une source" Command="{Binding OpenScenesCommand}"/>
+				</controls:EmptyState.Action>
+			</controls:EmptyState>
+		</Panel>
+</Panel>
 	</Border>
 
 </UserControl>
