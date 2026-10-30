@@ -4,8 +4,8 @@
              x:Class="CastorApplication.Controls.EmptyState"
              x:Name="Root"
              x:DataType="controls:EmptyState">
-    <!-- What an area shows when it has nothing to show yet: the mascot, what is missing,
-         and how to fix it. The image gives way first when the area is small. -->
+    <!-- Ce qu'une zone montre quand elle n'a encore rien à montrer : la mascotte, ce qui manque,
+         et de quoi y remédier. L'image cède la place la première quand la zone est petite. -->
     <Grid RowDefinitions="*,Auto" Margin="16"
           HorizontalAlignment="Center" VerticalAlignment="Center">
         <Image x:Name="Mascot" Grid.Row="0" Stretch="Uniform" Margin="0,0,0,14"

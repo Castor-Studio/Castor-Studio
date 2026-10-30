@@ -23,14 +23,14 @@ public interface IScenePreviewRuntime
     void ResizePreview(IntPtr windowHandle, uint width, uint height);
 
     /// <summary>
-    /// Has the engine paint, on this surface's picture, the outline of each composed source and the
-    /// handles of the selected source. The engine draws them, in the same
-    /// frame and projection as the scene: nothing else can sit above
-    /// a native surface.
+    /// Fait peindre, sur l'image de cette surface, le cadre de chaque source composée et les
+    /// points d'accroche de la source choisie. C'est le moteur qui les trace, dans la même
+    /// image et la même projection que la scène : rien d'autre ne peut se poser au-dessus
+    /// d'une surface native.
     /// </summary>
     /// <remarks>
-    /// The overlay is kept as is and reread every frame: passing one the caller
-    /// later changes would have it read while it changes.
+    /// L'overlay est gardé tel quel et relu à chaque image : en passer un que l'appelant
+    /// modifie ensuite le ferait lire pendant qu'il change.
     /// </remarks>
     void SetCompositionOverlay(IntPtr windowHandle, CompositionOverlay overlay);
 

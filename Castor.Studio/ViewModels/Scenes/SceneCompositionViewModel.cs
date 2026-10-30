@@ -5,32 +5,32 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace CastorApplication.ViewModels.Scenes;
 
 /// <summary>
-/// What a canvas point offers to grab: a source to move, or a handle of the
-/// selected source to pull.
+/// Ce qu'un point du canvas offre à saisir : une source à déplacer, ou une poignée de la
+/// source choisie à tirer.
 /// </summary>
 public readonly record struct CompositionTarget(CompositionGestureKind Kind, CompositionHandle? Handle);
 
 /// <summary>
-/// A scene's composition as the engine holds it, reread continuously: which
-/// sources are composed, and what rectangle each occupies. None of these values is
-/// decided or adjusted here — a value kept locally would end up describing something other
-/// than what is really rendered.
+/// La composition d'une scène telle que le moteur la détient, relue en continu : quelles
+/// sources sont composées, et quel rectangle chacune occupe. Aucune de ces valeurs n'est
+/// décidée ni ajustée ici — une valeur retenue localement finirait par décrire autre chose
+/// que ce qui est réellement rendu.
 /// </summary>
 /// <remarks>
-/// What is done with it — the outlines painted on the preview — is drawn by the engine itself:
-/// its surface is a native window, nothing Avalonia draws can sit on it.
+/// Ce qui en est fait — les cadres peints sur l'aperçu — est tracé par le moteur lui-même :
+/// sa surface est une fenêtre native, rien de ce que dessine Avalonia ne peut s'y poser.
 /// <para>
-/// A gesture (move, stretch, crop) is no exception: it proposes a placement, the
-/// engine writes or refuses it, and its answer stays. The only thing shown before
-/// that is the grabbed source's outline, until the engine confirms.
+/// Un geste (déplacer, étirer, rogner) ne fait pas exception : il propose un placement, le
+/// moteur l'écrit ou le refuse, et c'est sa réponse qui reste. La seule chose montrée avant
+/// lui est le cadre de la source saisie, le temps qu'il confirme.
 /// </para>
 /// </remarks>
 public partial class SceneCompositionViewModel : ViewModelBase
 {
     /// <summary>
-    /// Minimum gap between two writes during a gesture: one frame at 60 fps. The pointer
-    /// moves far more often than the engine composes; writing every move to it would
-    /// show nothing more.
+    /// Écart minimal entre deux écritures pendant un geste : une image à 60 i/s. Le pointeur
+    /// bouge bien plus souvent que le moteur ne compose ; lui écrire chaque mouvement ne
+    /// montrerait rien de plus.
     /// </summary>
     public static readonly TimeSpan WriteInterval = TimeSpan.FromMilliseconds(16);
 
@@ -39,18 +39,18 @@ public partial class SceneCompositionViewModel : ViewModelBase
     private SceneItemViewModel? _scene;
     private Guid? _selectedSourceId;
     private Gesture? _gesture;
-    // The held crop mode (double-click, menu) and the one Alt gives while it is
-    // held. Both only apply to the selected source.
+    // Le mode rognage tenu (double-clic, menu) et celui que donne Alt tant qu'il est
+    // enfoncé. Les deux ne valent que pour la source choisie.
     private bool _cropMode;
     private bool _cropModifier;
     private Guid? _hoveredSourceId;
-    // The canvas size at the last read: its edges and center attract the
-    // sources being moved.
+    // La taille du canvas à la dernière lecture : ses bords et son centre aimantent les
+    // sources qu'on déplace.
     private int _canvasWidth;
     private int _canvasHeight;
 
-    // A gesture in progress: what it grabs, where it starts, what it requests, and what the
-    // engine has already written of it.
+    // Un geste en cours : ce qu'il saisit, d'où il part, ce qu'il demande, et ce que le
+    // moteur en a déjà écrit.
     private sealed class Gesture
     {
         public required Guid SceneId { get; init; }
@@ -60,9 +60,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
         public required double OriginX { get; init; }
         public required double OriginY { get; init; }
         public SourcePlacement Requested { get; set; }
-        // What a zoom slide requests: the frame does not move.
+        // Ce qu'un glissement du zoom demande : le cadre, lui, ne bouge pas.
         public SourceZoom RequestedZoom { get; set; }
-        // The grabbed mini-map, in frame coordinates, for a gesture aiming on it.
+        // La mini-carte saisie, dans le repère du cadre, pour un geste qui y vise.
         public FrameRect Map { get; init; }
         public bool HasPendingWrite { get; set; }
         public bool HasWritten { get; set; }
@@ -71,30 +71,30 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// What the engine must draw over its picture: the sources it composes, in
-    /// drawing order — from background to foreground —, and the selected
-    /// one. Each carries the color under which the source list names it.
+    /// Ce que le moteur doit tracer par-dessus son image : les sources qu'il compose, dans
+    /// l'ordre du dessin — de l'arrière-plan vers le premier plan —, et celle qui est
+    /// choisie. Chacune porte la couleur sous laquelle la liste des sources la nomme.
     /// </summary>
     public CompositionOverlay Overlay { get; private set; } = CompositionOverlay.Empty;
 
-    /// <summary>The selected source, as the engine composes it at this moment.</summary>
+    /// <summary>La source choisie, telle que le moteur la compose à cet instant.</summary>
     public SourceTransform? Selected => Overlay.Selected?.Transform;
 
-    /// <summary>Whether a gesture is in progress on a source.</summary>
+    /// <summary>Si un geste est en cours sur une source.</summary>
     public bool IsGesturing => _gesture != null;
 
-    /// <summary>Whether a source is selected: menu and handles apply to it.</summary>
+    /// <summary>Si une source est choisie : c'est sur elle que portent menu et poignées.</summary>
     public bool HasSelection => Overlay.Selected != null;
 
-    /// <summary>Whether crop mode is held on the selected source, Alt aside.</summary>
+    /// <summary>Si le mode rognage est tenu sur la source choisie, Alt mis à part.</summary>
     public bool IsCropMode => _cropMode && HasSelection;
 
     /// <summary>
-    /// Whether the selected source shows and is grabbed as cropping: held mode, or Alt held.
+    /// Si la source choisie se montre et se saisit en rognage : mode tenu, ou Alt enfoncé.
     /// </summary>
     public bool IsCropping => Overlay.IsCropping;
 
-    /// <summary>The selected source's zoom, for the toolbar slider.</summary>
+    /// <summary>Le zoom de la source choisie, pour le curseur de la barre d'outils.</summary>
     public double SelectedZoomFactor => Selected?.Zoom.Factor ?? SourceZoom.MinFactor;
 
     [ObservableProperty] private string _status = "";
@@ -105,15 +105,15 @@ public partial class SceneCompositionViewModel : ViewModelBase
         _time = time ?? TimeProvider.System;
     }
 
-    /// <summary>Now follows this scene, from scratch.</summary>
+    /// <summary>Suit désormais cette scène, à partir de zéro.</summary>
     internal void ShowScene(SceneItemViewModel? scene)
     {
-        // A gesture belongs to the scene where it started: what it requested is written
-        // before leaving it, rather than lost along the way.
+        // Un geste appartient à la scène où il a commencé : ce qu'il a demandé est écrit
+        // avant de la quitter, plutôt que perdu en route.
         FinishGesture(reconcile: false);
         _scene = scene;
-        // Changing scene means changing sources: keeping the previous selection would
-        // reopen the next one with a selection that is not its own.
+        // Changer de scène, c'est changer de sources : garder le choix précédent ferait
+        // rouvrir la suivante avec une sélection qui n'est plus à elle.
         _selectedSourceId = null;
         _cropMode = false;
         Publish([]);
@@ -121,9 +121,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Selects the source targeted at this canvas point, or none if the point falls on
-    /// none. The choice goes to the front one: it is the one the operator
-    /// sees at this place.
+    /// Choisit la source visée à ce point du canvas, ou aucune si le point ne tombe sur
+    /// aucune. Le choix se porte sur celle qui est devant : c'est celle que l'opérateur
+    /// voit à cet endroit.
     /// </summary>
     public void SelectAt(double canvasX, double canvasY)
     {
@@ -134,21 +134,21 @@ public partial class SceneCompositionViewModel : ViewModelBase
             return;
         }
 
-        // Cropping applies to one source: selecting another ends it.
+        // Le rognage se fait sur une source : en choisir une autre le termine.
         if (source.SourceId != _selectedSourceId) _cropMode = false;
         _selectedSourceId = source.SourceId;
         Publish(Overlay.Sources);
     }
 
     /// <summary>
-    /// The pointer hovers this canvas point: the front source shows with the selection's
-    /// weight, to say before the click which one it will take.
+    /// Le pointeur survole ce point du canvas : la source qui est devant se montre au poids
+    /// de la sélection, pour dire avant le clic laquelle il prendra.
     /// </summary>
-    /// <returns>Whether the hovered source changed, so whether the overlay must be given to the engine again.</returns>
+    /// <returns>Si la source survolée a changé, donc si l'overlay est à redonner au moteur.</returns>
     public bool HoverAt(double canvasX, double canvasY) => SetHovered(SourceAt(canvasX, canvasY)?.SourceId);
 
-    /// <summary>The pointer left the picture: no source is hovered any more.</summary>
-    /// <returns>Whether a source was hovered.</returns>
+    /// <summary>Le pointeur a quitté l'image : plus aucune source n'est survolée.</summary>
+    /// <returns>Si une source était survolée.</returns>
     public bool ClearHover() => SetHovered(null);
 
     private bool SetHovered(Guid? sourceId)
@@ -160,7 +160,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         return true;
     }
 
-    /// <summary>Selects no source any more: the overlay shows only the outlines.</summary>
+    /// <summary>Ne choisit plus aucune source : l'overlay ne montre que les cadres.</summary>
     public void ClearSelection()
     {
         if (_selectedSourceId == null) return;
@@ -171,16 +171,16 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// What a gesture started at this point would grab: a handle of the selected source, within
-    /// <paramref name="handleTolerance"/>; otherwise, outside the source but within
-    /// <paramref name="rotationReach"/> of one of its corners, its rotation; otherwise the source
-    /// in front. Handles come first: they are painted over the
-    /// other outlines. A selected and zoomed source's mini-map comes before them: it
-    /// is painted in the frame, over the picture.
+    /// Ce qu'un geste commencé à ce point saisirait : une poignée de la source choisie, à
+    /// <paramref name="handleTolerance"/> près ; sinon, hors de la source mais à moins de
+    /// <paramref name="rotationReach"/> d'un de ses coins, sa rotation ; sinon la source qui
+    /// est devant. Les poignées passent avant tout : elles sont peintes par-dessus les
+    /// autres cadres. La mini-carte d'une source choisie et zoomée passe avant elles : elle
+    /// est peinte dans le cadre, par-dessus l'image.
     /// </summary>
-    /// <param name="crop">Whether Alt is held: handles crop instead of stretching.</param>
+    /// <param name="crop">Si Alt est enfoncé : les poignées rognent au lieu d'étirer.</param>
     /// <param name="canvasPerScreenPixel">
-    /// Canvas pixels per screen pixel, which locates the mini-map; 0 without mini-map.
+    /// Pixels du canvas par pixel de l'écran, qui situe la mini-carte ; 0 sans mini-carte.
     /// </param>
     public CompositionTarget? TargetAt(
         double canvasX,
@@ -204,12 +204,12 @@ public partial class SceneCompositionViewModel : ViewModelBase
                     cropping ? CompositionGestureKind.Crop : CompositionGestureKind.Resize, handle);
             }
 
-            // While cropping, the inside of a zoomed source slides its picture under the frame:
-            // without Alt, the action applies to the frame; with it, to what the frame shows.
+            // En rognage, l'intérieur d'une source zoomée fait glisser son image sous le cadre :
+            // sans Alt, on agit sur le cadre ; avec, sur ce qu'il montre.
             if (cropping && selected.Zoom.IsZoomed && CompositionGeometry.Contains(selected, canvasX, canvasY))
                 return new CompositionTarget(CompositionGestureKind.Pan, null);
 
-            // While cropping, the source does not turn: only the brackets can be grabbed.
+            // En rognage, la source ne tourne pas : les équerres sont seules à se saisir.
             var corner = cropping || rotationReach <= 0
                 ? null
                 : CompositionGeometry.RotationCornerAt(selected, canvasX, canvasY, rotationReach);
@@ -222,12 +222,12 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Starts a gesture at this canvas point. On a handle of the selected source, it
-    /// stretches it — or crops it, in crop mode or when <paramref name="crop"/> is requested.
-    /// Just outside one of its corners, it turns it. On a source, it selects and
-    /// moves it. Beside any source, it selects nothing any more.
+    /// Commence un geste à ce point du canvas. Sur une poignée de la source choisie, il
+    /// l'étire — ou la rogne, en mode rognage ou quand <paramref name="crop"/> est demandé.
+    /// Juste hors d'un de ses coins, il la fait tourner. Sur une source, il la choisit et la
+    /// déplace. À côté de toute source, il ne choisit plus rien.
     /// </summary>
-    /// <returns>What the gesture grabbed, or nothing.</returns>
+    /// <returns>Ce que le geste a saisi, ou rien.</returns>
     public CompositionTarget? BeginGesture(
         double canvasX,
         double canvasY,
@@ -250,7 +250,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
             ? SourceAt(canvasX, canvasY)!
             : Selected!;
 
-        // Grabbing another source leaves the previous one's cropping.
+        // Saisir une autre source, c'est quitter le rognage de la précédente.
         if (start.SourceId != _selectedSourceId) _cropMode = false;
         _selectedSourceId = start.SourceId;
         _gesture = new Gesture
@@ -267,14 +267,14 @@ public partial class SceneCompositionViewModel : ViewModelBase
         };
         Publish(Overlay.Sources);
 
-        // A click on the mini-map jumps there at once, without waiting for the pointer to move.
+        // Un clic sur la mini-carte y saute aussitôt, sans attendre que le pointeur bouge.
         if (target.Value.Kind == CompositionGestureKind.Aim)
             UpdateGesture(canvasX, canvasY, keepAspectRatio: true);
 
         return target;
     }
 
-    // This source's mini-map, if it shows one and this canvas point falls in it.
+    // La mini-carte de cette source, si elle en montre une et que ce point du canvas y tombe.
     private static FrameRect? MapAt(SourceTransform source, double canvasX, double canvasY, double canvasPerScreenPixel)
     {
         if (!source.Zoom.IsZoomed) return null;
@@ -285,17 +285,17 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// The pointer is now at this canvas point. The outline follows at once; the
-    /// engine receives at most one write per <see cref="WriteInterval"/>, the last
-    /// request waiting for <see cref="FlushGesture"/> or the end of the gesture.
+    /// Le pointeur est maintenant à ce point du canvas. Le cadre suit tout de suite ; le
+    /// moteur, lui, reçoit au plus une écriture par <see cref="WriteInterval"/>, la dernière
+    /// demande restant en attente de <see cref="FlushGesture"/> ou de la fin du geste.
     /// </summary>
-    /// <param name="keepAspectRatio">Whether a corner keeps the source's proportions.</param>
+    /// <param name="keepAspectRatio">Si un angle garde les proportions de la source.</param>
     /// <param name="constrainRotation">
-    /// Whether a rotation advances by steps of <see cref="CompositionGeometry.RotationStep"/>°.
+    /// Si une rotation avance par pas de <see cref="CompositionGeometry.RotationStep"/>°.
     /// </param>
     /// <param name="snapReach">
-    /// Distance, in canvas pixels, at which a moved source snaps to the edges and
-    /// centers of the canvas and other sources; 0 to snap nothing.
+    /// Distance, en pixels du canvas, à laquelle une source déplacée s'accroche aux bords et
+    /// centres du canvas et des autres sources ; 0 pour ne rien aimanter.
     /// </param>
     public void UpdateGesture(
         double canvasX,
@@ -350,7 +350,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         Request(gesture);
     }
 
-    // The outline follows at once; the engine, at its own pace.
+    // Le cadre suit tout de suite ; le moteur, à son rythme.
     private void Request(Gesture gesture)
     {
         gesture.HasPendingWrite = true;
@@ -361,8 +361,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Writes the gesture's last request if it is still waiting and the interval has
-    /// passed: this catches up with a pointer stopping between two writes.
+    /// Écrit la dernière demande du geste si elle attend encore et que l'intervalle est
+    /// passé : c'est ce qui rattrape un pointeur qui s'arrête entre deux écritures.
     /// </summary>
     public void FlushGesture()
     {
@@ -374,14 +374,14 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Ends the gesture: its last request is written, then everything is reread from the engine.
-    /// What stays on screen is what the engine confirmed, not what was requested.
+    /// Termine le geste : sa dernière demande est écrite, puis tout est relu dans le moteur.
+    /// Ce qui reste à l'écran est ce qu'il a confirmé, pas ce qui a été demandé.
     /// </summary>
     public void EndGesture() => FinishGesture(reconcile: true);
 
     /// <summary>
-    /// Abandons the gesture: the source takes back in the engine the placement it had
-    /// when the gesture started.
+    /// Abandonne le geste : la source reprend dans le moteur le placement qu'elle avait
+    /// quand il a commencé.
     /// </summary>
     public void CancelGesture()
     {
@@ -395,8 +395,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// What the current gesture writes, in plain text, for the bubble following the pointer: the
-    /// position, size, crop or angle. Empty outside a gesture.
+    /// Ce que le geste en cours écrit, en clair, pour la bulle qui suit le pointeur : la
+    /// position, la taille, le rognage ou l'angle. Vide hors geste.
     /// </summary>
     public string GestureReadout
     {
@@ -421,8 +421,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Holds crop mode on the selected source: its handles crop until it is
-    /// left. Without a selected source, there is nothing to crop.
+    /// Tient le mode rognage sur la source choisie : ses poignées rognent jusqu'à ce qu'on
+    /// en sorte. Sans source choisie, il n'y a rien à rogner.
     /// </summary>
     public void EnterCropMode()
     {
@@ -432,7 +432,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         Publish(Overlay.Sources);
     }
 
-    /// <summary>Leaves crop mode: handles stretch again.</summary>
+    /// <summary>Quitte le mode rognage : les poignées étirent de nouveau.</summary>
     public void ExitCropMode()
     {
         if (!_cropMode) return;
@@ -441,7 +441,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
         Publish(Overlay.Sources);
     }
 
-    /// <summary>Enters crop mode, or leaves it if already held.</summary>
+    /// <summary>Entre en mode rognage, ou en sort s'il est déjà tenu.</summary>
     public void ToggleCropMode()
     {
         if (_cropMode) ExitCropMode();
@@ -449,12 +449,12 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// One wheel notch while cropping (Alt held or mode held): the source under the pointer
-    /// is selected and its picture zooms by <paramref name="steps"/> notches, the point under the
-    /// pointer staying where it is. Outside cropping, the wheel touches nothing: a stray
-    /// wheel turn must not change the on-air picture.
+    /// Un cran de molette en rognage (Alt enfoncé ou mode tenu) : la source sous le pointeur
+    /// est choisie et son image zoome de <paramref name="steps"/> crans, le point sous le
+    /// pointeur restant où il est. Hors rognage, la molette ne touche à rien : un tour de
+    /// molette égaré ne doit pas changer l'image à l'antenne.
     /// </summary>
-    /// <returns>Whether the wheel was used.</returns>
+    /// <returns>Si la molette a servi.</returns>
     public bool ZoomAt(double canvasX, double canvasY, double steps)
     {
         if (!(_cropMode || _cropModifier) || _gesture != null || steps == 0) return false;
@@ -473,18 +473,18 @@ public partial class SceneCompositionViewModel : ViewModelBase
         return true;
     }
 
-    // One wheel notch or key step enlarges by 15%: from ×1 to ×2 in five notches.
+    // Un cran de molette ou de touche agrandit de 15 % : de ×1 à ×2 en cinq crans.
     private const double ZoomStep = 1.15;
 
     private static double Stepped(double factor, double steps) =>
         Math.Clamp(factor * Math.Pow(ZoomStep, steps), SourceZoom.MinFactor, SourceZoom.MaxFactor);
 
-    // An arrow key slides the picture by a tenth of what the frame shows.
+    // Une flèche fait glisser l'image d'un dixième de ce que le cadre en montre.
     private const double NudgeShare = 0.1;
 
     /// <summary>
-    /// The selected source's picture zooms by <paramref name="steps"/> notches around the point
-    /// it already aims at: this is keyboard zoom, which has no pointer.
+    /// L'image de la source choisie zoome de <paramref name="steps"/> crans autour du point
+    /// qu'elle vise déjà : c'est le zoom du clavier, qui n'a pas de pointeur.
     /// </summary>
     public void StepSelectedZoom(int steps)
     {
@@ -495,9 +495,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// The selected source's zoomed picture slides under its frame, by a tenth of the frame per
-    /// step, in the arrow's direction: <paramref name="columns"/> to the right,
-    /// <paramref name="rows"/> down. Without zoom, there is nothing to slide.
+    /// L'image zoomée de la source choisie glisse sous son cadre, d'un dixième du cadre par
+    /// pas, dans le sens de la flèche : <paramref name="columns"/> vers la droite,
+    /// <paramref name="rows"/> vers le bas. Sans zoom, il n'y a rien à faire glisser.
     /// </summary>
     public void NudgeSelectedZoom(int columns, int rows)
     {
@@ -511,8 +511,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Alt pressed or released: while pressed, the selected source shows and is grabbed
-    /// as cropping, without the mode staying afterwards.
+    /// Alt enfoncé ou relâché : tant qu'il l'est, la source choisie se montre et se saisit
+    /// en rognage, sans que le mode reste après.
     /// </summary>
     public void SetCropModifier(bool held)
     {
@@ -522,31 +522,31 @@ public partial class SceneCompositionViewModel : ViewModelBase
         Publish(Overlay.Sources);
     }
 
-    /// <summary>The selected source turns by <paramref name="degrees"/> around its center.</summary>
+    /// <summary>La source choisie tourne de <paramref name="degrees"/> autour de son centre.</summary>
     public void RotateSelected(double degrees)
     {
         if (Selected is { } selected) Apply(selected, CompositionGeometry.RotateBy(selected, degrees));
     }
 
-    /// <summary>The selected source straightens, around its center.</summary>
+    /// <summary>La source choisie se redresse, autour de son centre.</summary>
     public void ResetSelectedRotation()
     {
         if (Selected is { } selected) Apply(selected, CompositionGeometry.RotateBy(selected, -selected.Rotation));
     }
 
-    /// <summary>The selected source comes to the center of the canvas.</summary>
+    /// <summary>La source choisie vient au centre du canvas.</summary>
     public void CenterSelected()
     {
         if (Selected is { } selected) Apply(selected, CompositionGeometry.CenterOnCanvas(selected, _canvasWidth, _canvasHeight));
     }
 
-    /// <summary>The selected source fills the canvas as much as it can, proportions kept.</summary>
+    /// <summary>La source choisie remplit le canvas autant qu'elle le peut, proportions gardées.</summary>
     public void FitSelected()
     {
         if (Selected is { } selected) Apply(selected, CompositionGeometry.FitToCanvas(selected, _canvasWidth, _canvasHeight));
     }
 
-    /// <summary>The selected source starts over: no crop, rotation or zoom, fitted to the canvas.</summary>
+    /// <summary>La source choisie repart de zéro : ni rognage, ni rotation, ni zoom, ajustée au canvas.</summary>
     public void ResetSelected()
     {
         if (Selected is not { } selected) return;
@@ -556,29 +556,29 @@ public partial class SceneCompositionViewModel : ViewModelBase
         ResetSelectedZoom();
     }
 
-    /// <summary>The selected source takes back its whole size, what was visible staying in place.</summary>
+    /// <summary>La source choisie reprend sa taille entière, ce qui était visible restant en place.</summary>
     public void ResetSelectedCrop()
     {
         if (Selected is { } selected) Apply(selected, CompositionGeometry.ResetCrop(selected));
     }
 
     /// <summary>
-    /// The selected source's picture grows by <paramref name="factor"/> in its frame,
-    /// around the point its zoom already aims at — the picture's center if there is none.
+    /// L'image de la source choisie s'agrandit de <paramref name="factor"/> dans son cadre,
+    /// autour du point que son zoom vise déjà — le centre de l'image s'il n'y en a pas.
     /// </summary>
     public void ZoomSelected(double factor)
     {
         if (Selected is { } selected) ApplyZoom(selected, selected.Zoom with { Factor = factor });
     }
 
-    /// <summary>The selected source shows its whole picture again.</summary>
+    /// <summary>La source choisie montre de nouveau son image entière.</summary>
     public void ResetSelectedZoom()
     {
         if (Selected is { } selected) ApplyZoom(selected, SourceZoom.None);
     }
 
-    // A one-shot command (menu): one write, then a reread from the engine. A
-    // refusal leaves what the engine holds and is reported, as for a gesture.
+    // Une commande d'un seul coup (menu) : une écriture, puis la relecture du moteur. Un
+    // refus laisse ce que le moteur détient et se dit, comme pour un geste.
     private void Apply(SourceTransform selected, SourcePlacement placement) =>
         Command(() => _sourceRuntime.SetSourceTransform(_scene!.Id, selected.SourceId, placement));
 
@@ -595,9 +595,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Rereads the composition from the engine. Called after each gesture and at regular
-    /// intervals by the preview: this makes outlines follow when a transform
-    /// changes on the engine side, without the interface being told.
+    /// Relit la composition dans le moteur. Appelée après chaque geste et à intervalle
+    /// régulier par l'aperçu : c'est ce qui fait suivre les cadres quand une transformation
+    /// change du côté du moteur, sans que l'interface en soit prévenue.
     /// </summary>
     public void Refresh()
     {
@@ -612,8 +612,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
         var result = _sourceRuntime.GetSceneComposition(scene.Id);
         if (result.Status == StudioRuntimeStatus.Unavailable)
         {
-            // A globally unavailable engine is already announced by the preview: here, there
-            // is simply nothing composed.
+            // Un moteur globalement indisponible est déjà annoncé par l'aperçu : ici, il n'y
+            // a simplement rien de composé.
             Publish([]);
             Status = "";
             return;
@@ -621,8 +621,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
 
         if (!result.IsSuccess)
         {
-            // Read refused: the last outlines stay in place rather than
-            // vanishing on a passing failure, but the refusal is reported.
+            // Lecture refusée : les derniers cadres restent en place plutôt que de
+            // disparaître sur un incident passager, mais le refus se dit.
             Status = result.Message;
             return;
         }
@@ -644,9 +644,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (reconcile) Refresh();
     }
 
-    // A refused write stops the gesture there: the source takes back in the engine the
-    // placement from before the gesture, and the screen rereads what the engine holds. Nothing
-    // remains of the refused request, on screen or in the engine.
+    // Une écriture refusée arrête le geste là : la source reprend dans le moteur le
+    // placement d'avant le geste, et l'écran se relit sur ce que le moteur détient. Rien
+    // ne reste de la demande refusée, ni à l'écran, ni dans le moteur.
     private bool Write(Gesture gesture)
     {
         var result = IsZoomGesture(gesture.Kind)
@@ -667,8 +667,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
         return false;
     }
 
-    // A gesture's first request goes out at once: that is what makes it feel like the
-    // source was grabbed.
+    // La première demande d'un geste part tout de suite : c'est elle qui fait sentir que la
+    // source a été saisie.
     private bool IsDue(Gesture gesture) =>
         gesture.LastWrite is not { } lastWrite || _time.GetElapsedTime(lastWrite) >= WriteInterval;
 
@@ -679,7 +679,7 @@ public partial class SceneCompositionViewModel : ViewModelBase
                 ? _sourceRuntime.SetSourceZoom(gesture.SceneId, gesture.Start.SourceId, gesture.Start.Zoom)
                 : _sourceRuntime.SetSourceTransform(gesture.SceneId, gesture.Start.SourceId, gesture.Start.Placement);
 
-    // These gestures change what the frame shows, not the frame.
+    // Ces gestes changent ce que le cadre montre, pas le cadre.
     private static bool IsZoomGesture(CompositionGestureKind kind) =>
         kind is CompositionGestureKind.Pan or CompositionGestureKind.Aim;
 
@@ -689,14 +689,14 @@ public partial class SceneCompositionViewModel : ViewModelBase
         return ZoomMap.Aim(gesture.Start.Zoom, gesture.Map, u, v);
     }
 
-    // What the gesture requests, shown before the engine confirms.
+    // Ce que le geste demande, montré avant la confirmation du moteur.
     private static SourceTransform Shown(Gesture gesture) =>
         IsZoomGesture(gesture.Kind)
             ? gesture.Start with { Zoom = gesture.RequestedZoom }
             : CompositionGeometry.Preview(gesture.Start, gesture.Requested);
 
-    // The front source at this canvas point. The list goes from background to
-    // foreground: walking it backwards meets what is on top first.
+    // La source qui est devant à ce point du canvas. La liste va de l'arrière-plan vers le
+    // premier plan : on la remonte pour rencontrer d'abord ce qui est dessus.
     private SourceTransform? SourceAt(double canvasX, double canvasY)
     {
         var sources = Overlay.Sources;
@@ -709,9 +709,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
         return null;
     }
 
-    // Selection is kept by id, never by rectangle: that makes it
-    // follow the source when the engine moves it, and drop by itself
-    // when the source stops being composed — removed, hidden, or scene changed.
+    // La sélection est retenue par identifiant, jamais par rectangle : c'est ce qui la fait
+    // suivre la source quand le moteur la déplace, et ce qui la laisse tomber d'elle-même
+    // quand la source cesse d'être composée — retirée, masquée, ou scène changée.
     private void Publish(IReadOnlyList<OverlaySource> sources)
     {
         sources = WithGesture(sources);
@@ -722,8 +722,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
             _cropMode = false;
         }
 
-        // Hover goes quiet during a gesture, and on the already selected source: it already has
-        // that weight.
+        // Le survol se tait pendant un geste, et sur la source déjà choisie : elle porte déjà
+        // ce poids.
         var hovered = _gesture == null && _hoveredSourceId != _selectedSourceId
             ? Find(sources, _hoveredSourceId)
             : null;
@@ -740,9 +740,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedZoomFactor));
     }
 
-    // During a gesture, the grabbed source is shown where the gesture requests it, without waiting for
-    // the next write or the engine's reread: that keeps the outline stuck to the
-    // pointer. Other sources stay as the engine reports them.
+    // Pendant un geste, la source saisie est montrée là où il la demande, sans attendre
+    // l'écriture suivante ni la relecture du moteur : c'est ce qui rend le cadre collé au
+    // pointeur. Les autres sources restent ce que le moteur en dit.
     private IReadOnlyList<OverlaySource> WithGesture(IReadOnlyList<OverlaySource> sources)
     {
         var gesture = _gesture;
@@ -772,11 +772,11 @@ public partial class SceneCompositionViewModel : ViewModelBase
         return null;
     }
 
-    // The engine returns its stack from foreground to background; it is walked in
-    // reverse because painting goes back to front. Each source goes out with the
-    // color the list gives it: on an overlapping composition, this tells
-    // which outline is which row. A new list on each read, since the
-    // engine's graphics thread rereads the one it was given frame by frame.
+    // Le moteur rend sa pile du premier plan vers l'arrière-plan ; elle est parcourue à
+    // l'envers parce qu'on peint de l'arrière vers l'avant. Chaque source repart avec la
+    // couleur que la liste lui donne : sur une composition qui se chevauche, c'est ce qui
+    // dit quel cadre est quelle ligne. Une nouvelle liste à chaque lecture, puisque le
+    // thread graphique du moteur relit image par image celle qu'on lui a donnée.
     private static IReadOnlyList<OverlaySource> Drawable(
         SceneItemViewModel scene,
         IReadOnlyList<SourceTransform> transforms)
@@ -785,8 +785,8 @@ public partial class SceneCompositionViewModel : ViewModelBase
         for (var index = transforms.Count - 1; index >= 0; index--)
         {
             var transform = transforms[index];
-            // A source the engine does not compose — hidden, or without a picture like an
-            // audio source — has no outline to show.
+            // Une source que le moteur ne compose pas — masquée, ou sans image comme une
+            // source audio — n'a aucun cadre à montrer.
             if (!transform.IsVisible || transform.Width <= 0 || transform.Height <= 0) continue;
 
             drawable.Add(new OverlaySource(transform, TintOf(scene, transform.SourceId)));

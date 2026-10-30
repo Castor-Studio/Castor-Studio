@@ -27,7 +27,7 @@ public partial class AddSourceDialog : Window
     {
         base.OnOpened(e);
 
-        // Subscribe to the ViewModel's close event
+        // S'abonner à l'événement de fermeture du ViewModel
         if (DataContext is AddSourceDialogViewModel vm)
         {
             vm.CloseRequested += OnCloseRequested;
@@ -35,7 +35,7 @@ public partial class AddSourceDialog : Window
         }
     }
 
-    // Adapted to the ViewModel's Action<AddSourceResult?> delegate
+    // Adapté au délégué Action<AddSourceResult?> du ViewModel
     private void OnCloseRequested(AddSourceResult? result)
     {
         Close(result);
@@ -48,7 +48,7 @@ public partial class AddSourceDialog : Window
         PointerPressed -= OnHeaderPointerPressed;
         if (DataContext is AddSourceDialogViewModel vm)
         {
-            vm.CloseRequested -= OnCloseRequested;   // ← requires a named-method subscription in the constructor
+            vm.CloseRequested -= OnCloseRequested;   // ← nécessite un abonnement par méthode nommée dans le constructeur
             vm.ScanNetworkCommand.Cancel();
         }
 

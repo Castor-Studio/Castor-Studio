@@ -1,8 +1,8 @@
 namespace CastorApplication.Models.Studio;
 
 /// <summary>
-/// A rectangle in a frame's coordinates: origin at its top-left corner, axes turned
-/// with it.
+/// Un rectangle dans le repère d'un cadre : origine en son coin haut-gauche, axes tournés
+/// avec lui.
 /// </summary>
 public readonly record struct FrameRect(double X, double Y, double Width, double Height)
 {
@@ -10,32 +10,32 @@ public readonly record struct FrameRect(double X, double Y, double Width, double
 }
 
 /// <summary>
-/// A zoomed source's mini-map: the whole picture in small, in the bottom-right corner
-/// of its frame, with the window the frame shows. The engine paints it; the interface
-/// reads clicks on it. Both go through here to land on the same pixel.
+/// La mini-carte d'une source zoomée : l'image entière en réduction, dans le coin bas-droit
+/// de son cadre, avec la fenêtre que le cadre en montre. Le moteur la peint ; l'interface y
+/// lit les clics. Les deux passent par ici pour tomber au même pixel.
 /// </summary>
 public static class ZoomMap
 {
-    // Thought of in screen pixels: the map is read and aimed with the mouse, whatever
-    // the scale at which the canvas is reduced in the panel.
+    // Pensées en pixels de l'écran : la carte se lit et se vise à la souris, quelle que
+    // soit l'échelle à laquelle le canvas est réduit dans le panneau.
     private const double TargetWidth = 120;
     private const double MinimumWidth = 40;
     private const double Margin = 8;
 
-    // The map never takes more than this share of the frame: the picture is what counts.
+    // La carte ne mange jamais plus que cette part du cadre : c'est l'image qui compte.
     private const double MaximumShare = 0.35;
 
     /// <summary>
-    /// Where the map sits in a frame of <paramref name="frameWidth"/> ×
-    /// <paramref name="frameHeight"/>, in canvas pixels, when one screen pixel is
-    /// <paramref name="canvasPerScreenPixel"/> canvas pixels. Nothing if the frame is too
-    /// small for it to be read.
+    /// Où se pose la carte dans un cadre de <paramref name="frameWidth"/> ×
+    /// <paramref name="frameHeight"/>, en pixels du canvas, quand un pixel de l'écran vaut
+    /// <paramref name="canvasPerScreenPixel"/> pixels du canvas. Rien si le cadre est trop
+    /// petit pour qu'elle se lise.
     /// </summary>
     public static FrameRect? Bounds(double frameWidth, double frameHeight, double canvasPerScreenPixel)
     {
         if (frameWidth <= 0 || frameHeight <= 0 || canvasPerScreenPixel <= 0) return null;
 
-        // The map has the frame's shape: it is the picture as the frame shows it, in small.
+        // La carte a la forme du cadre : c'est l'image telle qu'il la montre, en petit.
         var aspect = frameHeight / frameWidth;
         var width = Math.Min(
             TargetWidth * canvasPerScreenPixel,
@@ -48,8 +48,8 @@ public static class ZoomMap
     }
 
     /// <summary>
-    /// The window the frame shows of the picture, in fractions of the whole picture (0 to 1),
-    /// held against the edge as the engine holds it.
+    /// La fenêtre que le cadre montre de l'image, en fractions de l'image entière (de 0 à 1),
+    /// calée contre le bord comme le moteur la cale.
     /// </summary>
     public static FrameRect Window(SourceZoom zoom)
     {
@@ -64,8 +64,8 @@ public static class ZoomMap
     }
 
     /// <summary>
-    /// The zoom that centers the window on this point of the map, given in frame coordinates.
-    /// A point outside the map aims at the nearest edge.
+    /// Le zoom qui centre la fenêtre sur ce point de la carte, donné dans le repère du cadre.
+    /// Un point hors de la carte vise le bord le plus proche.
     /// </summary>
     public static SourceZoom Aim(SourceZoom zoom, FrameRect map, double x, double y)
     {

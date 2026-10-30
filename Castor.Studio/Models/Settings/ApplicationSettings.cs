@@ -26,7 +26,7 @@ public sealed class ApplicationSettings
     public string StreamKey { get; set; } = "";
     public string RtmpUrl { get; set; } = "";
 
-    // Chosen in the "Scène active" bar; applies to the live stream and the recording.
+    // Choisie dans la barre « Scène active » ; s'applique au live et à l'enregistrement.
     public SceneTransitionKind SceneTransitionKind { get; set; } = SceneTransition.Default.Kind;
     public int SceneTransitionDurationMs { get; set; } = SceneTransition.DefaultDurationMs;
 

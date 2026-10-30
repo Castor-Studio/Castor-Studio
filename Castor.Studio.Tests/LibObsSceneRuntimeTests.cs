@@ -308,12 +308,12 @@ public sealed class LibObsSceneRuntimeTests
             Assert.True(written.IsSuccess, written.Message);
             Assert.Equal(new SourcePlacement(320, 180, 0.5, 0.75, SourceCrop.None), written.Transform!.Placement);
 
-            // What is written is what the engine returns on the next read.
+            // Ce qui est écrit, c'est ce que le moteur rend à la lecture suivante.
             var read = runtime.GetSceneComposition(sceneId);
             Assert.True(read.IsSuccess, read.Message);
             Assert.Equal(written.Transform.Placement, Assert.Single(read.Composition.Sources).Placement);
 
-            // A refused placement leaves nothing behind.
+            // Un placement refusé ne laisse rien derrière lui.
             Assert.False(runtime.SetSourceTransform(sceneId, sourceId,
                 new SourcePlacement(0, 0, 0, 1, SourceCrop.None)).IsSuccess);
             Assert.False(runtime.SetSourceTransform(sceneId, sourceId,
@@ -323,14 +323,14 @@ public sealed class LibObsSceneRuntimeTests
             Assert.False(runtime.SetSourceTransform(sceneId, Guid.NewGuid(),
                 new SourcePlacement(0, 0, 1, 1, SourceCrop.None)).IsSuccess);
 
-            // The rotation goes with the position and scale, and reads back as written.
+            // La rotation part avec la position et l'échelle, et se relit telle qu'écrite.
             var rotated = runtime.SetSourceTransform(sceneId, sourceId,
                 written.Transform.Placement with { Rotation = 30 });
             Assert.True(rotated.IsSuccess, rotated.Message);
             Assert.Equal(30, rotated.Transform!.Rotation, 3);
             Assert.Equal(30, Assert.Single(runtime.GetSceneComposition(sceneId).Composition.Sources).Rotation, 3);
 
-            // A non-finite rotation is refused without touching the source.
+            // Une rotation non finie est refusée sans toucher à la source.
             Assert.False(runtime.SetSourceTransform(sceneId, sourceId,
                 written.Transform.Placement with { Rotation = double.NaN }).IsSuccess);
             Assert.Equal(30, Assert.Single(runtime.GetSceneComposition(sceneId).Composition.Sources).Rotation, 3);
@@ -339,7 +339,7 @@ public sealed class LibObsSceneRuntimeTests
             var after = runtime.GetSceneComposition(sceneId);
             Assert.Equal(written.Transform.Placement, Assert.Single(after.Composition.Sources).Placement);
 
-            // Audio has no picture to enlarge; asking for the whole picture always succeeds.
+            // Un son n'a pas d'image à agrandir ; l'image entière, elle, se redemande toujours.
             Assert.False(runtime.SetSourceZoom(sceneId, sourceId, new SourceZoom(2)).IsSuccess);
             Assert.False(runtime.SetSourceZoom(sceneId, sourceId, new SourceZoom(double.NaN)).IsSuccess);
             Assert.False(runtime.SetSourceZoom(sceneId, sourceId, new SourceZoom(1, 2, 0.5)).IsSuccess);
@@ -966,7 +966,7 @@ public sealed class LibObsSceneRuntimeTests
                 Assert.True(added.IsSuccess, added.Message);
             }
 
-            // An added source arrives in the foreground, so first in the order read.
+            // Une source ajoutée arrive au premier plan, donc en tête de l'ordre lu.
             var order = runtime.GetSourceOrder(sceneId);
             Assert.True(order.IsSuccess, order.Message);
             Assert.Equal([third, second, first], order.SourceIds);
@@ -975,7 +975,7 @@ public sealed class LibObsSceneRuntimeTests
             Assert.True(runtime.MoveSource(sceneId, first, 0).IsSuccess);
             Assert.Equal([first, third, second], runtime.GetSourceOrder(sceneId).SourceIds);
 
-            // Last rank = background.
+            // Dernier rang = arrière-plan.
             Assert.True(runtime.MoveSource(sceneId, first, 2).IsSuccess);
             Assert.Equal([third, second, first], runtime.GetSourceOrder(sceneId).SourceIds);
 

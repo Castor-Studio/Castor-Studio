@@ -7,18 +7,18 @@ public interface IFilePickerService
 {
     Task<string?> PickRecordingOutputFolderAsync(string? initialPath = null);
 
-    /// <summary>Opens a file picker to choose a video source.</summary>
+    /// <summary>Ouvre un sélecteur de fichier pour choisir une source vidéo.</summary>
     Task<string?> PickVideoFileAsync();
 
-    /// <summary>Opens a file picker to choose an audio source.</summary>
+    /// <summary>Ouvre un sélecteur de fichier pour choisir une source audio.</summary>
     Task<string?> PickAudioFileAsync();
 
-    /// <summary>Opens a file picker to choose an audio or video media source.</summary>
+    /// <summary>Ouvre un sélecteur de fichier pour choisir une source média audio ou vidéo.</summary>
     Task<string?> PickMediaFileAsync();
 
-    /// <summary>Opens a save picker to export scenes as JSON.</summary>
+    /// <summary>Ouvre un sélecteur d'enregistrement pour exporter des scènes en JSON.</summary>
     Task<string?> PickSceneExportFileAsync();
 
-    /// <summary>Opens a file picker to import scenes from one or more JSON files. Empty if cancelled.</summary>
+    /// <summary>Ouvre un sélecteur de fichiers pour importer des scènes depuis un ou plusieurs JSON. Vide si annulé.</summary>
     Task<IReadOnlyList<string>> PickSceneImportFilesAsync();
 }

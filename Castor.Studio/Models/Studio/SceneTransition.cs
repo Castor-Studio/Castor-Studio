@@ -10,7 +10,7 @@ public enum SceneTransitionKind
 }
 
 /// <summary>
-/// How the program output (live, recording) goes from one scene to the next.
+/// Comment la sortie programme (live, enregistrement) passe d'une scène à la suivante.
 /// </summary>
 public sealed record SceneTransition(SceneTransitionKind Kind, int DurationMs)
 {
@@ -21,13 +21,13 @@ public sealed record SceneTransition(SceneTransitionKind Kind, int DurationMs)
     public static SceneTransition Default { get; } = new(SceneTransitionKind.Fade, DefaultDurationMs);
 
     /// <summary>
-    /// Brings a setting read from disk back to what the interface can offer: an unknown
-    /// type returns to the default, an out-of-range duration is clamped.
+    /// Ramène un réglage lu sur disque dans ce que l'interface sait proposer : un type
+    /// inconnu redevient le défaut, une durée hors bornes est bornée.
     /// </summary>
     public static SceneTransition From(SceneTransitionKind kind, int durationMs) => new(
         Enum.IsDefined(kind) ? kind : Default.Kind,
         Math.Clamp(durationMs, MinDurationMs, MaxDurationMs));
 
-    /// <summary>A cut does not animate: the next scene appears at once.</summary>
+    /// <summary>Une coupe ne s'anime pas : la scène suivante s'affiche d'un coup.</summary>
     public bool IsAnimated => Kind != SceneTransitionKind.Cut;
 }

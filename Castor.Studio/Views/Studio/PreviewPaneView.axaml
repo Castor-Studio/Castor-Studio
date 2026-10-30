@@ -11,8 +11,8 @@
 	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 	<Panel Background="Black">
 
-		<!-- The native surface goes above everything the page paints: it steps aside
-		     while the empty screen has something to say in its place. -->
+		<!-- La surface native passe au-dessus de tout ce que peint la page : elle s'efface
+		     tant que l'écran vide a quelque chose à dire à sa place. -->
 		<controls:StudioPreview Scene="{Binding ActiveScene}"
                                 IsVisible="{Binding !ShowEmptyPreview}"
                                 PreviewRuntime="{Binding PreviewRuntime}"

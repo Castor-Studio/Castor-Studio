@@ -6,9 +6,9 @@
              x:DataType="controls:StudioPreview"
              Background="Black"
              Focusable="True">
-    <!-- The pointer cannot land on the native surface: it declares itself
-         transparent to hit tests, and the host does not test hits. So it falls
-         here, on the background, which brings it back to canvas coordinates. -->
+    <!-- Le pointeur ne peut pas atterrir sur la surface native : elle se déclare
+         transparente aux tests de survol, et l'hôte ne teste pas le survol. Il tombe donc
+         ici, sur le fond, qui le ramène dans le repère du canvas. -->
     <Panel x:Name="Picture"
            Background="{Binding #PreviewRoot.Background}"
            PointerPressed="OnPicturePointerPressed"
@@ -17,7 +17,7 @@
            PointerCaptureLost="OnPicturePointerCaptureLost"
            PointerWheelChanged="OnPicturePointerWheelChanged"
            PointerExited="OnPicturePointerExited">
-        <!-- The canvas frame, one pixel around the native surface, which covers it otherwise. -->
+        <!-- Le liseré du canvas, un pixel autour de la surface native qui le recouvre sinon. -->
         <Border x:Name="CanvasFrame"
                 IsVisible="{Binding #PreviewRoot.ShowCanvasFrame}"
                 IsHitTestVisible="False"
@@ -58,8 +58,8 @@
                        Foreground="{DynamicResource VideoFgBrush}" FontSize="12" FontWeight="SemiBold"/>
         </Border>
 
-        <!-- What the current gesture writes, near the pointer. A window of its own rather than a
-             page layer: that is what lets it pass above the native surface. -->
+        <!-- Ce que le geste en cours écrit, près du pointeur. Une fenêtre à elle, et non une
+             couche de la page : c'est ce qui la laisse passer au-dessus de la surface native. -->
         <Popup x:Name="Readout"
                PlacementTarget="{Binding #Picture}"
                Placement="AnchorAndGravity"

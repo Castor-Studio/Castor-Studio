@@ -43,7 +43,7 @@ public partial class SceneItemViewModel : ViewModelBase
         Sources.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasVideoSource));
     }
 
-    // A scene without a picture sends black on air: the Studio band flags it.
+    // Une scène sans image envoie du noir à l'antenne : le bandeau du Studio le signale.
     public bool HasVideoSource => Sources.Any(source => source.Kind is SourceKind.Video or SourceKind.Media);
 
     public SceneDefinition ToDefinition() => new()

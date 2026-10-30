@@ -17,14 +17,14 @@ public sealed class SourceZoomTests
     [Fact]
     public void A_centred_zoom_keeps_the_middle_of_the_image()
     {
-        // ×2 on 1920×1080: a 960×540 window in the middle.
+        // ×2 sur 1920×1080 : une fenêtre de 960×540 au milieu.
         Assert.Equal(new SourceCrop(480, 270, 480, 270), new SourceZoom(2).CropWithin(1920, 1080));
     }
 
     [Fact]
     public void A_zoom_aimed_near_an_edge_is_pushed_back_inside_the_image()
     {
-        // Aiming at the top-left corner: the window holds against that corner instead of leaving it.
+        // Le coin haut-gauche visé : la fenêtre se cale contre ce coin au lieu d'en sortir.
         Assert.Equal(new SourceCrop(0, 0, 960, 540), new SourceZoom(2, 0, 0).CropWithin(1920, 1080));
         Assert.Equal(new SourceCrop(960, 540, 0, 0), new SourceZoom(2, 1, 1).CropWithin(1920, 1080));
     }
@@ -37,11 +37,11 @@ public sealed class SourceZoomTests
             Zoom = new SourceZoom(2)
         };
 
-        // A whole frame pulled to the left passes the right edge: the aimed point stops there.
+        // Un cadre entier tiré vers la gauche dépasse le bord droit : le point visé s'y arrête.
         Assert.Equal(new SourceZoom(2, 0.75, 0.5), CompositionGeometry.Pan(camera, -640, 0));
 
-        // On a source turned a quarter turn, pulling down the canvas means pulling
-        // along its width.
+        // Sur une source tournée d'un quart de tour, tirer vers le bas du canvas, c'est tirer
+        // le long de sa largeur.
         var turned = camera with { Rotation = 90 };
         Assert.Equal(new SourceZoom(2, 0.375, 0.5), CompositionGeometry.Pan(turned, 0, 160));
     }
@@ -54,7 +54,7 @@ public sealed class SourceZoomTests
         Assert.Equal(120, map.Value.Width, 6);
         Assert.Equal(67.5, map.Value.Height, 6);
 
-        // A canvas shown at half size: the map keeps its size to the eye.
+        // Un canvas réduit de moitié à l'écran : la carte garde sa taille à l'œil.
         Assert.Equal(240, ZoomMap.Bounds(1920, 1080, 2)!.Value.Width, 6);
 
         Assert.Null(ZoomMap.Bounds(100, 60, 1));

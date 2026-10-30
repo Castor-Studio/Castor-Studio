@@ -3,8 +3,8 @@ using System.Globalization;
 namespace CastorApplication.Models.Studio;
 
 /// <summary>
-/// Crop the engine applies to a source, in source pixels and before
-/// scaling.
+/// Rognage que le moteur applique à une source, en pixels de la source et avant mise à
+/// l'échelle.
 /// </summary>
 public readonly record struct SourceCrop(int Left, int Top, int Right, int Bottom)
 {
@@ -12,18 +12,18 @@ public readonly record struct SourceCrop(int Left, int Top, int Right, int Botto
 }
 
 /// <summary>
-/// Transform a source undergoes in its scene's canvas, as the engine
-/// holds it. <see cref="Width"/> and <see cref="Height"/> are the rectangle the engine
-/// composes from crop and scale, <em>before</em> rotation: the source then turns
-/// by <see cref="Rotation"/> degrees, clockwise, around
-/// its point (<see cref="X"/>, <see cref="Y"/>) — the top-left corner, libobs's default
-/// alignment.
+/// Transformation qu'une source subit dans le canvas de sa scène, telle que le moteur la
+/// détient. <see cref="Width"/> et <see cref="Height"/> sont le rectangle que le moteur
+/// compose à partir du rognage et de l'échelle, <em>avant</em> rotation : la source tourne
+/// ensuite de <see cref="Rotation"/> degrés, dans le sens des aiguilles d'une montre, autour
+/// de son point (<see cref="X"/>, <see cref="Y"/>) — le coin haut-gauche, alignement par
+/// défaut de libobs.
 /// </summary>
 /// <remarks>
-/// <see cref="Crop"/> is the operator's crop, the one that cuts the frame. The
-/// <see cref="Zoom"/> happens inside this frame: the engine crops further and restores
-/// the picture to the frame's size (its "bounds"), so that <see cref="Width"/>,
-/// <see cref="Height"/> and the crop read here do not move when zooming.
+/// <see cref="Crop"/> est le rognage de l'opérateur, celui qui découpe le cadre. Le
+/// <see cref="Zoom"/> se joue à l'intérieur de ce cadre : le moteur rogne davantage et remet
+/// l'image à la taille du cadre (ses « bounds »), si bien que <see cref="Width"/>,
+/// <see cref="Height"/> et le rognage lus ici ne bougent pas quand on zoome.
 /// </remarks>
 public sealed record SourceTransform(
     Guid SourceId,
@@ -39,18 +39,18 @@ public sealed record SourceTransform(
     bool IsVisible,
     double Rotation = 0)
 {
-    /// <summary>The picture's zoom inside its frame; <see cref="SourceZoom.None"/> without zoom.</summary>
+    /// <summary>Le zoom de l'image dans son cadre ; <see cref="SourceZoom.None"/> sans zoom.</summary>
     public SourceZoom Zoom { get; init; } = SourceZoom.None;
 
-    /// <summary>What the engine holds of this transform, without what it derives from it.</summary>
+    /// <summary>Ce que le moteur détient de cette transformation, sans ce qu'il en déduit.</summary>
     public SourcePlacement Placement => new(X, Y, ScaleX, ScaleY, Crop, Rotation);
 }
 
 /// <summary>
-/// Placement requested from the engine for a source: position in the canvas, scale,
-/// crop and rotation, in degrees. These are the only values it accepts; the composed
-/// rectangle remains its own derivation and is read back from the <see cref="SourceTransform"/> it
-/// confirms.
+/// Placement qu'on demande au moteur pour une source : position dans le canvas, échelle,
+/// rognage et rotation, en degrés. Ce sont les seules grandeurs qu'il accepte ; le rectangle
+/// composé, lui, reste sa déduction et se relit dans le <see cref="SourceTransform"/> qu'il
+/// confirme.
 /// </summary>
 public readonly record struct SourcePlacement(
     double X,
@@ -61,15 +61,15 @@ public readonly record struct SourcePlacement(
     double Rotation = 0);
 
 /// <summary>
-/// A source's color, that of its dot in the list, ready for the engine.
+/// La couleur d'une source, celle de sa pastille dans la liste, prête pour le moteur.
 /// </summary>
 public readonly record struct OverlayTint(float Red, float Green, float Blue)
 {
     public static OverlayTint Default { get; } = new(0.357f, 0.553f, 0.937f);
 
     /// <summary>
-    /// Reads a "#rrggbb" color. An unreadable color returns the default color: an
-    /// outline without the exact color remains more useful than a source without an outline.
+    /// Lit une couleur « #rrggbb ». Une couleur illisible rend la couleur par défaut : un
+    /// cadre sans couleur exacte reste plus utile qu'une source sans cadre.
     /// </summary>
     public static OverlayTint Parse(string? hex)
     {
@@ -87,30 +87,30 @@ public readonly record struct OverlayTint(float Red, float Green, float Blue)
 }
 
 /// <summary>
-/// A source to draw: the rectangle the engine gives it, and the color under which
-/// the interface names it elsewhere.
+/// Une source à tracer : le rectangle que le moteur lui donne, et la couleur sous laquelle
+/// l'interface la nomme ailleurs.
 /// </summary>
 public sealed record OverlaySource(SourceTransform Transform, OverlayTint Tint);
 
 /// <summary>
-/// An alignment line a moved source has just snapped to, drawn
-/// from one edge of the canvas to the other: vertical at abscissa <see cref="Position"/>, or
-/// horizontal at this ordinate.
+/// Une ligne d'alignement sur laquelle une source déplacée vient de s'accrocher, tracée
+/// d'un bord à l'autre du canvas : verticale à l'abscisse <see cref="Position"/>, ou
+/// horizontale à cette ordonnée.
 /// </summary>
 public readonly record struct CompositionGuide(bool IsVertical, double Position);
 
 /// <summary>
-/// What the engine must draw over its picture: the outline of each composed source
-/// and, for the one the operator selected, its handles.
+/// Ce que le moteur doit tracer par-dessus son image : le cadre de chaque source composée
+/// et, pour celle que l'opérateur a choisie, ses points d'accroche.
 /// </summary>
 /// <remarks>
-/// Outlines and selection travel together: the graphics thread rereads them every frame, and
-/// two fields swapped separately would give it a selection that no longer matches the
-/// outlines it goes with. <see cref="IsCropping"/> travels with them for the same reason:
-/// it says in which form to show the selected source — square handles to stretch it,
-/// brackets and the whole source's outline to crop it. <see cref="Hovered"/> is the
-/// source under the pointer, shown with the selection's weight before the click;
-/// <see cref="Guides"/>, the lines where a source being moved settles.
+/// Cadres et sélection voyagent ensemble : le thread graphique les relit à chaque image, et
+/// deux champs échangés séparément lui donneraient une sélection qui ne correspond plus aux
+/// cadres qu'elle accompagne. <see cref="IsCropping"/> voyage avec eux pour la même raison :
+/// il dit sous quelle forme montrer la source choisie — poignées carrées pour l'étirer,
+/// équerres et contour de la source entière pour la rogner. <see cref="Hovered"/> est la
+/// source que le pointeur survole, montrée au poids de la sélection avant le clic ;
+/// <see cref="Guides"/>, les lignes où se pose une source en cours de déplacement.
 /// </remarks>
 public sealed record CompositionOverlay(
     IReadOnlyList<OverlaySource> Sources,
@@ -123,8 +123,8 @@ public sealed record CompositionOverlay(
 }
 
 /// <summary>
-/// A scene's composition read in one go: the size of the engine's canvas and the
-/// transform of each source, from foreground to background.
+/// Composition d'une scène lue d'un seul tenant : la taille du canvas du moteur et la
+/// transformation de chaque source, du premier plan vers l'arrière-plan.
 /// </summary>
 public sealed record SceneComposition(
     int CanvasWidth,

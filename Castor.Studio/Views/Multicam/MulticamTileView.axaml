@@ -6,10 +6,10 @@
              xmlns:dockSettings="using:Dock.Settings"
              x:DataType="vm:MulticamSceneTile">
 
-<!-- One color, one meaning: green for the scene chosen for output while nothing runs,
-     red once it really goes out (stream or recording), blue for what the AI does,
-     neutral for the rest. The border goes from 1 to 2 px, giving back 1 px of padding,
-     so the video does not move a pixel when a tile changes state. -->
+<!-- Une couleur, un sens : vert pour la scène choisie pour la sortie tant que rien ne tourne,
+     rouge dès qu'elle part vraiment (stream ou enregistrement), bleu pour ce que fait l'IA,
+     neutre pour le reste. La bordure passe de 1 à 2 px en rendant 1 px de marge intérieure,
+     pour que la vidéo ne bouge pas d'un pixel quand une tuile change d'état. -->
 <Border Classes="tile"
         Classes.aiConsidered="{Binding IsAiConsidered}"
         Classes.aiPick="{Binding IsAiSelected}"
@@ -47,8 +47,8 @@
 			<Setter Property="BorderThickness" Value="2"/>
 			<Setter Property="Padding" Value="0"/>
 		</Style>
-		<!-- Declared after the suggestion: a suggested scene already going out reads
-		     as going out first. -->
+		<!-- Déclarés après la suggestion : une scène suggérée qui est déjà en sortie se lit
+		     d'abord comme en sortie. -->
 		<Style Selector="Border.tile.onAir">
 			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
 			<Setter Property="BorderThickness" Value="2"/>
@@ -58,7 +58,7 @@
 			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
 		</Style>
 
-		<!-- The band becomes the tally: a fill spotted on the wall without reading. -->
+		<!-- Le bandeau devient le tally : un aplat qu'on repère sur le mur sans lire. -->
 		<Style Selector="Border.tile.onAir Border.band">
 			<Setter Property="Background" Value="{DynamicResource StatusOkBrush}"/>
 		</Style>
@@ -90,9 +90,9 @@
 
 	<Grid RowDefinitions="Auto, *, Auto, Auto">
 
-		<!-- The title sits in a reserved band, never overlaid: the native
-		     surface is a Win32 child window, Windows composes it above everything
-		     Avalonia paints. It is also the handle to reorder scenes. -->
+		<!-- Le titre tient dans un bandeau réservé, jamais en surimpression : la surface
+		     native est une fenêtre enfant Win32, Windows la compose au-dessus de tout ce
+		     qu'Avalonia peint. C'est aussi la poignée pour réordonner les scènes. -->
 		<Border Grid.Row="0" Classes="band"
                 Padding="16,12"
                 CornerRadius="7,7,0,0"
@@ -126,9 +126,9 @@
                                     HorizontalAlignment="Stretch"
                                     VerticalAlignment="Stretch"/>
 
-			<!-- A scene without a source starts no preview at all: rather than a
-			     black rectangle, it says what it lacks. And that is one less native
-			     surface to run. -->
+			<!-- Une scène sans source ne lance pas d'aperçu du tout : plutôt qu'un
+			     rectangle noir, elle dit ce qui lui manque. Et c'est une surface native
+			     de moins à faire tourner. -->
 			<Panel IsVisible="{Binding !HasVideo}" Background="{DynamicResource AppPreviewEmptyBg}">
 				<controls:EmptyState Kind="NoSource" Title="Aucune source vidéo"
                                      Description="Ajoutez-en une dans l'onglet Scènes."
@@ -136,8 +136,8 @@
 			</Panel>
 		</Panel>
 
-		<!-- What the AI knows of the scene, while it reads it: the filmed person's microphone and,
-		     in podcast mode, their role. Outside the preview: the native surface would cover it. -->
+		<!-- Ce que l'IA sait de la scène, tant qu'elle la lit : le micro de la personne filmée et,
+		     en podcast, son rôle. Hors de l'aperçu : la surface native passerait par-dessus. -->
 		<Border Grid.Row="2" IsVisible="{Binding ShowAiSetup}"
                 Background="{DynamicResource AppSurface3}" Padding="8,5,8,0">
 			<Grid ColumnDefinitions="*, Auto">
@@ -156,8 +156,8 @@
 			</Grid>
 		</Border>
 
-		<!-- The footer belongs to the AI: the pill including the scene in the analysis and,
-		     in agent mode, the suggestion to approve, where the proposed scene is. -->
+		<!-- Le pied appartient à l'IA : la pastille qui inclut la scène dans l'analyse et,
+		     en mode agent, la suggestion à valider, là où se trouve la scène proposée. -->
 		<Border Grid.Row="3" Classes="foot"
                 Padding="16,8" MinHeight="34"
                 CornerRadius="0,0,7,7">

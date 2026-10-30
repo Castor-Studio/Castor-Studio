@@ -4,15 +4,15 @@ using CastorApplication.Services.Studio;
 namespace CastorApplication.Services.Ai;
 
 /// <summary>
-/// A zoom requested by an AI. AIs analyze scenes: <see cref="SceneId"/> is always
-/// known. <see cref="SourceId"/> names the source to zoom in this scene; left empty, the
-/// request applies to the whole scene.
+/// Un zoom demandé par une IA. Les IA analysent des scènes : <see cref="SceneId"/> est toujours
+/// connu. <see cref="SourceId"/> désigne la source à zoomer dans cette scène ; laissé vide, la
+/// demande porte sur la scène entière.
 /// </summary>
 internal sealed record AiZoomRequest(Guid SceneId, Guid? SourceId, SourceZoom Zoom);
 
 /// <summary>
-/// Entry point through which an AI says how to zoom. The zoom goes through the engine like
-/// the operator's: same validation, same transform confirmed in return.
+/// Point d'entrée par lequel une IA dit comment zoomer. Le zoom passe par le moteur comme
+/// celui de l'opérateur : même validation, même transformation confirmée en retour.
 /// </summary>
 internal interface IAiZoomEntryPoint
 {
@@ -23,8 +23,8 @@ internal sealed class AiZoomEntryPoint(ISourceRuntime sourceRuntime) : IAiZoomEn
 {
     public SourceTransformResult Apply(AiZoomRequest request)
     {
-        // How to bring a scene's zoom down to its sources (the main source, the one
-        // under the targeted area, all of them?) is still to be decided: until then, an AI names the source.
+        // La façon de ramener le zoom d'une scène à ses sources (la source principale, celle
+        // sous la zone visée, toutes ?) reste à décider : d'ici là, une IA désigne la source.
         if (request.SourceId is not { } sourceId)
             return SourceTransformResult.Failure(
                 "Le zoom d'une scène entière n'est pas encore pris en charge : l'IA doit désigner une source.");

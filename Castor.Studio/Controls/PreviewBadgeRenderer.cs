@@ -9,9 +9,9 @@ using CastorApplication.Services.Studio;
 namespace CastorApplication.Controls;
 
 /// <summary>
-/// Renders the badges the engine lays on the preview, in the style of the one naming the
-/// scene: same veiled background, same border, same text. The preview area is black in light
-/// and dark themes alike, so its colors are those of the dark theme (Styles/Colors.axaml).
+/// Rend les pastilles que le moteur pose sur l'aperçu, dans le style de celle qui nomme la
+/// scène : même fond voilé, même bordure, même texte. La zone d'aperçu est noire en clair
+/// comme en sombre, ses couleurs sont donc celles du thème sombre (Styles/Colors.axaml).
 /// </summary>
 internal static class PreviewBadgeRenderer
 {
@@ -23,8 +23,8 @@ internal static class PreviewBadgeRenderer
     private static double _scaling = 1;
 
     /// <summary>
-    /// Hooks badge rendering up to this screen scale. A scale other than the
-    /// previous one redoes the badges already rendered.
+    /// Branche le rendu des pastilles à cette mise à l'échelle de l'écran. Une autre échelle
+    /// que la précédente fait refaire celles déjà rendues.
     /// </summary>
     public static void Attach(double scaling)
     {
@@ -79,8 +79,8 @@ internal static class PreviewBadgeRenderer
         return new PreviewBadgeImage(size.Width, size.Height, pixels);
     }
 
-    // Avalonia renders in premultiplied alpha; libobs's default effect blends in straight
-    // alpha. Without this conversion, the soft edges of text and corners would darken.
+    // Avalonia rend en alpha prémultiplié ; l'effet par défaut de libobs mélange en alpha
+    // droit. Sans ce retour, les bords adoucis du texte et des coins s'assombriraient.
     private static void Unpremultiply(byte[] pixels)
     {
         for (var index = 0; index < pixels.Length; index += 4)

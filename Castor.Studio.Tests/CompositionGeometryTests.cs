@@ -5,7 +5,7 @@ namespace Castor.Studio.Tests;
 
 public sealed class CompositionGeometryTests
 {
-    // A 1920×1080 source scaled by half, placed at (100, 50): 960×540 in the canvas.
+    // Une source 1920×1080 réduite de moitié, posée en (100, 50) : 960×540 dans le canvas.
     private static readonly SourceTransform HalfSize = new(
         Guid.NewGuid(), 100, 50, 960, 540, 0.5, 0.5, SourceCrop.None, 1920, 1080, true);
 
@@ -22,7 +22,7 @@ public sealed class CompositionGeometryTests
     {
         var placement = CompositionGeometry.Resize(HalfSize, CompositionHandle.Right, 960, 400, keepAspectRatio: true);
 
-        // A side only stretches its own axis, even when proportions are kept.
+        // Un côté n'étire que son axe, même quand les proportions sont gardées.
         Assert.Equal((100d, 50d), (placement.X, placement.Y));
         Assert.Equal((1.0, 0.5), (placement.ScaleX, placement.ScaleY));
     }
@@ -63,14 +63,14 @@ public sealed class CompositionGeometryTests
 
         Assert.True(placement.ScaleX > 0);
         Assert.Equal(CompositionGeometry.MinimumExtent, result.Width, 6);
-        // The opposite edge does not move, even against the limit.
+        // Le bord opposé ne bouge pas, même contre la butée.
         Assert.Equal(HalfSize.X + HalfSize.Width, result.X + result.Width, 6);
     }
 
     [Fact]
     public void Cropping_the_left_side_keeps_the_picture_in_place_under_the_edge()
     {
-        // 100 canvas pixels, at scale 0.5, make 200 source pixels.
+        // 100 pixels du canvas, à l'échelle 0.5, font 200 pixels de la source.
         var placement = CompositionGeometry.Crop(HalfSize, CompositionHandle.Left, 100, 0);
         var result = CompositionGeometry.Preview(HalfSize, placement);
 
@@ -99,8 +99,8 @@ public sealed class CompositionGeometryTests
         Assert.Equal(1079, everything.Crop.Top);
     }
 
-    // The same source turned a quarter turn: its origin stays at (100, 50), its top edge
-    // runs down the vertical axis of the canvas.
+    // La même source tournée d'un quart de tour : son origine reste en (100, 50), son bord
+    // haut descend le long de l'axe vertical du canvas.
     private static readonly SourceTransform QuarterTurn = HalfSize with { Rotation = 90 };
 
     [Fact]
@@ -109,8 +109,8 @@ public sealed class CompositionGeometryTests
         var centre = CompositionGeometry.Center(HalfSize);
         Assert.Equal((580d, 320d), centre);
 
-        // The pointer starts right of the center and ends below it: a quarter turn
-        // clockwise.
+        // Le pointeur part à droite du centre et finit en dessous : un quart de tour dans le
+        // sens des aiguilles d'une montre.
         var placement = CompositionGeometry.Rotate(HalfSize, 1000, 320, 580, 900, constrain: false);
         var result = CompositionGeometry.Preview(HalfSize, placement);
 
@@ -123,7 +123,7 @@ public sealed class CompositionGeometryTests
     [Fact]
     public void A_constrained_turn_lands_on_steps_of_fifteen_degrees()
     {
-        // About 20° travelled around the center.
+        // Environ 20° parcourus autour du centre.
         var angle = 20 * Math.PI / 180;
         var placement = CompositionGeometry.Rotate(HalfSize, 680, 320,
             580 + 100 * Math.Cos(angle), 320 + 100 * Math.Sin(angle), constrain: true);
@@ -143,18 +143,18 @@ public sealed class CompositionGeometryTests
     [Fact]
     public void A_turned_source_is_hit_where_it_is_drawn_not_where_it_was()
     {
-        // Turned around (100, 50), the source covers x ∈ [-440, 100], y ∈ [50, 1010].
+        // Tournée autour de (100, 50), la source occupe x ∈ [-440, 100], y ∈ [50, 1010].
         Assert.True(CompositionGeometry.Contains(QuarterTurn, 0, 500));
         Assert.False(CompositionGeometry.Contains(QuarterTurn, 500, 300));
 
-        // Its bottom-right corner has moved to the bottom left of the origin.
+        // Son coin bas-droit est passé en bas à gauche de l'origine.
         Assert.Equal(CompositionHandle.BottomRight, CompositionGeometry.HandleAt(QuarterTurn, -440, 1010, tolerance: 6));
     }
 
     [Fact]
     public void Pulling_the_right_side_of_a_turned_source_follows_its_own_axis()
     {
-        // The right edge of a source turned a quarter turn points down the canvas.
+        // Le bord droit d'une source tournée d'un quart de tour pointe vers le bas du canvas.
         var placement = CompositionGeometry.Resize(QuarterTurn, CompositionHandle.Right, 0, 960, keepAspectRatio: true);
 
         Assert.Equal((1.0, 0.5), (placement.ScaleX, placement.ScaleY));
@@ -164,7 +164,7 @@ public sealed class CompositionGeometryTests
     [Fact]
     public void Cropping_the_left_side_of_a_turned_source_moves_its_origin_along_that_side()
     {
-        // 100 canvas pixels downward, along the top edge of the turned source.
+        // 100 pixels du canvas vers le bas, le long du bord haut de la source tournée.
         var placement = CompositionGeometry.Crop(QuarterTurn, CompositionHandle.Left, 0, 100);
 
         Assert.Equal(new SourceCrop(200, 0, 0, 0), placement.Crop);
@@ -185,18 +185,18 @@ public sealed class CompositionGeometryTests
     [Fact]
     public void Rotation_zones_sit_outside_the_corners_only()
     {
-        // Just past the top-left corner, diagonally.
+        // Juste au-delà du coin haut-gauche, en diagonale.
         Assert.Equal(CompositionHandle.TopLeft, CompositionGeometry.RotationCornerAt(HalfSize, 90, 40, reach: 20));
-        // Inside the source: this is a move, not a rotation.
+        // Dans la source : c'est un déplacement, pas une rotation.
         Assert.Null(CompositionGeometry.RotationCornerAt(HalfSize, 110, 60, reach: 20));
-        // Far from any corner.
+        // Loin de tout coin.
         Assert.Null(CompositionGeometry.RotationCornerAt(HalfSize, 580, 20, reach: 20));
     }
 
     [Fact]
     public void A_source_dragged_near_the_centre_of_the_canvas_lands_on_it()
     {
-        // HalfSize is 960×540: centered in a 1920×1080 canvas, its origin is at (480, 270).
+        // HalfSize fait 960×540 : centré dans un canvas 1920×1080, son origine est en (480, 270).
         var moved = CompositionGeometry.Move(HalfSize, 385, 216);
         var (placement, guides) = CompositionGeometry.Snap(HalfSize, moved, [], 1920, 1080, reach: 10);
 
@@ -209,7 +209,7 @@ public sealed class CompositionGeometryTests
     public void A_source_lines_up_with_the_edges_of_another()
     {
         var other = HalfSize with { SourceId = Guid.NewGuid(), X = 1200, Y = 700, Width = 400, Height = 300 };
-        // The right edge of HalfSize (1060) comes within 6 pixels of the other's left edge (1200).
+        // Le bord droit de HalfSize (1060) arrive à 6 pixels du bord gauche de l'autre (1200).
         var moved = CompositionGeometry.Move(HalfSize, 134, 0);
         var (placement, guides) = CompositionGeometry.Snap(HalfSize, moved, [other], 0, 0, reach: 10);
 
@@ -253,7 +253,7 @@ public sealed class CompositionGeometryTests
         Assert.Equal(CompositionHandle.Right, CompositionGeometry.HandleAt(HalfSize, 1064, 320, tolerance: 6));
         Assert.Null(CompositionGeometry.HandleAt(HalfSize, 500, 300, tolerance: 6));
 
-        // So small that all its handles overlap: the corner wins.
+        // Si petite que toutes ses poignées se recouvrent : c'est l'angle qui l'emporte.
         var tiny = HalfSize with { Width = 4, Height = 4 };
         Assert.Equal(CompositionHandle.TopLeft, CompositionGeometry.HandleAt(tiny, 101, 51, tolerance: 6));
     }

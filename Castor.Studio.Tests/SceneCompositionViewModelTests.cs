@@ -11,7 +11,7 @@ public sealed class SceneCompositionViewModelTests
     {
         var scene = SceneWith("Fond", "Caméra", "Overlay");
         var runtime = new FakeCompositionRuntime(scene.Id);
-        // Foreground first, as everywhere else in the application.
+        // Premier plan en tête, comme partout ailleurs dans l'application.
         runtime.Compose(scene,
             Transform(scene, "Overlay", x: 1400, y: 820, width: 480, height: 240),
             Transform(scene, "Caméra", x: 960, y: 60, width: 640, height: 360,
@@ -21,8 +21,8 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime);
         composition.ShowScene(scene);
 
-        // Painting goes back to front: the list returns the engine's stack in
-        // drawing order.
+        // On peint de l'arrière vers l'avant : la liste rend l'empilement du moteur dans le
+        // sens du dessin.
         Assert.Equal(
             [Id(scene, "Fond"), Id(scene, "Caméra"), Id(scene, "Overlay")],
             composition.Overlay.Sources.Select(source => source.Transform.SourceId));
@@ -46,8 +46,8 @@ public sealed class SceneCompositionViewModelTests
         Assert.Equal([Id(scene, "Fond"), Id(scene, "Overlay")],
             composition.Overlay.Sources.Select(source => source.Transform.SourceId));
 
-        // The engine brings the background to the front: the composition must follow, not keep
-        // its order.
+        // Le moteur remonte le fond devant : la composition doit suivre, pas conserver son
+        // ordre.
         runtime.Compose(scene,
             Transform(scene, "Fond", x: 0, y: 0, width: 1920, height: 1080),
             Transform(scene, "Overlay", x: 100, y: 100, width: 800, height: 600));
@@ -68,7 +68,7 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         Assert.Equal(1920d, composition.Overlay.Sources[0].Transform.Width);
 
-        // The transform changes on the engine side, without the interface being told.
+        // La transformation change du côté du moteur, sans que l'interface en soit prévenue.
         runtime.Compose(scene, Transform(scene, "Caméra", x: 320, y: 180, width: 1280, height: 720));
 
         composition.ShowScene(null);
@@ -93,8 +93,8 @@ public sealed class SceneCompositionViewModelTests
         runtime.Compose(scene, Transform(scene, "Caméra", x: 200, y: 120, width: 640, height: 360));
         composition.Refresh();
 
-        // The engine's graphics thread rereads the list it was given every frame:
-        // changing it underneath would have it read a list that is changing.
+        // Le thread graphique du moteur relit la liste qu'on lui a donnée image par image :
+        // la modifier sous lui la ferait lire pendant qu'elle change.
         Assert.NotSame(handedOver, composition.Overlay.Sources);
         Assert.Equal(0d, Assert.Single(handedOver).Transform.X);
         Assert.Equal(200d, Assert.Single(composition.Overlay.Sources).Transform.X);
@@ -105,7 +105,7 @@ public sealed class SceneCompositionViewModelTests
     {
         var scene = SceneWith("Micro", "Masquée", "Caméra");
         var runtime = new FakeCompositionRuntime(scene.Id);
-        // An audio source has no picture, a hidden source is not composed.
+        // Une source audio n'a aucune image, une source masquée n'est pas composée.
         runtime.Compose(scene,
             Transform(scene, "Micro", x: 0, y: 0, width: 0, height: 0),
             Transform(scene, "Masquée", x: 0, y: 0, width: 1920, height: 1080, isVisible: false),
@@ -130,7 +130,7 @@ public sealed class SceneCompositionViewModelTests
         runtime.Result = _ => SceneCompositionResult.Failure("composition illisible");
         composition.Refresh();
 
-        // A passing failure must not erase the outlines, but it must be reported.
+        // Un incident passager ne doit pas effacer les cadres, mais il doit se dire.
         Assert.Single(composition.Overlay.Sources);
         Assert.Equal("composition illisible", composition.Status);
     }
@@ -148,7 +148,7 @@ public sealed class SceneCompositionViewModelTests
         runtime.Result = _ => SceneCompositionResult.Unavailable("LibObs n'est pas connecté.");
         composition.Refresh();
 
-        // The engine being unavailable is already announced by the preview.
+        // L'indisponibilité du moteur est déjà annoncée par l'aperçu.
         Assert.Empty(composition.Overlay.Sources);
         Assert.Equal("", composition.Status);
     }
@@ -167,10 +167,10 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime);
         composition.ShowScene(scene);
 
-        // On an overlapping composition, color tells which outline is which row.
+        // Sur une composition qui se chevauche, la couleur dit quel cadre est quelle ligne.
         Assert.Equal(new OverlayTint(0x34 / 255f, 0xd3 / 255f, 0x99 / 255f), composition.Overlay.Sources[0].Tint);
 
-        // An unreadable color does not leave a source without an outline.
+        // Une couleur illisible ne laisse pas une source sans cadre.
         Assert.Equal(OverlayTint.Default, composition.Overlay.Sources[1].Tint);
     }
 
@@ -187,12 +187,12 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         Assert.Null(composition.Selected);
 
-        // In the overlap: the overlay is what the operator sees at this point.
+        // Dans le recouvrement : c'est l'overlay que l'opérateur voit à cet endroit.
         composition.SelectAt(400, 300);
         Assert.Equal(Id(scene, "Overlay"), composition.Selected?.SourceId);
         Assert.Same(composition.Selected, composition.Overlay.Selected?.Transform);
 
-        // Outside the overlay but on the background.
+        // Hors de l'overlay mais sur le fond.
         composition.SelectAt(1500, 900);
         Assert.Equal(Id(scene, "Fond"), composition.Selected?.SourceId);
     }
@@ -211,7 +211,7 @@ public sealed class SceneCompositionViewModelTests
         Assert.NotNull(composition.Selected);
 
         composition.SelectAt(1000, 150);
-        // The source's outline stays: only its handles go away.
+        // Le cadre de la source reste : seuls ses points d'accroche s'en vont.
         Assert.Null(composition.Overlay.Selected);
         Assert.Single(composition.Overlay.Sources);
     }
@@ -227,8 +227,8 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         composition.SelectAt(10, 10);
 
-        // Selection is held by id: it follows the source, it does not stay
-        // on the rectangle where it was picked.
+        // La sélection est tenue par identifiant : elle suit la source, elle ne reste pas
+        // sur le rectangle où elle a été prise.
         runtime.Compose(scene, Transform(scene, "Caméra", x: 500, y: 400, width: 640, height: 360));
         composition.Refresh();
 
@@ -250,8 +250,8 @@ public sealed class SceneCompositionViewModelTests
         runtime.Compose(scene, Transform(scene, "Caméra", x: 0, y: 0, width: 640, height: 360, isVisible: false));
         composition.Refresh();
 
-        // No more outline, so no more handles: showing them on a source the
-        // engine no longer composes would let the operator grab what is not there.
+        // Plus de cadre, donc plus de points d'accroche : les montrer sur une source que le
+        // moteur ne compose plus laisserait saisir ce qui n'est pas là.
         Assert.Null(composition.Selected);
         Assert.Empty(composition.Overlay.Sources);
     }
@@ -283,7 +283,7 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime, new ManualTime());
         composition.ShowScene(scene);
 
-        // Grabbing a source selects and moves it in one gesture.
+        // Saisir une source la choisit et la déplace d'un même geste.
         var target = composition.BeginGesture(50, 50, HandleTolerance, crop: false);
         Assert.Equal(CompositionGestureKind.Move, target?.Kind);
         Assert.Equal(Id(scene, "Caméra"), composition.Selected?.SourceId);
@@ -311,19 +311,19 @@ public sealed class SceneCompositionViewModelTests
         composition.UpdateGesture(70, 50, keepAspectRatio: true);
         composition.UpdateGesture(80, 50, keepAspectRatio: true);
 
-        // Three moves within one frame: the engine receives only one, the outline
-        // follows them all.
+        // Trois mouvements dans la même image : le moteur n'en reçoit qu'un, le cadre les
+        // suit tous.
         Assert.Single(runtime.Writes);
         Assert.Equal(30d, composition.Selected!.X);
 
-        // The pointer stops: the last request goes out once the interval has passed.
+        // Le pointeur s'arrête : la dernière demande part quand l'intervalle est passé.
         composition.FlushGesture();
         Assert.Single(runtime.Writes);
         time.Advance(SceneCompositionViewModel.WriteInterval);
         composition.FlushGesture();
         Assert.Equal(30d, runtime.TransformOf(Id(scene, "Caméra")).X);
 
-        // And a request still pending on release is written, not lost.
+        // Et une demande encore en attente au relâcher est écrite, pas perdue.
         composition.UpdateGesture(90, 50, keepAspectRatio: true);
         composition.EndGesture();
         Assert.Equal(40d, runtime.TransformOf(Id(scene, "Caméra")).X);
@@ -339,7 +339,7 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         composition.SelectAt(200, 200);
 
-        // The bottom-right corner, at (740, 460).
+        // Le coin bas-droit, à (740, 460).
         var resize = composition.BeginGesture(742, 458, HandleTolerance, crop: false);
         Assert.Equal(new CompositionTarget(CompositionGestureKind.Resize, CompositionHandle.BottomRight), resize);
         composition.UpdateGesture(742 + 640, 458 + 360, keepAspectRatio: true);
@@ -349,7 +349,7 @@ public sealed class SceneCompositionViewModelTests
         Assert.Equal((2d, 2d), (resized.ScaleX, resized.ScaleY));
         Assert.Equal((100d, 100d, 1280d, 720d), (resized.X, resized.Y, resized.Width, resized.Height));
 
-        // The left side, cropped by 100 canvas pixels: 50 source pixels at scale 2.
+        // Le côté gauche, rogné de 100 pixels du canvas : 50 pixels de la source à l'échelle 2.
         var crop = composition.BeginGesture(100, 460, HandleTolerance, crop: true);
         Assert.Equal(new CompositionTarget(CompositionGestureKind.Crop, CompositionHandle.Left), crop);
         composition.UpdateGesture(200, 460, keepAspectRatio: true);
@@ -374,19 +374,19 @@ public sealed class SceneCompositionViewModelTests
         composition.UpdateGesture(150, 50, keepAspectRatio: true);
         Assert.Equal(100d, runtime.TransformOf(Id(scene, "Caméra")).X);
 
-        // The engine refuses the rest of the gesture.
+        // Le moteur refuse la suite du geste.
         runtime.Rejection = placement => placement.X == 200 ? "placement refusé" : null;
         time.Advance(SceneCompositionViewModel.WriteInterval);
         composition.UpdateGesture(250, 50, keepAspectRatio: true);
 
-        // The gesture stops dead; engine and screen go back to what was there before.
+        // Le geste s'arrête net ; le moteur et l'écran repartent de ce qu'il y avait avant.
         Assert.False(composition.IsGesturing);
         Assert.Equal("placement refusé", composition.Status);
         Assert.Equal(new SourcePlacement(0, 0, 1, 1, SourceCrop.None), runtime.Writes[^1]);
         Assert.Equal(0d, runtime.TransformOf(Id(scene, "Caméra")).X);
         Assert.Equal(0d, composition.Selected!.X);
 
-        // Moves after the refusal no longer belong to any gesture.
+        // Les mouvements qui suivent le refus n'appartiennent plus à aucun geste.
         var writes = runtime.Writes.Count;
         composition.UpdateGesture(350, 50, keepAspectRatio: true);
         composition.EndGesture();
@@ -410,8 +410,8 @@ public sealed class SceneCompositionViewModelTests
         time.Advance(SceneCompositionViewModel.WriteInterval);
         composition.UpdateGesture(250, 50, keepAspectRatio: true);
 
-        // Neither the request nor the restore went through: the screen follows neither,
-        // it shows what the engine actually holds.
+        // Ni la demande ni le retour ne sont passés : l'écran ne suit ni l'une ni l'autre,
+        // il montre ce que le moteur détient réellement.
         Assert.False(composition.IsGesturing);
         Assert.Equal(100d, runtime.TransformOf(Id(scene, "Caméra")).X);
         Assert.Equal(100d, composition.Selected!.X);
@@ -448,7 +448,7 @@ public sealed class SceneCompositionViewModelTests
         composition.UpdateGesture(60, 50, keepAspectRatio: true);
         composition.UpdateGesture(90, 50, keepAspectRatio: true);
 
-        // The periodic reread falls between two writes: the outline stays under the pointer.
+        // La relecture périodique tombe entre deux écritures : le cadre reste sous le pointeur.
         composition.Refresh();
         Assert.Equal(40d, composition.Selected!.X);
     }
@@ -465,18 +465,18 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime, new ManualTime());
         composition.ShowScene(scene);
 
-        // The logo, moved.
+        // Le logo, déplacé.
         composition.BeginGesture(1700, 140, HandleTolerance, crop: false);
         composition.UpdateGesture(1600, 240, keepAspectRatio: true);
         composition.EndGesture();
 
-        // The camera, selected then halved by its bottom-right corner.
+        // La caméra, choisie puis réduite de moitié par son coin bas-droit.
         composition.SelectAt(600, 400);
         composition.BeginGesture(1140, 660, HandleTolerance, crop: false);
         composition.UpdateGesture(820, 480, keepAspectRatio: true);
         composition.EndGesture();
 
-        // The background, selected then cropped from the top.
+        // Le fond, choisi puis rogné par le haut.
         composition.SelectAt(50, 1000);
         composition.BeginGesture(960, 0, HandleTolerance, crop: true);
         composition.UpdateGesture(960, 60, keepAspectRatio: true);
@@ -519,12 +519,12 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         composition.SelectAt(200, 200);
 
-        // Just past the bottom-right corner (740, 460), outside the source and its handle.
+        // Juste au-delà du coin bas-droit (740, 460), hors de la source et de sa poignée.
         var target = composition.BeginGesture(752, 472, HandleTolerance, crop: false, rotationReach: RotationReach);
         Assert.Equal(new CompositionTarget(CompositionGestureKind.Rotate, CompositionHandle.BottomRight), target);
 
-        // The center is at (420, 280): going from the bottom-right corner to the symmetrical bottom-left one
-        // makes slightly more than a quarter turn; Shift brings it back to the 15° step.
+        // Le centre est en (420, 280) : passer du coin bas-droit au coin bas-gauche, symétrique,
+        // fait un peu plus d'un quart de tour ; Maj le ramène au pas de 15°.
         composition.UpdateGesture(88, 472, keepAspectRatio: true, constrainRotation: true);
         Assert.Equal("120°", composition.GestureReadout);
         composition.EndGesture();
@@ -542,7 +542,7 @@ public sealed class SceneCompositionViewModelTests
         var scene = SceneWith("Caméra");
         var runtime = new FakeCompositionRuntime(scene.Id)
         {
-            // What LibObs 0.3.0 does, since it does not expose rotation.
+            // Ce que fait LibObs 0.3.0, qui n'expose pas la rotation.
             Rejection = placement => placement.Rotation != 0 ? "rotation indisponible" : null
         };
         runtime.Compose(scene, Transform(scene, "Caméra", x: 100, y: 100, width: 640, height: 360));
@@ -553,8 +553,8 @@ public sealed class SceneCompositionViewModelTests
         composition.BeginGesture(752, 472, HandleTolerance, crop: false, rotationReach: RotationReach);
         composition.UpdateGesture(700, 520, keepAspectRatio: true);
 
-        // The first write is refused: the gesture stops, nothing has turned, on screen
-        // or in the engine.
+        // La première écriture est refusée : le geste s'arrête, rien n'a tourné, à l'écran
+        // comme dans le moteur.
         Assert.False(composition.IsGesturing);
         Assert.Equal(0d, composition.Selected!.Rotation);
         Assert.Equal("rotation indisponible", composition.Status);
@@ -593,7 +593,7 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime, new ManualTime());
         composition.ShowScene(scene);
 
-        // Nothing to crop while no source is selected.
+        // Rien à rogner tant qu'aucune source n'est choisie.
         composition.EnterCropMode();
         Assert.False(composition.IsCropping);
 
@@ -613,7 +613,7 @@ public sealed class SceneCompositionViewModelTests
         Assert.Equal("Gauche 40 · Haut 0 · Droite 0 · Bas 0", composition.GestureReadout);
         composition.EndGesture();
 
-        // The mode holds from one gesture to the next.
+        // Le mode tient d'un geste à l'autre.
         Assert.True(composition.IsCropMode);
         Assert.Equal(new SourceCrop(40, 0, 0, 0), runtime.TransformOf(Id(scene, "Caméra")).Crop);
 
@@ -669,7 +669,7 @@ public sealed class SceneCompositionViewModelTests
     {
         var scene = SceneWith("Caméra");
         var runtime = new FakeCompositionRuntime(scene.Id);
-        // 640 source pixels, 40 cropped on the left: 600 composed, starting at x = 140.
+        // 640 pixels de source, 40 rognés à gauche : 600 composés, à partir de x = 140.
         var cropped = Transform(scene, "Caméra", x: 140, y: 100, width: 600, height: 360,
             crop: new SourceCrop(40, 0, 0, 0));
         runtime.Compose(scene, cropped with { SourceWidth = 640 });
@@ -717,11 +717,11 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         composition.SelectAt(200, 200);
 
-        // Without Alt, dragging moves the outline, as always.
+        // Sans Alt, glisser déplace le cadre, comme toujours.
         Assert.Equal(CompositionGestureKind.Move, composition.TargetAt(420, 280, HandleTolerance, crop: false)?.Kind);
 
-        // Pulling the picture 160 px to the left is a quarter of the frame, so an eighth
-        // of the picture at ×2: the aimed point moves right.
+        // Tirer l'image de 160 px vers la gauche, c'est un quart de cadre, donc un huitième
+        // d'image à ×2 : le point visé part vers la droite.
         var target = composition.BeginGesture(420, 280, HandleTolerance, crop: true);
         Assert.Equal(CompositionGestureKind.Pan, target?.Kind);
         composition.UpdateGesture(260, 280, keepAspectRatio: true);
@@ -745,18 +745,18 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         composition.SelectAt(200, 200);
 
-        // At scale 1, the map is 120 × 67.5 in the bottom-right corner, 8 px from the edges.
+        // À l'échelle 1, la carte fait 120 × 67,5 dans le coin bas-droit, à 8 px des bords.
         var map = ZoomMap.Bounds(1280, 720, 1)!.Value;
         double CanvasX(double share) => 100 + map.X + map.Width * share;
         double CanvasY(double share) => 100 + map.Y + map.Height * share;
 
-        // Without Alt: it is a visible control, it can be grabbed as is.
+        // Sans Alt : c'est un contrôle visible, il se saisit tel quel.
         var target = composition.BeginGesture(CanvasX(0.7), CanvasY(0.5), HandleTolerance, crop: false,
             canvasPerScreenPixel: 1);
         Assert.Equal(CompositionGestureKind.Aim, target?.Kind);
         Assert.Equal(0.7, Assert.Single(runtime.ZoomWrites).CenterX, 6);
 
-        // Aiming past the edge holds the window against it.
+        // Viser plus loin que le bord cale la fenêtre contre lui.
         composition.UpdateGesture(CanvasX(1.2), CanvasY(0.5), keepAspectRatio: true);
         composition.EndGesture();
 
@@ -775,7 +775,7 @@ public sealed class SceneCompositionViewModelTests
         composition.ShowScene(scene);
         composition.SelectAt(200, 200);
 
-        // Without zoom, an arrow key has nothing to slide.
+        // Sans zoom, une flèche n'a rien à faire glisser.
         composition.NudgeSelectedZoom(1, 0);
         Assert.Empty(runtime.ZoomWrites);
 
@@ -783,7 +783,7 @@ public sealed class SceneCompositionViewModelTests
         var zoomed = composition.Selected!.Zoom;
         Assert.Equal(Math.Pow(1.15, 5), zoomed.Factor, 6);
 
-        // One step is a tenth of what the frame shows.
+        // Un pas vaut un dixième de ce que le cadre montre.
         composition.NudgeSelectedZoom(1, -1);
         Assert.Equal(0.5 + 0.1 / zoomed.Factor, composition.Selected.Zoom.CenterX, 6);
         Assert.Equal(0.5 - 0.1 / zoomed.Factor, composition.Selected.Zoom.CenterY, 6);
@@ -801,14 +801,14 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime, new ManualTime());
         composition.ShowScene(scene);
 
-        // The pointer at the middle of the frame's right edge, three quarters across its width.
+        // Le pointeur au milieu du bord droit du cadre, aux trois quarts de sa largeur.
         Assert.False(composition.ZoomAt(580, 280, 5));
         Assert.Empty(runtime.ZoomWrites);
 
         composition.SetCropModifier(true);
         Assert.True(composition.ZoomAt(580, 280, 5));
 
-        // The wheel selected the source, and the picture point under the pointer did not move.
+        // La molette a choisi la source, et le point de l'image sous le pointeur n'a pas bougé.
         var zoom = runtime.TransformOf(Id(scene, "Caméra")).Zoom;
         Assert.Equal(Id(scene, "Caméra"), composition.Selected?.SourceId);
         Assert.True(zoom.IsZoomed);
@@ -825,8 +825,8 @@ public sealed class SceneCompositionViewModelTests
         var composition = new SceneCompositionViewModel(runtime, new ManualTime());
         composition.ShowScene(scene);
 
-        // Centered in the 1920×1080 canvas, the camera's origin is at (640, 360); the
-        // pointer brings it within 5 pixels.
+        // Centrée dans le canvas 1920×1080, la caméra a son origine en (640, 360) ; le
+        // pointeur l'amène à 5 pixels près.
         composition.BeginGesture(10, 10, HandleTolerance, crop: false);
         composition.UpdateGesture(645, 365, keepAspectRatio: true, snapReach: SnapReach);
 
@@ -868,15 +868,15 @@ public sealed class SceneCompositionViewModelTests
 
         Assert.True(composition.HoverAt(200, 200));
         Assert.Equal(Id(scene, "Caméra"), composition.Overlay.Hovered?.Transform.SourceId);
-        // The same hover gives the engine nothing new.
+        // Le même survol ne redonne rien au moteur.
         Assert.False(composition.HoverAt(210, 210));
 
-        // During a gesture, only the grabbed source counts.
+        // Pendant un geste, rien d'autre que la source saisie ne compte.
         composition.BeginGesture(1500, 900, HandleTolerance, crop: false);
         Assert.Null(composition.Overlay.Hovered);
         composition.EndGesture();
 
-        // The selected source already has that weight: it does not show as hovered.
+        // La source choisie porte déjà ce poids : elle ne se montre pas en survol.
         composition.HoverAt(1500, 900);
         Assert.Null(composition.Overlay.Hovered);
 
@@ -971,8 +971,8 @@ public sealed class SceneCompositionViewModelTests
             isVisible);
 
     /// <summary>
-    /// Simulated engine: it returns the composition it was given, from foreground to
-    /// background, as <see cref="ISourceRuntime.GetSceneComposition"/> does.
+    /// Moteur simulé : il rend la composition qu'on lui pose, du premier plan vers
+    /// l'arrière-plan, comme le fait <see cref="ISourceRuntime.GetSceneComposition"/>.
     /// </summary>
     private sealed class FakeCompositionRuntime(Guid sceneId) : ISourceRuntime
     {
@@ -1007,17 +1007,17 @@ public sealed class SceneCompositionViewModelTests
         public SourceOrderResult GetSourceOrder(Guid scene) => SourceOrderResult.Success([]);
         public SourceRuntimeResult MoveSource(Guid scene, Guid source, int layerIndex) => SourceRuntimeResult.Success();
 
-        /// <summary>Every placement the engine received, in order, refused ones included.</summary>
+        /// <summary>Chaque placement que le moteur a reçu, dans l'ordre, refusés compris.</summary>
         public List<SourcePlacement> Writes { get; } = [];
 
-        /// <summary>When set, the engine refuses the placements for which this returns a message.</summary>
+        /// <summary>Posé, le moteur refuse les placements pour lesquels il rend un message.</summary>
         public Func<SourcePlacement, string?>? Rejection { get; set; }
 
         public SourceTransform TransformOf(Guid sourceId) =>
             _composition.Sources.Single(source => source.SourceId == sourceId);
 
-        // The engine applies the placement and recomputes the rectangle by its rule: source
-        // size, minus the crop, scaled.
+        // Le moteur applique le placement et recompose le rectangle à sa règle : taille de la
+        // source, moins le rognage, mise à l'échelle.
         public SourceTransformResult SetSourceTransform(Guid scene, Guid source, SourcePlacement placement)
         {
             Writes.Add(placement);
@@ -1043,10 +1043,10 @@ public sealed class SceneCompositionViewModelTests
             return SourceTransformResult.Success(written);
         }
 
-        /// <summary>Every zoom the engine received, in order.</summary>
+        /// <summary>Chaque zoom que le moteur a reçu, dans l'ordre.</summary>
         public List<SourceZoom> ZoomWrites { get; } = [];
 
-        // The zoom happens inside the frame: the engine changes only the zoom.
+        // Le zoom se joue dans le cadre : le moteur ne change que lui.
         public SourceTransformResult SetSourceZoom(Guid scene, Guid source, SourceZoom zoom)
         {
             ZoomWrites.Add(zoom);
@@ -1061,7 +1061,7 @@ public sealed class SceneCompositionViewModelTests
         }
     }
 
-    /// <summary>A clock that advances only when the test says so.</summary>
+    /// <summary>Une horloge qui n'avance que quand le test le dit.</summary>
     private sealed class ManualTime : TimeProvider
     {
         private long _ticks;

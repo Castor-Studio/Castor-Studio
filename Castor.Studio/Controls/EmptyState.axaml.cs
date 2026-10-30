@@ -30,7 +30,7 @@ public partial class EmptyState : UserControl
     public static readonly StyledProperty<EmptyStateKind> KindProperty =
         AvaloniaProperty.Register<EmptyState, EmptyStateKind>(nameof(Kind));
 
-    // One shared image per case and per theme: these screens show and hide often.
+    // Une seule image par cas et par thème, partagée : ces écrans se montrent et se cachent souvent.
     private static readonly Dictionary<string, Bitmap> Mascots = [];
 
     public EmptyStateKind Kind
@@ -51,7 +51,7 @@ public partial class EmptyState : UserControl
         set => SetValue(DescriptionProperty, value);
     }
 
-    /// <summary>The button that fixes what is missing, if there is one.</summary>
+    /// <summary>Le bouton qui remédie à ce qui manque, s'il y en a un.</summary>
     public object? Action
     {
         get => GetValue(ActionProperty);
