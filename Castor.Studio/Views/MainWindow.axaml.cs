@@ -29,5 +29,37 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(
             () => (DataContext as MainViewModel)?.PresentFloatingPanels(),
             DispatcherPriority.Background);
+
+        if (DataContext is MainViewModel viewModel) _ = viewModel.LoadSavedScenesAsync();
+    }
+
+    private bool _closeConfirmed;
+    private bool _isConfirmingClose;
+
+    // The close button, Alt+F4 and the Quitter menu all land here. Asking is asynchronous, so
+    // the first close is always cancelled and the window closes itself again once allowed.
+    // A Windows shutdown is not held back: there is no waiting on a dialog then.
+    protected override async void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+        if (_closeConfirmed || e.Cancel || e.CloseReason == WindowCloseReason.OSShutdown
+            || DataContext is not MainViewModel viewModel)
+            return;
+
+        e.Cancel = true;
+        if (_isConfirmingClose) return;
+
+        _isConfirmingClose = true;
+        try
+        {
+            if (!await viewModel.ConfirmCloseAsync()) return;
+        }
+        finally
+        {
+            _isConfirmingClose = false;
+        }
+
+        _closeConfirmed = true;
+        Close();
     }
 }

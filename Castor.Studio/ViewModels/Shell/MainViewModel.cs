@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services;
+using CastorApplication.Services.Dialogs;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Settings;
@@ -32,6 +33,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IClassicDesktopStyleApplicationLifetime _desktop;
     private readonly StatusMessageService _messages;
+    private readonly IUnsavedScenesDialogService _unsavedScenesDialog;
 
     // The menu bar's "Panneaux" entries. Choosing one goes to the Studio page first, since that
     // is where the panel it brings back lives.
@@ -67,9 +69,11 @@ public partial class MainViewModel : ViewModelBase
         SettingsViewModel settingsViewModel,
         StudioWorkspaceViewModel workspace,
         IClassicDesktopStyleApplicationLifetime desktop,
-        StatusMessageService messages)
+        StatusMessageService messages,
+        IUnsavedScenesDialogService unsavedScenesDialog)
     {
         _messages = messages;
+        _unsavedScenesDialog = unsavedScenesDialog;
         _studioViewModel = studioViewModel;
         _studioDockViewModel = studioDockViewModel;
         _multicamViewModel = multicamViewModel;
@@ -166,8 +170,31 @@ public partial class MainViewModel : ViewModelBase
         return _scenesViewModel.ExportScenesCommand.ExecuteAsync(null);
     }
 
+    // Closing the main window rather than shutting down: every way out goes through
+    // MainWindow.OnClosing, and so through ConfirmCloseAsync.
     [RelayCommand]
-    private void Quit() => _desktop.Shutdown();
+    private void Quit() => _desktop.MainWindow?.Close();
+
+    public Task LoadSavedScenesAsync() => _scenesViewModel.LoadSavedScenesAsync();
+
+    // True when the app may close. With unsaved scene changes the operator chooses; a failed
+    // save keeps the app open, on the Scenes page where the error is shown.
+    public async Task<bool> ConfirmCloseAsync()
+    {
+        if (!_scenesViewModel.HasUnsavedSceneChanges) return true;
+
+        switch (await _unsavedScenesDialog.AskAsync())
+        {
+            case UnsavedScenesChoice.DontSave:
+                return true;
+            case UnsavedScenesChoice.Save:
+                // The page first: changing page clears its messages, and a failure must stay visible.
+                ShowScenes();
+                return await _scenesViewModel.SaveScenesAsync();
+            default:
+                return false;
+        }
+    }
 
     public void ApplyScreenSize(Size screenSize) => _studioDockViewModel.ApplyScreenSize(screenSize);
 

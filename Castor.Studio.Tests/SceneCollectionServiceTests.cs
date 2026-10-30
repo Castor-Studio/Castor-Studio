@@ -70,4 +70,23 @@ public sealed class SceneCollectionServiceTests
             if (File.Exists(path)) File.Delete(path);
         }
     }
+
+    [Fact]
+    public async Task Saving_creates_the_missing_folder()
+    {
+        var service = new SceneCollectionService();
+        var directory = Path.Combine(Path.GetTempPath(), $"castor-scenes-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "scenes.json");
+        try
+        {
+            await service.SaveAsync(path, [new SceneDefinition { Name = "Plateau" }], CancellationToken.None);
+
+            var loaded = await service.LoadAsync(path, CancellationToken.None);
+            Assert.Equal("Plateau", Assert.Single(loaded).Name);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
 }
