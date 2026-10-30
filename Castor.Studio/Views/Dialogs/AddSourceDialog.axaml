@@ -17,7 +17,7 @@
 
 	<Window.Styles>
 
-		<!-- Catégorie (colonne de gauche) -->
+		<!-- Category (left column) -->
 		<Style Selector="Button.cat-item">
 			<Setter Property="Background" Value="Transparent"/>
 			<Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
@@ -39,7 +39,7 @@
 			<Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
 		</Style>
 
-		<!-- Liste de sources -->
+		<!-- Source list -->
 		<Style Selector="ListBox.source-list">
 			<Setter Property="Background" Value="Transparent"/>
 			<Setter Property="Padding" Value="0"/>
@@ -68,7 +68,7 @@
             BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
 		<Grid RowDefinitions="46, 1, *, 1, 54">
 
-			<!-- ── Header (déplaçable) ── -->
+			<!-- ── Header (draggable) ── -->
 			<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="16,0,10,0"
                   Background="Transparent"
 				  PointerPressed="OnHeaderPointerPressed">
@@ -87,7 +87,7 @@
 			<!-- ── Contenu ── -->
 			<Grid Grid.Row="2" ColumnDefinitions="176, 1, *">
 
-				<!-- Catégories -->
+				<!-- Categories -->
 				<ItemsControl Grid.Column="0" ItemsSource="{Binding Categories}" Margin="8">
 					<ItemsControl.ItemTemplate>
 						<DataTemplate x:DataType="vm:AddSourceCategoryItem">
@@ -120,7 +120,7 @@
 				<!-- Panneau droit -->
 				<Grid Grid.Column="2" Margin="10" RowDefinitions="Auto, *">
 
-					<!-- Recherche + actualiser (catégories liste uniquement) -->
+					<!-- Search + refresh (list categories only) -->
 					<Grid Grid.Row="0" ColumnDefinitions="*, 6, Auto"
                           IsVisible="{Binding IsListCategory}" Margin="0,0,0,8">
 						<TextBox Grid.Column="0" x:Name="SearchBox"
@@ -147,7 +147,7 @@
 						</Button>
 					</Grid>
 
-					<!-- Liste des sources -->
+					<!-- Source list -->
 					<Grid Grid.Row="1" RowDefinitions="*, Auto">
 						<Panel Grid.Row="0" IsVisible="{Binding IsListCategory}">
 							<ListBox Classes="source-list"

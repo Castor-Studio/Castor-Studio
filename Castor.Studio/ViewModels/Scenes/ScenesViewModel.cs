@@ -116,8 +116,8 @@ public partial class ScenesViewModel : ViewModelBase
     public IScenePreviewRuntime PreviewRuntime => _previewRuntime;
 
     /// <summary>
-    /// La composition de la scène sélectionnée, relue dans le moteur. C'est elle qui décide
-    /// des cadres que le moteur trace sur l'aperçu de cette page.
+    /// The selected scene's composition, reread from the engine. It decides
+    /// the outlines the engine draws on this page's preview.
     /// </summary>
     public SceneCompositionViewModel Composition { get; }
 
@@ -130,14 +130,14 @@ public partial class ScenesViewModel : ViewModelBase
             ? "Aucune scène sélectionnée."
             : "";
 
-    // Ce que montre la zone du canvas. Un moteur indisponible n'est pas un écran vide :
-    // l'aperçu dit lui-même ce qui ne va pas.
+    // What the canvas area shows. An unavailable engine is not an empty screen:
+    // the preview itself says what is wrong.
     public bool ShowNoScene => _previewRuntime.IsAvailable && SelectedScene == null;
     public bool ShowNoVideoSource => _previewRuntime.IsAvailable && SelectedScene != null
         && !StudioWorkspaceViewModel.HasVideoSource(SelectedScene);
     public bool ShowScenePreview => !ShowNoScene && !ShowNoVideoSource;
 
-    /// <summary>La taille du canvas et ses proportions, réduites : 1920 × 1080, 16:9.</summary>
+    /// <summary>The canvas size and its reduced proportions: 1920 × 1080, 16:9.</summary>
     public string CanvasRatioText
     {
         get
@@ -272,15 +272,15 @@ public partial class ScenesViewModel : ViewModelBase
     {
         if (oldValue != null) oldValue.IsSelected = false;
         SceneIoStatus.Clear();
-        // Les cadres repartent de la composition que le moteur détient pour cette scène :
-        // une scène rouverte se redessine sur ce qui est réellement rendu, pas sur un
-        // souvenir.
+        // Outlines restart from the composition the engine holds for this scene:
+        // a reopened scene redraws on what is really rendered, not on a
+        // memory.
         Composition.ShowScene(newValue);
         if (newValue != null)
         {
             newValue.IsSelected = true;
-            // Afficher une scène, c'est relire son empilement dans le moteur : l'ordre survit
-            // ainsi à un rechargement sans qu'on l'ait mémorisé de notre côté.
+            // Showing a scene means rereading its stack from the engine: the order thus survives
+            // a reload without being remembered on our side.
             SourceOperationStatus = SyncSourceOrder(newValue);
         }
 
@@ -711,11 +711,11 @@ public partial class ScenesViewModel : ViewModelBase
         SourceOperationStatus = SyncSourceOrder(scene);
     }
 
-    // ── Empilement des sources (z-order) ─────────────────────────────────────
+    // ── Source stacking (z-order) ─────────────────────────────────────
     //
-    // L'ordre appartient au moteur. Chaque geste lui est transmis, puis la liste affichée est
-    // réalignée sur ce qu'il renvoie : aucun ordre local n'est entretenu ici, donc aucun ne
-    // peut diverger. Rang 0 = premier plan.
+    // The order belongs to the engine. Each gesture is sent to it, then the displayed list is
+    // realigned on what it returns: no local order is kept here, so none can
+    // diverge. Rank 0 = foreground.
 
     [RelayCommand(CanExecute = nameof(CanRaiseSource))]
     private void RaiseSource(SourceItemViewModel source) => MoveSourceBy(source, -1);
@@ -736,8 +736,8 @@ public partial class ScenesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Change le plan de la source choisie sur le canvas : "front" et "back" l'envoient tout
-    /// devant ou tout derrière, "forward" et "backward" d'un rang.
+    /// Changes the selected source's layer on the canvas: "front" and "back" send it all
+    /// the way forward or back, "forward" and "backward" by one rank.
     /// </summary>
     [RelayCommand]
     private void MoveSelectedSourceLayer(string where)
@@ -758,8 +758,8 @@ public partial class ScenesViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Lâcher <paramref name="moved"/> sur <paramref name="target"/> lui donne le rang de la
-    /// cible. Laisse la vue traiter un drop sans qu'elle ait à calculer un rang elle-même.
+    /// Dropping <paramref name="moved"/> on <paramref name="target"/> gives it the target's
+    /// rank. Lets the view handle a drop without computing a rank itself.
     /// </summary>
     internal void MoveSourceHere(SourceItemViewModel moved, SourceItemViewModel target)
     {
@@ -789,23 +789,23 @@ public partial class ScenesViewModel : ViewModelBase
         if (scene.Sources.IndexOf(source) == layerIndex) return;
 
         var result = _sourceRuntime.MoveSource(scene.Id, source.Id, layerIndex);
-        // Réussite ou refus, on se recale sur le moteur : un refus doit remettre la liste
-        // telle qu'elle est réellement rendue, pas telle qu'on l'espérait.
+        // Success or refusal, realign on the engine: a refusal must put the list back
+        // as it is really rendered, not as hoped.
         var syncFailure = SyncSourceOrder(scene);
         SourceOperationStatus = result.IsSuccess ? syncFailure : result.Message;
     }
 
     /// <summary>
-    /// Réaligne la liste affichée sur l'ordre que le moteur détient, et rend son message
-    /// d'échec s'il n'a pas pu le donner — sans quoi un déplacement accepté par le moteur
-    /// mais illisible ensuite laisserait la liste figée sans rien signaler.
+    /// Realigns the displayed list on the order the engine holds, and returns its failure
+    /// message if it could not give it — otherwise a move accepted by the engine
+    /// but unreadable afterwards would leave the list frozen with nothing reported.
     /// </summary>
     private string SyncSourceOrder(SceneItemViewModel scene)
     {
         var order = _sourceRuntime.GetSourceOrder(scene.Id);
         if (order.IsSuccess)
         {
-            // On réordonne seulement : ajouts et suppressions ont leurs propres chemins.
+            // Only reorder: additions and removals have their own paths.
             var target = 0;
             foreach (var sourceId in order.SourceIds)
             {
@@ -816,16 +816,16 @@ public partial class ScenesViewModel : ViewModelBase
             }
         }
 
-        // Les extrémités de la pile bougent avec l'ordre, les boutons doivent suivre.
+        // The ends of the stack move with the order, the buttons must follow.
         RaiseSourceCommand.NotifyCanExecuteChanged();
         LowerSourceCommand.NotifyCanExecuteChanged();
 
-        // Tout geste sur les sources passe par ici : la composition se recale dans la
-        // foulée, sans attendre la prochaine relecture périodique de l'aperçu.
+        // Every source gesture goes through here: the composition realigns right
+        // away, without waiting for the preview's next periodic reread.
         Composition.Refresh();
 
-        // Un moteur globalement indisponible est déjà annoncé par l'aperçu ; seul un refus
-        // propre à cette scène mérite d'être écrit sous la liste.
+        // A globally unavailable engine is already announced by the preview; only a refusal
+        // specific to this scene deserves to be written under the list.
         return order.Status == StudioRuntimeStatus.Failure ? order.Message : "";
     }
 
@@ -990,8 +990,8 @@ public partial class ScenesViewModel : ViewModelBase
 
         definition.Name = result.EffectiveName;
         _workspace.AddSource(scene, definition);
-        // Le moteur empile la nouvelle source au premier plan : on relit plutôt que de
-        // supposer où elle a atterri.
+        // The engine stacks the new source in the foreground: reread rather than
+        // assume where it landed.
         SourceOperationStatus = SyncSourceOrder(scene);
     }
 

@@ -58,8 +58,8 @@
 					<MenuItem Header="S_cènes" Command="{Binding ShowScenesCommand}"/>
 				</MenuItem>
 
-				<!-- Le recours quand la disposition a perdu ses panneaux : l'action de secours
-				     d'abord, et à part, plutôt que noyée dans la liste des panneaux. -->
+				<!-- The way out when the layout has lost its panels: the recovery action
+				     first, and apart, rather than buried in the panel list. -->
 				<MenuItem Header="_Panneaux">
 					<MenuItem Header="_Ramener tous les panneaux à leur place"
                               Command="{Binding RestoreAllPanelsCommand}"/>
@@ -141,7 +141,7 @@
                             Spacing="10"
                             Margin="16,0">
 
-					<!-- Badge d'état global : OFFLINE / REC / EN DIRECT -->
+					<!-- Global state badge: OFFLINE / REC / EN DIRECT -->
 					<Border Background="{DynamicResource AppBg}"
                             BorderBrush="{DynamicResource AppBorder2}"
                             BorderThickness="1"
@@ -155,8 +155,8 @@
                                        FontWeight="SemiBold"
                                        Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
                                        VerticalAlignment="Center"/>
-							<!-- Scène active : ce qui part à l'enregistrement ou au live, lisible depuis
-							     n'importe quel espace de travail. Le choix reste au sélecteur du Studio. -->
+							<!-- Active scene: what goes to the recording or live stream, readable from
+							     any workspace. The choice stays with the Studio selector. -->
 							<Rectangle Width="1" Height="14" Fill="{DynamicResource AppBorderStrong}" VerticalAlignment="Center"/>
 							<TextBlock Text="{Binding ActiveScene.Name}"
                                        IsVisible="{Binding ActiveScene, Converter={x:Static ObjectConverters.IsNotNull}}"
@@ -173,8 +173,8 @@
 						</StackPanel>
 					</Border>
 
-					<!-- Paramètres : un réglage, pas un espace de travail, donc à part des onglets.
-					     Un second clic (ou Échap) ramène à l'espace de travail d'où l'on venait. -->
+					<!-- Settings: a preference, not a workspace, so apart from the tabs.
+					     A second click (or Escape) returns to the workspace it came from. -->
 					<Button Classes="settings-gear"
                             Classes.active="{Binding IsSettingsActive}"
                             Command="{Binding ToggleSettingsCommand}"

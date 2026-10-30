@@ -4,12 +4,12 @@
              x:Class="CastorApplication.Views.MulticamView"
              x:DataType="vm:MulticamViewModel">
 
-	<!-- Même inset que l'espace ancrable du Studio : la page porte elle-même sa marge,
-	     la coquille ne l'applique plus. Les erreurs de l'IA s'affichent dans son panneau,
-	     qui suit l'opérateur s'il le sort de la fenêtre.
+	<!-- Same inset as the Studio's dockable space: the page carries its own margin,
+	     the shell no longer applies it. AI errors show in its panel,
+	     which follows the operator if moved out of the window.
 
-	     La page est un espace ancrable : l'affichage et les réglages de l'IA sont deux
-	     panneaux, qu'on peut déplacer ou sortir. -->
+	     The page is a dockable space: the display and AI settings are two
+	     panels that can be moved or taken out. -->
 	<DockControl Layout="{Binding DockLayout}"
 	             Background="{DynamicResource AppBg}" Margin="12"/>
 

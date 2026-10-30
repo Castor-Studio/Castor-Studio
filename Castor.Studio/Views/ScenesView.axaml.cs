@@ -10,8 +10,8 @@ namespace CastorApplication.Views;
 
 public partial class ScenesView : UserControl
 {
-    // La source en cours de glissement. Le presse-papier de drag ne transporte que du texte,
-    // et le drop a besoin du ViewModel lui-même, pas d'un identifiant à re-résoudre.
+    // The source being dragged. The drag clipboard only carries text,
+    // and the drop needs the ViewModel itself, not an id to resolve again.
     private SourceItemViewModel? _draggedSource;
 
     public ScenesView()
@@ -19,8 +19,8 @@ public partial class ScenesView : UserControl
         InitializeComponent();
     }
 
-    // La barre d'outils du canvas : ses commandes passent par le moteur comme le menu de la
-    // source, puis l'aperçu reçoit aussitôt ce qui en reste.
+    // The canvas toolbar: its commands go through the engine like the source's
+    // menu, then the preview receives at once what remains.
     private void Compose(Action<SceneCompositionViewModel> command)
     {
         if (DataContext is not ScenesViewModel viewModel) return;
@@ -41,8 +41,8 @@ public partial class ScenesView : UserControl
 
     private void OnRotateLeftClick(object? sender, RoutedEventArgs e) => Compose(c => c.RotateSelected(-90));
 
-    // Le curseur suit aussi la source choisie : seul un écart avec ce qu'elle montre déjà est
-    // une demande de l'opérateur.
+    // The slider also follows the selected source: only a gap from what it already shows is
+    // an operator request.
     private void OnZoomSliderChanged(object? sender, RangeBaseValueChangedEventArgs e)
     {
         if (DataContext is not ScenesViewModel viewModel) return;
@@ -80,8 +80,8 @@ public partial class ScenesView : UserControl
             viewModel.ConfirmRenameSourceCommand.Execute(null);
     }
 
-    // Seule la poignée déclenche le glissement : le reste de la ligne garde ses boutons
-    // cliquables (boucle, retrait, montée/descente).
+    // Only the handle starts the drag: the rest of the row keeps its buttons
+    // clickable (loop, remove, up/down).
     private async void OnSourceHandlePointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Control { DataContext: SourceItemViewModel source }) return;

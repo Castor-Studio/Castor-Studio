@@ -8,15 +8,15 @@ namespace CastorApplication.Services.Studio;
 internal readonly record struct PreviewViewport(int X, int Y, int Width, int Height);
 
 /// <summary>
-/// Un rectangle plein à peindre, dans le repère d'une source : origine en son point (X, Y),
-/// axes tournés avec elle.
+/// A filled rectangle to paint, in a source's coordinates: origin at its point (X, Y),
+/// axes turned with it.
 /// </summary>
 internal readonly record struct PreviewFillRect(float X, float Y, float Width, float Height);
 
 /// <summary>
-/// Les tailles de l'overlay, en pixels du canvas, pour l'image en cours. Elles sont pensées
-/// en pixels de l'écran puis converties : une poignée se vise à la souris, elle ne suit pas
-/// l'échelle à laquelle le canvas est réduit dans le panneau.
+/// Overlay sizes, in canvas pixels, for the current frame. They are thought of
+/// in screen pixels then converted: a handle is aimed with the mouse, it does not follow
+/// the scale at which the canvas is reduced in the panel.
 /// </summary>
 internal readonly record struct OverlayMetrics(
     float IdleThickness,
@@ -34,27 +34,27 @@ internal static class ObsPreviewGraphics
 {
     private const string ObsLibrary = "obs";
 
-    // obs_base_effect : l'effet « solid » est le quatrième de l'énumération de libobs.
+    // obs_base_effect: the "solid" effect is the fourth in libobs's enumeration.
     private const int ObsEffectSolid = 3;
 
-    // obs_base_effect : l'effet par défaut, qui peint une texture, est le premier.
+    // obs_base_effect: the default effect, which paints a texture, is the first.
     private const int ObsEffectDefault = 0;
 
-    // gs_color_format : GS_BGRA, l'ordre des pixels que rend Avalonia.
+    // gs_color_format: GS_BGRA, the pixel order Avalonia renders.
     private const int GsColorFormatBgra = 5;
 
-    // Le cadre d'une source porte la couleur de sa pastille dans la liste : sur une
-    // composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Ce qui
-    // reste vient de Styles/Colors.axaml, dans les valeurs du thème sombre : la zone
-    // d'aperçu est noire en clair comme en sombre.
+    // A source's outline takes the color of its dot in the list: on an
+    // overlapping composition, this tells which outline is which row. The
+    // rest comes from Styles/Colors.axaml, in the dark theme's values: the preview
+    // area is black in light and dark themes alike.
     private static readonly Vec4 Chosen = new(0.357f, 0.553f, 0.937f, 1f);     // AppAccentFg
     private static readonly Vec4 HandleCore = new(0.918f, 0.918f, 0.941f, 1f); // AppFg1
     private static readonly Vec4 Shadow = new(0.043f, 0.043f, 0.071f, 1f);     // AppBg
-    private static readonly Vec4 Plate = new(0.043f, 0.043f, 0.071f, 0.78f);   // AppBg, voilé
-    private static readonly Vec4 ChosenVeil = new(0.357f, 0.553f, 0.937f, 0.3f); // AppAccentFg, voilé
+    private static readonly Vec4 Plate = new(0.043f, 0.043f, 0.071f, 0.78f);   // AppBg, veiled
+    private static readonly Vec4 ChosenVeil = new(0.357f, 0.553f, 0.937f, 0.3f); // AppAccentFg, veiled
 
-    // Un symbole graphique absent ne doit pas emporter le thread de rendu de libobs : au
-    // premier échec on renonce à l'overlay pour de bon, l'image, elle, continue.
+    // A missing graphics symbol must not take down libobs's render thread: on the
+    // first failure the overlay is given up for good, the picture carries on.
     private static volatile bool _outlinesUnavailable;
 
     internal static PreviewViewport CalculateViewport(
@@ -106,9 +106,9 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Les quatre bords d'un cadre, tracés <em>à l'intérieur</em> du rectangle de la source :
-    /// un cadre posé à cheval sur le bord ferait paraître la source plus grande qu'elle
-    /// n'est, alors que c'est justement sa taille réelle qu'il montre.
+    /// The four edges of an outline, drawn <em>inside</em> the source's rectangle:
+    /// an outline straddling the edge would make the source look larger than it
+    /// is, when its actual size is exactly what it shows.
     /// </summary>
     internal static IReadOnlyList<PreviewFillRect> BoxEdges(
         double x,
@@ -124,8 +124,8 @@ internal static class ObsPreviewGraphics
         var boxWidth = (float)width;
         var boxHeight = (float)height;
 
-        // Une source plus fine que deux traits est peinte pleine : deux bords qui se
-        // recouvrent dessineraient un cadre plus épais que la source elle-même.
+        // A source thinner than two strokes is painted solid: two overlapping
+        // edges would draw an outline thicker than the source itself.
         if (boxWidth <= thickness * 2 || boxHeight <= thickness * 2)
             return [new PreviewFillRect(left, top, boxWidth, boxHeight)];
 
@@ -140,14 +140,14 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Les huit poignées d'une source : quatre aux angles, quatre au milieu des côtés.
-    /// Chacune est centrée sur son point, donc à cheval sur le bord — c'est ce qui la rend
-    /// saisissable des deux côtés du trait, et ce qui la laisse visible sur une source
-    /// collée au bord du canvas.
+    /// A source's eight handles: four at the corners, four at the middle of the sides.
+    /// Each is centered on its point, so it straddles the edge — that makes it
+    /// grabbable from both sides of the stroke, and leaves it visible on a source
+    /// flush with the canvas edge.
     /// </summary>
     /// <remarks>
-    /// Rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche : c'est
-    /// l'ordre dont le geste d'étirement se servira pour savoir quel bord il tire.
+    /// Returned clockwise from the top-left corner: this is
+    /// the order the stretch gesture uses to know which edge it pulls.
     /// </remarks>
     internal static IReadOnlyList<PreviewFillRect> HandleRects(
         double x,
@@ -182,14 +182,14 @@ internal static class ObsPreviewGraphics
         new(centerX - size / 2f, centerY - size / 2f, size, size);
 
     /// <summary>
-    /// Les poignées du rognage : une équerre à chaque angle, une barre au milieu de chaque
-    /// côté, posées <em>à l'intérieur</em> du bord. Une autre forme que les carrés de
-    /// l'étirement, parce que le même geste n'y fait pas la même chose : on ne tire plus la
-    /// source, on en retire des bords.
+    /// The crop handles: a bracket at each corner, a bar at the middle of each
+    /// side, set <em>inside</em> the edge. A different shape from the stretch
+    /// squares, because the same gesture does something else here: instead of pulling the
+    /// source, it removes edges from it.
     /// </summary>
     /// <remarks>
-    /// Huit poignées dans le même ordre que <see cref="HandleRects"/> — chacune en un ou deux
-    /// rectangles —, sur un rectangle d'origine (0, 0).
+    /// Eight handles in the same order as <see cref="HandleRects"/> — each one or two
+    /// rectangles —, on a rectangle with origin (0, 0).
     /// </remarks>
     internal static IReadOnlyList<PreviewFillRect> CropBrackets(
         double width,
@@ -201,7 +201,7 @@ internal static class ObsPreviewGraphics
 
         var right = (float)width;
         var bottom = (float)height;
-        // Une source plus petite que deux équerres garde des bras qui ne se croisent pas.
+        // A source smaller than two brackets keeps arms that do not cross.
         var armX = Math.Min(arm, right / 3f);
         var armY = Math.Min(arm, bottom / 3f);
         var middleX = right / 2f;
@@ -221,9 +221,9 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Le contour pointillé d'un rectangle : des tirets de <paramref name="dash"/> séparés
-    /// d'autant, tracés vers l'intérieur comme le cadre plein. Sert à montrer la source
-    /// entière, partie rognée comprise, pendant qu'on la rogne.
+    /// A rectangle's dotted outline: dashes of <paramref name="dash"/> separated
+    /// by as much, drawn inward like the solid outline. Used to show the whole
+    /// source, cropped part included, during cropping.
     /// </summary>
     internal static IReadOnlyList<PreviewFillRect> DashedEdges(
         double x,
@@ -258,15 +258,15 @@ internal static class ObsPreviewGraphics
         return rects;
     }
 
-    /// <summary>Ce que la pastille d'une source zoomée écrit, au format du curseur de zoom.</summary>
+    /// <summary>What a zoomed source's badge says, in the zoom slider's format.</summary>
     internal static string ZoomLabel(SourceZoom zoom) =>
         string.Create(CultureInfo.CurrentCulture, $"Zoom ×{zoom.Factor:0.0}");
 
     /// <summary>
-    /// Où se pose la pastille de zoom d'une source, dans le repère de son cadre : dans le coin
-    /// haut-gauche, à la taille de l'écran (<paramref name="imageWidth"/> ×
-    /// <paramref name="imageHeight"/> pixels physiques). Rien sans zoom, ou si le cadre est
-    /// trop petit pour la porter.
+    /// Where a source's zoom badge sits, in its frame's coordinates: in the top-left
+    /// corner, at screen size (<paramref name="imageWidth"/> ×
+    /// <paramref name="imageHeight"/> physical pixels). Nothing without zoom, or if the frame is
+    /// too small to carry it.
     /// </summary>
     internal static PreviewFillRect? ZoomBadge(
         SourceTransform transform,
@@ -288,9 +288,9 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// La mini-carte d'une source zoomée, dans le repère de son cadre : sa plaque, le contour
-    /// de l'image entière, et la fenêtre que le cadre en montre. Rien sans zoom, ou si le
-    /// cadre est trop petit pour qu'elle se lise.
+    /// A zoomed source's mini-map, in its frame's coordinates: its plate, the outline
+    /// of the whole picture, and the window the frame shows. Nothing without zoom, or if the
+    /// frame is too small for it to be read.
     /// </summary>
     internal static (PreviewFillRect Plate, IReadOnlyList<PreviewFillRect> Outline, PreviewFillRect Window,
         IReadOnlyList<PreviewFillRect> WindowEdges)? ZoomMapShapes(SourceTransform transform, OverlayMetrics metrics)
@@ -313,9 +313,9 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Peint la scène puis, par-dessus, l'overlay de composition. Tout passe par la même
-    /// projection : l'overlay tombe exactement sur l'image, au pixel près et à la même image
-    /// que le moteur.
+    /// Paints the scene then, on top, the composition overlay. Everything goes through the same
+    /// projection: the overlay lands exactly on the picture, to the pixel and on the same frame
+    /// as the engine.
     /// </summary>
     internal static void RenderScene(
         ObsDisplayFrame frame,
@@ -338,7 +338,7 @@ internal static class ObsPreviewGraphics
                 frame.Render(sceneSource);
                 var metrics = MetricsFor(viewport.Width, canvasWidth);
                 DrawOverlay(overlay, metrics, canvasWidth, canvasHeight);
-                // Les pastilles passent au-dessus de tout le reste de l'overlay.
+                // Badges go above everything else in the overlay.
                 if (!_outlinesUnavailable)
                 {
                     try
@@ -382,9 +382,9 @@ internal static class ObsPreviewGraphics
             var cropping = overlay.IsCropping && chosen != null;
             var guides = GuideRects(overlay.Guides ?? [], canvasWidth, canvasHeight, metrics.IdleThickness);
 
-            // L'ombre passe sous tout l'overlay, d'un pixel de chaque côté. Un cœur coloré
-            // posé sur un liseré sombre se lit sur n'importe quelle image ; le même trait
-            // seul disparaît dès que l'image prend sa valeur.
+            // The shadow goes under the whole overlay, one pixel on each side. A colored core
+            // on a dark outline reads on any picture; the same stroke
+            // alone vanishes as soon as the picture takes its value.
             SetColor(colorParameter, Shadow);
             while (GsEffectLoop(effect, "Solid"))
             {
@@ -406,9 +406,9 @@ internal static class ObsPreviewGraphics
                 }
             }
 
-            // Un cadre par couleur : celle de la source, celle que porte déjà sa pastille
-            // dans la liste. C'est l'identité, elle ne dit pas l'état. Le contour pointillé de
-            // la source entière la garde aussi : c'est toujours la même source.
+            // One outline per color: the source's, the one its dot already has
+            // in the list. That is identity, it does not state the state. The dotted outline of
+            // the whole source keeps it too: it is still the same source.
             foreach (var source in overlay.Sources)
             {
                 SetColor(colorParameter, ToVec4(source.Tint));
@@ -419,8 +419,8 @@ internal static class ObsPreviewGraphics
                 }
             }
 
-            // Les guides ne sont à aucune source : ils prennent la couleur neutre de l'outil,
-            // jamais celle d'une pastille qu'on pourrait confondre avec un cadre.
+            // Guides belong to no source: they take the tool's neutral color,
+            // never that of a dot that could be mistaken for an outline.
             if (guides.Count > 0)
             {
                 SetColor(colorParameter, HandleCore);
@@ -431,8 +431,8 @@ internal static class ObsPreviewGraphics
 
             if (chosen == null) return;
 
-            // L'état, lui, tient au poids du trait et à ces poignées, qui prennent l'accent
-            // de la sélection comme partout ailleurs dans l'interface.
+            // State comes from stroke weight and these handles, which take the
+            // selection accent as everywhere else in the interface.
             SetColor(colorParameter, Chosen);
             while (GsEffectLoop(effect, "Solid"))
             {
@@ -452,10 +452,10 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    // La mini-carte de la source choisie et zoomée. Sa plaque est sombre et un peu
-    // transparente : elle se lit sur n'importe quelle image sans la cacher. Le contour de
-    // l'image prend la couleur neutre de l'outil ; la fenêtre, l'accent de la sélection,
-    // parce que c'est elle qu'on saisit.
+    // The selected and zoomed source's mini-map. Its plate is dark and slightly
+    // transparent: it reads on any picture without hiding it. The picture
+    // outline takes the tool's neutral color; the window, the selection accent,
+    // because it is what gets grabbed.
     private static void DrawZoomMap(
         IntPtr effect,
         IntPtr colorParameter,
@@ -478,9 +478,9 @@ internal static class ObsPreviewGraphics
         while (GsEffectLoop(effect, "Solid")) FillAll(chosen, map.WindowEdges);
     }
 
-    // La pastille de zoom de chaque source zoomée, rendue par l'interface dans le style de
-    // celle qui nomme la scène. Une pastille pas encore rendue est demandée, et paraît à
-    // l'image suivante.
+    // The zoom badge of each zoomed source, rendered by the interface in the style of
+    // the one naming the scene. A badge not yet rendered is requested, and appears on
+    // the next frame.
     private static void DrawZoomBadges(CompositionOverlay overlay, OverlayMetrics metrics)
     {
         IntPtr effect = IntPtr.Zero;
@@ -509,10 +509,10 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    // Une texture par texte de pastille, créée au premier besoin et gardée : il n'y en a
-    // qu'une par facteur de zoom affiché, chacune de quelques kilo-octets. Une pastille
-    // rendue à nouveau (autre échelle d'écran) remplace la sienne, qui est détruite.
-    // N'est touché que dans le contexte graphique de libobs : il sérialise les accès.
+    // One texture per badge text, created on first need and kept: there is
+    // only one per displayed zoom factor, each a few kilobytes. A badge
+    // rendered again (other screen scale) replaces its own, which is destroyed.
+    // Only touched inside libobs's graphics context: that serializes access.
     private static readonly Dictionary<string, (PreviewBadgeImage Image, IntPtr Texture)> Textures = new();
 
     private static IntPtr TextureOf(string label, PreviewBadgeImage image)
@@ -540,13 +540,13 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Détruit les textures des pastilles. À appeler avant d'arrêter libobs, une fois les
-    /// aperçus fermés : passé l'arrêt, plus rien ne peut les rendre.
+    /// Destroys the badge textures. Call before stopping libobs, once
+    /// previews are closed: after shutdown, nothing can render them.
     /// </summary>
     internal static void ReleaseTextures()
     {
-        // Le contexte graphique d'abord, comme le thread de rendu qui le tient déjà quand il
-        // touche à ces textures : le même ordre partout, pas d'interblocage possible.
+        // The graphics context first, like the render thread that already holds it when it
+        // touches these textures: same order everywhere, no deadlock possible.
         ObsEnterGraphics();
         try
         {
@@ -564,8 +564,8 @@ internal static class ObsPreviewGraphics
     }
 
     /// <summary>
-    /// Les guides d'alignement, chacun d'un bord à l'autre du canvas et centré sur sa ligne :
-    /// c'est la ligne elle-même que la source vient de toucher.
+    /// Alignment guides, each from one edge of the canvas to the other and centered on its line:
+    /// it is the line itself the source has just touched.
     /// </summary>
     internal static IReadOnlyList<PreviewFillRect> GuideRects(
         IReadOnlyList<CompositionGuide> guides,
@@ -587,8 +587,8 @@ internal static class ObsPreviewGraphics
         return rects;
     }
 
-    // Le choix et le survol se disent par le même poids : le survol annonce ce que le clic
-    // va prendre, avec le trait qu'il aura une fois pris.
+    // Selection and hover are shown by the same weight: hover announces what the click
+    // will take, with the stroke it will have once taken.
     private static float Thickness(OverlaySource source, CompositionOverlay overlay, OverlayMetrics metrics) =>
         IsSame(source, overlay.Selected) || IsSame(source, overlay.Hovered)
             ? metrics.ChosenThickness
@@ -597,12 +597,12 @@ internal static class ObsPreviewGraphics
     private static bool IsSame(OverlaySource source, OverlaySource? other) =>
         other != null && source.Transform.SourceId == other.Transform.SourceId;
 
-    // Le repère du canvas lui-même, pour ce qui n'appartient à aucune source.
+    // The canvas's own coordinates, for what belongs to no source.
     private static readonly SourceTransform CanvasFrame =
         new(Guid.Empty, 0, 0, 0, 0, 1, 1, SourceCrop.None, 0, 0, true);
 
-    // Toutes les formes se tracent dans le repère de leur source : origine en son point
-    // (X, Y), axes tournés avec elle. Fill les pose ensuite dans le canvas.
+    // All shapes are drawn in their source's coordinates: origin at its point
+    // (X, Y), axes turned with it. Fill then places them in the canvas.
     private static IReadOnlyList<PreviewFillRect> Edges(OverlaySource source, float thickness) =>
         BoxEdges(0, 0, source.Transform.Width, source.Transform.Height, thickness);
 
@@ -612,7 +612,7 @@ internal static class ObsPreviewGraphics
     private static IReadOnlyList<PreviewFillRect> Brackets(OverlaySource source, OverlayMetrics metrics) =>
         CropBrackets(source.Transform.Width, source.Transform.Height, metrics.CropArm, metrics.CropThickness);
 
-    // La source entière, rognage compris : elle déborde du cadre du côté de ce qui est rogné.
+    // The whole source, crop included: it overflows the frame on the cropped side.
     private static IReadOnlyList<PreviewFillRect> Uncropped(OverlaySource source, OverlayMetrics metrics)
     {
         var transform = source.Transform;
@@ -646,14 +646,14 @@ internal static class ObsPreviewGraphics
         }
     }
 
-    // Un quad unitaire mis à la place et à la taille voulues : c'est ainsi que libobs peint
-    // ses propres rectangles, sans avoir à construire de géométrie. Le repère de la source
-    // vient d'abord — son point, puis sa rotation —, exactement comme libobs compose l'item.
+    // A unit quad moved and sized as needed: this is how libobs paints
+    // its own rectangles, without building geometry. The source's coordinates
+    // come first — its point, then its rotation —, exactly as libobs composes the item.
     private static void Fill(SourceTransform frame, PreviewFillRect rect) =>
         Fill(frame, rect, IntPtr.Zero, 1, 1);
 
-    // Une texture se peint de même : gs_draw_sprite la pose sur un quad de sa propre taille,
-    // ramené ensuite à celle du rectangle.
+    // A texture paints the same way: gs_draw_sprite lays it on a quad of its own size,
+    // then brought to the rectangle's size.
     private static void Fill(SourceTransform frame, PreviewFillRect rect, IntPtr texture, int width, int height)
     {
         GsMatrixPush();

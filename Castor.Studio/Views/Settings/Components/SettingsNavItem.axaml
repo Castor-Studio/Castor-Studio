@@ -4,10 +4,10 @@
              x:Class="CastorApplication.Views.Settings.Components.SettingsNavItem"
              x:DataType="settings:SettingsSectionItem">
 
-	<!-- Un seul contrôle pour les deux états, pour que la section ouverte réagisse au
-	     survol et au clavier comme les autres (styles « settings-nav », Controls.axaml).
-	     Un RadioButton plutôt qu'un ToggleButton : cliquer la section déjà ouverte ne la
-	     décoche pas, et le groupe dit aux lecteurs d'écran qu'il n'y en a qu'une. -->
+	<!-- One control for both states, so the open section reacts to
+	     hover and keyboard like the others ("settings-nav" styles, Controls.axaml).
+	     A RadioButton rather than a ToggleButton: clicking the open section does not
+	     uncheck it, and the group tells screen readers there is only one. -->
 	<RadioButton Classes="settings-nav"
 	             GroupName="SettingsNavigation"
 	             Content="{Binding Title}"

@@ -10,8 +10,8 @@ public sealed class ObsPreviewGraphicsTests
     {
         var edges = ObsPreviewGraphics.BoxEdges(x: 100, y: 50, width: 640, height: 360, thickness: 4);
 
-        // Quatre bords, tracés vers l'intérieur : un cadre à cheval sur le bord ferait
-        // paraître la source plus grande qu'elle n'est.
+        // Four edges, drawn inward: an outline straddling the edge would make the
+        // source look larger than it is.
         Assert.Equal(4, edges.Count);
         Assert.Equal(new PreviewFillRect(100, 50, 640, 4), edges[0]);
         Assert.Equal(new PreviewFillRect(100, 406, 640, 4), edges[1]);
@@ -30,7 +30,7 @@ public sealed class ObsPreviewGraphicsTests
     [Fact]
     public void A_source_thinner_than_its_frame_is_filled_rather_than_framed()
     {
-        // Deux bords qui se recouvrent dessineraient un cadre plus épais que la source.
+        // Two overlapping edges would draw an outline thicker than the source.
         var edge = Assert.Single(ObsPreviewGraphics.BoxEdges(x: 10, y: 20, width: 6, height: 300, thickness: 4));
 
         Assert.Equal(new PreviewFillRect(10, 20, 6, 300), edge);
@@ -41,8 +41,8 @@ public sealed class ObsPreviewGraphicsTests
     {
         var handles = ObsPreviewGraphics.HandleRects(x: 100, y: 50, width: 640, height: 360, size: 10);
 
-        // Dans le sens des aiguilles d'une montre depuis le coin haut-gauche, et chacune
-        // centrée sur son point : à cheval sur le bord, donc saisissable des deux côtés.
+        // Clockwise from the top-left corner, each one
+        // centered on its point: straddling the edge, so it can be grabbed from both sides.
         Assert.Equal(
         [
             new PreviewFillRect(95, 45, 10, 10),
@@ -62,7 +62,7 @@ public sealed class ObsPreviewGraphicsTests
         var handle = ObsPreviewGraphics.HandleRects(x: 0, y: 0, width: 640, height: 360, size: 10)[0];
         var core = ObsPreviewGraphics.HandleRects(x: 0, y: 0, width: 640, height: 360, size: 5)[0];
 
-        // Le cœur clair s'inscrit dans le carré d'accent : c'est le même point, deux tailles.
+        // The light core sits inside the accent square: same point, two sizes.
         Assert.Equal(handle.X + handle.Width / 2, core.X + core.Width / 2);
         Assert.Equal(handle.Y + handle.Height / 2, core.Y + core.Height / 2);
     }
@@ -82,8 +82,8 @@ public sealed class ObsPreviewGraphicsTests
         var full = ObsPreviewGraphics.MetricsFor(viewportWidth: 1920, canvasWidth: 1920);
         var half = ObsPreviewGraphics.MetricsFor(viewportWidth: 960, canvasWidth: 1920);
 
-        // Le canvas réduit de moitié : tout double en pixels du canvas pour occuper la même
-        // place à l'écran. Une poignée se vise à la souris, elle ne suit pas l'échelle.
+        // The canvas at half size: everything doubles in canvas pixels to take the same
+        // room on screen. A handle is aimed with the mouse, it does not follow the scale.
         Assert.Equal(full.Handle * 2, half.Handle);
         Assert.Equal(full.HandleCore * 2, half.HandleCore);
         Assert.Equal(full.ChosenThickness * 2, half.ChosenThickness);
@@ -94,8 +94,8 @@ public sealed class ObsPreviewGraphicsTests
     {
         var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 1920, canvasWidth: 1920);
 
-        // La couleur porte l'état, mais le trait choisi reste plus épais : sur une image
-        // bleue, la seule couleur ne suffirait pas à le distinguer.
+        // Color carries the state, but the selected stroke stays thicker: on a blue
+        // picture, color alone would not tell it apart.
         Assert.True(metrics.ChosenThickness > metrics.IdleThickness);
         Assert.True(metrics.HandleCore < metrics.Handle);
     }
@@ -105,7 +105,7 @@ public sealed class ObsPreviewGraphicsTests
     {
         var brackets = ObsPreviewGraphics.CropBrackets(width: 640, height: 360, arm: 16, thickness: 4);
 
-        // Quatre équerres de deux traits, quatre barres d'un trait.
+        // Four two-stroke brackets, four one-stroke bars.
         Assert.Equal(12, brackets.Count);
         Assert.All(brackets, rect =>
         {
@@ -131,7 +131,7 @@ public sealed class ObsPreviewGraphicsTests
     {
         var dashes = ObsPreviewGraphics.DashedEdges(x: -100, y: 0, width: 60, height: 20, thickness: 1, dash: 10);
 
-        // Trois tirets par grand côté, un par petit côté, chacun en double.
+        // Three dashes per long side, one per short side, each drawn twice.
         Assert.Equal(3 * 2 + 1 * 2, dashes.Count);
         Assert.Contains(new PreviewFillRect(-100, 0, 10, 1), dashes);
         Assert.Contains(new PreviewFillRect(-80, 19, 10, 1), dashes);
@@ -165,7 +165,7 @@ public sealed class ObsPreviewGraphicsTests
     [Fact]
     public void Only_a_zoomed_source_with_room_for_it_carries_a_zoom_badge()
     {
-        // Le canvas est montré à moitié : une pastille de 80 × 22 pixels d'écran en couvre le double.
+        // The canvas is shown at half size: an 80 × 22 screen-pixel badge covers twice that.
         var metrics = ObsPreviewGraphics.MetricsFor(viewportWidth: 960, canvasWidth: 1920);
         var source = new SourceTransform(Guid.NewGuid(), 0, 0, 640, 360, 1, 1, SourceCrop.None, 640, 360, true);
 
@@ -194,7 +194,7 @@ public sealed class ObsPreviewGraphicsTests
         var plate = shapes.Value.Plate;
         Assert.Equal(1280 - 8, plate.X + plate.Width, 3);
         Assert.Equal(720 - 8, plate.Y + plate.Height, 3);
-        // Calée en haut à droite de l'image, la fenêtre en couvre la moitié de chaque côté.
+        // Set in the top right of the picture, the window covers half of it on each side.
         var window = shapes.Value.Window;
         Assert.Equal(plate.X + plate.Width / 2, window.X, 3);
         Assert.Equal(plate.Y, window.Y, 3);

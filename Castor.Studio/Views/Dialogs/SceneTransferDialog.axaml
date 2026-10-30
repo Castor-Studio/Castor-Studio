@@ -41,7 +41,7 @@
             BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
 		<Grid RowDefinitions="46, 1, Auto, *, 1, 54">
 
-			<!-- ── Header (déplaçable) ── -->
+			<!-- ── Header (draggable) ── -->
 			<Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="16,0,10,0"
                   Background="Transparent"
                   PointerPressed="OnHeaderPointerPressed">
@@ -66,7 +66,7 @@
                           FontSize="12" Foreground="{DynamicResource AppFg3}"/>
 			</StackPanel>
 
-			<!-- ── Scènes ── -->
+			<!-- ── Scenes ── -->
 			<Panel Grid.Row="3" Margin="10,0,10,8">
 				<ListBox Classes="scene-transfer-list"
                          ItemsSource="{Binding Items}"
@@ -98,7 +98,7 @@
 
 			<Rectangle Grid.Row="4" Fill="{DynamicResource AppBorder}"/>
 
-			<!-- ── Pied : combien seront écrites, puis annuler / confirmer ── -->
+			<!-- ── Footer: how many will be written, then cancel / confirm ── -->
 			<Grid Grid.Row="5" ColumnDefinitions="*, Auto, 8, Auto" Margin="16,0">
 				<TextBlock Grid.Column="0" Text="{Binding Summary}"
                            Foreground="{DynamicResource AppFg3}" FontSize="11"

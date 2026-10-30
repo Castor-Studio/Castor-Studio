@@ -5,9 +5,9 @@
              x:Class="CastorApplication.Views.Multicam.MulticamAiBarView"
              x:DataType="vm:MulticamViewModel">
 
-	<!-- Bas de la carte du panneau : la barre du dock arrondit le haut (DockTheme.axaml).
-	     Ne restent ici que les réglages de l'IA : sa suggestion s'affiche sur la tuile de la
-	     scène proposée (MulticamTileView), là où l'opérateur regarde déjà. -->
+	<!-- Bottom of the panel card: the dock bar rounds the top (DockTheme.axaml).
+	     Only the AI settings remain here: its suggestion shows on the tile of the
+	     proposed scene (MulticamTileView), where the operator is already looking. -->
 	<Border Background="{DynamicResource AppSurface}" CornerRadius="0,0,6,6" Padding="14,6,14,14"
 	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 		<StackPanel Spacing="8" VerticalAlignment="Center">
