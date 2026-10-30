@@ -345,6 +345,31 @@ public static class CompositionGeometry
     public static SourcePlacement ResetCrop(SourceTransform start) =>
         WithCropOrigin(start, start.Placement with { Crop = SourceCrop.None });
 
+    /// <summary>La source vient au centre du canvas, sans changer de taille.</summary>
+    public static SourcePlacement CenterOnCanvas(SourceTransform start, double canvasWidth, double canvasHeight)
+    {
+        var (centerX, centerY) = Center(start);
+        return Move(start, canvasWidth / 2 - centerX, canvasHeight / 2 - centerY);
+    }
+
+    /// <summary>
+    /// La source prend la plus grande taille qui tient dans le canvas, proportions gardées,
+    /// et s'y centre. Une source tournée y tient tout entière, angle compris.
+    /// </summary>
+    public static SourcePlacement FitToCanvas(SourceTransform start, double canvasWidth, double canvasHeight)
+    {
+        var (left, top, right, bottom) = Bounds(start);
+        if (right <= left || bottom <= top) return start.Placement;
+
+        var factor = Math.Min(canvasWidth / (right - left), canvasHeight / (bottom - top));
+        var scaled = Preview(start, start.Placement with
+        {
+            ScaleX = start.ScaleX * factor,
+            ScaleY = start.ScaleY * factor
+        });
+        return CenterOnCanvas(scaled, canvasWidth, canvasHeight);
+    }
+
     /// <summary>
     /// La source tourne autour de son centre, de l'angle que le pointeur a parcouru autour
     /// de ce centre depuis <paramref name="originX"/>, <paramref name="originY"/>.

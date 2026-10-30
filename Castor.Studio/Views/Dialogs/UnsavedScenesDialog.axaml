@@ -60,7 +60,7 @@
                         Foreground="{DynamicResource AppFg3}"/>
 				<Button Classes="dlg-btn" Content="Enregistrer"
                         Command="{Binding SaveCommand}"
-                        Background="{DynamicResource AppAccentFg}" Foreground="{DynamicResource AppOnAccentFg}" BorderThickness="0"/>
+                        Background="{DynamicResource AppAccentFill}" Foreground="{DynamicResource AppOnAccentFg}" BorderThickness="0"/>
 			</StackPanel>
 
 		</Grid>

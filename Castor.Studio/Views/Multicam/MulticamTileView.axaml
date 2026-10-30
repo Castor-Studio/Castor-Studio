@@ -22,15 +22,25 @@
         DragDrop.DragOver="OnTileDragOver"
         DragDrop.Drop="OnTileDrop"
         ToolTip.Tip="Double-cliquez pour mettre cette scène à l'antenne"
-        Background="{DynamicResource AppSurface}"
-        CornerRadius="8" Margin="5"
-        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Padding="1">
+        Background="{DynamicResource AppChromeBg}"
+        CornerRadius="8" Margin="5">
 	<Border.Styles>
+		<Style Selector="Border.tile">
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="Padding" Value="1"/>
+		</Style>
+		<Style Selector="Border.band">
+			<Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+		</Style>
+		<Style Selector="Border.foot">
+			<Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+		</Style>
 		<Style Selector="Border.tile.aiConsidered">
-			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentFill}"/>
 		</Style>
 		<Style Selector="Border.tile.aiPick">
-			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentFill}"/>
 			<Setter Property="BorderThickness" Value="2"/>
 			<Setter Property="Padding" Value="0"/>
 		</Style>
@@ -64,7 +74,7 @@
 		</Style>
 
 		<Style Selector="Button.tile-action">
-			<Setter Property="Background" Value="{DynamicResource AppAccentFg}"/>
+			<Setter Property="Background" Value="{DynamicResource AppAccentFill}"/>
 			<Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
 			<Setter Property="BorderThickness" Value="0"/>
 			<Setter Property="Padding" Value="9,3"/>
@@ -81,7 +91,7 @@
 		     native est une fenêtre enfant Win32, Windows la compose au-dessus de tout ce
 		     qu'Avalonia peint. C'est aussi la poignée pour réordonner les scènes. -->
 		<Border Grid.Row="0" Classes="band"
-                Background="{DynamicResource AppSurface3}" Padding="12,7"
+                Padding="16,12"
                 CornerRadius="7,7,0,0"
                 Cursor="SizeAll"
                 PointerPressed="OnTileBandPointerPressed"
@@ -89,7 +99,7 @@
 			<Grid ColumnDefinitions="*, Auto">
 				<TextBlock Grid.Column="0" Text="{Binding Name}"
                            TextTrimming="CharacterEllipsis"
-                           FontSize="13" FontWeight="SemiBold"
+                           FontSize="15" FontWeight="Bold"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource AppFg1}"/>
 				<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5"
@@ -120,11 +130,11 @@
 			<StackPanel IsVisible="{Binding !HasVideo}" Spacing="4" Margin="12"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
 				<TextBlock Text="Aucune source vidéo" HorizontalAlignment="Center"
-                           FontSize="12" FontWeight="SemiBold"
+                           FontSize="13.5" FontWeight="Bold"
                            Foreground="{DynamicResource VideoFgBrush}"/>
 				<TextBlock Text="Ajoutez-en une dans l'onglet Scènes."
                            HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
-                           FontSize="11"
+                           FontSize="12.5"
                            Foreground="{DynamicResource VideoFgMutedBrush}"/>
 			</StackPanel>
 		</Panel>
@@ -139,27 +149,27 @@
                           ItemsSource="{Binding AiMicrophoneOptions}"
                           SelectedItem="{Binding AiMicrophone}"
                           ToolTip.Tip="Micro de la personne filmée, écouté par l'IA"
-                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="11"/>
+                          FontSize="11"/>
 				<ComboBox Grid.Column="1" MinWidth="120" Margin="6,0,0,0"
                           IsVisible="{Binding ShowAiRole}"
                           ItemsSource="{Binding AiRoleOptions}"
                           SelectedItem="{Binding AiRole}"
                           ToolTip.Tip="Rôle de la personne filmée dans le podcast"
-                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}" FontSize="11"/>
+                          FontSize="11"/>
 			</Grid>
 		</Border>
 
 		<!-- Le pied appartient à l'IA : la pastille qui inclut la scène dans l'analyse et,
 		     en mode agent, la suggestion à valider, là où se trouve la scène proposée. -->
 		<Border Grid.Row="3" Classes="foot"
-                Background="{DynamicResource AppSurface3}" Padding="12,5,8,5" MinHeight="34"
+                Padding="16,8" MinHeight="34"
                 CornerRadius="0,0,7,7">
 			<Grid ColumnDefinitions="*, Auto, Auto">
 				<TextBlock Grid.Column="0" Text="{Binding SourceCountText}"
                            IsVisible="{Binding !IsAiSelected}"
                            TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource AppFg4}" FontSize="11"/>
+                           Foreground="{DynamicResource AppFg5}" FontSize="12.5"/>
 
 				<TextBlock Grid.Column="0"
                            IsVisible="{Binding IsAiSelected}"
@@ -177,8 +187,17 @@
 				<ToggleButton Grid.Column="2" IsChecked="{Binding IsSelected}"
                               Classes="ai-pick" VerticalAlignment="Center"
                               Margin="6,0,0,0"
-                              Content="IA"
-                              ToolTip.Tip="Inclure cette scène dans l'analyse de l'IA"/>
+                              ToolTip.Tip="Inclure cette scène dans l'analyse de l'IA">
+					<StackPanel Orientation="Horizontal" Spacing="10">
+						<Viewbox Width="16" Height="16" VerticalAlignment="Center">
+							<Canvas Width="24" Height="24">
+								<Path Data="M10 3l1.9 5.1L17 10l-5.1 1.9L10 17l-1.9-5.1L3 10l5.1-1.9z M18 14l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9z"
+                                      Fill="{Binding $parent[ToggleButton].Foreground}"/>
+							</Canvas>
+						</Viewbox>
+						<TextBlock Text="Sélection IA" VerticalAlignment="Center"/>
+					</StackPanel>
+				</ToggleButton>
 			</Grid>
 		</Border>
 	</Grid>

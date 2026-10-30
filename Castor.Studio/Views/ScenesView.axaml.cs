@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -16,6 +17,38 @@ public partial class ScenesView : UserControl
     public ScenesView()
     {
         InitializeComponent();
+    }
+
+    // La barre d'outils du canvas : ses commandes passent par le moteur comme le menu de la
+    // source, puis l'aperçu reçoit aussitôt ce qui en reste.
+    private void Compose(Action<SceneCompositionViewModel> command)
+    {
+        if (DataContext is not ScenesViewModel viewModel) return;
+
+        command(viewModel.Composition);
+        ScenePreview.ShowComposition();
+    }
+
+    private void OnCenterSourceClick(object? sender, RoutedEventArgs e) => Compose(c => c.CenterSelected());
+
+    private void OnFitSourceClick(object? sender, RoutedEventArgs e) => Compose(c => c.FitSelected());
+
+    private void OnCropSourceClick(object? sender, RoutedEventArgs e) => Compose(c => c.ToggleCropMode());
+
+    private void OnResetSourceClick(object? sender, RoutedEventArgs e) => Compose(c => c.ResetSelected());
+
+    private void OnRotateRightClick(object? sender, RoutedEventArgs e) => Compose(c => c.RotateSelected(90));
+
+    private void OnRotateLeftClick(object? sender, RoutedEventArgs e) => Compose(c => c.RotateSelected(-90));
+
+    // Le curseur suit aussi la source choisie : seul un écart avec ce qu'elle montre déjà est
+    // une demande de l'opérateur.
+    private void OnZoomSliderChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        if (DataContext is not ScenesViewModel viewModel) return;
+        if (Math.Abs(e.NewValue - viewModel.Composition.SelectedZoomFactor) < 0.005) return;
+
+        Compose(c => c.ZoomSelected(e.NewValue));
     }
 
     private void OnSourceNameDoubleTapped(object? sender, TappedEventArgs e)

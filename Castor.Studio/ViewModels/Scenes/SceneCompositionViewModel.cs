@@ -94,6 +94,9 @@ public partial class SceneCompositionViewModel : ViewModelBase
     /// </summary>
     public bool IsCropping => Overlay.IsCropping;
 
+    /// <summary>Le zoom de la source choisie, pour le curseur de la barre d'outils.</summary>
+    public double SelectedZoomFactor => Selected?.Zoom.Factor ?? SourceZoom.MinFactor;
+
     [ObservableProperty] private string _status = "";
 
     internal SceneCompositionViewModel(ISourceRuntime sourceRuntime, TimeProvider? time = null)
@@ -531,6 +534,28 @@ public partial class SceneCompositionViewModel : ViewModelBase
         if (Selected is { } selected) Apply(selected, CompositionGeometry.RotateBy(selected, -selected.Rotation));
     }
 
+    /// <summary>La source choisie vient au centre du canvas.</summary>
+    public void CenterSelected()
+    {
+        if (Selected is { } selected) Apply(selected, CompositionGeometry.CenterOnCanvas(selected, _canvasWidth, _canvasHeight));
+    }
+
+    /// <summary>La source choisie remplit le canvas autant qu'elle le peut, proportions gardées.</summary>
+    public void FitSelected()
+    {
+        if (Selected is { } selected) Apply(selected, CompositionGeometry.FitToCanvas(selected, _canvasWidth, _canvasHeight));
+    }
+
+    /// <summary>La source choisie repart de zéro : ni rognage, ni rotation, ni zoom, ajustée au canvas.</summary>
+    public void ResetSelected()
+    {
+        if (Selected is not { } selected) return;
+
+        var plain = CompositionGeometry.Preview(selected, selected.Placement with { Crop = SourceCrop.None, Rotation = 0 });
+        Apply(selected, CompositionGeometry.FitToCanvas(plain, _canvasWidth, _canvasHeight));
+        ResetSelectedZoom();
+    }
+
     /// <summary>La source choisie reprend sa taille entière, ce qui était visible restant en place.</summary>
     public void ResetSelectedCrop()
     {
@@ -709,6 +734,10 @@ public partial class SceneCompositionViewModel : ViewModelBase
             selected != null && (_cropMode || _cropModifier),
             hovered,
             _gesture?.Guides ?? []);
+
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(IsCropMode));
+        OnPropertyChanged(nameof(SelectedZoomFactor));
     }
 
     // Pendant un geste, la source saisie est montrée là où il la demande, sans attendre

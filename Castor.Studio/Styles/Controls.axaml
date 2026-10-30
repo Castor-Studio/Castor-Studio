@@ -4,6 +4,114 @@
     <Style Selector=":is(Button)">
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
+    <!-- Les champs de l'app : même hauteur, même contour, partout. -->
+    <Style Selector="ComboBox">
+        <Setter Property="MinHeight" Value="38"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Background" Value="{DynamicResource AppChromeBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrong}"/>
+    </Style>
+    <!-- Action principale d'un écran vide. -->
+    <Style Selector="Button.primary">
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Padding" Value="20,0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Background" Value="{DynamicResource AppAccentFill}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentFill}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
+        <Setter Property="Opacity" Value="0.88"/>
+    </Style>
+    <!-- Ajouter : une scène, une source. -->
+    <Style Selector="Button.add">
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="MinWidth" Value="36"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.add:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <!-- Bouton à contour discret (barre du canvas). -->
+    <Style Selector="Button.outline">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrong}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <!-- Barre d'outils de la source choisie. -->
+    <Style Selector="Button.tool, ToggleButton.tool">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinWidth" Value="34"/>
+        <Setter Property="Padding" Value="9,0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.tool Path, ToggleButton.tool Path">
+        <Setter Property="Stroke" Value="{DynamicResource AppFg2}"/>
+        <Setter Property="StrokeThickness" Value="1.8"/>
+        <Setter Property="StrokeLineCap" Value="Round"/>
+        <Setter Property="StrokeJoin" Value="Round"/>
+    </Style>
+    <Style Selector="Button.tool:pointerover /template/ ContentPresenter, ToggleButton.tool:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+    </Style>
+    <Style Selector="ToggleButton.tool:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppAccentBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppAccentFg}"/>
+    </Style>
+    <Style Selector="Button.tool:disabled /template/ ContentPresenter, ToggleButton.tool:disabled /template/ ContentPresenter">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+    <!-- Enregistrer, au pied des Paramètres. -->
+    <Style Selector="Button.save">
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="Padding" Value="38,0"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="Background" Value="{DynamicResource AppSaveBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppSaveFg}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.save:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppSaveBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppSaveFg}"/>
+        <Setter Property="Opacity" Value="0.88"/>
+    </Style>
+    <Style Selector="Button.save:disabled /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppSaveBg}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppSaveFg}"/>
+        <Setter Property="Opacity" Value="0.55"/>
+    </Style>
     <Style Selector="FlyoutPresenter">
         <Setter Property="Background" Value="{DynamicResource AppSurface}"/>
         <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
@@ -77,8 +185,9 @@
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="FontSize" Value="12"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="5"/>
         <Setter Property="Padding" Value="10,6"/>
+        <Setter Property="MinHeight" Value="34"/>
     </Style>
     <Style Selector="Button.ctrl-btn:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
@@ -103,9 +212,9 @@
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Padding" Value="10,8"/>
+        <Setter Property="Padding" Value="14,9"/>
         <Setter Property="CornerRadius" Value="5"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="14"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.scene-toolbar-item:pointerover /template/ ContentPresenter, ToggleButton.scene-toolbar-item:pointerover /template/ ContentPresenter">
@@ -126,18 +235,19 @@
          au clavier comme au lecteur d'écran. L'option déjà choisie ne réagit plus : la
          recliquer relancerait sa commande (redémarrer une session IA, par exemple). -->
     <Style Selector="Border.segmented">
-        <Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder}"/>
+        <Setter Property="Background" Value="{DynamicResource AppChromeBg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="7"/>
-        <Setter Property="Padding" Value="2"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="ClipToBounds" Value="True"/>
     </Style>
     <Style Selector="RadioButton.segment">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
-        <Setter Property="Padding" Value="12,5"/>
-        <Setter Property="CornerRadius" Value="5"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Padding" Value="16,8"/>
+        <Setter Property="CornerRadius" Value="0"/>
+        <Setter Property="FontSize" Value="13.5"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <ControlTemplate>
@@ -149,7 +259,7 @@
                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                           Foreground="{TemplateBinding Foreground}"/>
                     </Border>
-                    <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFg}"
+                    <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFill}"
                             BorderThickness="1" CornerRadius="{TemplateBinding CornerRadius}"
                             IsVisible="False"/>
                 </Panel>
@@ -176,13 +286,14 @@
          sans la survoler, et elle se lit à la même distance que les autres pastilles. -->
     <Style Selector="ToggleButton.ai-pick">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource AppBorder2}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderStrong}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding" Value="9,3"/>
-        <Setter Property="CornerRadius" Value="4"/>
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Height" Value="34"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="Medium"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="ToggleButton.ai-pick:pointerover /template/ ContentPresenter">
@@ -190,19 +301,21 @@
         <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>
     </Style>
     <Style Selector="ToggleButton.ai-pick:checked /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="Background" Value="{DynamicResource AppAccentFill}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppOnAccentFg}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFill}"/>
     </Style>
 
     <Style Selector="Button.nav">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding" Value="20,0"/>
-        <Setter Property="Height" Value="46"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="Height" Value="54"/>
+        <Setter Property="CornerRadius" Value="0"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontSize" Value="13"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LetterSpacing" Value="0.5"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Transitions">
@@ -210,7 +323,7 @@
         </Setter>
     </Style>
     <Style Selector="Button.nav:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
+        <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
     </Style>
 
@@ -218,10 +331,10 @@
     <Style Selector="Button.settings-gear">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Width" Value="32"/>
-        <Setter Property="Height" Value="32"/>
+        <Setter Property="Width" Value="36"/>
+        <Setter Property="Height" Value="36"/>
         <Setter Property="Padding" Value="0"/>
-        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -260,9 +373,11 @@
         <Setter Property="BorderThickness" Value="3,0,0,0"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        <Setter Property="Padding" Value="15,10"/>
+        <Setter Property="Padding" Value="18,0"/>
+        <Setter Property="Height" Value="42"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="15"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <ControlTemplate>
@@ -274,10 +389,11 @@
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"
                                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center"
                                           Foreground="{TemplateBinding Foreground}"/>
                     </Border>
                     <!-- Repère du focus clavier, distinct du survol. -->
-                    <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFg}"
+                    <Border Name="PART_FocusRing" BorderBrush="{DynamicResource AppAccentFill}"
                             BorderThickness="1" IsVisible="False"/>
                 </Panel>
             </ControlTemplate>
@@ -289,7 +405,7 @@
     </Style>
     <Style Selector="RadioButton.settings-nav:checked">
         <Setter Property="Background" Value="{DynamicResource AppAccentBg2}"/>
-        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFg}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppAccentFill}"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
@@ -301,13 +417,14 @@
     </Style>
     <Style Selector="TextBlock.setting-label">
         <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
-        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontSize" Value="15"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style Selector="TextBlock.section-title">
-        <Setter Property="FontSize" Value="11"/>
-        <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LetterSpacing" Value="0.5"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppFg3}"/>
         <Setter Property="Margin" Value="0,0,0,12"/>
     </Style>
     <Style Selector="Button.platform-connect">

@@ -43,6 +43,29 @@ public partial class StudioPreview : UserControl
     public static readonly StyledProperty<bool> ShowSceneNameProperty =
         AvaloniaProperty.Register<StudioPreview, bool>(nameof(ShowSceneName), true);
 
+    /// <summary>Whether a thin frame marks the edges of the canvas.</summary>
+    public static readonly StyledProperty<bool> ShowCanvasFrameProperty =
+        AvaloniaProperty.Register<StudioPreview, bool>(nameof(ShowCanvasFrame));
+
+    /// <summary>
+    /// Shows the canvas pixel for pixel rather than fitted, as far as the area allows: the
+    /// native surface cannot be clipped by the page, so it never grows past the area.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsActualSizeProperty =
+        AvaloniaProperty.Register<StudioPreview, bool>(nameof(IsActualSize));
+
+    public bool ShowCanvasFrame
+    {
+        get => GetValue(ShowCanvasFrameProperty);
+        set => SetValue(ShowCanvasFrameProperty, value);
+    }
+
+    public bool IsActualSize
+    {
+        get => GetValue(IsActualSizeProperty);
+        set => SetValue(IsActualSizeProperty, value);
+    }
+
     public bool ShowSceneName
     {
         get => GetValue(ShowSceneNameProperty);
@@ -132,7 +155,8 @@ public partial class StudioPreview : UserControl
         SizeChanged += (_, _) => UpdatePreviewViewport();
         PropertyChanged += (_, change) =>
         {
-            if (change.Property == BaseCanvasWidthProperty || change.Property == BaseCanvasHeightProperty)
+            if (change.Property == BaseCanvasWidthProperty || change.Property == BaseCanvasHeightProperty
+                || change.Property == IsActualSizeProperty)
                 UpdatePreviewViewport();
         };
         UpdatePreviewViewport();
@@ -477,6 +501,9 @@ public partial class StudioPreview : UserControl
         return item;
     }
 
+    /// <summary>Redonne au moteur l'overlay tel qu'une commande extérieure vient de le changer.</summary>
+    internal void ShowComposition() => NativePreview.ShowComposition();
+
     private static string FormatZoom(double factor) => $"×{factor:0.0}";
 
     // Rattrape un pointeur qui s'arrête entre deux écritures : sans lui, la dernière
@@ -596,8 +623,13 @@ public partial class StudioPreview : UserControl
         if (BaseCanvasWidth <= 0 || BaseCanvasHeight <= 0 || Bounds.Width <= 0 || Bounds.Height <= 0)
             return;
 
-        var scale = Math.Min(Bounds.Width / BaseCanvasWidth, Bounds.Height / BaseCanvasHeight);
+        // Le liseré se pose autour de la surface : elle lui laisse sa place dans la zone.
+        var frame = ShowCanvasFrame ? 2 : 0;
+        var scale = Math.Min((Bounds.Width - frame) / BaseCanvasWidth, (Bounds.Height - frame) / BaseCanvasHeight);
+        if (IsActualSize) scale = Math.Min(scale, 1 / (TopLevel.GetTopLevel(this)?.RenderScaling ?? 1));
         NativePreview.Width = Math.Max(1, Math.Round(BaseCanvasWidth * scale));
         NativePreview.Height = Math.Max(1, Math.Round(BaseCanvasHeight * scale));
+        CanvasFrame.Width = NativePreview.Width + frame;
+        CanvasFrame.Height = NativePreview.Height + frame;
     }
 }

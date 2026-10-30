@@ -4,7 +4,7 @@
              x:Class="CastorApplication.Views.Settings.Sections.VideoSettingsView"
              x:DataType="vm:VideoSettingsViewModel">
 
-    <StackPanel Margin="28,20"
+    <StackPanel Margin="33,24"
                 Spacing="28">
 
         <StackPanel Spacing="14">
@@ -12,7 +12,7 @@
             <TextBlock Text="VIDÉO"
                        Classes="section-title"/>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Résolution de base"
@@ -28,7 +28,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Résolution de sortie"
@@ -48,7 +48,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Images par seconde"
@@ -67,7 +67,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Débit enregistrement (kbps)"

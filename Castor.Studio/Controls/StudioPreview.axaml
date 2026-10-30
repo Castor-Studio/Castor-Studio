@@ -4,18 +4,26 @@
              x:Class="CastorApplication.Controls.StudioPreview"
              x:Name="PreviewRoot"
              x:DataType="controls:StudioPreview"
+             Background="Black"
              Focusable="True">
     <!-- Le pointeur ne peut pas atterrir sur la surface native : elle se déclare
          transparente aux tests de survol, et l'hôte ne teste pas le survol. Il tombe donc
          ici, sur le fond, qui le ramène dans le repère du canvas. -->
     <Panel x:Name="Picture"
-           Background="Black"
+           Background="{Binding #PreviewRoot.Background}"
            PointerPressed="OnPicturePointerPressed"
            PointerMoved="OnPicturePointerMoved"
            PointerReleased="OnPicturePointerReleased"
            PointerCaptureLost="OnPicturePointerCaptureLost"
            PointerWheelChanged="OnPicturePointerWheelChanged"
            PointerExited="OnPicturePointerExited">
+        <!-- Le liseré du canvas, un pixel autour de la surface native qui le recouvre sinon. -->
+        <Border x:Name="CanvasFrame"
+                IsVisible="{Binding #PreviewRoot.ShowCanvasFrame}"
+                IsHitTestVisible="False"
+                BorderBrush="{DynamicResource AppAccentFill}" BorderThickness="1"
+                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
         <controls:ObsPreviewHost x:Name="NativePreview"
                                  IsHitTestVisible="False"
                                  Scene="{Binding #PreviewRoot.Scene}"

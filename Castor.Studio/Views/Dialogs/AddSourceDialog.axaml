@@ -308,7 +308,7 @@
 				<Button Grid.Column="4" Classes="dlg-btn" Content="Ajouter à la scène"
                         Command="{Binding ConfirmCommand}"
                         IsEnabled="{Binding CanConfirm}"
-                        Background="{DynamicResource AppAccentFg}" Foreground="{DynamicResource AppOnAccentFg}" BorderThickness="0"/>
+                        Background="{DynamicResource AppAccentFill}" Foreground="{DynamicResource AppOnAccentFg}" BorderThickness="0"/>
 			</Grid>
 
 		</Grid>

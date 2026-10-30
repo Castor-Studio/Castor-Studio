@@ -68,6 +68,13 @@ public partial class StudioViewModel : ViewModelBase
 
     public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
 
+    // Les écrans vides de l'aperçu. Un moteur indisponible n'en est pas un : l'aperçu dit
+    // lui-même ce qui ne va pas.
+    public bool ShowNoScene => _previewRuntime.IsAvailable && ActiveScene == null;
+    public bool ShowNoVideoSource => _previewRuntime.IsAvailable && ActiveScene != null
+        && !StudioWorkspaceViewModel.HasVideoSource(ActiveScene);
+    public bool ShowEmptyPreview => ShowNoScene || ShowNoVideoSource;
+
     // Passage d'une scène à l'autre sur le live et l'enregistrement. La preview, elle, coupe
     // toujours sec : elle montre la scène active, pas la sortie programme.
     public IReadOnlyList<SceneTransitionOption> TransitionOptions => SceneTransitionOption.All;
@@ -123,6 +130,12 @@ public partial class StudioViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenAccountSettings() => AccountSettingsRequested?.Invoke(this, EventArgs.Empty);
+
+    // The empty preview leads to the Scenes page, where scenes and sources are made (MainViewModel).
+    public event EventHandler? ScenesPageRequested;
+
+    [RelayCommand]
+    private void OpenScenes() => ScenesPageRequested?.Invoke(this, EventArgs.Empty);
 
     // Errors only: they stay until dismissed (closing their flyout) or until the scene or the
     // page changes, so a failure from an earlier attempt is not shown as a current one.
@@ -793,6 +806,9 @@ public partial class StudioViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(PreviewPlaceholderText));
         OnPropertyChanged(nameof(ShowPreviewPlaceholder));
+        OnPropertyChanged(nameof(ShowNoScene));
+        OnPropertyChanged(nameof(ShowNoVideoSource));
+        OnPropertyChanged(nameof(ShowEmptyPreview));
     }
 
     private void NotifySessionStateChanged()

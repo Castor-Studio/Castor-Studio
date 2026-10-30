@@ -49,14 +49,14 @@ public sealed class ScenesViewModelRuntimeTests
         var viewModel = CreateViewModel(new FakeSceneRuntime());
 
         Assert.False(viewModel.OpenAddSourceCommand.CanExecute(null));
-        Assert.Contains("Créez-en une", viewModel.SourceListPlaceholder);
+        Assert.Contains("créez une scène", viewModel.SourceListPlaceholder);
         Assert.Contains("scène", viewModel.AddSourceToolTip);
 
         CreateScene(viewModel, "Scène");
 
         Assert.True(viewModel.OpenAddSourceCommand.CanExecute(null));
         Assert.Equal("Ajouter une source", viewModel.AddSourceToolTip);
-        Assert.Equal("Aucune source. Ajoutez-en une avec +.", viewModel.SourceListPlaceholder);
+        Assert.Equal("Aucune source dans cette scène. Utilisez « Ajouter une source » pour commencer.", viewModel.SourceListPlaceholder);
     }
 
     [Fact]
@@ -631,7 +631,7 @@ public sealed class ScenesViewModelRuntimeTests
         workspace.AddSource(scene, new SourceDefinition { Name = "Micro 2", Kind = SourceKind.Audio });
 
         Assert.Empty(viewModel.DisplayedSources);
-        Assert.Equal("Aucune source. Ajoutez-en une avec +.", viewModel.SourceListPlaceholder);
+        Assert.Equal("Aucune source dans cette scène. Utilisez « Ajouter une source » pour commencer.", viewModel.SourceListPlaceholder);
     }
 
     [Fact]

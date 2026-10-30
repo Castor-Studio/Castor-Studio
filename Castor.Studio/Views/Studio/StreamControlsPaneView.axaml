@@ -20,23 +20,27 @@
 	</UserControl.Styles>
 
 	<!-- Bottom half of the pane card: rounds/outlines the sides + bottom, the dock's title bar does the top (DockTheme.axaml). -->
-	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="10,8"
+	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,6,6" Padding="11,0,11,10"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
-		<!-- UniformGrid, not WrapPanel: the two visible buttons share the space equally,
-             which centres them by symmetry, lets them shrink together instead of wrapping
-             into a second line the slim bottom bar can't fit, and rules out overlap.
-             2 columns in landscape, 1 column (stacked) in portrait; Rows=0 = auto. -->
-		<UniformGrid VerticalAlignment="Center" Rows="0"
-                     Columns="{Binding #PaneRoot.Bounds, Converter={x:Static converters:PortraitColumnsConverter.Instance}}">
+		<!-- The two actions stacked, one above the other, each with its full label. -->
+		<UniformGrid VerticalAlignment="Center" Rows="0" Columns="1">
 
 			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                     x:Name="GoLiveButton"
-                    Content="LANCER LE LIVE"
                     IsVisible="{Binding !IsStreaming}"
                     IsEnabled="{Binding !IsStreamingTransition}"
                     Classes="ctrl-btn"
-                    Background="{DynamicResource AppLiveBg}" Foreground="{DynamicResource StatusOkBrush}"
-                    BorderBrush="{DynamicResource AppLiveBorder}">
+                    Background="{StaticResource AppGoLiveFill}" Foreground="{StaticResource AppGoLiveFg}"
+                    BorderBrush="{StaticResource AppGoLiveBorder}">
+				<StackPanel Orientation="Horizontal" Spacing="10">
+					<Viewbox Width="18" Height="18" VerticalAlignment="Center">
+						<Canvas Width="24" Height="24">
+							<Path Data="M10 12a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M8.5 8.5a5 5 0 0 0 0 7 M15.5 8.5a5 5 0 0 1 0 7 M5.6 5.6a9 9 0 0 0 0 12.8 M18.4 5.6a9 9 0 0 1 0 12.8"
+                                  Stroke="{StaticResource AppGoLiveFg}" StrokeThickness="2" StrokeLineCap="Round"/>
+						</Canvas>
+					</Viewbox>
+					<TextBlock Text="DIFFUSER EN DIRECT" VerticalAlignment="Center"/>
+				</StackPanel>
 				<Button.Flyout>
 					<Flyout Placement="Top">
 						<StackPanel Width="280" Spacing="12" Margin="4"
@@ -67,7 +71,7 @@
                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                     Padding="10,8" CornerRadius="5" Cursor="Hand"
                                     Background="{DynamicResource AppAccentBg}"
-                                    BorderBrush="{DynamicResource AppAccentFg}" BorderThickness="1"
+                                    BorderBrush="{DynamicResource AppAccentFill}" BorderThickness="1"
                                     Foreground="{DynamicResource AppAccentFg}"
                                     FontSize="12" FontWeight="SemiBold"
                                     Content="Connecter un compte"
@@ -101,20 +105,24 @@
 			     shown again on hover. -->
 			<Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !IsRecording}">
 				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
-                        Content="ENREGISTRER"
                         Command="{Binding StartRecordingCommand}"
                         ToolTip.Tip="{Binding RecordingButtonToolTip}"
                         ToolTip.ShowOnDisabled="True"
                         Classes="ctrl-btn"
-                        Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
-                        BorderBrush="{DynamicResource AppRecBorder}"/>
+                        Background="{StaticResource AppRecFill}" Foreground="{StaticResource AppRecFillFg}"
+                        BorderBrush="{StaticResource AppRecFillBorder}">
+					<StackPanel Orientation="Horizontal" Spacing="10">
+						<Ellipse Width="10" Height="10" Fill="{StaticResource AppRecFillFg}" VerticalAlignment="Center"/>
+						<TextBlock Text="ENREGISTRER" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Button>
 				<Button Grid.Column="1" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                         Content="▾"
                         ToolTip.Tip="Choisir les scènes à enregistrer"
                         AutomationProperties.Name="Choisir les scènes à enregistrer"
                         Classes="ctrl-btn"
-                        Background="{DynamicResource AppRecBg}" Foreground="{DynamicResource StatusRecBrush}"
-                        BorderBrush="{DynamicResource AppRecBorder}">
+                        Background="{StaticResource AppRecFill}" Foreground="{StaticResource AppRecFillFg}"
+                        BorderBrush="{StaticResource AppRecFillBorder}">
 					<Button.Flyout>
 						<Flyout Placement="Top">
 							<StackPanel Width="300" Spacing="10" Margin="4">

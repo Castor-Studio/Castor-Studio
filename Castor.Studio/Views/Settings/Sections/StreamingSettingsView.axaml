@@ -4,7 +4,7 @@
              x:Class="CastorApplication.Views.Settings.Sections.StreamingSettingsView"
              x:DataType="vm:StreamingSettingsViewModel">
 
-    <StackPanel Margin="28,20"
+    <StackPanel Margin="33,24"
                 Spacing="28">
 
         <StackPanel Spacing="14">
@@ -12,7 +12,7 @@
             <TextBlock Text="STREAMING"
                        Classes="section-title"/>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Destination"
@@ -29,7 +29,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Débit stream (kbps)"

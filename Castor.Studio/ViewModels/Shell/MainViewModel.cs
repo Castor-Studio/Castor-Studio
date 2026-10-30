@@ -91,6 +91,9 @@ public partial class MainViewModel : ViewModelBase
             _settingsViewModel.ShowAccounts();
         };
 
+        _studioViewModel.ScenesPageRequested += (_, _) => ShowScenes();
+        _multicamViewModel.ScenesPageRequested += (_, _) => ShowScenes();
+
         PanelMenu =
         [
             .. _studioDockViewModel.Panels.Select(panel =>

@@ -9,6 +9,14 @@
 	<UserControl.Styles>
 		<!-- La grande image du Spotlight porte le même tally que les tuiles : vert tant que
 		     la scène est seulement choisie, rouge dès qu'elle est streamée ou enregistrée. -->
+		<Style Selector="Border.spotlight">
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorder}"/>
+			<Setter Property="BorderThickness" Value="1"/>
+			<Setter Property="Padding" Value="1"/>
+		</Style>
+		<Style Selector="Border.band">
+			<Setter Property="Background" Value="{DynamicResource AppSurface3}"/>
+		</Style>
 		<Style Selector="Border.spotlight.onAir">
 			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
 			<Setter Property="BorderThickness" Value="2"/>
@@ -55,7 +63,7 @@
 	</UserControl.Styles>
 
 	<!-- Bas de la carte du panneau : la barre du dock arrondit le haut (DockTheme.axaml). -->
-	<Border Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" ClipToBounds="True"
+	<Border Background="{DynamicResource AppSurface}" CornerRadius="0,0,6,6" ClipToBounds="True"
 	        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 	<Grid RowDefinitions="Auto, *">
 
@@ -63,7 +71,7 @@
 		     l'aperçu est sorti dans sa propre fenêtre, le choix du mode doit partir avec
 		     lui, sinon on se retrouve avec un affichage qu'on ne peut plus changer. -->
 		<Border Grid.Row="0" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
-                Padding="10,8">
+                Padding="12,4,12,12">
 			<Grid ColumnDefinitions="Auto, Auto, *, Auto">
 				<Border Grid.Column="0" Classes="segmented" VerticalAlignment="Center">
 					<StackPanel Orientation="Horizontal" Spacing="2">
@@ -81,10 +89,9 @@
 				<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="16,0,0,0"
                             VerticalAlignment="Center" IsVisible="{Binding IsGridLayout}">
 					<TextBlock Text="Colonnes" VerticalAlignment="Center"
-                               FontSize="12" Foreground="{DynamicResource AppFg3}"/>
-					<ComboBox SelectedIndex="{Binding ColumnChoice}" Width="88"
-                              VerticalAlignment="Center"
-                              Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}">
+                               FontSize="14" Foreground="{DynamicResource AppFg3}"/>
+					<ComboBox SelectedIndex="{Binding ColumnChoice}" Width="102"
+                              VerticalAlignment="Center">
 						<ComboBoxItem Content="Auto"/>
 						<ComboBoxItem Content="1"/>
 						<ComboBoxItem Content="2"/>
@@ -96,23 +103,23 @@
 				<Border Grid.Column="2" Classes="output-chip" Classes.live="{Binding IsOutputLive}"
                         IsVisible="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
                         HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,8,0"
-                        BorderThickness="1" CornerRadius="12" Padding="10,4"
+                        BorderThickness="1" CornerRadius="17" Height="34" Padding="14,0"
                         ToolTip.Tip="Scène envoyée au stream et à l'enregistrement">
 					<StackPanel Orientation="Horizontal" Spacing="7">
 						<Ellipse Width="7" Height="7" VerticalAlignment="Center"/>
 						<TextBlock Classes="state" Text="{Binding OutputLabel}"
-                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                   FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
 						<Rectangle Width="1" Height="12" Fill="{DynamicResource AppBorder2}" VerticalAlignment="Center"/>
 						<TextBlock Text="{Binding SpotlightScene.Name, FallbackValue=''}"
                                    MaxWidth="220" TextTrimming="CharacterEllipsis"
-                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   FontSize="13" FontWeight="Bold" VerticalAlignment="Center"
                                    Foreground="{DynamicResource AppFg1}"/>
 					</StackPanel>
 				</Border>
 
 				<Button Grid.Column="3" Command="{Binding RefreshTilesCommand}"
                         Background="Transparent" BorderThickness="0"
-                        Width="30" Height="30" Padding="0" CornerRadius="6" Cursor="Hand"
+                        Width="36" Height="36" Padding="0" CornerRadius="6" Cursor="Hand"
                         HorizontalContentAlignment="Center"
                         ToolTip.Tip="Actualiser les aperçus"
                         AutomationProperties.Name="Actualiser les aperçus">
@@ -131,14 +138,13 @@
 		     espace de 10 px entre deux tuiles qu'entre une tuile et le bord. -->
 		<Panel Grid.Row="1" Background="{DynamicResource AppBg}">
 
-			<StackPanel IsVisible="{Binding !HasScenes}" Spacing="4" Margin="24"
-                        HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock Text="Aucune scène pour l'instant" HorizontalAlignment="Center"
-                           FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppFg1}"/>
-				<TextBlock Text="Créez une scène dans l'onglet Scènes : elle apparaîtra ici, en direct."
-                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
-                           FontSize="12" Foreground="{DynamicResource AppFg4}"/>
-			</StackPanel>
+			<controls:EmptyState IsVisible="{Binding !HasScenes}"
+                                 Title="Aucune scène pour l'instant"
+                                 Description="Créez une scène dans l'onglet Scènes : elle apparaîtra ici, en direct.">
+				<controls:EmptyState.Action>
+					<Button Classes="primary" Content="Créer une scène" Command="{Binding OpenScenesCommand}"/>
+				</controls:EmptyState.Action>
+			</controls:EmptyState>
 
 			<!-- Grille : toutes les scènes à la même taille. -->
 			<ItemsControl IsVisible="{Binding IsGridLayout}" ItemsSource="{Binding Tiles}" Margin="5">
@@ -164,11 +170,10 @@
                         Classes.onAir="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
                         Classes.live="{Binding IsOutputLive}"
                         Background="{DynamicResource AppSurface}"
-                        CornerRadius="8" Margin="5"
-                        BorderBrush="{DynamicResource AppBorder}" BorderThickness="1" Padding="1">
+                        CornerRadius="8" Margin="5">
 					<Grid RowDefinitions="Auto, *">
 						<Border Grid.Row="0" Classes="band"
-                                Background="{DynamicResource AppSurface3}" Padding="14,8"
+                                Padding="14,8"
                                 CornerRadius="7,7,0,0">
 							<Grid ColumnDefinitions="*, Auto">
 								<TextBlock Grid.Column="0" Text="{Binding SpotlightScene.Name, FallbackValue=''}"

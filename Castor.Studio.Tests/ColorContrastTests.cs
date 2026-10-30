@@ -14,7 +14,8 @@ public sealed class ColorContrastTests
     private static readonly string[] TextBackgrounds =
     [
         "AppBg", "AppSurface", "AppSurface2", "AppSurface3", "AppBadgeBg",
-        "AppNavHoverBg", "AppNavBadgeBg", "AppAccentBg", "AppAccentBg2"
+        "AppNavHoverBg", "AppNavBadgeBg", "AppAccentBg", "AppAccentBg2",
+        "AppChromeBg", "AppSidebarBg", "AppPanelBg"
     ];
 
     private static readonly string[] TextForegrounds =
@@ -33,7 +34,10 @@ public sealed class ColorContrastTests
         ("StatusErrorBrush", "AppErrorBg", Text),
         ("AppOnStatusFg", "StatusOkBrush", Text),
         ("AppOnStatusFg", "StatusErrorBrush", Text),
-        ("AppOnAccentFg", "AppAccentFg", Text),
+        ("AppOnAccentFg", "AppAccentFill", Text),
+        ("AppSaveFg", "AppSaveBg", Text),
+        ("AppGoLiveFg", "AppGoLiveFill", Text),
+        ("AppRecFillFg", "AppRecFill", Text),
         // The ✕ of an error MessageBar under the pointer.
         ("AppFg1", "AppErrorBorder", Text),
     ];

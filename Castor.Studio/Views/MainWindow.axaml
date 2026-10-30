@@ -12,7 +12,7 @@
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaTitleBarHeightHint="32"
+        ExtendClientAreaTitleBarHeightHint="37"
         Icon="/Assets/castor.png">
 
 	<Window.KeyBindings>
@@ -24,7 +24,7 @@
 
 	<!-- Maximized, Windows pushes the frame past the screen edges: OffScreenMargin pulls the
 	     content back so the title bar is not cut off at the top. -->
-	<Grid RowDefinitions="32,48,*" Margin="{Binding $parent[Window].OffScreenMargin}">
+	<Grid RowDefinitions="37,56,*" Margin="{Binding $parent[Window].OffScreenMargin}">
 
 		<!-- ═══ BARRE DE TITRE + MENUS ═══
 		     The menu lives in the title bar, Visual Studio style, instead of a row of its own
@@ -32,7 +32,7 @@
 		     maximize); the menu is marked as user content so its clicks reach it. Avalonia draws
 		     the icon + window title on the left and the minimize / maximize / close buttons on
 		     the right over this bar: the margins keep the menu clear of both. -->
-		<Border Grid.Row="0" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
+		<Border Grid.Row="0" Background="{DynamicResource AppChromeBg}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1"
                 chrome:WindowDecorationProperties.ElementRole="TitleBar">
 			<StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="100,0,140,0">
 			<Menu Background="Transparent" Padding="2,0" VerticalAlignment="Center"
@@ -78,18 +78,18 @@
 		</Border>
 
 		<!-- ═══ NAVBAR ═══ -->
-		<Border Grid.Row="1" Background="{DynamicResource AppSurface}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
-			<Grid ColumnDefinitions="220,*,220">
+		<Border Grid.Row="1" Background="{DynamicResource AppChromeBg}" BorderBrush="{DynamicResource AppBorder}" BorderThickness="0,0,0,1">
+			<Grid ColumnDefinitions="280,*,280">
 
 				<!-- Logo -->
 				<StackPanel Grid.Column="0"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
-                            Spacing="10"
+                            Spacing="12"
                             Margin="16,0">
-					<Image Height="26" Width="26" Source="/Assets/castor.png"/>
+					<Image Height="38" Width="38" Source="/Assets/logo.png"/>
 					<TextBlock Text="CASTOR"
-                               FontSize="15"
+                               FontSize="17"
                                FontWeight="Bold"
                                Foreground="{DynamicResource AppFg1}"
                                VerticalAlignment="Center"/>
@@ -98,6 +98,7 @@
 				<!-- Navigation tabs -->
 				<StackPanel Grid.Column="1"
                             Orientation="Horizontal"
+                            Spacing="8"
                             HorizontalAlignment="Center">
 
 					<!-- STUDIO -->
@@ -105,9 +106,9 @@
 						<Button Classes="nav" Content="STUDIO"
                                 Command="{Binding ShowStudioCommand}"/>
 						<Border Height="2" CornerRadius="1"
-                                Background="{DynamicResource AppAccentFg}"
+                                Background="{DynamicResource AppAccentFill}"
                                 IsVisible="{Binding IsStudioActive}"
-                                Margin="8,0"/>
+                                />
 					</StackPanel>
 
 					<!-- MULTICAM -->
@@ -115,9 +116,9 @@
 						<Button Classes="nav" Content="MULTICAM"
                                 Command="{Binding ShowMulticamCommand}"/>
 						<Border Height="2" CornerRadius="1"
-                                Background="{DynamicResource AppAccentFg}"
+                                Background="{DynamicResource AppAccentFill}"
                                 IsVisible="{Binding IsMulticamActive}"
-                                Margin="8,0"/>
+                                />
 					</StackPanel>
 
 					<!-- SCENES -->
@@ -125,9 +126,9 @@
 						<Button Classes="nav" Content="SCÈNES"
                                 Command="{Binding ShowScenesCommand}"/>
 						<Border Height="2" CornerRadius="1"
-                                Background="{DynamicResource AppAccentFg}"
+                                Background="{DynamicResource AppAccentFill}"
                                 IsVisible="{Binding IsScenesActive}"
-                                Margin="8,0"/>
+                                />
 					</StackPanel>
 
 				</StackPanel>
@@ -141,32 +142,33 @@
                             Margin="16,0">
 
 					<!-- Badge d'état global : OFFLINE / REC / EN DIRECT -->
-					<Border Background="{DynamicResource AppSurface3}"
-                            BorderBrush="{DynamicResource AppBorder}"
+					<Border Background="{DynamicResource AppBg}"
+                            BorderBrush="{DynamicResource AppBorder2}"
                             BorderThickness="1"
-                            CornerRadius="12"
-                            Padding="10,5">
-						<StackPanel Orientation="Horizontal" Spacing="6">
-							<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" VerticalAlignment="Center"/>
+                            CornerRadius="18"
+                            Height="36"
+                            Padding="14,0">
+						<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+							<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" VerticalAlignment="Center"/>
 							<TextBlock Text="{Binding GlobalStatusText}"
-                                       FontSize="11"
+                                       FontSize="12.5"
                                        FontWeight="SemiBold"
                                        Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
                                        VerticalAlignment="Center"/>
 							<!-- Scène active : ce qui part à l'enregistrement ou au live, lisible depuis
 							     n'importe quel espace de travail. Le choix reste au sélecteur du Studio. -->
-							<Rectangle Width="1" Height="12" Fill="{DynamicResource AppBorder2}" VerticalAlignment="Center"/>
+							<Rectangle Width="1" Height="14" Fill="{DynamicResource AppBorderStrong}" VerticalAlignment="Center"/>
 							<TextBlock Text="{Binding ActiveScene.Name}"
                                        IsVisible="{Binding ActiveScene, Converter={x:Static ObjectConverters.IsNotNull}}"
                                        MaxWidth="220" TextTrimming="CharacterEllipsis"
-                                       FontSize="11" FontWeight="SemiBold"
+                                       FontSize="12.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource AppFg1}"
                                        VerticalAlignment="Center"
                                        ToolTip.Tip="{Binding ActiveScene.Name, StringFormat='Scène active : {0}'}"/>
 							<TextBlock Text="Aucune scène"
                                        IsVisible="{Binding ActiveScene, Converter={x:Static ObjectConverters.IsNull}}"
-                                       FontSize="11"
-                                       Foreground="{DynamicResource AppFg4}"
+                                       FontSize="12.5"
+                                       Foreground="{DynamicResource AppFg3}"
                                        VerticalAlignment="Center"/>
 						</StackPanel>
 					</Border>
@@ -177,7 +179,7 @@
                             Classes.active="{Binding IsSettingsActive}"
                             Command="{Binding ToggleSettingsCommand}"
                             ToolTip.Tip="Paramètres">
-						<Viewbox Width="18" Height="18">
+						<Viewbox Width="20" Height="20">
 							<Canvas Width="24" Height="24">
 								<Path Data="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065z M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"
                                       StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"/>

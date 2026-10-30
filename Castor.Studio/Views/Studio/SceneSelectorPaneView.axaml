@@ -28,7 +28,7 @@
 
 		<!-- Une transition = une icône. Son nom est porté par la case entière (style plus bas). -->
 		<DataTemplate x:Key="TransitionIconTemplate" x:DataType="vm:SceneTransitionOption">
-			<Viewbox Width="16" Height="16">
+			<Viewbox Width="18" Height="18">
 				<Canvas Width="24" Height="24">
 					<Path Classes="transition-icon" Data="{Binding IconPath}" StrokeThickness="2"
                           StrokeLineCap="Round" StrokeJoin="Round"/>
@@ -56,7 +56,7 @@
 			<Setter Property="AutomationProperties.Name" Value="{Binding Label}"/>
 		</Style>
 		<Style Selector="ListBox.segmented ListBoxItem">
-			<Setter Property="Padding" Value="9,7"/>
+			<Setter Property="Padding" Value="11,9"/>
 			<Setter Property="MinHeight" Value="0"/>
 			<Setter Property="Cursor" Value="Hand"/>
 		</Style>
@@ -80,7 +80,7 @@
 		</Style>
 
 		<Style Selector="TextBlock.duration">
-			<Setter Property="FontSize" Value="11"/>
+			<Setter Property="FontSize" Value="13"/>
 			<Setter Property="Foreground" Value="{DynamicResource AppFg4}"/>
 			<Setter Property="MinWidth" Value="48"/>
 			<Setter Property="VerticalAlignment" Value="Center"/>
@@ -88,7 +88,7 @@
 	</UserControl.Styles>
 
 	<!-- Bottom half of the pane card: rounds/outlines the sides + bottom, the dock's title bar does the top (DockTheme.axaml). -->
-	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,8,8" Padding="12,6"
+	<Border x:Name="PaneRoot" Background="{DynamicResource AppSurface}" CornerRadius="0,0,6,6" Padding="14,4,14,12"
             BorderBrush="{DynamicResource AppBorder}" BorderThickness="1,0,1,1">
 		<Panel>
 
@@ -101,9 +101,8 @@
                           ItemTemplate="{StaticResource SceneItemTemplate}"
                           SelectedItem="{Binding ActiveScene}"
                           PlaceholderText="Aucune scène"
-                          MinWidth="170" VerticalAlignment="Center"
-                          ToolTip.Tip="Scène envoyée au live et à l'enregistrement"
-                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+                          MinWidth="200" VerticalAlignment="Center"
+                          ToolTip.Tip="Scène envoyée au live et à l'enregistrement"/>
 				<ListBox Grid.Column="1" Classes="segmented" VerticalAlignment="Center"
                          ItemsSource="{Binding TransitionOptions}"
                          SelectedItem="{Binding SelectedTransition}"
@@ -114,7 +113,7 @@
 						</ItemsPanelTemplate>
 					</ListBox.ItemsPanel>
 				</ListBox>
-				<Grid Grid.Column="2" ColumnDefinitions="110, Auto" ColumnSpacing="8"
+				<Grid Grid.Column="2" ColumnDefinitions="130, Auto" ColumnSpacing="10"
                       IsEnabled="{Binding IsTransitionAnimated}" VerticalAlignment="Center"
                       ToolTip.Tip="Durée de la transition">
 					<Slider Minimum="0" Maximum="{Binding TransitionDurationLastStep}"
@@ -123,9 +122,9 @@
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
 				<StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
+					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
 					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
-                               FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                               FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
 				</StackPanel>
 			</Grid>
 
@@ -137,8 +136,7 @@
                           SelectedItem="{Binding ActiveScene}"
                           PlaceholderText="Aucune scène"
                           HorizontalAlignment="Stretch"
-                          ToolTip.Tip="Scène envoyée au live et à l'enregistrement"
-                          Background="{DynamicResource AppSurface2}" BorderBrush="{DynamicResource AppBorder2}"/>
+                          ToolTip.Tip="Scène envoyée au live et à l'enregistrement"/>
 				<ListBox Classes="segmented" HorizontalAlignment="Center"
                          ItemsSource="{Binding TransitionOptions}"
                          SelectedItem="{Binding SelectedTransition}"
@@ -157,9 +155,9 @@
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
 				<StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-					<Ellipse Width="7" Height="7" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
+					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
 					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
-                               FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                               FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
 				</StackPanel>
 			</StackPanel>
 
