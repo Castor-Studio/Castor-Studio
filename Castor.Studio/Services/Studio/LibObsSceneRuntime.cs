@@ -939,7 +939,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             var state = await session.Started.Task.WaitAsync(cancellationToken);
             return state.State == ObsOutputState.Started
                 ? StudioRuntimeResult.Success()
-                : StudioRuntimeResult.Failure(RecordingStopMessage(state));
+                : StudioRuntimeResult.Failure(UnexpectedRecordingStopMessage(state));
         }
         catch (OperationCanceledException)
         {
@@ -1628,6 +1628,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         lock (_gate)
         {
             if (!IsRegistered(session)) return;
+            // Each signal reaches us on a thread-pool item of its own, so a "start" can land
+            // after the "stop" that ended the output: it must not bring the session back.
+            if (session.Ended) return;
 
             if (args.State == ObsOutputState.Started)
             {
@@ -1650,9 +1653,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             {
                 settleStart = true;
                 settleStop = true;
-                notification = new RecordingStateChangedEventArgs(session.Id, RecordingState.Idle, RecordingStopMessage(args));
                 session.Ended = true;
                 unexpectedlyStopped = !session.StopRequested;
+                notification = new RecordingStateChangedEventArgs(session.Id, RecordingState.Idle,
+                    unexpectedlyStopped ? UnexpectedRecordingStopMessage(args) : RecordingStopMessage(args));
             }
         }
 
@@ -1827,6 +1831,16 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             ObsOutputStopCode.Unsupported => "Le format d'enregistrement n'est pas pris en charge.",
             _ => $"L'enregistrement s'est arrêté avec le code {state.StopCode}."
         };
+    }
+
+    // A stop nobody asked for is never silent: libobs may report it as a success with no
+    // error at all, and the button would just flip back to RECORD without a word.
+    internal static string UnexpectedRecordingStopMessage(ObsOutputStateChangedEventArgs state)
+    {
+        var message = RecordingStopMessage(state);
+        return message.Length > 0
+            ? message
+            : "L'enregistrement s'est arrêté de lui-même, sans que LibObs en donne la raison. Réessayez.";
     }
 
     private static string StreamingStopMessage(ObsOutputStateChangedEventArgs state)

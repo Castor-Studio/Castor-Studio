@@ -38,6 +38,29 @@ public sealed class LibObsSceneRuntimeTests
         Assert.Contains("clé de stream Twitch", LibObsSceneRuntime.ValidateStreamingRequest(request));
     }
 
+    // libobs can end an output right after its start with a success code and no error: the
+    // user still has to be told, or the RECORD button just flickers back.
+    [Theory]
+    [InlineData(ObsOutputStopCode.Success, null)]
+    [InlineData(ObsOutputStopCode.Success, "")]
+    [InlineData(null, null)]
+    public void Unexpected_recording_stop_without_reason_still_has_a_message(ObsOutputStopCode? code, string? error)
+    {
+        var message = LibObsSceneRuntime.UnexpectedRecordingStopMessage(
+            new ObsOutputStateChangedEventArgs(ObsOutputState.Stopped, code, error));
+
+        Assert.Contains("arrêté de lui-même", message);
+    }
+
+    [Fact]
+    public void Unexpected_recording_stop_keeps_the_libobs_reason()
+    {
+        Assert.Equal("disque plein", LibObsSceneRuntime.UnexpectedRecordingStopMessage(
+            new ObsOutputStateChangedEventArgs(ObsOutputState.Stopped, ObsOutputStopCode.Success, "disque plein")));
+        Assert.Contains("Espace disque insuffisant", LibObsSceneRuntime.UnexpectedRecordingStopMessage(
+            new ObsOutputStateChangedEventArgs(ObsOutputState.Stopped, ObsOutputStopCode.NoSpace)));
+    }
+
     [Theory]
     [InlineData(0, 6_000, 192, 48_000, 2)]
     [InlineData(30, 0, 192, 48_000, 2)]
