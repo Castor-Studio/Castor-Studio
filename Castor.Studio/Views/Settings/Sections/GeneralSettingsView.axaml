@@ -52,7 +52,7 @@
 
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
 
-                    <Image Grid.Column="0" Width="38" Height="38" Source="/Assets/logo.png"/>
+                    <Image Grid.Column="0" Width="38" Height="38" Source="/Assets/Brand/castor-logo.png"/>
 
                     <StackPanel Grid.Column="1"
                                 Spacing="4">

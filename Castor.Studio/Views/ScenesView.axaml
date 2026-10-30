@@ -491,7 +491,7 @@
 						<controls:AspectFrame IsVisible="{Binding ShowNoVideoSource}" Margin="16" RatioWidth="{Binding BaseCanvasWidth}" RatioHeight="{Binding BaseCanvasHeight}">
 						<Border Background="{DynamicResource AppBg}" BorderBrush="{DynamicResource AppAccentFill}" BorderThickness="1">
 							<Panel>
-								<controls:EmptyState Title="Aucune source vidéo"
+								<controls:EmptyState Kind="NoSource" Title="Aucune source vidéo"
                                                      Description="Ajoutez une caméra, une capture d'écran ou une fenêtre pour afficher votre scène."
                                                      MascotHeight="150">
 									<controls:EmptyState.Action>

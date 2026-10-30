@@ -130,7 +130,7 @@
 			     rectangle noir, elle dit ce qui lui manque. Et c'est une surface native
 			     de moins à faire tourner. -->
 			<Panel IsVisible="{Binding !HasVideo}" Background="{DynamicResource AppPreviewEmptyBg}">
-				<controls:EmptyState Title="Aucune source vidéo"
+				<controls:EmptyState Kind="NoSource" Title="Aucune source vidéo"
                                      Description="Ajoutez-en une dans l'onglet Scènes."
                                      MascotHeight="150"/>
 			</Panel>

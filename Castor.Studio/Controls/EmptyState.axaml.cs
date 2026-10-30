@@ -6,6 +6,13 @@ using Avalonia.Styling;
 
 namespace CastorApplication.Controls;
 
+/// <summary>What is missing, which decides the mascot shown.</summary>
+public enum EmptyStateKind
+{
+    NoScene,
+    NoSource
+}
+
 public partial class EmptyState : UserControl
 {
     public static readonly StyledProperty<string> TitleProperty =
@@ -20,9 +27,17 @@ public partial class EmptyState : UserControl
     public static readonly StyledProperty<double> MascotHeightProperty =
         AvaloniaProperty.Register<EmptyState, double>(nameof(MascotHeight), 180);
 
-    // Une seule image par thème, partagée : ces écrans se montrent et se cachent souvent.
-    private static Bitmap? _darkMascot;
-    private static Bitmap? _lightMascot;
+    public static readonly StyledProperty<EmptyStateKind> KindProperty =
+        AvaloniaProperty.Register<EmptyState, EmptyStateKind>(nameof(Kind));
+
+    // Une seule image par cas et par thème, partagée : ces écrans se montrent et se cachent souvent.
+    private static readonly Dictionary<string, Bitmap> Mascots = [];
+
+    public EmptyStateKind Kind
+    {
+        get => GetValue(KindProperty);
+        set => SetValue(KindProperty, value);
+    }
 
     public string Title
     {
@@ -54,13 +69,21 @@ public partial class EmptyState : UserControl
         InitializeComponent();
         ActualThemeVariantChanged += (_, _) => UpdateMascot();
         AttachedToVisualTree += (_, _) => UpdateMascot();
+        PropertyChanged += (_, change) =>
+        {
+            if (change.Property == KindProperty) UpdateMascot();
+        };
     }
 
-    private void UpdateMascot() =>
-        Mascot.Source = ActualThemeVariant == ThemeVariant.Light
-            ? _lightMascot ??= Load("mascot.png")
-            : _darkMascot ??= Load("mascot-dark.png");
+    private void UpdateMascot()
+    {
+        var useCase = Kind == EmptyStateKind.NoSource ? "no-source" : "no-scene";
+        var theme = ActualThemeVariant == ThemeVariant.Light ? "light" : "dark";
+        var name = $"mascot-{useCase}-{theme}.png";
 
-    private static Bitmap Load(string name) =>
-        new(AssetLoader.Open(new Uri($"avares://Castor-Studio/Assets/{name}")));
+        if (!Mascots.TryGetValue(name, out var mascot))
+            Mascots[name] = mascot = new Bitmap(AssetLoader.Open(new Uri($"avares://Castor-Studio/Assets/Mascot/{name}")));
+
+        Mascot.Source = mascot;
+    }
 }

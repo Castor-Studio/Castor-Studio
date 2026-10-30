@@ -13,7 +13,7 @@
         WindowState="Maximized"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaTitleBarHeightHint="37"
-        Icon="/Assets/castor.png">
+        Icon="/Assets/Brand/castor-icon.png">
 
 	<Window.KeyBindings>
 		<KeyBinding Gesture="Escape" Command="{Binding CloseSettingsCommand}"/>
@@ -87,7 +87,7 @@
                             VerticalAlignment="Center"
                             Spacing="12"
                             Margin="16,0">
-					<Image Height="38" Width="38" Source="/Assets/logo.png"/>
+					<Image Height="38" Width="38" Source="/Assets/Brand/castor-logo.png"/>
 					<TextBlock Text="CASTOR"
                                FontSize="17"
                                FontWeight="Bold"
