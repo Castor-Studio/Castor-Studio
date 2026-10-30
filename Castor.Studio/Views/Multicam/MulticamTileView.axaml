@@ -129,16 +129,11 @@
 			<!-- Une scène sans source ne lance pas d'aperçu du tout : plutôt qu'un
 			     rectangle noir, elle dit ce qui lui manque. Et c'est une surface native
 			     de moins à faire tourner. -->
-			<StackPanel IsVisible="{Binding !HasVideo}" Spacing="4" Margin="12"
-                        HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock Text="Aucune source vidéo" HorizontalAlignment="Center"
-                           FontSize="13.5" FontWeight="Bold"
-                           Foreground="{DynamicResource VideoFgBrush}"/>
-				<TextBlock Text="Ajoutez-en une dans l'onglet Scènes."
-                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
-                           FontSize="12.5"
-                           Foreground="{DynamicResource VideoFgMutedBrush}"/>
-			</StackPanel>
+			<Panel IsVisible="{Binding !HasVideo}" Background="{DynamicResource AppPreviewEmptyBg}">
+				<controls:EmptyState Title="Aucune source vidéo"
+                                     Description="Ajoutez-en une dans l'onglet Scènes."
+                                     MascotHeight="150"/>
+			</Panel>
 		</Panel>
 
 		<!-- Ce que l'IA sait de la scène, tant qu'elle la lit : le micro de la personne filmée et,
