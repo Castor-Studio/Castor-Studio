@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
+             x:Class="CastorApplication.Views.Settings.Sections.AdvancedSettingsView"
+             x:DataType="vm:AdvancedSettingsViewModel">
+
+    <StackPanel Margin="33,24"
+                Spacing="28">
+
+        <StackPanel Spacing="14">
+
+            <TextBlock Text="AVANCÉ"
+                       Classes="section-title"/>
+
+            <Grid ColumnDefinitions="211,*">
+                <TextBlock Grid.Column="0"
+                           Text="Processeur de l'IA"
+                           Classes="setting-label"/>
+
+                <ComboBox Grid.Column="1"
+                          MaxWidth="260"
+                          HorizontalAlignment="Left"
+                          SelectedIndex="{Binding SelectedAiDeviceIndex}">
+
+                    <ComboBoxItem Content="Automatique (recommandé)"/>
+                    <ComboBoxItem Content="CPU"/>
+                    <ComboBoxItem Content="GPU"/>
+
+                </ComboBox>
+            </Grid>
+
+            <TextBlock Text="Automatique utilise le GPU et passe sur le CPU s'il est trop lent. S'applique au prochain démarrage de l'IA."
+                       Foreground="{DynamicResource AppFg4}"
+                       FontSize="12"
+                       TextWrapping="Wrap"/>
+
+        </StackPanel>
+
+    </StackPanel>
+
+</UserControl>

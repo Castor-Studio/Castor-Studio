@@ -25,6 +25,7 @@
         <DataTemplate DataType="{x:Type settingsSectionVm:StreamingSettingsViewModel}"><settingsSectionViews:StreamingSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:OutputSettingsViewModel}"><settingsSectionViews:OutputSettingsView/></DataTemplate>
         <DataTemplate DataType="{x:Type settingsSectionVm:AccountsSettingsViewModel}"><settingsSectionViews:AccountsSettingsView/></DataTemplate>
+        <DataTemplate DataType="{x:Type settingsSectionVm:AdvancedSettingsViewModel}"><settingsSectionViews:AdvancedSettingsView/></DataTemplate>
 
         <!-- StudioViewModel backs four distinct panes, so these key off the dockable's
              own (marker) type instead of its Context to pick the right pane view. -->

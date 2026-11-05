@@ -1,20 +1,24 @@
 using Castor.AI.Contracts.V1;
 using Castor.AI.Providers;
+using CastorApplication.Models.Settings;
 
 namespace CastorApplication.Services.Ai;
 
 /// <summary>
-/// The "auto" device: runs the worker on the GPU, and starts it again on the CPU when DirectML
-/// does not load the model in time. The worker's own fallback only covers a model DirectML cannot
-/// load, not a slow load, which the SDK stops after its ready timeout.
+/// Runs the worker on the device chosen in the settings, read on each start. On
+/// <see cref="AiDevice.Auto"/> it uses the GPU, and starts the worker again on the CPU when
+/// DirectML does not load the model in time. The worker's own fallback only covers a model
+/// DirectML cannot load, not a slow load, which the SDK stops after its ready timeout.
 /// </summary>
 internal sealed class DeviceFallbackWorkerProvider(
-    Func<string, IAiProvider> createWorker, string? adapterName, AiDeviceMemory memory) : IAiProvider
+    Func<string, IAiProvider> createWorker, string? adapterName, AiDeviceMemory memory,
+    Func<AiDevice>? readDevice = null) : IAiProvider
 {
     // Software adapter DXGI lists when there is no real GPU.
     internal const string BasicRenderDriver = "Microsoft Basic Render Driver";
 
     private IAiProvider? _worker;
+    private AiDevice _mode;
     private string _device = "";
     private string _lastStartingDetail = "";
     private bool _gpuStarting;
@@ -29,7 +33,29 @@ internal sealed class DeviceFallbackWorkerProvider(
 
     public async Task StartAsync(AiProviderRequest request, CancellationToken cancellationToken = default)
     {
-        if (_worker == null) Use(PrefersCpu() ? "cpu" : "gpu");
+        var mode = readDevice?.Invoke() ?? AiDevice.Auto;
+        if (_worker == null || mode != _mode)
+        {
+            if (_worker is { } previous)
+            {
+                _worker = null;
+                await previous.DisposeAsync();
+            }
+            _mode = mode;
+            Use(mode switch
+            {
+                AiDevice.Cpu => "cpu",
+                AiDevice.Gpu => "gpu",
+                _ => PrefersCpu() ? "cpu" : "gpu",
+            });
+        }
+
+        // A forced device starts as is: no fallback, no notice.
+        if (_mode != AiDevice.Auto)
+        {
+            await _worker!.StartAsync(request, cancellationToken);
+            return;
+        }
 
         if (_device == "cpu")
         {

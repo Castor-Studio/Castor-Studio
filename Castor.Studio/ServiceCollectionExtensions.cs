@@ -80,6 +80,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<StreamingSettingsViewModel>();
         services.AddSingleton<OutputSettingsViewModel>();
         services.AddSingleton<AccountsSettingsViewModel>();
+        services.AddSingleton<AdvancedSettingsViewModel>();
         services.AddSingleton<SettingsViewModel>();
 
         services.AddSingleton(provider => new StudioViewModel(
@@ -141,7 +142,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(provider => new AiClient(
             CreateAiProvider(
                 provider.GetRequiredService<IConfigService>().Config.AiWorker,
-                provider.GetRequiredService<HttpClient>()),
+                provider.GetRequiredService<HttpClient>(),
+                provider.GetRequiredService<SettingsService>()),
             new AiClientOptions { Dispatch = action => Dispatcher.UIThread.Post(action) }));
 
         services.AddSingleton<IAiSceneFrameRuntime>(provider =>
@@ -154,20 +156,18 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IAiAudioCaptureRuntime>()));
     }
 
-    private static IAiProvider CreateAiProvider(AiWorkerConfig config, HttpClient http)
+    private static IAiProvider CreateAiProvider(AiWorkerConfig config, HttpClient http, SettingsService settings)
     {
-        var device = config.Device?.Trim().ToLowerInvariant();
         var gpuAdapter = Math.Max(0, config.GpuAdapter);
 
         IAiProvider CreateWorker(string? path)
         {
             var options = new LocalWorkerOptions { WorkerPath = path, GpuAdapter = gpuAdapter };
-            if (device is "cpu" or "gpu") return new LocalWorkerProvider(options with { Device = device });
-
             return new DeviceFallbackWorkerProvider(
                 chosen => new LocalWorkerProvider(options with { Device = chosen }),
                 FindGpuAdapterName(gpuAdapter),
-                new AiDeviceMemory());
+                new AiDeviceMemory(),
+                () => settings.Load().AiDevice);
         }
 
         // Dev override: the SDK reads CASTOR_WORKER_PATH when it gets no path.

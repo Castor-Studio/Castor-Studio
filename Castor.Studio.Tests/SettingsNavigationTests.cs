@@ -17,7 +17,7 @@ public sealed class SettingsNavigationTests
     {
         using var settings = new SettingsFixture();
 
-        Assert.Equal([true, false, false, false, false, false], settings.ViewModel.Sections.Select(s => s.IsSelected));
+        Assert.Equal([true, false, false, false, false, false, false], settings.ViewModel.Sections.Select(s => s.IsSelected));
     }
 
     [Fact]
@@ -75,7 +75,8 @@ public sealed class SettingsNavigationTests
                 new AudioSettingsViewModel(),
                 new StreamingSettingsViewModel(),
                 new OutputSettingsViewModel(new UnusedFilePickerService()),
-                new AccountsSettingsViewModel(auth, store));
+                new AccountsSettingsViewModel(auth, store),
+                new AdvancedSettingsViewModel());
         }
 
         public void Dispose() => _directory.Delete(recursive: true);
