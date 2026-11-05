@@ -23,6 +23,15 @@ public sealed class ApplicationSettings
     // disconnected: the first connected account in StreamingProviders.All order.
     public string StreamingProviderId { get; set; } = "";
 
+    // YouTube broadcast created at each live start.
+    public string YouTubeBroadcastTitle { get; set; } = DefaultYouTubeBroadcastTitle;
+    public YouTubePrivacy YouTubePrivacy { get; set; } = YouTubePrivacy.Public;
+
+    public const string DefaultYouTubeBroadcastTitle = "Live Castor Studio";
+
+    // YouTube refuses longer titles.
+    public const int YouTubeBroadcastTitleMaxLength = 100;
+
     // Chosen in the "Scène active" bar; applies to live and recording.
     public SceneTransitionKind SceneTransitionKind { get; set; } = SceneTransition.Default.Kind;
     public int SceneTransitionDurationMs { get; set; } = SceneTransition.DefaultDurationMs;
