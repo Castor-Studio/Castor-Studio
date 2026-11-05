@@ -105,7 +105,7 @@ public partial class StudioViewModel : ViewModelBase
 
     [ObservableProperty] private string _streamTimerText = "00:00:00";
     [ObservableProperty] private bool _isStreamingTransition;
-    [ObservableProperty] private string _connectedAccountLabel = "Compte Twitch non connecté";
+    [ObservableProperty] private string _connectedAccountLabel = NoAccountLabel;
 
     // Without a connected account the live cannot start, so the go-live panel says so up front:
     // DÉMARRER is disabled with the reason, and the account area turns into a way to connect one.
@@ -118,12 +118,19 @@ public partial class StudioViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(DestinationLabel))]
     private string _connectedAccountName = "";
 
+    // Platform of the account the live goes to (StreamingProviders id), empty without one.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DestinationLabel))]
+    private string _destinationProviderId = "";
+
     public string StartStreamingBlockedReason =>
-        IsAccountConnected ? "" : "Connectez un compte Twitch pour lancer le live.";
+        IsAccountConnected ? "" : "Connectez un compte Twitch ou YouTube pour lancer le live.";
 
     // Filled in with the account as soon as one is connected, including after a round trip to
     // Settings > Comptes from the panel.
-    public string DestinationLabel => IsAccountConnected ? $"Twitch · {ConnectedAccountName}" : "Twitch";
+    public string DestinationLabel => IsAccountConnected
+        ? $"{StreamingProviders.DisplayName(DestinationProviderId)} · {ConnectedAccountName}"
+        : "Twitch ou YouTube";
 
     // The shell answers by opening Settings on the accounts section (MainViewModel).
     public event EventHandler? AccountSettingsRequested;
@@ -297,6 +304,8 @@ public partial class StudioViewModel : ViewModelBase
         RefreshBaseCanvasSize();
         RefreshOutputInfo();
         RefreshTransition();
+        // The live destination is a setting when several accounts are connected.
+        RefreshProviderState();
     }
 
     // Type and duration reload one after the other: without this guard, the first would be saved
@@ -367,21 +376,21 @@ public partial class StudioViewModel : ViewModelBase
             return;
         }
 
-        var provider = GetConnectedTwitchProvider();
-        if (provider == null)
+        var settings = _settingsService.Load();
+        var account = GetActiveAccount(settings);
+        if (account == null)
         {
             StreamError.ShowError(AccountDisconnectedError);
             RefreshProviderState();
             return;
         }
 
-        var settings = _settingsService.Load();
         IsStreamingTransition = true;
         try
         {
             var result = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
                 scene.ToDefinition(),
-                new StreamingDestination(StreamingProviders.Twitch, "", provider.StreamKey!),
+                ToDestination(account),
                 FpsFromIndex(settings.SelectedFpsIndex),
                 (int)settings.StreamingBitrate,
                 AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
@@ -825,23 +834,37 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(PauseToolTip));
     }
 
-    private const string AccountDisconnectedError = "Compte Twitch déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
+    private const string NoAccountLabel = "Aucun compte de streaming connecté";
+    private const string AccountDisconnectedError = "Compte de streaming déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
 
-    private ProviderSettings? GetConnectedTwitchProvider()
+    // The account chosen in Settings › Streaming if it can go live, else the first one that can.
+    private ProviderSettings? GetActiveAccount(ApplicationSettings settings)
     {
-        var provider = _providerStore.Get("twitch");
-        return provider is { IsConnected: true } && !string.IsNullOrWhiteSpace(provider.StreamKey)
-            ? provider
-            : null;
+        var usable = StreamingProviders.All
+            .Select(_providerStore.Get)
+            .OfType<ProviderSettings>()
+            .Where(IsReadyToStream)
+            .ToList();
+        return usable.FirstOrDefault(account => account.ProviderId == settings.StreamingProviderId)
+            ?? usable.FirstOrDefault();
     }
+
+    internal static bool IsReadyToStream(ProviderSettings? account) =>
+        account is { IsConnected: true }
+        && !string.IsNullOrWhiteSpace(account.StreamKey)
+        && (account.ProviderId == StreamingProviders.Twitch || !string.IsNullOrWhiteSpace(account.IngestUrl));
+
+    private static StreamingDestination ToDestination(ProviderSettings account) =>
+        new(account.ProviderId, account.IngestUrl ?? "", account.StreamKey!);
 
     private void RefreshProviderState()
     {
-        var provider = GetConnectedTwitchProvider();
+        var provider = GetActiveAccount(_settingsService.Load());
         ConnectedAccountLabel = provider == null
-            ? "Compte Twitch non connecté"
+            ? NoAccountLabel
             : $"Connecté en tant que {provider.UserName}";
         ConnectedAccountName = provider?.UserName ?? "";
+        DestinationProviderId = provider?.ProviderId ?? "";
         IsAccountConnected = provider != null;
 
         // An account error left from an earlier attempt no longer applies once one is connected.

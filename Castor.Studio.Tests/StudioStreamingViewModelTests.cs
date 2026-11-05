@@ -71,7 +71,7 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.Null(fixture.StreamingRuntime.Request);
             Assert.False(fixture.Workspace.IsStreaming);
-            Assert.Contains("Compte Twitch déconnecté", fixture.ViewModel.StreamError.Text);
+            Assert.Contains("Compte de streaming déconnecté", fixture.ViewModel.StreamError.Text);
         }
         finally
         {
@@ -216,7 +216,7 @@ public sealed class StudioStreamingViewModelTests
         var fixture = CreateFixture(null);
         try
         {
-            Assert.Equal("Compte Twitch non connecté", fixture.ViewModel.ConnectedAccountLabel);
+            Assert.Equal("Aucun compte de streaming connecté", fixture.ViewModel.ConnectedAccountLabel);
 
             fixture.ProviderStore.Save(ConnectedProvider());
 
@@ -237,8 +237,8 @@ public sealed class StudioStreamingViewModelTests
             var viewModel = fixture.ViewModel;
             Assert.False(viewModel.IsAccountConnected);
             Assert.False(viewModel.StartStreamingCommand.CanExecute(null));
-            Assert.Equal("Connectez un compte Twitch pour lancer le live.", viewModel.StartStreamingBlockedReason);
-            Assert.Equal("Twitch", viewModel.DestinationLabel);
+            Assert.Equal("Connectez un compte Twitch ou YouTube pour lancer le live.", viewModel.StartStreamingBlockedReason);
+            Assert.Equal("Twitch ou YouTube", viewModel.DestinationLabel);
 
             var requested = 0;
             viewModel.AccountSettingsRequested += (_, _) => requested++;
@@ -247,7 +247,7 @@ public sealed class StudioStreamingViewModelTests
 
             // An earlier failed attempt left the account error behind.
             await viewModel.StartStreamingCommand.ExecuteAsync(null);
-            Assert.Contains("Compte Twitch déconnecté", viewModel.StreamError.Text);
+            Assert.Contains("Compte de streaming déconnecté", viewModel.StreamError.Text);
 
             // Back from Settings with an account connected.
             fixture.ProviderStore.Save(ConnectedProvider());
@@ -263,6 +263,84 @@ public sealed class StudioStreamingViewModelTests
         }
     }
 
+    [Fact]
+    public async Task Start_live_pushes_to_the_youtube_ingest_server()
+    {
+        var fixture = CreateFixture(ConnectedYouTube());
+        try
+        {
+            Assert.Equal("YouTube · Club TV", fixture.ViewModel.DestinationLabel);
+
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            var request = Assert.IsType<StreamingRequest>(fixture.StreamingRuntime.Request);
+            Assert.Equal(
+                new StreamingDestination("youtube", "rtmp://a.rtmp.youtube.com/live2", "yt-key"),
+                request.Destination);
+            Assert.True(fixture.Workspace.IsStreaming);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public void Youtube_account_without_ingest_server_cannot_go_live()
+    {
+        var account = ConnectedYouTube();
+        account.IngestUrl = "";
+        var fixture = CreateFixture(account);
+        try
+        {
+            Assert.False(fixture.ViewModel.IsAccountConnected);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Theory]
+    [InlineData("", "twitch")]
+    [InlineData("twitch", "twitch")]
+    [InlineData("youtube", "youtube")]
+    public async Task With_two_accounts_the_setting_picks_the_destination(string chosen, string expected)
+    {
+        var fixture = CreateFixture(
+            ConnectedProvider(),
+            new ApplicationSettings { StreamingProviderId = chosen },
+            ConnectedYouTube());
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal(expected, fixture.StreamingRuntime.Request?.Destination.ProviderId);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public void A_chosen_destination_that_is_disconnected_falls_back_to_the_connected_one()
+    {
+        var fixture = CreateFixture(ConnectedProvider(), new ApplicationSettings { StreamingProviderId = "youtube" });
+        try
+        {
+            Assert.Equal("Twitch · Castor", fixture.ViewModel.DestinationLabel);
+
+            fixture.ProviderStore.Save(ConnectedYouTube());
+
+            Assert.Equal("YouTube · Club TV", fixture.ViewModel.DestinationLabel);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     private static ProviderSettings ConnectedProvider() => new()
     {
         ProviderId = "twitch",
@@ -271,9 +349,20 @@ public sealed class StudioStreamingViewModelTests
         StreamKey = "live-key"
     };
 
+    private static ProviderSettings ConnectedYouTube() => new()
+    {
+        ProviderId = "youtube",
+        IsConnected = true,
+        UserName = "Club TV",
+        StreamKey = "yt-key",
+        IngestUrl = "rtmp://a.rtmp.youtube.com/live2",
+        StreamId = "stream-1"
+    };
+
     private static Fixture CreateFixture(
         ProviderSettings? provider,
-        ApplicationSettings? settings = null)
+        ApplicationSettings? settings = null,
+        params ProviderSettings[] others)
     {
         var directory = Path.Combine(Path.GetTempPath(), $"castor-stream-viewmodel-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -284,7 +373,7 @@ public sealed class StudioStreamingViewModelTests
         workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
         var streamingRuntime = new FakeStreamingRuntime();
         var recordingRuntime = new FakeRecordingRuntime();
-        var providerStore = new FakeProviderStore(provider);
+        var providerStore = new FakeProviderStore(provider == null ? others : [provider, .. others]);
         var viewModel = new StudioViewModel(
             workspace,
             new FakeStudioRuntime(),
@@ -379,21 +468,22 @@ public sealed class StudioStreamingViewModelTests
         public StudioRuntimeResult ResumeRecording(Guid sessionId) => StudioRuntimeResult.Success();
     }
 
-    private sealed class FakeProviderStore(ProviderSettings? provider) : IProviderStore
+    private sealed class FakeProviderStore(IEnumerable<ProviderSettings> providers) : IProviderStore
     {
-        private ProviderSettings? _provider = provider;
+        private readonly List<ProviderSettings> _providers = [.. providers];
         public event EventHandler? Changed;
-        public IReadOnlyCollection<ProviderSettings> GetAll() => _provider == null ? [] : [_provider];
+        public IReadOnlyCollection<ProviderSettings> GetAll() => _providers;
         public ProviderSettings? Get(string providerId) =>
-            _provider?.ProviderId == providerId ? _provider : null;
+            _providers.FirstOrDefault(provider => provider.ProviderId == providerId);
         public void Save(ProviderSettings next)
         {
-            _provider = next;
+            _providers.RemoveAll(provider => provider.ProviderId == next.ProviderId);
+            _providers.Add(next);
             Changed?.Invoke(this, EventArgs.Empty);
         }
         public void Delete(string providerId)
         {
-            if (_provider?.ProviderId == providerId) _provider = null;
+            _providers.RemoveAll(provider => provider.ProviderId == providerId);
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }

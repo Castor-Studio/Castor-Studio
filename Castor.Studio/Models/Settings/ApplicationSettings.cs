@@ -19,6 +19,10 @@ public sealed class ApplicationSettings
     public int SelectedChannelsIndex { get; set; }
     public int SelectedAudioBitrateIndex { get; set; } = 1;
 
+    // Live destination when several accounts are connected (a StreamingProviders id). Empty or
+    // disconnected: the first connected account in StreamingProviders.All order.
+    public string StreamingProviderId { get; set; } = "";
+
     // Chosen in the "Scène active" bar; applies to live and recording.
     public SceneTransitionKind SceneTransitionKind { get; set; } = SceneTransition.Default.Kind;
     public int SceneTransitionDurationMs { get; set; } = SceneTransition.DefaultDurationMs;
