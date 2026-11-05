@@ -15,6 +15,7 @@ using CastorApplication.Services.Config;
 using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Platform;
 using CastorApplication.Services.Settings;
+using CastorApplication.Services.Streaming.YouTube;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
@@ -43,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAuthProvider, TwitchAuthProvider>();
         services.AddSingleton<IAuthProvider, YouTubeAuthProvider>();
         services.AddSingleton<IAuthService, AuthService>();
+        services.AddSingleton<IYouTubeLiveService, YouTubeLiveService>();
         services.AddSingleton<ProviderRegistry>();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<IPrimaryMonitorResolutionProvider, WindowsPrimaryMonitorResolutionProvider>();
