@@ -381,7 +381,7 @@ public partial class StudioViewModel : ViewModelBase
         {
             var result = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
                 scene.ToDefinition(),
-                provider.StreamKey!,
+                new StreamingDestination(StreamingProviders.Twitch, "", provider.StreamKey!),
                 FpsFromIndex(settings.SelectedFpsIndex),
                 (int)settings.StreamingBitrate,
                 AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),

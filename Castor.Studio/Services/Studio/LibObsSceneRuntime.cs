@@ -81,6 +81,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private ObsEncoder? _streamingAudioEncoder;
     private ObsService? _streamingService;
     private Guid? _streamingSceneId;
+    // Named in the messages of a live that stops; kept after release for a late stop signal.
+    private string _streamingPlatformName = "";
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStarted;
     private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStopped;
     private bool _streamingStopRequested;
@@ -1110,6 +1112,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     {
         ArgumentNullException.ThrowIfNull(request);
         Task<ObsOutputStateChangedEventArgs> startedTask;
+        var platformName = request.Destination.DisplayName;
 
         lock (_gate)
         {
@@ -1139,6 +1142,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 _streamingAudioEncoder = resources.AudioEncoder;
                 _streamingService = resources.Service;
                 _streamingSceneId = request.Scene.Id;
+                _streamingPlatformName = request.Destination.DisplayName;
                 _streamingStarted = NewOutputSignal();
                 _streamingStopped = NewOutputSignal();
                 _streamingOutput.StateChanged += OnStreamingOutputStateChanged;
@@ -1157,7 +1161,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             var state = await startedTask.WaitAsync(cancellationToken);
             return state.State == ObsOutputState.Started
                 ? StudioRuntimeResult.Success()
-                : StudioRuntimeResult.Failure(StreamingStopMessage(state));
+                : StudioRuntimeResult.Failure(StreamingStopMessage(state, platformName));
         }
         catch (OperationCanceledException)
         {
@@ -1203,12 +1207,14 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     {
         Task<ObsOutputStateChangedEventArgs> stoppedTask;
         ObsOutput output;
+        string platformName;
         lock (_gate)
         {
             if (_streamingOutput == null || _streamingStopped == null)
                 return StudioRuntimeResult.Success();
 
             output = _streamingOutput;
+            platformName = _streamingPlatformName;
             stoppedTask = _streamingStopped.Task;
             try
             {
@@ -1249,7 +1255,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
         return state.StopCode is null or ObsOutputStopCode.Success
             ? StudioRuntimeResult.Success()
-            : StudioRuntimeResult.Failure(StreamingStopMessage(state));
+            : StudioRuntimeResult.Failure(StreamingStopMessage(state, platformName));
     }
 
     public void Dispose()
@@ -1540,7 +1546,12 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     internal static string ValidateStreamingRequest(StreamingRequest request)
     {
         if (request.Scene.Id == Guid.Empty) return "L'identifiant de la scène est obligatoire.";
-        if (string.IsNullOrWhiteSpace(request.StreamKey)) return "La clé de stream Twitch est obligatoire.";
+        var destination = request.Destination;
+        if (string.IsNullOrWhiteSpace(destination.StreamKey))
+            return $"La clé de stream {destination.DisplayName} est obligatoire.";
+        // Only Twitch picks its ingest server itself; the others must say where to push.
+        if (!destination.UsesPlatformServer && !RtmpStreamUrl.IsValid(destination.Server))
+            return $"L'adresse du serveur {destination.DisplayName} est invalide.";
         if (request.Fps <= 0 || request.VideoBitrateKbps <= 0 || request.AudioBitrateKbps <= 0)
             return "Les débits et le nombre d'images par seconde doivent être supérieurs à zéro.";
         if (request.AudioSampleRate <= 0 || request.AudioChannels is < 1 or > 2)
@@ -1557,6 +1568,30 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         });
     }
 
+    // Twitch keeps the OBS service catalog, which picks the closest ingest server ("auto").
+    // Every other platform hands Castor its own ingest address, pushed as a custom RTMP server.
+    private static ObsService CreateStreamingService(StreamingDestination destination)
+    {
+        using var serviceSettings = new ObsData();
+        if (destination.UsesPlatformServer)
+        {
+            serviceSettings.SetString(ObsKnownSettings.Service.ServiceName, destination.DisplayName);
+            serviceSettings.SetString(ObsKnownSettings.Service.Server, "auto");
+            serviceSettings.SetString(ObsKnownSettings.Service.StreamKey, destination.StreamKey);
+            return ObsService.Create(
+                ObsKnownIds.Services.CommonRtmp,
+                $"castor-{destination.ProviderId}-service",
+                serviceSettings);
+        }
+
+        serviceSettings.SetString(ObsKnownSettings.Service.Server, destination.Server.Trim());
+        serviceSettings.SetString(ObsKnownSettings.Service.StreamKey, destination.StreamKey);
+        return ObsService.Create(
+            ObsKnownIds.Services.CustomRtmp,
+            $"castor-{destination.ProviderId}-service",
+            serviceSettings);
+    }
+
     private static StreamingResources CreateStreamingOutput(StreamingRequest request)
     {
         ObsService? service = null;
@@ -1565,14 +1600,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         ObsOutput? output = null;
         try
         {
-            using var serviceSettings = new ObsData();
-            serviceSettings.SetString(ObsKnownSettings.Service.ServiceName, "Twitch");
-            serviceSettings.SetString(ObsKnownSettings.Service.Server, "auto");
-            serviceSettings.SetString(ObsKnownSettings.Service.StreamKey, request.StreamKey);
-            service = ObsService.Create(
-                ObsKnownIds.Services.CommonRtmp,
-                "castor-twitch-service",
-                serviceSettings);
+            service = CreateStreamingService(request.Destination);
 
             using var videoSettings = new ObsData();
             videoSettings.SetString(ObsKnownSettings.Encoder.RateControl, "CBR");
@@ -1743,7 +1771,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             {
                 started = _streamingStarted;
                 stopped = _streamingStopped;
-                notification = new StreamingStateChangedEventArgs(false, StreamingStopMessage(args));
+                notification = new StreamingStateChangedEventArgs(false, StreamingStopMessage(args, _streamingPlatformName));
                 _streamingSceneId = null;
                 if (!_streamingStopRequested) unexpectedlyStoppedOutput = _streamingOutput;
             }
@@ -1840,15 +1868,15 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             : "L'enregistrement s'est arrêté de lui-même, sans que LibObs en donne la raison. Réessayez.";
     }
 
-    private static string StreamingStopMessage(ObsOutputStateChangedEventArgs state)
+    internal static string StreamingStopMessage(ObsOutputStateChangedEventArgs state, string platformName)
     {
         if (!string.IsNullOrWhiteSpace(state.Error)) return state.Error;
         return state.StopCode switch
         {
             null or ObsOutputStopCode.Success => "",
-            ObsOutputStopCode.ConnectFailed => "Connexion au serveur Twitch impossible.",
-            ObsOutputStopCode.InvalidStream => "Twitch a refusé la clé de stream.",
-            ObsOutputStopCode.Disconnected => "La connexion au serveur Twitch a été interrompue.",
+            ObsOutputStopCode.ConnectFailed => $"Connexion au serveur {platformName} impossible.",
+            ObsOutputStopCode.InvalidStream => $"{platformName} a refusé la clé de stream.",
+            ObsOutputStopCode.Disconnected => $"La connexion au serveur {platformName} a été interrompue.",
             ObsOutputStopCode.EncodeError => "L'encodeur vidéo ou audio a rencontré une erreur.",
             ObsOutputStopCode.Unsupported => "La configuration du live n'est pas prise en charge.",
             _ => $"Le live s'est arrêté avec le code {state.StopCode}."

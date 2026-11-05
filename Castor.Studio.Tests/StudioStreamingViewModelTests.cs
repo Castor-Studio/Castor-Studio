@@ -35,7 +35,7 @@ public sealed class StudioStreamingViewModelTests
 
             var request = Assert.IsType<StreamingRequest>(fixture.StreamingRuntime.Request);
             Assert.Equal(fixture.Scene.Id, request.Scene.Id);
-            Assert.Equal("live-key", request.StreamKey);
+            Assert.Equal(new StreamingDestination("twitch", "", "live-key"), request.Destination);
             Assert.Equal(25, request.Fps);
             Assert.Equal(5_500, request.VideoBitrateKbps);
             Assert.Equal(320, request.AudioBitrateKbps);
