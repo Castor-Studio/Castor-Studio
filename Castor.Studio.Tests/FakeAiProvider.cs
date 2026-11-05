@@ -18,6 +18,11 @@ internal sealed class FakeAiProvider : IAiProvider
     public Exception? StartFailure { get; set; }
     public List<string> StartProgress { get; } = [];
 
+    /// <summary>Logged by every StartAsync, before it fails or succeeds.</summary>
+    public List<string> StartLogs { get; } = [];
+
+    public bool Disposed { get; private set; }
+
     public string Name => "fake";
 
     public event Action<AiConnectionState, string>? StateChanged;
@@ -30,6 +35,7 @@ internal sealed class FakeAiProvider : IAiProvider
         Requests.Add(request);
         StateChanged?.Invoke(AiConnectionState.Starting, "Starting worker");
         foreach (var line in StartProgress) StateChanged?.Invoke(AiConnectionState.Starting, line);
+        foreach (var line in StartLogs) Log?.Invoke(line);
         if (StartFailure is { } failure)
         {
             StartFailure = null;
@@ -65,7 +71,11 @@ internal sealed class FakeAiProvider : IAiProvider
         return Task.CompletedTask;
     }
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        return ValueTask.CompletedTask;
+    }
 
     public IEnumerable<CameraOnAir> OnAirMessages() =>
         Sent.Where(message => message.BodyCase == ClientMessage.BodyOneofCase.OnAir).Select(message => message.OnAir);

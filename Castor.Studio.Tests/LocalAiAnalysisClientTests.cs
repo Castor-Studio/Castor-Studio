@@ -205,6 +205,20 @@ public sealed class LocalAiAnalysisClientTests
     }
 
     [Fact]
+    public async Task Gpu_fallback_during_start_is_reported_once_the_session_runs()
+    {
+        var events = new List<string>();
+        _client.SessionStatusChanged += (_, e) => events.Add(e.State.ToString());
+        _client.ServerErrorReceived += (_, e) => events.Add(e.ErrorCode);
+        _provider.StartLogs.Add("GPU 'Intel(R) UHD Graphics' loads the models too slowly, falling back to CPU");
+
+        await StartAsync("agent");
+
+        Assert.Single(events, e => e == "AI_GPU_UNAVAILABLE");
+        Assert.True(events.IndexOf("AI_GPU_UNAVAILABLE") > events.IndexOf(nameof(AiConnectionState.Running)));
+    }
+
+    [Fact]
     public async Task Podcast_renders_no_scene()
     {
         await StartAsync("agent");

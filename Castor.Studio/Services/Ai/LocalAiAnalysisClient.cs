@@ -30,6 +30,7 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
     private string _lastStartingDetail = "";
     private bool _starting;
     private bool _gpuFallbackReported;
+    private bool _gpuFallbackPending;
     private bool _disposed;
 
     public bool IsAvailable => !_disposed;
@@ -173,6 +174,7 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
         _starting = true;
         _lastStartingDetail = "";
         _gpuFallbackReported = false;
+        _gpuFallbackPending = false;
         using var start = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _stopRequested.Token);
         try
         {
@@ -194,6 +196,7 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
         ActiveSceneIds = cameraIds.Keys.ToHashSet();
         RefreshFrames();
         StartAudio();
+        if (_gpuFallbackPending) ReportGpuFallback();
     }
 
     private void ClearSession()
@@ -314,10 +317,15 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
         if (!_gpuFallbackReported && entry.Message.Contains(GpuFallbackLog, StringComparison.OrdinalIgnoreCase))
         {
             _gpuFallbackReported = true;
-            ServerErrorReceived?.Invoke(this, new AiServerErrorEvent(
-                "AI_GPU_UNAVAILABLE", "GPU indisponible : l'IA tourne sur le CPU, plus lentement.", false));
+            // Reported once the start is over: the view clears its error when the session runs.
+            if (_starting) _gpuFallbackPending = true;
+            else ReportGpuFallback();
         }
     }
+
+    private void ReportGpuFallback() =>
+        ServerErrorReceived?.Invoke(this, new AiServerErrorEvent(
+            "AI_GPU_UNAVAILABLE", "GPU indisponible : l'IA tourne sur le CPU, plus lentement.", false));
 
     private static bool TryParseSceneId(string cameraId, out Guid sceneId) =>
         Guid.TryParseExact(cameraId, "N", out sceneId);

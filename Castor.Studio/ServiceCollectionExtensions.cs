@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Castor.AI;
@@ -155,17 +156,38 @@ public static class ServiceCollectionExtensions
 
     private static IAiProvider CreateAiProvider(AiWorkerConfig config, HttpClient http)
     {
-        LocalWorkerProvider CreateWorker(string? path) => new(new LocalWorkerOptions
+        var device = config.Device?.Trim().ToLowerInvariant();
+        var gpuAdapter = Math.Max(0, config.GpuAdapter);
+
+        IAiProvider CreateWorker(string? path)
         {
-            WorkerPath = path,
-            Device = string.Equals(config.Device?.Trim(), "cpu", StringComparison.OrdinalIgnoreCase) ? "cpu" : "gpu",
-            GpuAdapter = Math.Max(0, config.GpuAdapter),
-        });
+            var options = new LocalWorkerOptions { WorkerPath = path, GpuAdapter = gpuAdapter };
+            if (device is "cpu" or "gpu") return new LocalWorkerProvider(options with { Device = device });
+
+            return new DeviceFallbackWorkerProvider(
+                chosen => new LocalWorkerProvider(options with { Device = chosen }),
+                FindGpuAdapterName(gpuAdapter),
+                new AiDeviceMemory());
+        }
 
         // Dev override: the SDK reads CASTOR_WORKER_PATH when it gets no path.
         if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CASTOR_WORKER_PATH")))
             return CreateWorker(null);
 
         return new InstallingWorkerProvider(new AiWorkerInstaller(http), CreateWorker);
+    }
+
+    // Null when the adapter cannot be named: the AI then runs on the CPU.
+    private static string? FindGpuAdapterName(int index)
+    {
+        try
+        {
+            return DxgiAdapterCatalog.Enumerate().FirstOrDefault(adapter => adapter.Index == index)?.Name;
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine($"[Castor.AI] Failed to list the GPU adapters: {exception.Message}");
+            return null;
+        }
     }
 }
