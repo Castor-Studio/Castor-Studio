@@ -16,6 +16,7 @@ using CastorApplication.Services.Config;
 using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Platform;
 using CastorApplication.Services.Settings;
+using CastorApplication.Services.Streaming;
 using CastorApplication.Services.Streaming.YouTube;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Multicam;
@@ -46,6 +47,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAuthProvider, YouTubeAuthProvider>();
         services.AddSingleton<IAuthService, AuthService>();
         services.AddSingleton<IYouTubeLiveService, YouTubeLiveService>();
+        services.AddSingleton<ILiveBroadcastService, LiveBroadcastService>();
         services.AddSingleton<ProviderRegistry>();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<IPrimaryMonitorResolutionProvider, WindowsPrimaryMonitorResolutionProvider>();
@@ -101,7 +103,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<SettingsService>(),
             provider.GetRequiredService<VideoCanvasResolutionResolver>(),
             provider.GetRequiredService<StatusMessageService>(),
-            cancelRecordingDialog: provider.GetRequiredService<ICancelRecordingDialogService>()
+            cancelRecordingDialog: provider.GetRequiredService<ICancelRecordingDialogService>(),
+            broadcasts: provider.GetRequiredService<ILiveBroadcastService>()
         ));
 
         services.AddSingleton(provider => new ScenesViewModel(
