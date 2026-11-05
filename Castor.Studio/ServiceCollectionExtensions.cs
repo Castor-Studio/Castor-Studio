@@ -33,7 +33,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(desktop);
 
         services.AddSingleton<HttpClient>();
-        services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+        // DPAPI is Windows-only, like Castor itself; anywhere else sessions last one run.
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<ITokenStore, EncryptedFileTokenStore>();
+        else
+            services.AddSingleton<ITokenStore, InMemoryTokenStore>();
         services.AddSingleton<IProviderStore, ProviderStore>();
         services.AddSingleton<IConfigService, JsonConfigService>();
         services.AddSingleton<IAuthProvider, TwitchAuthProvider>();
