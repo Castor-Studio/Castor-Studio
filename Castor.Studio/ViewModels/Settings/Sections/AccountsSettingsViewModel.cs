@@ -1,6 +1,8 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CastorApplication.Models.Settings;
@@ -26,23 +28,37 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
     [ObservableProperty]
     private bool _isLoading;
 
-    private bool IsTwitchConnected => _providerStore.Get("twitch") != null;
+    // An account whose session was revoked stays listed, but disconnected.
+    private bool IsTwitchConnected => _providerStore.Get("twitch") is { IsConnected: true };
 
     public AccountsSettingsViewModel(IAuthService authService, IProviderStore store)
     {
         _authService = authService;
         _providerStore = store;
+        // A revoked session disconnects its account from a background refresh.
+        _providerStore.Changed += OnProviderStoreChanged;
 
         LoadTwitchProvider();
+    }
+
+    private void OnProviderStoreChanged(object? sender, EventArgs e)
+    {
+        if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) LoadTwitchProvider();
+        else Dispatcher.UIThread.Post(LoadTwitchProvider);
     }
 
     private void LoadTwitchProvider()
     {
         var provider = _providerStore.Get("twitch");
-        if (provider != null)
+        if (provider is { IsConnected: true })
         {
             TwitchStatus = $"Connecté en tant que {provider.UserName}";
             TwitchButtonText = "Déconnexion";
+        }
+        else if (provider != null)
+        {
+            TwitchStatus = $"Session expirée pour {provider.UserName} : reconnectez le compte";
+            TwitchButtonText = "Connexion";
         }
         else
         {
