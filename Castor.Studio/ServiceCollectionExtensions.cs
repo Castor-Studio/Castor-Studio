@@ -9,6 +9,7 @@ using CastorApplication.Services.Ai;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Providers.Twitch;
+using CastorApplication.Services.Auth.Providers.YouTube;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Config;
 using CastorApplication.Services.Dialogs;
@@ -36,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProviderStore, ProviderStore>();
         services.AddSingleton<IConfigService, JsonConfigService>();
         services.AddSingleton<IAuthProvider, TwitchAuthProvider>();
+        services.AddSingleton<IAuthProvider, YouTubeAuthProvider>();
         services.AddSingleton<IAuthService, AuthService>();
         services.AddSingleton<ProviderRegistry>();
         services.AddSingleton<SettingsService>();
