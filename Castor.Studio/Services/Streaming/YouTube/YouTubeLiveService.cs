@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using CastorApplication.Models.Settings;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Auth.Providers.YouTube;
 using CastorApplication.Services.Streaming.YouTube.DTO;
@@ -23,10 +24,23 @@ public sealed class YouTubeApiException(string reason, string message) : Excepti
     public string Reason { get; } = reason;
 }
 
+// The event a live session is shown as on the channel, with its public page.
+public sealed record YouTubeBroadcast(string Id, string WatchUrl);
+
 public interface IYouTubeLiveService
 {
     // Reuses the stream Castor stored or created before, else creates one.
     Task<YouTubeLiveStream> ConnectAsync(string? knownStreamId, CancellationToken cancellationToken);
+
+    // Creates a broadcast bound to the stream, which goes live as soon as YouTube receives data.
+    Task<YouTubeBroadcast> StartBroadcastAsync(
+        string streamId,
+        string title,
+        YouTubePrivacy privacy,
+        CancellationToken cancellationToken);
+
+    // Completes the broadcast if it went live, deletes it if it never did.
+    Task EndBroadcastAsync(string broadcastId, CancellationToken cancellationToken);
 }
 
 public sealed class YouTubeLiveService(HttpClient http, IAuthService auth) : IYouTubeLiveService
@@ -35,6 +49,8 @@ public sealed class YouTubeLiveService(HttpClient http, IAuthService auth) : IYo
     public const string StreamTitle = "Castor Studio";
 
     private const string LiveStreamsEndpoint = "https://www.googleapis.com/youtube/v3/liveStreams";
+    private const string LiveBroadcastsEndpoint = "https://www.googleapis.com/youtube/v3/liveBroadcasts";
+    private const string WatchUrlPrefix = "https://www.youtube.com/watch?v=";
 
     private static readonly HashSet<string> QuotaReasons = new(StringComparer.Ordinal)
     {
@@ -62,6 +78,151 @@ public sealed class YouTubeLiveService(HttpClient http, IAuthService auth) : IYo
 
         return ToLiveStream(stream);
     }
+
+    public async Task<YouTubeBroadcast> StartBroadcastAsync(
+        string streamId,
+        string title,
+        YouTubePrivacy privacy,
+        CancellationToken cancellationToken)
+    {
+        var token = await AccessTokenAsync(cancellationToken);
+
+        // A crash left a broadcast live on this stream: the new one could not take it over.
+        await EndStaleBroadcastsAsync(streamId, token, cancellationToken);
+
+        var broadcast = await SendAsync<LiveBroadcastResource>(
+            HttpMethod.Post,
+            $"{LiveBroadcastsEndpoint}?part=snippet,status,contentDetails",
+            token,
+            new
+            {
+                snippet = new { title, scheduledStartTime = DateTimeOffset.UtcNow.ToString("O") },
+                status = new { privacyStatus = PrivacyStatus(privacy) },
+                // Live as soon as YouTube receives the stream, over when it stops: no YouTube Studio.
+                contentDetails = new { enableAutoStart = true, enableAutoStop = true }
+            },
+            "Création du live YouTube impossible",
+            cancellationToken);
+
+        try
+        {
+            await SendAsync<LiveBroadcastResource>(
+                HttpMethod.Post,
+                $"{LiveBroadcastsEndpoint}/bind?id={Uri.EscapeDataString(broadcast.Id)}" +
+                $"&part=id,contentDetails&streamId={Uri.EscapeDataString(streamId)}",
+                token,
+                body: null,
+                "Liaison du live YouTube au flux impossible",
+                cancellationToken);
+        }
+        catch
+        {
+            // An unbound broadcast would stay scheduled on the channel for nothing.
+            await TryDeleteBroadcastAsync(broadcast.Id, token);
+            throw;
+        }
+
+        return new YouTubeBroadcast(broadcast.Id, WatchUrlPrefix + broadcast.Id);
+    }
+
+    public async Task EndBroadcastAsync(string broadcastId, CancellationToken cancellationToken)
+    {
+        var token = await AccessTokenAsync(cancellationToken);
+
+        var found = await SendAsync<LiveBroadcastListResponse>(
+            HttpMethod.Get,
+            $"{LiveBroadcastsEndpoint}?part=id,status&id={Uri.EscapeDataString(broadcastId)}",
+            token,
+            body: null,
+            "Lecture du live YouTube impossible",
+            cancellationToken);
+
+        var broadcast = found.Items.FirstOrDefault();
+        if (broadcast != null) await EndAsync(broadcast, token, cancellationToken);
+    }
+
+    private async Task EndStaleBroadcastsAsync(string streamId, string token, CancellationToken cancellationToken)
+    {
+        var active = await SendAsync<LiveBroadcastListResponse>(
+            HttpMethod.Get,
+            $"{LiveBroadcastsEndpoint}?part=id,status,contentDetails&broadcastStatus=active&broadcastType=all&maxResults=50",
+            token,
+            body: null,
+            "Lecture des lives YouTube impossible",
+            cancellationToken);
+
+        foreach (var broadcast in active.Items.Where(item => item.ContentDetails?.BoundStreamId == streamId))
+            await EndAsync(broadcast, token, cancellationToken);
+    }
+
+    private async Task EndAsync(LiveBroadcastResource broadcast, string token, CancellationToken cancellationToken)
+    {
+        switch (broadcast.Status?.LifeCycleStatus)
+        {
+            case "complete" or "revoked":
+                // Auto-stop already ended it.
+                return;
+            case "live" or "liveStarting":
+                try
+                {
+                    await SendAsync<LiveBroadcastResource>(
+                        HttpMethod.Post,
+                        $"{LiveBroadcastsEndpoint}/transition?broadcastStatus=complete" +
+                        $"&id={Uri.EscapeDataString(broadcast.Id)}&part=id,status",
+                        token,
+                        body: null,
+                        "Fin du live YouTube impossible",
+                        cancellationToken);
+                }
+                // Auto-stop got there first.
+                catch (YouTubeApiException exception) when (exception.Reason == "redundantTransition")
+                {
+                }
+                // Still starting: it never really went live, so nothing is lost by removing it.
+                catch (YouTubeApiException exception) when (exception.Reason == "invalidTransition")
+                {
+                    await DeleteBroadcastAsync(broadcast.Id, token, cancellationToken);
+                }
+                return;
+            default:
+                // Created, ready or testing: never went live, so it is removed rather than left
+                // scheduled on the channel.
+                await DeleteBroadcastAsync(broadcast.Id, token, cancellationToken);
+                return;
+        }
+    }
+
+    private async Task DeleteBroadcastAsync(string broadcastId, string token, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Delete,
+            $"{LiveBroadcastsEndpoint}?id={Uri.EscapeDataString(broadcastId)}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await http.SendAsync(request, cancellationToken);
+        // Already gone is the goal reached.
+        if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NotFound) return;
+        throw await FailureAsync(response, "Suppression du live YouTube impossible", cancellationToken);
+    }
+
+    private async Task TryDeleteBroadcastAsync(string broadcastId, string token)
+    {
+        try
+        {
+            await DeleteBroadcastAsync(broadcastId, token, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is YouTubeApiException or HttpRequestException)
+        {
+            // The bind failure is the error worth reporting.
+        }
+    }
+
+    private static string PrivacyStatus(YouTubePrivacy privacy) => privacy switch
+    {
+        YouTubePrivacy.Unlisted => "unlisted",
+        YouTubePrivacy.Private => "private",
+        _ => "public"
+    };
 
     private Task<LiveStreamResource> InsertStreamAsync(string token, CancellationToken cancellationToken) =>
         SendAsync<LiveStreamResource>(

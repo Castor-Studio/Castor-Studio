@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using CastorApplication.Models.Auth;
+using CastorApplication.Models.Settings;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Streaming.YouTube;
 
@@ -12,6 +13,147 @@ public sealed class YouTubeLiveServiceTests
         "https://www.googleapis.com/youtube/v3/liveStreams?part=id,snippet,cdn,contentDetails&mine=true&maxResults=50";
     private const string InsertUrl =
         "https://www.googleapis.com/youtube/v3/liveStreams?part=snippet,cdn,contentDetails";
+
+    private const string Broadcasts = "https://www.googleapis.com/youtube/v3/liveBroadcasts";
+    private const string ActiveBroadcastsUrl =
+        Broadcasts + "?part=id,status,contentDetails&broadcastStatus=active&broadcastType=all&maxResults=50";
+    private const string InsertBroadcastUrl = Broadcasts + "?part=snippet,status,contentDetails";
+    private const string BindUrl = Broadcasts + "/bind?id=b1&part=id,contentDetails&streamId=stream-1";
+    private const string DeleteB1Url = Broadcasts + "?id=b1";
+    private const string GetB1Url = Broadcasts + "?part=id,status&id=b1";
+    private const string CompleteB1Url = Broadcasts + "/transition?broadcastStatus=complete&id=b1&part=id,status";
+
+    [Fact]
+    public async Task Start_creates_a_broadcast_bound_to_the_stream_that_starts_and_stops_by_itself()
+    {
+        var http = new FakeYouTube();
+        http.On(ActiveBroadcastsUrl, HttpStatusCode.OK, """{ "items": [] }""");
+        http.On(InsertBroadcastUrl, HttpStatusCode.OK, Broadcast("b1", "created"));
+        http.On(BindUrl, HttpStatusCode.OK, Broadcast("b1", "ready", "stream-1"));
+
+        var broadcast = await CreateService(http).StartBroadcastAsync(
+            "stream-1", "Match du samedi", YouTubePrivacy.Public, CancellationToken.None);
+
+        Assert.Equal(new YouTubeBroadcast("b1", "https://www.youtube.com/watch?v=b1"), broadcast);
+        Assert.Equal(
+            ["GET " + ActiveBroadcastsUrl, "POST " + InsertBroadcastUrl, "POST " + BindUrl],
+            http.Requests.Select(request => $"{request.Method} {request.Url}"));
+        var insert = http.Requests[1].Body;
+        Assert.Contains("\"title\":\"Match du samedi\"", insert);
+        Assert.Contains("\"privacyStatus\":\"public\"", insert);
+        Assert.Contains("\"enableAutoStart\":true", insert);
+        Assert.Contains("\"enableAutoStop\":true", insert);
+        Assert.Contains("\"scheduledStartTime\":", insert);
+    }
+
+    [Theory]
+    [InlineData(YouTubePrivacy.Unlisted, "unlisted")]
+    [InlineData(YouTubePrivacy.Private, "private")]
+    public async Task The_chosen_visibility_reaches_youtube(YouTubePrivacy privacy, string expected)
+    {
+        var http = new FakeYouTube();
+        http.On(ActiveBroadcastsUrl, HttpStatusCode.OK, """{ "items": [] }""");
+        http.On(InsertBroadcastUrl, HttpStatusCode.OK, Broadcast("b1", "created"));
+        http.On(BindUrl, HttpStatusCode.OK, Broadcast("b1", "ready", "stream-1"));
+
+        await CreateService(http).StartBroadcastAsync("stream-1", "Live", privacy, CancellationToken.None);
+
+        Assert.Contains($"\"privacyStatus\":\"{expected}\"", http.Requests[1].Body);
+    }
+
+    [Fact]
+    public async Task A_broadcast_that_cannot_be_bound_is_deleted()
+    {
+        var http = new FakeYouTube();
+        http.On(ActiveBroadcastsUrl, HttpStatusCode.OK, """{ "items": [] }""");
+        http.On(InsertBroadcastUrl, HttpStatusCode.OK, Broadcast("b1", "created"));
+        http.On(BindUrl, HttpStatusCode.Forbidden, Error(403, "quotaExceeded", "Quota exceeded."));
+        http.On(DeleteB1Url, HttpStatusCode.NoContent, "");
+
+        await Assert.ThrowsAsync<YouTubeApiException>(() => CreateService(http).StartBroadcastAsync(
+            "stream-1", "Live", YouTubePrivacy.Public, CancellationToken.None));
+
+        Assert.Equal("DELETE " + DeleteB1Url, $"{http.Requests[^1].Method} {http.Requests[^1].Url}");
+    }
+
+    [Fact]
+    public async Task A_broadcast_left_live_on_the_stream_by_a_crash_is_completed_first()
+    {
+        var http = new FakeYouTube();
+        http.On(ActiveBroadcastsUrl, HttpStatusCode.OK, $$"""
+            { "items": [ {{Broadcast("b1", "live", "stream-1")}}, {{Broadcast("other", "live", "obs-stream")}} ] }
+            """);
+        http.On(CompleteB1Url, HttpStatusCode.OK, Broadcast("b1", "complete", "stream-1"));
+        http.On(InsertBroadcastUrl, HttpStatusCode.OK, Broadcast("b2", "created"));
+        http.On(Broadcasts + "/bind?id=b2&part=id,contentDetails&streamId=stream-1", HttpStatusCode.OK, Broadcast("b2", "ready", "stream-1"));
+
+        var broadcast = await CreateService(http).StartBroadcastAsync(
+            "stream-1", "Live", YouTubePrivacy.Public, CancellationToken.None);
+
+        Assert.Equal("b2", broadcast.Id);
+        Assert.Contains(http.Requests, request => request.Url == CompleteB1Url);
+        // A live from another tool on another stream is not Castor's to end.
+        Assert.DoesNotContain(http.Requests, request => request.Url.Contains("id=other"));
+    }
+
+    [Theory]
+    [InlineData("live", "POST " + CompleteB1Url)]
+    [InlineData("liveStarting", "POST " + CompleteB1Url)]
+    [InlineData("ready", "DELETE " + DeleteB1Url)]
+    [InlineData("testing", "DELETE " + DeleteB1Url)]
+    public async Task End_completes_a_live_broadcast_and_deletes_one_that_never_went_live(string status, string expected)
+    {
+        var http = new FakeYouTube();
+        http.On(GetB1Url, HttpStatusCode.OK, $$"""{ "items": [ {{Broadcast("b1", status, "stream-1")}} ] }""");
+        http.On(CompleteB1Url, HttpStatusCode.OK, Broadcast("b1", "complete", "stream-1"));
+        http.On(DeleteB1Url, HttpStatusCode.NoContent, "");
+
+        await CreateService(http).EndBroadcastAsync("b1", CancellationToken.None);
+
+        Assert.Equal(["GET " + GetB1Url, expected], http.Requests.Select(request => $"{request.Method} {request.Url}"));
+    }
+
+    [Fact]
+    public async Task End_leaves_alone_a_broadcast_already_completed_by_auto_stop()
+    {
+        var http = new FakeYouTube();
+        http.On(GetB1Url, HttpStatusCode.OK, $$"""{ "items": [ {{Broadcast("b1", "complete", "stream-1")}} ] }""");
+
+        await CreateService(http).EndBroadcastAsync("b1", CancellationToken.None);
+
+        Assert.Single(http.Requests);
+    }
+
+    [Fact]
+    public async Task End_tolerates_auto_stop_winning_the_race()
+    {
+        var http = new FakeYouTube();
+        http.On(GetB1Url, HttpStatusCode.OK, $$"""{ "items": [ {{Broadcast("b1", "live", "stream-1")}} ] }""");
+        http.On(CompleteB1Url, HttpStatusCode.Forbidden, Error(403, "redundantTransition", "Redundant transition"));
+
+        await CreateService(http).EndBroadcastAsync("b1", CancellationToken.None);
+
+        Assert.Equal(2, http.Requests.Count);
+    }
+
+    [Fact]
+    public async Task A_failed_creation_binds_nothing()
+    {
+        var http = new FakeYouTube();
+        http.On(ActiveBroadcastsUrl, HttpStatusCode.OK, """{ "items": [] }""");
+        http.On(InsertBroadcastUrl, HttpStatusCode.Forbidden, Error(403, "quotaExceeded", "Quota exceeded."));
+
+        var error = await Assert.ThrowsAsync<YouTubeApiException>(() => CreateService(http).StartBroadcastAsync(
+            "stream-1", "Live", YouTubePrivacy.Public, CancellationToken.None));
+
+        Assert.Contains("quota", error.Message);
+        Assert.DoesNotContain(http.Requests, request => request.Url.Contains("/bind"));
+    }
+
+    private static string Broadcast(string id, string status, string? streamId = null) => $$"""
+        { "id": "{{id}}", "status": { "lifeCycleStatus": "{{status}}" }
+          {{(streamId == null ? "" : $", \"contentDetails\": {{ \"boundStreamId\": \"{streamId}\" }}")}} }
+        """;
 
     [Fact]
     public async Task The_stored_stream_is_reused()

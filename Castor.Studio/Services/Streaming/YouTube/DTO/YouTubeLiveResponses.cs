@@ -54,6 +54,37 @@ internal sealed class LiveStreamContentDetails
     public bool IsReusable { get; init; }
 }
 
+internal sealed class LiveBroadcastListResponse
+{
+    [JsonPropertyName("items")]
+    public LiveBroadcastResource[] Items { get; init; } = [];
+}
+
+internal sealed class LiveBroadcastResource
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("status")]
+    public LiveBroadcastStatus? Status { get; init; }
+
+    [JsonPropertyName("contentDetails")]
+    public LiveBroadcastContentDetails? ContentDetails { get; init; }
+}
+
+internal sealed class LiveBroadcastStatus
+{
+    // created, ready, testStarting, testing, liveStarting, live, complete, revoked.
+    [JsonPropertyName("lifeCycleStatus")]
+    public string? LifeCycleStatus { get; init; }
+}
+
+internal sealed class LiveBroadcastContentDetails
+{
+    [JsonPropertyName("boundStreamId")]
+    public string? BoundStreamId { get; init; }
+}
+
 // {"error": {"code": 403, "message": "...", "errors": [{"reason": "liveStreamingNotEnabled"}]}}
 internal sealed class GoogleApiErrorResponse
 {
