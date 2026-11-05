@@ -1,4 +1,5 @@
 using CastorApplication.Models.Auth;
+using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Auth.Storage;
@@ -172,6 +173,12 @@ public sealed class AccountsSettingsViewModelTests
                 ? Task.FromException<YouTubeLiveStream>(Failure)
                 : Task.FromResult(new YouTubeLiveStream("stream-1", "yt-key", "rtmps://a.rtmps.youtube.com:443/live2"));
         }
+
+        public Task<YouTubeBroadcast> StartBroadcastAsync(string streamId, string title, YouTubePrivacy privacy, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task EndBroadcastAsync(string broadcastId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FakeAccounts(IEnumerable<ProviderSettings> accounts) : IProviderStore
