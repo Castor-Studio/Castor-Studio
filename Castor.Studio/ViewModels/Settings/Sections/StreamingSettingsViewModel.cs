@@ -11,6 +11,19 @@ namespace CastorApplication.ViewModels.Settings.Sections;
 
 public sealed record StreamingDestinationOption(string ProviderId, string Label);
 
+public sealed record YouTubePrivacyOption(YouTubePrivacy Privacy, string Label)
+{
+    public static IReadOnlyList<YouTubePrivacyOption> All { get; } =
+    [
+        new(YouTubePrivacy.Public, "Public"),
+        new(YouTubePrivacy.Unlisted, "Non répertorié"),
+        new(YouTubePrivacy.Private, "Privé")
+    ];
+
+    public static YouTubePrivacyOption For(YouTubePrivacy privacy) =>
+        All.FirstOrDefault(option => option.Privacy == privacy) ?? All[0];
+}
+
 public partial class StreamingSettingsViewModel : SettingsSectionViewModel
 {
     private readonly IProviderStore? _providerStore;
@@ -41,6 +54,20 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         1 => Destinations[0].Label,
         _ => ""
     };
+
+    // Each YouTube live is a broadcast of its own, created with this title and visibility.
+    public bool IsYouTubeConnected =>
+        Destinations.Any(option => option.ProviderId == StreamingProviders.YouTube);
+
+    public IReadOnlyList<YouTubePrivacyOption> PrivacyOptions => YouTubePrivacyOption.All;
+
+    public int YouTubeBroadcastTitleMaxLength => ApplicationSettings.YouTubeBroadcastTitleMaxLength;
+
+    [ObservableProperty]
+    private string _youTubeBroadcastTitle = ApplicationSettings.DefaultYouTubeBroadcastTitle;
+
+    [ObservableProperty]
+    private YouTubePrivacyOption? _selectedPrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Public);
 
     public StreamingSettingsViewModel(IProviderStore? providerStore = null)
     {
@@ -79,6 +106,7 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
 
         OnPropertyChanged(nameof(CanChooseDestination));
         OnPropertyChanged(nameof(DestinationSummary));
+        OnPropertyChanged(nameof(IsYouTubeConnected));
     }
 
     protected override void LoadCore(ApplicationSettings settings)
@@ -87,6 +115,8 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         _storedProviderId = settings.StreamingProviderId;
         SelectedDestination = Destinations.FirstOrDefault(option => option.ProviderId == _storedProviderId)
             ?? Destinations.FirstOrDefault();
+        YouTubeBroadcastTitle = settings.YouTubeBroadcastTitle;
+        SelectedPrivacy = YouTubePrivacyOption.For(settings.YouTubePrivacy);
     }
 
     protected override void SaveCore(ApplicationSettings settings)
@@ -98,5 +128,12 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
             settings.StreamingProviderId = SelectedDestination.ProviderId;
             _storedProviderId = SelectedDestination.ProviderId;
         }
+
+        // An empty title would make YouTube refuse the broadcast at the next live.
+        var title = YouTubeBroadcastTitle.Trim();
+        settings.YouTubeBroadcastTitle = title.Length == 0
+            ? ApplicationSettings.DefaultYouTubeBroadcastTitle
+            : title[..Math.Min(title.Length, ApplicationSettings.YouTubeBroadcastTitleMaxLength)];
+        settings.YouTubePrivacy = SelectedPrivacy?.Privacy ?? YouTubePrivacy.Public;
     }
 }
