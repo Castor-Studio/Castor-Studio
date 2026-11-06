@@ -417,17 +417,18 @@ public partial class StudioViewModel : ViewModelBase
             }
             broadcast = prepared.Broadcast;
 
-            var result = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
+            var results = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
                 scene.ToDefinition(),
-                ToDestination(account),
+                [ToDestination(account)],
                 FpsFromIndex(settings.SelectedFpsIndex),
                 (int)settings.StreamingBitrate,
                 AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
                 AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
                 AudioChannelsFromIndex(settings.SelectedChannelsIndex)), cancellationToken);
-            if (!result.IsSuccess)
+            var failure = results.FirstOrDefault(destination => !destination.Result.IsSuccess);
+            if (failure != null)
             {
-                StreamError.ShowError(result.Message);
+                StreamError.ShowError(failure.Result.Message);
                 return;
             }
 

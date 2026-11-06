@@ -36,7 +36,7 @@ public sealed class StudioStreamingViewModelTests
 
             var request = Assert.IsType<StreamingRequest>(fixture.StreamingRuntime.Request);
             Assert.Equal(fixture.Scene.Id, request.Scene.Id);
-            Assert.Equal(new StreamingDestination("twitch", "", "live-key"), request.Destination);
+            Assert.Equal(new StreamingDestination("twitch", "", "live-key"), Assert.Single(request.Destinations));
             Assert.Equal(25, request.Fps);
             Assert.Equal(5_500, request.VideoBitrateKbps);
             Assert.Equal(320, request.AudioBitrateKbps);
@@ -277,7 +277,7 @@ public sealed class StudioStreamingViewModelTests
             var request = Assert.IsType<StreamingRequest>(fixture.StreamingRuntime.Request);
             Assert.Equal(
                 new StreamingDestination("youtube", "rtmp://a.rtmp.youtube.com/live2", "yt-key"),
-                request.Destination);
+                Assert.Single(request.Destinations));
             Assert.True(fixture.Workspace.IsStreaming);
         }
         finally
@@ -316,7 +316,7 @@ public sealed class StudioStreamingViewModelTests
         {
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
-            Assert.Equal(expected, fixture.StreamingRuntime.Request?.Destination.ProviderId);
+            Assert.Equal(expected, fixture.StreamingRuntime.Request?.Destinations.Single().ProviderId);
         }
         finally
         {
@@ -580,15 +580,19 @@ public sealed class StudioStreamingViewModelTests
         public StudioRuntimeResult SwitchResult { get; set; } = StudioRuntimeResult.Success();
         public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
 
-        public Task<StudioRuntimeResult> StartStreamingAsync(
+        public Task<IReadOnlyList<StreamingDestinationResult>> StartStreamingAsync(
             StreamingRequest request,
             CancellationToken cancellationToken)
         {
             Request = request;
-            return Task.FromResult(StartResult);
+            return Task.FromResult<IReadOnlyList<StreamingDestinationResult>>(
+                [.. request.Destinations.Select(destination => new StreamingDestinationResult(destination.ProviderId, StartResult))]);
         }
 
         public Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(StopResult);
+
+        public Task<StudioRuntimeResult> StopStreamingAsync(string providerId, CancellationToken cancellationToken) =>
             Task.FromResult(StopResult);
 
         public StudioRuntimeResult SwitchStreamingScene(Guid sceneId)
@@ -598,7 +602,8 @@ public sealed class StudioStreamingViewModelTests
         }
 
         public void RaiseState(bool isStreaming, string message = "") =>
-            StreamingStateChanged?.Invoke(this, new StreamingStateChangedEventArgs(isStreaming, message));
+            StreamingStateChanged?.Invoke(this, new StreamingStateChangedEventArgs(
+                Request?.Destinations[0].ProviderId ?? "twitch", isStreaming, message));
     }
 
     private sealed class FakeRecordingRuntime : IRecordingRuntime
