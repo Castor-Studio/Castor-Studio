@@ -36,9 +36,6 @@ internal sealed class GoogleTokenResponse
     // Space-separated, unlike Twitch which sends an array.
     [JsonPropertyName("scope")]
     public string? Scope { get; init; }
-
-    [JsonPropertyName("token_type")]
-    public string? TokenType { get; init; }
 }
 
 internal sealed class GoogleOAuthError

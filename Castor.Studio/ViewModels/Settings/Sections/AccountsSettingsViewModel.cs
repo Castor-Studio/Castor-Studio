@@ -108,7 +108,7 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanToggleTwitch))]
+    [RelayCommand(CanExecute = nameof(CanToggleAccount))]
     private async Task ToggleYouTubeAsync()
     {
         if (IsYouTubeConnected)
@@ -219,7 +219,7 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
         }
     }
 
-    private bool CanToggleTwitch()
+    private bool CanToggleAccount()
     {
         return !IsLoading;
     }
@@ -231,7 +231,7 @@ public partial class AccountsSettingsViewModel : SettingsSectionViewModel
         ToggleYouTubeCommand.NotifyCanExecuteChanged();
     }
 
-    [RelayCommand(CanExecute = nameof(CanToggleTwitch))]
+    [RelayCommand(CanExecute = nameof(CanToggleAccount))]
     private async Task ToggleTwitchAsync()
     {
         if (IsTwitchConnected)
