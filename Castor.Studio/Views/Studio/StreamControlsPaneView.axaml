@@ -70,12 +70,27 @@
 									</ItemsControl.ItemTemplate>
 								</ItemsControl>
 							</StackPanel>
-							<!-- The YouTube broadcast created at start; kept for the next live. -->
-							<StackPanel Spacing="4" IsVisible="{Binding IsYouTubeChosen}">
-								<TextBlock Text="Titre du live YouTube" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
-								<TextBox Text="{Binding GoLiveYouTubeTitle}"
-                                         MaxLength="{Binding YouTubeBroadcastTitleMaxLength}"
+							<!-- Title, description and visibility, kept for the next live. The title goes to every
+							     ticked platform; the rest only exists on YouTube. -->
+							<StackPanel Spacing="4" IsVisible="{Binding IsAccountConnected}">
+								<TextBlock Text="Titre du live" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+								<TextBox Text="{Binding GoLiveTitle}"
+                                         MaxLength="{Binding LiveTitleMaxLength}"
                                          PlaceholderText="Live Castor Studio"
+                                         FontSize="12"
+                                         Background="{DynamicResource AppSurface2}"
+                                         BorderBrush="{DynamicResource AppBorder2}"
+                                         Foreground="{DynamicResource AppFg1}"/>
+							</StackPanel>
+							<StackPanel Spacing="4" IsVisible="{Binding IsYouTubeChosen}">
+								<TextBlock Text="Description · YouTube uniquement" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+								<TextBox Text="{Binding GoLiveDescription}"
+                                         MaxLength="{Binding LiveDescriptionMaxLength}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         MinHeight="56"
+                                         MaxHeight="120"
+                                         PlaceholderText="Facultative"
                                          FontSize="12"
                                          Background="{DynamicResource AppSurface2}"
                                          BorderBrush="{DynamicResource AppBorder2}"

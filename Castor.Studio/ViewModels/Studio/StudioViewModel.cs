@@ -129,7 +129,7 @@ public partial class StudioViewModel : ViewModelBase
     // after a round trip to Settings > Comptes from the panel.
     [ObservableProperty] private string _destinationLabel = NoDestinationLabel;
 
-    // ── Go-live panel: where the live goes and its YouTube title ─────────────────────────────
+    // ── Go-live panel: where the live goes, its title and its YouTube details ────────────────
     // Read again from the settings each time the panel opens; DÉMARRER saves what it shows, so
     // the next live and Settings › Streaming start from it.
 
@@ -141,9 +141,15 @@ public partial class StudioViewModel : ViewModelBase
 
     public IReadOnlyList<YouTubePrivacyOption> PrivacyOptions => YouTubePrivacyOption.All;
 
-    public int YouTubeBroadcastTitleMaxLength => ApplicationSettings.YouTubeBroadcastTitleMaxLength;
+    public int LiveTitleMaxLength => ApplicationSettings.LiveTitleMaxLength;
 
-    [ObservableProperty] private string _goLiveYouTubeTitle = ApplicationSettings.DefaultYouTubeBroadcastTitle;
+    public int LiveDescriptionMaxLength => ApplicationSettings.LiveDescriptionMaxLength;
+
+    // Given to every ticked platform.
+    [ObservableProperty] private string _goLiveTitle = ApplicationSettings.DefaultLiveTitle;
+
+    // YouTube only, like the visibility.
+    [ObservableProperty] private string _goLiveDescription = "";
 
     [ObservableProperty] private YouTubePrivacyOption? _goLivePrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Public);
 
@@ -151,7 +157,8 @@ public partial class StudioViewModel : ViewModelBase
     {
         var settings = _settingsService.Load();
         RefreshGoLiveDestinations(settings);
-        GoLiveYouTubeTitle = settings.YouTubeBroadcastTitle;
+        GoLiveTitle = settings.LiveTitle;
+        GoLiveDescription = settings.LiveDescription;
         GoLivePrivacy = YouTubePrivacyOption.For(settings.YouTubePrivacy);
     }
 
@@ -174,13 +181,21 @@ public partial class StudioViewModel : ViewModelBase
             changed = true;
         }
 
+        var title = ApplicationSettings.NormalizeLiveTitle(GoLiveTitle);
+        if (title != settings.LiveTitle)
+        {
+            settings.LiveTitle = title;
+            changed = true;
+        }
+
+        // Hidden without YouTube: whatever they hold was not meant for this live.
         if (IsYouTubeChosen)
         {
-            var title = ApplicationSettings.NormalizeYouTubeBroadcastTitle(GoLiveYouTubeTitle);
+            var description = ApplicationSettings.NormalizeLiveDescription(GoLiveDescription);
             var privacy = GoLivePrivacy?.Privacy ?? YouTubePrivacy.Public;
-            if (title != settings.YouTubeBroadcastTitle || privacy != settings.YouTubePrivacy)
+            if (description != settings.LiveDescription || privacy != settings.YouTubePrivacy)
             {
-                settings.YouTubeBroadcastTitle = title;
+                settings.LiveDescription = description;
                 settings.YouTubePrivacy = privacy;
                 changed = true;
             }
@@ -495,6 +510,8 @@ public partial class StudioViewModel : ViewModelBase
 
         IsStreamingTransition = true;
         var errors = new List<string>();
+        // Platforms that go live all the same, with something left undone (a Twitch title).
+        var warnings = new List<string>();
         try
         {
             // Each platform-side broadcast comes before the outputs: without it, YouTube would
@@ -509,6 +526,8 @@ public partial class StudioViewModel : ViewModelBase
                     errors.Add(AboutPlatform(account.ProviderId, prepared.Result.Message));
                     continue;
                 }
+                if (prepared.Result.Message.Length > 0)
+                    warnings.Add(AboutPlatform(account.ProviderId, prepared.Result.Message));
                 if (prepared.Broadcast != null) _liveBroadcasts[account.ProviderId] = prepared.Broadcast;
                 destinations.Add(ToDestination(account));
             }
@@ -539,7 +558,15 @@ public partial class StudioViewModel : ViewModelBase
             IsStreamingTransition = false;
         }
 
-        if (errors.Count > 0) StreamError.ShowError(WithLivesLeft(string.Join(Environment.NewLine, errors.Distinct())));
+        if (errors.Count > 0)
+        {
+            StreamError.ShowError(string.Join(Environment.NewLine,
+                [WithLivesLeft(string.Join(Environment.NewLine, errors.Distinct())), .. warnings]));
+        }
+        else if (warnings.Count > 0)
+        {
+            StreamError.ShowWarning(string.Join(Environment.NewLine, warnings));
+        }
     }
 
     [RelayCommand]

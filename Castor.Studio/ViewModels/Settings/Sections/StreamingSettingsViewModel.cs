@@ -64,16 +64,22 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         _ => ""
     };
 
-    // Each YouTube live is a broadcast of its own, created with this title and visibility.
+    // Each YouTube live is a broadcast of its own, created with this description and visibility.
     public bool IsYouTubeConnected =>
         Destinations.Any(option => option.ProviderId == StreamingProviders.YouTube);
 
     public IReadOnlyList<YouTubePrivacyOption> PrivacyOptions => YouTubePrivacyOption.All;
 
-    public int YouTubeBroadcastTitleMaxLength => ApplicationSettings.YouTubeBroadcastTitleMaxLength;
+    public int LiveTitleMaxLength => ApplicationSettings.LiveTitleMaxLength;
+
+    public int LiveDescriptionMaxLength => ApplicationSettings.LiveDescriptionMaxLength;
+
+    // Given to every platform the live goes to.
+    [ObservableProperty]
+    private string _liveTitle = ApplicationSettings.DefaultLiveTitle;
 
     [ObservableProperty]
-    private string _youTubeBroadcastTitle = ApplicationSettings.DefaultYouTubeBroadcastTitle;
+    private string _liveDescription = "";
 
     [ObservableProperty]
     private YouTubePrivacyOption? _selectedPrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Public);
@@ -128,7 +134,8 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         StreamingBitrate = settings.StreamingBitrate;
         _storedProviderIds = [.. settings.StreamingProviderIds];
         _destinations.Apply(_storedProviderIds);
-        YouTubeBroadcastTitle = settings.YouTubeBroadcastTitle;
+        LiveTitle = settings.LiveTitle;
+        LiveDescription = settings.LiveDescription;
         SelectedPrivacy = YouTubePrivacyOption.For(settings.YouTubePrivacy);
     }
 
@@ -142,7 +149,8 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
             settings.StreamingProviderIds = [.. _storedProviderIds];
         }
 
-        settings.YouTubeBroadcastTitle = ApplicationSettings.NormalizeYouTubeBroadcastTitle(YouTubeBroadcastTitle);
+        settings.LiveTitle = ApplicationSettings.NormalizeLiveTitle(LiveTitle);
+        settings.LiveDescription = ApplicationSettings.NormalizeLiveDescription(LiveDescription);
         settings.YouTubePrivacy = SelectedPrivacy?.Privacy ?? YouTubePrivacy.Public;
     }
 }

@@ -174,7 +174,7 @@ public sealed class AccountsSettingsViewModelTests
                 : Task.FromResult(new YouTubeLiveStream("stream-1", "yt-key", "rtmps://a.rtmps.youtube.com:443/live2"));
         }
 
-        public Task<YouTubeBroadcast> StartBroadcastAsync(string streamId, string title, YouTubePrivacy privacy, CancellationToken cancellationToken) =>
+        public Task<YouTubeBroadcast> StartBroadcastAsync(string streamId, string title, string description, YouTubePrivacy privacy, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
         public Task EndBroadcastAsync(string broadcastId, CancellationToken cancellationToken) =>
