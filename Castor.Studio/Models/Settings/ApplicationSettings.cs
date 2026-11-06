@@ -19,9 +19,9 @@ public sealed class ApplicationSettings
     public int SelectedChannelsIndex { get; set; }
     public int SelectedAudioBitrateIndex { get; set; } = 1;
 
-    // Live destination when several accounts are connected (a StreamingProviders id). Empty or
-    // disconnected: the first connected account in StreamingProviders.All order.
-    public string StreamingProviderId { get; set; } = "";
+    // Platforms the live goes to, all at once (StreamingProviders ids). Those not ready to stream
+    // are skipped; none left: the first connected account in StreamingProviders.All order.
+    public List<string> StreamingProviderIds { get; set; } = [];
 
     // YouTube broadcast created at each live start.
     public string YouTubeBroadcastTitle { get; set; } = DefaultYouTubeBroadcastTitle;

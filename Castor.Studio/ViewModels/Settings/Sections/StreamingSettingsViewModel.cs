@@ -112,7 +112,7 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
     protected override void LoadCore(ApplicationSettings settings)
     {
         StreamingBitrate = settings.StreamingBitrate;
-        _storedProviderId = settings.StreamingProviderId;
+        _storedProviderId = settings.StreamingProviderIds.FirstOrDefault() ?? "";
         SelectedDestination = Destinations.FirstOrDefault(option => option.ProviderId == _storedProviderId)
             ?? Destinations.FirstOrDefault();
         YouTubeBroadcastTitle = settings.YouTubeBroadcastTitle;
@@ -125,7 +125,7 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         // Saving with a single account connected must not erase the choice made for two.
         if (CanChooseDestination && SelectedDestination != null)
         {
-            settings.StreamingProviderId = SelectedDestination.ProviderId;
+            settings.StreamingProviderIds = [SelectedDestination.ProviderId];
             _storedProviderId = SelectedDestination.ProviderId;
         }
 

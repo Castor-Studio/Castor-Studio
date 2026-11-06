@@ -85,12 +85,12 @@ public sealed class StreamingSettingsViewModelTests
     public void The_destination_choice_survives_a_save_with_a_single_account()
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(Twitch()));
-        page.Load(new ApplicationSettings { StreamingProviderId = "youtube" });
+        page.Load(new ApplicationSettings { StreamingProviderIds = ["youtube"] });
 
-        var saved = new ApplicationSettings { StreamingProviderId = "youtube" };
+        var saved = new ApplicationSettings { StreamingProviderIds = ["youtube"] };
         page.Save(saved);
 
-        Assert.Equal("youtube", saved.StreamingProviderId);
+        Assert.Equal(["youtube"], saved.StreamingProviderIds);
     }
 
     private static ProviderSettings Twitch() => new()
