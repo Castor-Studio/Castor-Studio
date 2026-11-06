@@ -92,7 +92,8 @@
 				</Button.Flyout>
 			</Button>
 
-			<!-- The watch button only shows when the platform gives the live a page of its own (YouTube). -->
+			<!-- Stop ends every platform at once; the list (⋯) shows each live with its public page and
+			     stops them one by one, as the recordings' list does. -->
 			<Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsStreaming}">
 				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
                         Content="ARRÊTER LE LIVE"
@@ -102,14 +103,59 @@
                         Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
                         BorderBrush="{DynamicResource AppStopBorder}"/>
 				<Button Grid.Column="1" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
-                        Content="↗"
-                        IsVisible="{Binding HasLiveWatchUrl}"
-                        Command="{Binding OpenLiveWatchPageCommand}"
-                        ToolTip.Tip="Ouvrir la page du live"
-                        AutomationProperties.Name="Ouvrir la page du live"
+                        x:Name="LivePlatformsButton"
+                        Content="⋯"
+                        ToolTip.Tip="{Binding LivePlatformsToolTip}"
+                        AutomationProperties.Name="Lives en cours"
                         Classes="ctrl-btn"
                         Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
-                        BorderBrush="{DynamicResource AppBorder}"/>
+                        BorderBrush="{DynamicResource AppBorder}">
+					<Button.Flyout>
+						<Flyout Placement="Top">
+							<StackPanel Width="320" Spacing="10" Margin="4">
+								<TextBlock Text="LIVES EN COURS"
+                                           FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+								<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+								<ItemsControl ItemsSource="{Binding LivePlatforms}">
+									<ItemsControl.ItemTemplate>
+										<DataTemplate x:DataType="vm:LivePlatformViewModel">
+											<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,8" Margin="0,0,0,6"
+                                                    BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
+												<Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+													<StackPanel Grid.Row="0" Grid.Column="0" Spacing="1">
+														<TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource AppFg1}"/>
+														<TextBlock Text="{Binding AccountName}" FontSize="10"
+                                                                   Foreground="{DynamicResource AppFg4}" TextTrimming="CharacterEllipsis"/>
+													</StackPanel>
+													<TextBlock Grid.Row="0" Grid.Column="1" Text="En direct" FontSize="10"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                               Classes="session-state live"/>
+													<StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+														<Button Content="Voir le live ↗" FontSize="11" Padding="10,4" CornerRadius="5"
+                                                                IsVisible="{Binding HasWatchUrl}"
+                                                                Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).OpenLiveWatchPageCommand, FallbackValue={x:Null}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip.Tip="Ouvrir la page publique du live"
+                                                                Background="{DynamicResource AppSurface3}" Foreground="{DynamicResource AppFg2}"
+                                                                BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"/>
+														<Button Content="Arrêter" FontSize="11" Padding="10,4" CornerRadius="5"
+                                                                Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).StopLivePlatformCommand, FallbackValue={x:Null}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip.Tip="Arrêter ce live ; les autres continuent"
+                                                                Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
+                                                                BorderBrush="{DynamicResource AppStopBorder}" BorderThickness="1"/>
+													</StackPanel>
+												</Grid>
+											</Border>
+										</DataTemplate>
+									</ItemsControl.ItemTemplate>
+								</ItemsControl>
+								<controls:MessageBar Text="{Binding StreamError.Text}"/>
+							</StackPanel>
+						</Flyout>
+					</Button.Flyout>
+				</Button>
 			</Grid>
 
 			<!-- One click starts recording: the active scene by default. The arrow opens the choice

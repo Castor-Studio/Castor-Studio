@@ -348,6 +348,78 @@ public sealed class StudioStreamingViewModelTests
         broadcasts,
         ConnectedYouTube());
 
+    // "" when the platform is not live, or live without a public page.
+    private static string WatchUrlOf(Fixture fixture, string providerId) =>
+        fixture.ViewModel.LivePlatforms.FirstOrDefault(platform => platform.ProviderId == providerId)?.WatchUrl ?? "";
+
+    [Fact]
+    public async Task Each_live_platform_is_listed_with_its_account_and_page()
+    {
+        var fixture = CreateMultistreamFixture(BroadcastsCreating(YouTubeBroadcast()));
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal(["Twitch", "YouTube"], fixture.ViewModel.LivePlatforms.Select(platform => platform.Name));
+            Assert.Equal(["Castor", "Club TV"], fixture.ViewModel.LivePlatforms.Select(platform => platform.AccountName));
+            Assert.Equal([false, true], fixture.ViewModel.LivePlatforms.Select(platform => platform.HasWatchUrl));
+            Assert.Equal("2 lives en cours", fixture.ViewModel.LivePlatformsToolTip);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Stopping_one_platform_leaves_the_other_live()
+    {
+        var broadcast = YouTubeBroadcast();
+        var fixture = CreateMultistreamFixture(BroadcastsCreating(broadcast));
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+            var youTube = fixture.ViewModel.LivePlatforms.Single(platform => platform.ProviderId == "youtube");
+
+            await fixture.ViewModel.StopLivePlatformCommand.ExecuteAsync(youTube);
+
+            Assert.Equal(["youtube"], fixture.StreamingRuntime.StoppedProviders);
+            Assert.Equal([broadcast], fixture.Broadcasts.Ended);
+            Assert.True(fixture.Workspace.IsStreaming);
+            Assert.Equal("twitch", Assert.Single(fixture.ViewModel.LivePlatforms).ProviderId);
+            Assert.Equal("Live en cours sur Twitch", fixture.ViewModel.LivePlatformsToolTip);
+
+            await fixture.ViewModel.StopLivePlatformCommand.ExecuteAsync(fixture.ViewModel.LivePlatforms[0]);
+
+            Assert.False(fixture.Workspace.IsStreaming);
+            Assert.Empty(fixture.ViewModel.LivePlatforms);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task A_refused_platform_stop_keeps_it_listed()
+    {
+        var fixture = CreateMultistreamFixture();
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+            fixture.StreamingRuntime.StopResult = StudioRuntimeResult.Failure("Arrêt du live YouTube impossible : erreur");
+
+            await fixture.ViewModel.StopLivePlatformCommand.ExecuteAsync(fixture.ViewModel.LivePlatforms[1]);
+
+            Assert.Equal(2, fixture.ViewModel.LivePlatforms.Count);
+            Assert.Equal("Arrêt du live YouTube impossible : erreur", fixture.ViewModel.StreamError.Text);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Fact]
     public async Task Both_chosen_platforms_go_live_from_one_start()
     {
@@ -364,7 +436,7 @@ public sealed class StudioStreamingViewModelTests
             Assert.Equal(["twitch", "youtube"], request.Destinations.Select(destination => destination.ProviderId));
             Assert.Equal(["twitch", "youtube"], fixture.Broadcasts.Prepared);
             Assert.True(fixture.Workspace.IsStreaming);
-            Assert.Equal(broadcast.WatchUrl, fixture.ViewModel.LiveWatchUrl);
+            Assert.Equal(broadcast.WatchUrl, WatchUrlOf(fixture, "youtube"));
             Assert.Equal("", fixture.ViewModel.StreamError.Text);
 
             await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
@@ -390,7 +462,7 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.True(fixture.Workspace.IsStreaming);
             Assert.Equal([broadcast], fixture.Broadcasts.Ended);
-            Assert.False(fixture.ViewModel.HasLiveWatchUrl);
+            Assert.Equal("", WatchUrlOf(fixture, "youtube"));
             Assert.Equal(
                 $"YouTube : Connexion refusée.{Environment.NewLine}Le live continue sur Twitch.",
                 fixture.ViewModel.StreamError.Text);
@@ -458,7 +530,7 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.True(fixture.Workspace.IsStreaming);
             Assert.Equal([broadcast], fixture.Broadcasts.Ended);
-            Assert.False(fixture.ViewModel.HasLiveWatchUrl);
+            Assert.Equal("twitch", Assert.Single(fixture.ViewModel.LivePlatforms).ProviderId);
             Assert.Equal(
                 $"La connexion au serveur YouTube a été interrompue.{Environment.NewLine}Le live continue sur Twitch.",
                 fixture.ViewModel.StreamError.Text);
@@ -518,8 +590,8 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.Equal(["youtube"], fixture.Broadcasts.Prepared);
             Assert.NotNull(fixture.StreamingRuntime.Request);
-            Assert.Equal("https://www.youtube.com/watch?v=b1", fixture.ViewModel.LiveWatchUrl);
-            Assert.True(fixture.ViewModel.OpenLiveWatchPageCommand.CanExecute(null));
+            Assert.Equal("https://www.youtube.com/watch?v=b1", WatchUrlOf(fixture, "youtube"));
+            Assert.True(Assert.Single(fixture.ViewModel.LivePlatforms).HasWatchUrl);
             Assert.Empty(fixture.Broadcasts.Ended);
 
             await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
@@ -527,8 +599,7 @@ public sealed class StudioStreamingViewModelTests
             fixture.StreamingRuntime.RaiseState(false);
 
             Assert.Equal([broadcast], fixture.Broadcasts.Ended);
-            Assert.Equal("", fixture.ViewModel.LiveWatchUrl);
-            Assert.False(fixture.ViewModel.HasLiveWatchUrl);
+            Assert.Empty(fixture.ViewModel.LivePlatforms);
         }
         finally
         {
@@ -570,7 +641,7 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.Equal([broadcast], fixture.Broadcasts.Ended);
             Assert.False(fixture.Workspace.IsStreaming);
-            Assert.Equal("", fixture.ViewModel.LiveWatchUrl);
+            Assert.Empty(fixture.ViewModel.LivePlatforms);
             Assert.Equal("YouTube a refusé la clé de stream.", fixture.ViewModel.StreamError.Text);
         }
         finally
@@ -627,7 +698,7 @@ public sealed class StudioStreamingViewModelTests
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
             Assert.Equal(["twitch"], fixture.Broadcasts.Prepared);
-            Assert.False(fixture.ViewModel.HasLiveWatchUrl);
+            Assert.False(Assert.Single(fixture.ViewModel.LivePlatforms).HasWatchUrl);
         }
         finally
         {
@@ -754,8 +825,13 @@ public sealed class StudioStreamingViewModelTests
         public Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken) =>
             Task.FromResult(StopResult);
 
-        public Task<StudioRuntimeResult> StopStreamingAsync(string providerId, CancellationToken cancellationToken) =>
-            Task.FromResult(StopResult);
+        public List<string> StoppedProviders { get; } = [];
+
+        public Task<StudioRuntimeResult> StopStreamingAsync(string providerId, CancellationToken cancellationToken)
+        {
+            StoppedProviders.Add(providerId);
+            return Task.FromResult(StopResult);
+        }
 
         public StudioRuntimeResult SwitchStreamingScene(Guid sceneId)
         {
