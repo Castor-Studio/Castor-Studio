@@ -1157,10 +1157,15 @@ public sealed class StudioRecordingViewModelTests
             add { }
             remove { }
         }
-        public Task<StudioRuntimeResult> StartStreamingAsync(
+        public Task<IReadOnlyList<StreamingDestinationResult>> StartStreamingAsync(
             StreamingRequest request,
-            CancellationToken cancellationToken) => Task.FromResult(StudioRuntimeResult.Success());
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<StreamingDestinationResult>>(
+                [.. request.Destinations.Select(destination =>
+                    new StreamingDestinationResult(destination.ProviderId, StudioRuntimeResult.Success()))]);
         public Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(StudioRuntimeResult.Success());
+        public Task<StudioRuntimeResult> StopStreamingAsync(string providerId, CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
 
         public StudioRuntimeResult SwitchStreamingScene(Guid sceneId) =>

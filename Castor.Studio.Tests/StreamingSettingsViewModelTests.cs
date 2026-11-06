@@ -8,25 +8,29 @@ namespace Castor.Studio.Tests;
 public sealed class StreamingSettingsViewModelTests
 {
     [Fact]
-    public void Youtube_title_and_visibility_are_loaded_and_saved()
+    public void Live_title_description_and_visibility_are_loaded_and_saved()
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(YouTube()));
         page.Load(new ApplicationSettings
         {
-            YouTubeBroadcastTitle = "Match du samedi",
+            LiveTitle = "Match du samedi",
+            LiveDescription = "Demi-finale",
             YouTubePrivacy = YouTubePrivacy.Unlisted
         });
 
         Assert.True(page.IsYouTubeConnected);
-        Assert.Equal("Match du samedi", page.YouTubeBroadcastTitle);
+        Assert.Equal("Match du samedi", page.LiveTitle);
+        Assert.Equal("Demi-finale", page.LiveDescription);
         Assert.Equal(YouTubePrivacy.Unlisted, page.SelectedPrivacy?.Privacy);
 
-        page.YouTubeBroadcastTitle = "  Finale  ";
+        page.LiveTitle = "  Finale  ";
+        page.LiveDescription = "  Finale régionale, <en direct>.  ";
         page.SelectedPrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Private);
         var saved = new ApplicationSettings();
         page.Save(saved);
 
-        Assert.Equal("Finale", saved.YouTubeBroadcastTitle);
+        Assert.Equal("Finale", saved.LiveTitle);
+        Assert.Equal("Finale régionale, en direct.", saved.LiveDescription);
         Assert.Equal(YouTubePrivacy.Private, saved.YouTubePrivacy);
     }
 
@@ -36,7 +40,7 @@ public sealed class StreamingSettingsViewModelTests
         var settings = new ApplicationSettings();
 
         Assert.Equal(YouTubePrivacy.Public, settings.YouTubePrivacy);
-        Assert.Equal("Live Castor Studio", settings.YouTubeBroadcastTitle);
+        Assert.Equal("Live Castor Studio", settings.LiveTitle);
     }
 
     [Theory]
@@ -46,12 +50,12 @@ public sealed class StreamingSettingsViewModelTests
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(YouTube()));
         page.Load(new ApplicationSettings());
-        page.YouTubeBroadcastTitle = title;
+        page.LiveTitle = title;
 
         var saved = new ApplicationSettings();
         page.Save(saved);
 
-        Assert.Equal("Live Castor Studio", saved.YouTubeBroadcastTitle);
+        Assert.Equal("Live Castor Studio", saved.LiveTitle);
     }
 
     [Fact]
@@ -59,12 +63,12 @@ public sealed class StreamingSettingsViewModelTests
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(YouTube()));
         page.Load(new ApplicationSettings());
-        page.YouTubeBroadcastTitle = new string('a', 150);
+        page.LiveTitle = new string('a', 150);
 
         var saved = new ApplicationSettings();
         page.Save(saved);
 
-        Assert.Equal(100, saved.YouTubeBroadcastTitle.Length);
+        Assert.Equal(100, saved.LiveTitle.Length);
     }
 
     [Fact]
@@ -85,12 +89,72 @@ public sealed class StreamingSettingsViewModelTests
     public void The_destination_choice_survives_a_save_with_a_single_account()
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(Twitch()));
-        page.Load(new ApplicationSettings { StreamingProviderId = "youtube" });
+        page.Load(new ApplicationSettings { StreamingProviderIds = ["youtube"] });
 
-        var saved = new ApplicationSettings { StreamingProviderId = "youtube" };
+        var saved = new ApplicationSettings { StreamingProviderIds = ["youtube"] };
         page.Save(saved);
 
-        Assert.Equal("youtube", saved.StreamingProviderId);
+        Assert.Equal(["youtube"], saved.StreamingProviderIds);
+    }
+
+    private static List<string> Ticked(StreamingSettingsViewModel page) =>
+        [.. page.Destinations.Where(option => option.IsSelected).Select(option => option.ProviderId)];
+
+    private static StreamingDestinationOption Option(StreamingSettingsViewModel page, string providerId) =>
+        page.Destinations.Single(option => option.ProviderId == providerId);
+
+    [Fact]
+    public void Both_platforms_can_be_ticked_and_saved()
+    {
+        var page = new StreamingSettingsViewModel(new FakeAccounts(Twitch(), YouTube()));
+        page.Load(new ApplicationSettings { StreamingProviderIds = ["twitch"] });
+        Assert.Equal(["twitch"], Ticked(page));
+        Assert.False(page.IsDirty);
+
+        Option(page, "youtube").IsSelected = true;
+
+        Assert.True(page.IsDirty);
+        Assert.Equal("2 lives en même temps : prévoyez environ 8000 kbps d'envoi.", page.DestinationHint);
+        var saved = new ApplicationSettings();
+        page.Save(saved);
+        Assert.Equal(["twitch", "youtube"], saved.StreamingProviderIds);
+    }
+
+    [Fact]
+    public void The_last_ticked_platform_cannot_be_unticked()
+    {
+        var page = new StreamingSettingsViewModel(new FakeAccounts(Twitch(), YouTube()));
+        page.Load(new ApplicationSettings { StreamingProviderIds = ["twitch", "youtube"] });
+        Assert.All(page.Destinations, option => Assert.True(option.CanToggle));
+
+        Option(page, "twitch").IsSelected = false;
+
+        Assert.False(Option(page, "youtube").CanToggle);
+        Assert.True(Option(page, "twitch").CanToggle);
+        Assert.Equal("Cochez plusieurs plateformes pour y diffuser en même temps.", page.DestinationHint);
+    }
+
+    [Fact]
+    public void Without_a_stored_choice_the_first_account_is_ticked_like_the_studio_does()
+    {
+        var page = new StreamingSettingsViewModel(new FakeAccounts(Twitch(), YouTube()));
+        page.Load(new ApplicationSettings());
+
+        Assert.Equal(["twitch"], Ticked(page));
+    }
+
+    [Fact]
+    public void Ticks_survive_an_account_connected_while_the_page_is_open()
+    {
+        var accounts = new FakeAccounts(Twitch(), YouTube());
+        var page = new StreamingSettingsViewModel(accounts);
+        page.Load(new ApplicationSettings { StreamingProviderIds = ["twitch"] });
+        Option(page, "youtube").IsSelected = true;
+
+        accounts.Save(Twitch());
+
+        Assert.Equal(["twitch", "youtube"], Ticked(page));
+        Assert.True(page.IsDirty);
     }
 
     private static ProviderSettings Twitch() => new()

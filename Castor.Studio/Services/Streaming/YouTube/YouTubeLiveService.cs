@@ -36,6 +36,7 @@ public interface IYouTubeLiveService
     Task<YouTubeBroadcast> StartBroadcastAsync(
         string streamId,
         string title,
+        string description,
         YouTubePrivacy privacy,
         CancellationToken cancellationToken);
 
@@ -82,6 +83,7 @@ public sealed class YouTubeLiveService(HttpClient http, IAuthService auth) : IYo
     public async Task<YouTubeBroadcast> StartBroadcastAsync(
         string streamId,
         string title,
+        string description,
         YouTubePrivacy privacy,
         CancellationToken cancellationToken)
     {
@@ -96,7 +98,7 @@ public sealed class YouTubeLiveService(HttpClient http, IAuthService auth) : IYo
             token,
             new
             {
-                snippet = new { title, scheduledStartTime = DateTimeOffset.UtcNow.ToString("O") },
+                snippet = new { title, description, scheduledStartTime = DateTimeOffset.UtcNow.ToString("O") },
                 status = new { privacyStatus = PrivacyStatus(privacy) },
                 // Live as soon as YouTube receives the stream, over when it stops: no YouTube Studio.
                 contentDetails = new { enableAutoStart = true, enableAutoStop = true }
