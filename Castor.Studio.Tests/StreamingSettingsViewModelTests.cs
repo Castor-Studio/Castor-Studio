@@ -8,25 +8,29 @@ namespace Castor.Studio.Tests;
 public sealed class StreamingSettingsViewModelTests
 {
     [Fact]
-    public void Youtube_title_and_visibility_are_loaded_and_saved()
+    public void Live_title_description_and_visibility_are_loaded_and_saved()
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(YouTube()));
         page.Load(new ApplicationSettings
         {
-            YouTubeBroadcastTitle = "Match du samedi",
+            LiveTitle = "Match du samedi",
+            LiveDescription = "Demi-finale",
             YouTubePrivacy = YouTubePrivacy.Unlisted
         });
 
         Assert.True(page.IsYouTubeConnected);
-        Assert.Equal("Match du samedi", page.YouTubeBroadcastTitle);
+        Assert.Equal("Match du samedi", page.LiveTitle);
+        Assert.Equal("Demi-finale", page.LiveDescription);
         Assert.Equal(YouTubePrivacy.Unlisted, page.SelectedPrivacy?.Privacy);
 
-        page.YouTubeBroadcastTitle = "  Finale  ";
+        page.LiveTitle = "  Finale  ";
+        page.LiveDescription = "  Finale régionale, <en direct>.  ";
         page.SelectedPrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Private);
         var saved = new ApplicationSettings();
         page.Save(saved);
 
-        Assert.Equal("Finale", saved.YouTubeBroadcastTitle);
+        Assert.Equal("Finale", saved.LiveTitle);
+        Assert.Equal("Finale régionale, en direct.", saved.LiveDescription);
         Assert.Equal(YouTubePrivacy.Private, saved.YouTubePrivacy);
     }
 
@@ -36,7 +40,7 @@ public sealed class StreamingSettingsViewModelTests
         var settings = new ApplicationSettings();
 
         Assert.Equal(YouTubePrivacy.Public, settings.YouTubePrivacy);
-        Assert.Equal("Live Castor Studio", settings.YouTubeBroadcastTitle);
+        Assert.Equal("Live Castor Studio", settings.LiveTitle);
     }
 
     [Theory]
@@ -46,12 +50,12 @@ public sealed class StreamingSettingsViewModelTests
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(YouTube()));
         page.Load(new ApplicationSettings());
-        page.YouTubeBroadcastTitle = title;
+        page.LiveTitle = title;
 
         var saved = new ApplicationSettings();
         page.Save(saved);
 
-        Assert.Equal("Live Castor Studio", saved.YouTubeBroadcastTitle);
+        Assert.Equal("Live Castor Studio", saved.LiveTitle);
     }
 
     [Fact]
@@ -59,12 +63,12 @@ public sealed class StreamingSettingsViewModelTests
     {
         var page = new StreamingSettingsViewModel(new FakeAccounts(YouTube()));
         page.Load(new ApplicationSettings());
-        page.YouTubeBroadcastTitle = new string('a', 150);
+        page.LiveTitle = new string('a', 150);
 
         var saved = new ApplicationSettings();
         page.Save(saved);
 
-        Assert.Equal(100, saved.YouTubeBroadcastTitle.Length);
+        Assert.Equal(100, saved.LiveTitle.Length);
     }
 
     [Fact]

@@ -32,7 +32,7 @@ public sealed class YouTubeLiveServiceTests
         http.On(BindUrl, HttpStatusCode.OK, Broadcast("b1", "ready", "stream-1"));
 
         var broadcast = await CreateService(http).StartBroadcastAsync(
-            "stream-1", "Match du samedi", YouTubePrivacy.Public, CancellationToken.None);
+            "stream-1", "Match du samedi", "Demi-finale, en direct du gymnase.", YouTubePrivacy.Public, CancellationToken.None);
 
         Assert.Equal(new YouTubeBroadcast("b1", "https://www.youtube.com/watch?v=b1"), broadcast);
         Assert.Equal(
@@ -40,6 +40,7 @@ public sealed class YouTubeLiveServiceTests
             http.Requests.Select(request => $"{request.Method} {request.Url}"));
         var insert = http.Requests[1].Body;
         Assert.Contains("\"title\":\"Match du samedi\"", insert);
+        Assert.Contains("\"description\":\"Demi-finale, en direct du gymnase.\"", insert);
         Assert.Contains("\"privacyStatus\":\"public\"", insert);
         Assert.Contains("\"enableAutoStart\":true", insert);
         Assert.Contains("\"enableAutoStop\":true", insert);
@@ -56,7 +57,7 @@ public sealed class YouTubeLiveServiceTests
         http.On(InsertBroadcastUrl, HttpStatusCode.OK, Broadcast("b1", "created"));
         http.On(BindUrl, HttpStatusCode.OK, Broadcast("b1", "ready", "stream-1"));
 
-        await CreateService(http).StartBroadcastAsync("stream-1", "Live", privacy, CancellationToken.None);
+        await CreateService(http).StartBroadcastAsync("stream-1", "Live", "", privacy, CancellationToken.None);
 
         Assert.Contains($"\"privacyStatus\":\"{expected}\"", http.Requests[1].Body);
     }
@@ -71,7 +72,7 @@ public sealed class YouTubeLiveServiceTests
         http.On(DeleteB1Url, HttpStatusCode.NoContent, "");
 
         await Assert.ThrowsAsync<YouTubeApiException>(() => CreateService(http).StartBroadcastAsync(
-            "stream-1", "Live", YouTubePrivacy.Public, CancellationToken.None));
+            "stream-1", "Live", "", YouTubePrivacy.Public, CancellationToken.None));
 
         Assert.Equal("DELETE " + DeleteB1Url, $"{http.Requests[^1].Method} {http.Requests[^1].Url}");
     }
@@ -88,7 +89,7 @@ public sealed class YouTubeLiveServiceTests
         http.On(Broadcasts + "/bind?id=b2&part=id,contentDetails&streamId=stream-1", HttpStatusCode.OK, Broadcast("b2", "ready", "stream-1"));
 
         var broadcast = await CreateService(http).StartBroadcastAsync(
-            "stream-1", "Live", YouTubePrivacy.Public, CancellationToken.None);
+            "stream-1", "Live", "", YouTubePrivacy.Public, CancellationToken.None);
 
         Assert.Equal("b2", broadcast.Id);
         Assert.Contains(http.Requests, request => request.Url == CompleteB1Url);
@@ -144,7 +145,7 @@ public sealed class YouTubeLiveServiceTests
         http.On(InsertBroadcastUrl, HttpStatusCode.Forbidden, Error(403, "quotaExceeded", "Quota exceeded."));
 
         var error = await Assert.ThrowsAsync<YouTubeApiException>(() => CreateService(http).StartBroadcastAsync(
-            "stream-1", "Live", YouTubePrivacy.Public, CancellationToken.None));
+            "stream-1", "Live", "", YouTubePrivacy.Public, CancellationToken.None));
 
         Assert.Contains("quota", error.Message);
         Assert.DoesNotContain(http.Requests, request => request.Url.Contains("/bind"));

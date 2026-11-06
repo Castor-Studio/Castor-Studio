@@ -2,6 +2,7 @@ using System.Net.Http;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services.Streaming.Twitch;
 using CastorApplication.Services.Streaming.YouTube;
 
 namespace CastorApplication.Services.Streaming;
@@ -14,11 +15,13 @@ internal sealed record LiveBroadcastResult(StudioRuntimeResult Result, LiveBroad
     public static LiveBroadcastResult None { get; } = new(StudioRuntimeResult.Success());
 }
 
-// What a platform needs around the live output. Twitch needs nothing: pushing to the key is
-// enough to be live. YouTube needs a broadcast created before the output starts and ended after.
+// What a platform needs around the live output. Twitch only takes the live title: pushing to the
+// key is enough to be live. YouTube needs a broadcast created before the output starts and ended
+// after.
 internal interface ILiveBroadcastService
 {
-    // Runs before the output starts; a failure must keep the output from starting.
+    // Runs before the output starts; a failure must keep the output from starting. A success may
+    // still carry a warning in its message (a Twitch title left unchanged).
     Task<LiveBroadcastResult> PrepareAsync(
         ProviderSettings account,
         ApplicationSettings settings,
@@ -41,13 +44,17 @@ internal sealed class NoLiveBroadcastService : ILiveBroadcastService
         Task.FromResult(StudioRuntimeResult.Success());
 }
 
-internal sealed class LiveBroadcastService(IYouTubeLiveService youTube) : ILiveBroadcastService
+internal sealed class LiveBroadcastService(IYouTubeLiveService youTube, ITwitchChannelService twitch)
+    : ILiveBroadcastService
 {
     public async Task<LiveBroadcastResult> PrepareAsync(
         ProviderSettings account,
         ApplicationSettings settings,
         CancellationToken cancellationToken)
     {
+        var title = ApplicationSettings.NormalizeLiveTitle(settings.LiveTitle);
+        if (account.ProviderId == StreamingProviders.Twitch)
+            return await RenameTwitchChannelAsync(account, title, cancellationToken);
         if (account.ProviderId != StreamingProviders.YouTube) return LiveBroadcastResult.None;
 
         if (string.IsNullOrWhiteSpace(account.StreamId))
@@ -57,7 +64,8 @@ internal sealed class LiveBroadcastService(IYouTubeLiveService youTube) : ILiveB
         {
             var broadcast = await youTube.StartBroadcastAsync(
                 account.StreamId,
-                settings.YouTubeBroadcastTitle,
+                title,
+                ApplicationSettings.NormalizeLiveDescription(settings.LiveDescription),
                 settings.YouTubePrivacy,
                 cancellationToken);
             return new LiveBroadcastResult(
@@ -87,9 +95,33 @@ internal sealed class LiveBroadcastService(IYouTubeLiveService youTube) : ILiveB
         }
     }
 
+    // Twitch goes live on the key alone: a title it refuses only leaves the previous one, so the
+    // live still starts, with a warning.
+    private async Task<LiveBroadcastResult> RenameTwitchChannelAsync(
+        ProviderSettings account,
+        string title,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(account.UserId))
+            return Warning(TwitchChannelService.ReconnectMessage);
+
+        try
+        {
+            await twitch.SetTitleAsync(account.UserId, title, cancellationToken);
+            return LiveBroadcastResult.None;
+        }
+        catch (Exception exception) when (IsPlatformFailure(exception))
+        {
+            return Warning(exception.Message);
+        }
+    }
+
+    private static LiveBroadcastResult Warning(string reason) =>
+        new(new StudioRuntimeResult(StudioRuntimeStatus.Success, $"Twitch : titre non modifié. {reason}"));
+
     private static LiveBroadcastResult Failure(string message) =>
         new(StudioRuntimeResult.Failure(message));
 
     private static bool IsPlatformFailure(Exception exception) =>
-        exception is YouTubeApiException or HttpRequestException or InvalidOperationException;
+        exception is YouTubeApiException or TwitchApiException or HttpRequestException or InvalidOperationException;
 }

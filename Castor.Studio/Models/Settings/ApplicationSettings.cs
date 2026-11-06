@@ -23,23 +23,36 @@ public sealed class ApplicationSettings
     // are skipped; none left: the first connected account in StreamingProviders.All order.
     public List<string> StreamingProviderIds { get; set; } = [];
 
-    // YouTube broadcast created at each live start.
-    public string YouTubeBroadcastTitle { get; set; } = DefaultYouTubeBroadcastTitle;
+    // Given to every platform at each live start. Twitch has no description of a live: the
+    // description and the visibility only go to the YouTube broadcast.
+    public string LiveTitle { get; set; } = DefaultLiveTitle;
+    public string LiveDescription { get; set; } = "";
     public YouTubePrivacy YouTubePrivacy { get; set; } = YouTubePrivacy.Public;
 
-    public const string DefaultYouTubeBroadcastTitle = "Live Castor Studio";
+    public const string DefaultLiveTitle = "Live Castor Studio";
 
-    // YouTube refuses longer titles.
-    public const int YouTubeBroadcastTitleMaxLength = 100;
+    // The strictest platform sets the limits: YouTube (Twitch takes titles up to 140).
+    public const int LiveTitleMaxLength = 100;
+    public const int LiveDescriptionMaxLength = 5000;
 
-    // A blank or too long title would make YouTube refuse the broadcast at the next live.
-    public static string NormalizeYouTubeBroadcastTitle(string? title)
+    // A blank title, a longer one, or one with '<' or '>' would make YouTube refuse the broadcast.
+    public static string NormalizeLiveTitle(string? title)
     {
-        var trimmed = title?.Trim() ?? "";
-        return trimmed.Length == 0
-            ? DefaultYouTubeBroadcastTitle
-            : trimmed[..Math.Min(trimmed.Length, YouTubeBroadcastTitleMaxLength)];
+        var cleaned = WithoutAngleBrackets(title).Trim();
+        return cleaned.Length == 0
+            ? DefaultLiveTitle
+            : cleaned[..Math.Min(cleaned.Length, LiveTitleMaxLength)];
     }
+
+    // Same YouTube rules as the title, but a description may stay empty.
+    public static string NormalizeLiveDescription(string? description)
+    {
+        var cleaned = WithoutAngleBrackets(description).Trim();
+        return cleaned[..Math.Min(cleaned.Length, LiveDescriptionMaxLength)];
+    }
+
+    private static string WithoutAngleBrackets(string? text) =>
+        (text ?? "").Replace("<", "").Replace(">", "");
 
     // Chosen in the "Scène active" bar; applies to live and recording.
     public SceneTransitionKind SceneTransitionKind { get; set; } = SceneTransition.Default.Kind;

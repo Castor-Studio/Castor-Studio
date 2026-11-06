@@ -87,9 +87,34 @@
 
             </Grid>
 
+            <!-- Given to every platform at each live start: Twitch's channel title, YouTube's broadcast. -->
+            <Grid ColumnDefinitions="211,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Titre du live"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBox MinWidth="320"
+                             MaxWidth="460"
+                             MaxLength="{Binding LiveTitleMaxLength}"
+                             HorizontalAlignment="Left"
+                             Background="{DynamicResource AppSurface2}"
+                             BorderBrush="{DynamicResource AppBorder2}"
+                             Foreground="{DynamicResource AppFg2}"
+                             PlaceholderText="Live Castor Studio"
+                             Text="{Binding LiveTitle}"/>
+                    <TextBlock Text="Le même sur chaque plateforme, appliqué au démarrage du live."
+                               Foreground="{DynamicResource AppFg4}"
+                               FontSize="11"/>
+                </StackPanel>
+
+            </Grid>
+
         </StackPanel>
 
-        <!-- Each YouTube live is a broadcast of its own, created when the live starts. -->
+        <!-- Each YouTube live is a broadcast of its own, created when the live starts. Twitch has
+             no description of a live. -->
         <StackPanel Spacing="14"
                     IsVisible="{Binding IsYouTubeConnected}">
 
@@ -99,19 +124,23 @@
             <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
-                           Text="Titre du live"
+                           Text="Description"
                            Classes="setting-label"/>
 
                 <TextBox Grid.Column="1"
                          MinWidth="320"
                          MaxWidth="460"
-                         MaxLength="{Binding YouTubeBroadcastTitleMaxLength}"
+                         MinHeight="72"
+                         MaxHeight="160"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         MaxLength="{Binding LiveDescriptionMaxLength}"
                          HorizontalAlignment="Left"
                          Background="{DynamicResource AppSurface2}"
                          BorderBrush="{DynamicResource AppBorder2}"
                          Foreground="{DynamicResource AppFg2}"
-                         PlaceholderText="Live Castor Studio"
-                         Text="{Binding YouTubeBroadcastTitle}"/>
+                         PlaceholderText="Facultative"
+                         Text="{Binding LiveDescription}"/>
 
             </Grid>
 

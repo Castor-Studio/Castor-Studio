@@ -363,7 +363,7 @@ public sealed class StudioStreamingViewModelTests
             new ApplicationSettings
             {
                 StreamingProviderIds = ["twitch", "youtube"],
-                YouTubeBroadcastTitle = "Match du samedi",
+                LiveTitle = "Match du samedi",
                 YouTubePrivacy = YouTubePrivacy.Unlisted
             },
             others: [ConnectedYouTube()]);
@@ -374,7 +374,7 @@ public sealed class StudioStreamingViewModelTests
             Assert.True(fixture.ViewModel.CanChooseGoLiveDestination);
             Assert.Equal(["twitch", "youtube"], fixture.ViewModel.GoLiveDestinations.SelectedProviderIds);
             Assert.True(fixture.ViewModel.IsYouTubeChosen);
-            Assert.Equal("Match du samedi", fixture.ViewModel.GoLiveYouTubeTitle);
+            Assert.Equal("Match du samedi", fixture.ViewModel.GoLiveTitle);
             Assert.Equal(YouTubePrivacy.Unlisted, fixture.ViewModel.GoLivePrivacy?.Privacy);
 
             GoLiveOption(fixture, "youtube").IsSelected = false;
@@ -415,22 +415,22 @@ public sealed class StudioStreamingViewModelTests
         try
         {
             fixture.ViewModel.ResetGoLivePanel();
-            fixture.ViewModel.GoLiveYouTubeTitle = "  Finale régionale  ";
+            fixture.ViewModel.GoLiveTitle = "  Finale régionale  ";
             fixture.ViewModel.GoLivePrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Private);
 
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
             var prepared = Assert.Single(fixture.Broadcasts.PreparedWith);
-            Assert.Equal("Finale régionale", prepared.YouTubeBroadcastTitle);
+            Assert.Equal("Finale régionale", prepared.LiveTitle);
             Assert.Equal(YouTubePrivacy.Private, prepared.YouTubePrivacy);
-            Assert.Equal("Finale régionale", SavedSettings(fixture).YouTubeBroadcastTitle);
+            Assert.Equal("Finale régionale", SavedSettings(fixture).LiveTitle);
 
             // A blank title falls back to the default one, as in Settings › Streaming.
             await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
-            fixture.ViewModel.GoLiveYouTubeTitle = "   ";
+            fixture.ViewModel.GoLiveTitle = "   ";
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
-            Assert.Equal("Live Castor Studio", fixture.Broadcasts.PreparedWith[^1].YouTubeBroadcastTitle);
+            Assert.Equal("Live Castor Studio", fixture.Broadcasts.PreparedWith[^1].LiveTitle);
         }
         finally
         {
@@ -439,18 +439,64 @@ public sealed class StudioStreamingViewModelTests
     }
 
     [Fact]
-    public async Task Twitch_alone_leaves_the_youtube_title_untouched()
+    public async Task Twitch_alone_keeps_the_title_but_not_the_youtube_details()
     {
         var fixture = CreateMultistreamFixture();
         try
         {
             fixture.ViewModel.ResetGoLivePanel();
-            fixture.ViewModel.GoLiveYouTubeTitle = "Jamais utilisé";
+            fixture.ViewModel.GoLiveTitle = "Partie classée";
+            fixture.ViewModel.GoLiveDescription = "Jamais montrée";
+            fixture.ViewModel.GoLivePrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Private);
             GoLiveOption(fixture, "youtube").IsSelected = false;
 
             await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
 
-            Assert.Equal("Live Castor Studio", SavedSettings(fixture).YouTubeBroadcastTitle);
+            var saved = SavedSettings(fixture);
+            Assert.Equal("Partie classée", saved.LiveTitle);
+            Assert.Equal("", saved.LiveDescription);
+            Assert.Equal(YouTubePrivacy.Public, saved.YouTubePrivacy);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task The_description_typed_at_go_live_reaches_youtube()
+    {
+        var fixture = CreateFixture(ConnectedYouTube(), broadcasts: BroadcastsCreating(YouTubeBroadcast()));
+        try
+        {
+            fixture.ViewModel.ResetGoLivePanel();
+            fixture.ViewModel.GoLiveDescription = "Demi-finale, en direct du gymnase.";
+
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal("Demi-finale, en direct du gymnase.", Assert.Single(fixture.Broadcasts.PreparedWith).LiveDescription);
+            Assert.Equal("Demi-finale, en direct du gymnase.", SavedSettings(fixture).LiveDescription);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task A_twitch_title_left_unchanged_is_reported_while_the_live_goes_on()
+    {
+        var broadcasts = new FakeBroadcastService();
+        broadcasts.PrepareResults["twitch"] = new LiveBroadcastResult(new StudioRuntimeResult(
+            StudioRuntimeStatus.Success, "Twitch : titre non modifié. Reconnectez Twitch."));
+        var fixture = CreateFixture(ConnectedProvider(), broadcasts: broadcasts);
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.True(fixture.Workspace.IsStreaming);
+            Assert.Equal("Twitch : titre non modifié. Reconnectez Twitch.", fixture.ViewModel.StreamError.Text);
+            Assert.False(fixture.ViewModel.StreamError.IsError);
         }
         finally
         {
@@ -465,11 +511,11 @@ public sealed class StudioStreamingViewModelTests
         try
         {
             fixture.ViewModel.ResetGoLivePanel();
-            fixture.ViewModel.GoLiveYouTubeTitle = "Brouillon";
+            fixture.ViewModel.GoLiveTitle = "Brouillon";
 
             fixture.ViewModel.ResetGoLivePanel();
 
-            Assert.Equal("Live Castor Studio", fixture.ViewModel.GoLiveYouTubeTitle);
+            Assert.Equal("Live Castor Studio", fixture.ViewModel.GoLiveTitle);
         }
         finally
         {

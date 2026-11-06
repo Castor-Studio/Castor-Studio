@@ -8,7 +8,8 @@
       "clientId": "scbp8wnfpqgm4rjxij8r4fklq93dsh",
       "scopes": [
         "user:read:email",
-        "channel:read:stream_key"
+        "channel:read:stream_key",
+        "channel:manage:broadcast"
       ]
     },
     "youtube": {
