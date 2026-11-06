@@ -6,6 +6,7 @@ using CastorApplication.Services.Settings;
 using CastorApplication.Services.Streaming;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Scenes;
+using CastorApplication.ViewModels.Settings.Sections;
 using CastorApplication.ViewModels.Studio;
 
 namespace Castor.Studio.Tests;
@@ -347,6 +348,134 @@ public sealed class StudioStreamingViewModelTests
         new ApplicationSettings { StreamingProviderIds = ["twitch", "youtube"] },
         broadcasts,
         ConnectedYouTube());
+
+    private static ApplicationSettings SavedSettings(Fixture fixture) =>
+        new SettingsService(Path.Combine(fixture.Directory, "settings.json")).Load();
+
+    private static StreamingDestinationOption GoLiveOption(Fixture fixture, string providerId) =>
+        fixture.ViewModel.GoLiveDestinations.Options.Single(option => option.ProviderId == providerId);
+
+    [Fact]
+    public void Go_live_panel_opens_on_the_stored_platforms_and_youtube_title()
+    {
+        var fixture = CreateFixture(
+            ConnectedProvider(),
+            new ApplicationSettings
+            {
+                StreamingProviderIds = ["twitch", "youtube"],
+                YouTubeBroadcastTitle = "Match du samedi",
+                YouTubePrivacy = YouTubePrivacy.Unlisted
+            },
+            others: [ConnectedYouTube()]);
+        try
+        {
+            fixture.ViewModel.ResetGoLivePanel();
+
+            Assert.True(fixture.ViewModel.CanChooseGoLiveDestination);
+            Assert.Equal(["twitch", "youtube"], fixture.ViewModel.GoLiveDestinations.SelectedProviderIds);
+            Assert.True(fixture.ViewModel.IsYouTubeChosen);
+            Assert.Equal("Match du samedi", fixture.ViewModel.GoLiveYouTubeTitle);
+            Assert.Equal(YouTubePrivacy.Unlisted, fixture.ViewModel.GoLivePrivacy?.Privacy);
+
+            GoLiveOption(fixture, "youtube").IsSelected = false;
+
+            Assert.False(fixture.ViewModel.IsYouTubeChosen);
+            Assert.False(GoLiveOption(fixture, "twitch").CanToggle);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Start_goes_live_where_the_panel_says_and_keeps_it_for_next_time()
+    {
+        var fixture = CreateMultistreamFixture();
+        try
+        {
+            fixture.ViewModel.ResetGoLivePanel();
+            GoLiveOption(fixture, "twitch").IsSelected = false;
+
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal("youtube", Assert.Single(fixture.StreamingRuntime.Request!.Destinations).ProviderId);
+            Assert.Equal(["youtube"], SavedSettings(fixture).StreamingProviderIds);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task The_youtube_title_typed_at_go_live_names_the_broadcast()
+    {
+        var fixture = CreateFixture(ConnectedYouTube(), broadcasts: BroadcastsCreating(YouTubeBroadcast()));
+        try
+        {
+            fixture.ViewModel.ResetGoLivePanel();
+            fixture.ViewModel.GoLiveYouTubeTitle = "  Finale régionale  ";
+            fixture.ViewModel.GoLivePrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Private);
+
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            var prepared = Assert.Single(fixture.Broadcasts.PreparedWith);
+            Assert.Equal("Finale régionale", prepared.YouTubeBroadcastTitle);
+            Assert.Equal(YouTubePrivacy.Private, prepared.YouTubePrivacy);
+            Assert.Equal("Finale régionale", SavedSettings(fixture).YouTubeBroadcastTitle);
+
+            // A blank title falls back to the default one, as in Settings › Streaming.
+            await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
+            fixture.ViewModel.GoLiveYouTubeTitle = "   ";
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal("Live Castor Studio", fixture.Broadcasts.PreparedWith[^1].YouTubeBroadcastTitle);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Twitch_alone_leaves_the_youtube_title_untouched()
+    {
+        var fixture = CreateMultistreamFixture();
+        try
+        {
+            fixture.ViewModel.ResetGoLivePanel();
+            fixture.ViewModel.GoLiveYouTubeTitle = "Jamais utilisé";
+            GoLiveOption(fixture, "youtube").IsSelected = false;
+
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal("Live Castor Studio", SavedSettings(fixture).YouTubeBroadcastTitle);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public void Reopening_the_panel_drops_what_was_left_unstarted()
+    {
+        var fixture = CreateFixture(ConnectedYouTube());
+        try
+        {
+            fixture.ViewModel.ResetGoLivePanel();
+            fixture.ViewModel.GoLiveYouTubeTitle = "Brouillon";
+
+            fixture.ViewModel.ResetGoLivePanel();
+
+            Assert.Equal("Live Castor Studio", fixture.ViewModel.GoLiveYouTubeTitle);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
 
     // "" when the platform is not live, or live without a public page.
     private static string WatchUrlOf(Fixture fixture, string providerId) =>
@@ -781,6 +910,7 @@ public sealed class StudioStreamingViewModelTests
         public Dictionary<string, LiveBroadcastResult> PrepareResults { get; } = [];
         public StudioRuntimeResult EndResult { get; set; } = StudioRuntimeResult.Success();
         public List<string> Prepared { get; } = [];
+        public List<ApplicationSettings> PreparedWith { get; } = [];
         public List<LiveBroadcast> Ended { get; } = [];
 
         public Task<LiveBroadcastResult> PrepareAsync(
@@ -789,6 +919,7 @@ public sealed class StudioStreamingViewModelTests
             CancellationToken cancellationToken)
         {
             Prepared.Add(account.ProviderId);
+            PreparedWith.Add(settings);
             return Task.FromResult(PrepareResults.GetValueOrDefault(account.ProviderId, PrepareResult));
         }
 

@@ -32,6 +32,15 @@ public sealed class ApplicationSettings
     // YouTube refuses longer titles.
     public const int YouTubeBroadcastTitleMaxLength = 100;
 
+    // A blank or too long title would make YouTube refuse the broadcast at the next live.
+    public static string NormalizeYouTubeBroadcastTitle(string? title)
+    {
+        var trimmed = title?.Trim() ?? "";
+        return trimmed.Length == 0
+            ? DefaultYouTubeBroadcastTitle
+            : trimmed[..Math.Min(trimmed.Length, YouTubeBroadcastTitleMaxLength)];
+    }
+
     // Chosen in the "Scène active" bar; applies to live and recording.
     public SceneTransitionKind SceneTransitionKind { get; set; } = SceneTransition.Default.Kind;
     public int SceneTransitionDurationMs { get; set; } = SceneTransition.DefaultDurationMs;
