@@ -8,10 +8,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 namespace CastorApplication.ViewModels.Settings.Sections;
 
 // A platform the live can go to; every ticked one goes live at once.
-public sealed partial class StreamingDestinationOption(string providerId, string label) : ViewModelBase
+public sealed partial class StreamingDestinationOption(string providerId, string accountName) : ViewModelBase
 {
     public string ProviderId { get; } = providerId;
-    public string Label { get; } = label;
+    public string PlatformName => StreamingProviders.DisplayName(ProviderId);
+    public string AccountName { get; } = accountName;
+    public string Label => $"{PlatformName} · {AccountName}";
 
     [ObservableProperty]
     private bool _isSelected;
@@ -55,9 +57,7 @@ public sealed class StreamingDestinationChoice
         {
             var account = providerStore?.Get(providerId);
             if (!StudioViewModel.IsReadyToStream(account)) continue;
-            var option = new StreamingDestinationOption(
-                providerId,
-                $"{StreamingProviders.DisplayName(providerId)} · {account!.UserName}");
+            var option = new StreamingDestinationOption(providerId, account!.UserName ?? "");
             option.PropertyChanged += OnOptionChanged;
             Options.Add(option);
         }

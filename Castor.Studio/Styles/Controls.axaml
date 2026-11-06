@@ -420,6 +420,12 @@
         <Setter Property="FontSize" Value="15"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
+    <!-- Beside a control with lines under it (a hint, a list): level with the control's first
+         line rather than with the middle of the whole block. -->
+    <Style Selector="TextBlock.setting-label.top">
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Margin" Value="0,7,0,0"/>
+    </Style>
     <Style Selector="TextBlock.section-title">
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>

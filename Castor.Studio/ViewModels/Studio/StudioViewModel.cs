@@ -119,7 +119,7 @@ public partial class StudioViewModel : ViewModelBase
     // DÉMARRER is disabled with the reason, and the account area turns into a way to connect one.
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartStreamingCommand))]
-    [NotifyPropertyChangedFor(nameof(StartStreamingBlockedReason))]
+    [NotifyPropertyChangedFor(nameof(StartStreamingBlockedReason), nameof(ShowConnectedAccount))]
     private bool _isAccountConnected;
 
     public string StartStreamingBlockedReason =>
@@ -136,6 +136,9 @@ public partial class StudioViewModel : ViewModelBase
     public StreamingDestinationChoice GoLiveDestinations { get; } = new();
 
     public bool CanChooseGoLiveDestination => GoLiveDestinations.CanChoose;
+
+    // With two platforms, their ticks already name the accounts.
+    public bool ShowConnectedAccount => IsAccountConnected && !CanChooseGoLiveDestination;
 
     public bool IsYouTubeChosen => GoLiveDestinations.IsSelected(StreamingProviders.YouTube);
 
@@ -166,6 +169,7 @@ public partial class StudioViewModel : ViewModelBase
     {
         GoLiveDestinations.Refresh(_providerStore, [.. GetLiveAccounts(settings).Select(account => account.ProviderId)]);
         OnPropertyChanged(nameof(CanChooseGoLiveDestination));
+        OnPropertyChanged(nameof(ShowConnectedAccount));
     }
 
     // What the panel shows is what goes live. Saved only when it differs: every save reaches
