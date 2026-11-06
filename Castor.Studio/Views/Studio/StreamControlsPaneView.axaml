@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Studio"
+             xmlns:settings="using:CastorApplication.ViewModels.Settings.Sections"
              xmlns:converters="using:CastorApplication.Converters"
              xmlns:controls="using:CastorApplication.Controls"
              x:Class="CastorApplication.Views.Studio.StreamControlsPaneView"
@@ -50,10 +51,45 @@
 							<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 							<!-- Destination and account only: the outgoing scene is already in the status bar, and is
 							     chosen in the "Scène active" selector. -->
+							<!-- One account: its name. Two: a tick per platform, from Settings › Streaming; DÉMARRER
+							     saves the ticks back there. -->
 							<StackPanel Spacing="4">
 								<TextBlock Text="Destination" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
 								<TextBlock Text="{Binding DestinationLabel}" Foreground="{DynamicResource AppFg1}"
+                                           IsVisible="{Binding !CanChooseGoLiveDestination}"
                                            FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+								<ItemsControl ItemsSource="{Binding GoLiveDestinations.Options}"
+                                              IsVisible="{Binding CanChooseGoLiveDestination}">
+									<ItemsControl.ItemTemplate>
+										<DataTemplate x:DataType="settings:StreamingDestinationOption">
+											<CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanToggle}">
+												<TextBlock Text="{Binding Label}" FontSize="12" Foreground="{DynamicResource AppFg1}"
+                                                           TextTrimming="CharacterEllipsis"/>
+											</CheckBox>
+										</DataTemplate>
+									</ItemsControl.ItemTemplate>
+								</ItemsControl>
+							</StackPanel>
+							<!-- The YouTube broadcast created at start; kept for the next live. -->
+							<StackPanel Spacing="4" IsVisible="{Binding IsYouTubeChosen}">
+								<TextBlock Text="Titre du live YouTube" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+								<TextBox Text="{Binding GoLiveYouTubeTitle}"
+                                         MaxLength="{Binding YouTubeBroadcastTitleMaxLength}"
+                                         PlaceholderText="Live Castor Studio"
+                                         FontSize="12"
+                                         Background="{DynamicResource AppSurface2}"
+                                         BorderBrush="{DynamicResource AppBorder2}"
+                                         Foreground="{DynamicResource AppFg1}"/>
+								<ComboBox HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding PrivacyOptions}"
+                                          SelectedItem="{Binding GoLivePrivacy}"
+                                          FontSize="12">
+									<ComboBox.ItemTemplate>
+										<DataTemplate x:DataType="settings:YouTubePrivacyOption">
+											<TextBlock Text="{Binding Label}"/>
+										</DataTemplate>
+									</ComboBox.ItemTemplate>
+								</ComboBox>
 							</StackPanel>
 							<!-- Connected account: its name, as before. Otherwise: what it takes to connect one, right
 							     here. -->

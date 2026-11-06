@@ -19,11 +19,15 @@ public partial class StreamControlsPaneView : UserControl
         if (FlyoutBase.GetAttachedFlyout(PaneRoot) is { } recordFlyout)
             recordFlyout.Closed += (_, _) => _viewModel?.RecordError.Clear();
         // Once on air, an error left in the go-live panel moves to the list of lives instead.
-        if (GoLiveButton.Flyout is { } goLiveFlyout)
+        if (GoLiveButton.Flyout is PopupFlyoutBase goLiveFlyout)
+        {
+            // Opens on the settings as they are now, whatever was typed and left unstarted before.
+            goLiveFlyout.Opening += (_, _) => _viewModel?.ResetGoLivePanel();
             goLiveFlyout.Closed += (_, _) =>
             {
                 if (_viewModel is { IsStreaming: false }) _viewModel.StreamError.Clear();
             };
+        }
         if (LivePlatformsButton.Flyout is { } livesFlyout)
             livesFlyout.Closed += (_, _) => _viewModel?.StreamError.Clear();
     }

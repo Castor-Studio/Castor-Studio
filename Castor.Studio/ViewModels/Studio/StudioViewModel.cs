@@ -12,6 +12,7 @@ using CastorApplication.Services.Settings;
 using CastorApplication.Services.Streaming;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Scenes;
+using CastorApplication.ViewModels.Settings.Sections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -127,6 +128,66 @@ public partial class StudioViewModel : ViewModelBase
     // Every platform the live goes to, filled in as soon as an account is connected, including
     // after a round trip to Settings > Comptes from the panel.
     [ObservableProperty] private string _destinationLabel = NoDestinationLabel;
+
+    // ── Go-live panel: where the live goes and its YouTube title ─────────────────────────────
+    // Read again from the settings each time the panel opens; DÉMARRER saves what it shows, so
+    // the next live and Settings › Streaming start from it.
+
+    public StreamingDestinationChoice GoLiveDestinations { get; } = new();
+
+    public bool CanChooseGoLiveDestination => GoLiveDestinations.CanChoose;
+
+    public bool IsYouTubeChosen => GoLiveDestinations.IsSelected(StreamingProviders.YouTube);
+
+    public IReadOnlyList<YouTubePrivacyOption> PrivacyOptions => YouTubePrivacyOption.All;
+
+    public int YouTubeBroadcastTitleMaxLength => ApplicationSettings.YouTubeBroadcastTitleMaxLength;
+
+    [ObservableProperty] private string _goLiveYouTubeTitle = ApplicationSettings.DefaultYouTubeBroadcastTitle;
+
+    [ObservableProperty] private YouTubePrivacyOption? _goLivePrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Public);
+
+    public void ResetGoLivePanel()
+    {
+        var settings = _settingsService.Load();
+        RefreshGoLiveDestinations(settings);
+        GoLiveYouTubeTitle = settings.YouTubeBroadcastTitle;
+        GoLivePrivacy = YouTubePrivacyOption.For(settings.YouTubePrivacy);
+    }
+
+    private void RefreshGoLiveDestinations(ApplicationSettings settings)
+    {
+        GoLiveDestinations.Refresh(_providerStore, [.. GetLiveAccounts(settings).Select(account => account.ProviderId)]);
+        OnPropertyChanged(nameof(CanChooseGoLiveDestination));
+    }
+
+    // What the panel shows is what goes live. Saved only when it differs: every save reaches
+    // the runtime and the other pages.
+    private void SaveGoLiveChoice(ApplicationSettings settings)
+    {
+        var changed = false;
+        // Same rule as Settings › Streaming: one account alone leaves the choice made for two.
+        var chosen = GoLiveDestinations.SelectedProviderIds;
+        if (GoLiveDestinations.CanChoose && !settings.StreamingProviderIds.SequenceEqual(chosen))
+        {
+            settings.StreamingProviderIds = [.. chosen];
+            changed = true;
+        }
+
+        if (IsYouTubeChosen)
+        {
+            var title = ApplicationSettings.NormalizeYouTubeBroadcastTitle(GoLiveYouTubeTitle);
+            var privacy = GoLivePrivacy?.Privacy ?? YouTubePrivacy.Public;
+            if (title != settings.YouTubeBroadcastTitle || privacy != settings.YouTubePrivacy)
+            {
+                settings.YouTubeBroadcastTitle = title;
+                settings.YouTubePrivacy = privacy;
+                changed = true;
+            }
+        }
+
+        if (changed) _settingsService.Save(settings);
+    }
 
     // The platforms live right now, in StreamingProviders.All order: listed under "⋯" while on air.
     public ObservableCollection<LivePlatformViewModel> LivePlatforms { get; } = [];
@@ -315,6 +376,8 @@ public partial class StudioViewModel : ViewModelBase
         _settingsService.SettingsSaved += OnSettingsSaved;
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
+        GoLiveDestinations.SelectionChanged += (_, _) => OnPropertyChanged(nameof(IsYouTubeChosen));
+        ResetGoLivePanel();
         RefreshProviderState();
         RefreshOutputInfo();
         RefreshBaseCanvasSize();
@@ -412,6 +475,7 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         var settings = _settingsService.Load();
+        SaveGoLiveChoice(settings);
         var accounts = GetLiveAccounts(settings);
         if (accounts.Count == 0)
         {
@@ -979,7 +1043,9 @@ public partial class StudioViewModel : ViewModelBase
 
     private void RefreshProviderState()
     {
-        var accounts = GetLiveAccounts(_settingsService.Load());
+        var settings = _settingsService.Load();
+        var accounts = GetLiveAccounts(settings);
+        RefreshGoLiveDestinations(settings);
         ConnectedAccountLabel = accounts.Count == 0
             ? NoAccountLabel
             : $"Connecté en tant que {string.Join(", ", accounts.Select(account => account.UserName).Distinct())}";
