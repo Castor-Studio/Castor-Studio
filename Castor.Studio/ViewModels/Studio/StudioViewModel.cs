@@ -128,16 +128,42 @@ public partial class StudioViewModel : ViewModelBase
     // after a round trip to Settings > Comptes from the panel.
     [ObservableProperty] private string _destinationLabel = NoDestinationLabel;
 
-    // Public page of the running live, when the platform gives one (YouTube broadcast).
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasLiveWatchUrl))]
-    [NotifyCanExecuteChangedFor(nameof(OpenLiveWatchPageCommand))]
-    private string _liveWatchUrl = "";
+    // The platforms live right now, in StreamingProviders.All order: listed under "⋯" while on air.
+    public ObservableCollection<LivePlatformViewModel> LivePlatforms { get; } = [];
 
-    public bool HasLiveWatchUrl => LiveWatchUrl.Length > 0;
+    public string LivePlatformsToolTip => LivePlatforms.Count == 1
+        ? $"Live en cours sur {LivePlatforms[0].Name}"
+        : $"{LivePlatforms.Count} lives en cours";
 
-    [RelayCommand(CanExecute = nameof(HasLiveWatchUrl))]
-    private void OpenLiveWatchPage() => WebBrowser.Open(LiveWatchUrl);
+    [RelayCommand]
+    private void OpenLiveWatchPage(LivePlatformViewModel? platform)
+    {
+        if (platform is { HasWatchUrl: true }) WebBrowser.Open(platform.WatchUrl);
+    }
+
+    // Stops one platform; the others stay live, and the studio stays on air until the last.
+    [RelayCommand]
+    private async Task StopLivePlatform(LivePlatformViewModel? platform)
+    {
+        if (platform == null) return;
+        IsStreamingTransition = true;
+        try
+        {
+            var result = await _streamingRuntime.StopStreamingAsync(platform.ProviderId, CancellationToken.None);
+            if (!result.IsSuccess)
+            {
+                StreamError.ShowError(result.Message);
+                return;
+            }
+            _liveProviders.Remove(platform.ProviderId);
+            SyncLiveState();
+            await EndLiveBroadcastAsync(platform.ProviderId);
+        }
+        finally
+        {
+            IsStreamingTransition = false;
+        }
+    }
 
     // The shell answers by opening Settings on the accounts section (MainViewModel).
     public event EventHandler? AccountSettingsRequested;
@@ -439,15 +465,13 @@ public partial class StudioViewModel : ViewModelBase
                     else errors.Add(AboutPlatform(result.ProviderId, result.Result.Message));
                 }
             }
-
-            _workspace.SetStreamingState(_liveProviders.Count > 0);
         }
         finally
         {
+            SyncLiveState();
             // A broadcast created for an output that never started must not stay scheduled.
             foreach (var providerId in _liveBroadcasts.Keys.Where(id => !_liveProviders.Contains(id)).ToList())
                 await EndLiveBroadcastAsync(providerId, reportFailure: false);
-            RefreshLiveWatchUrl();
             IsStreamingTransition = false;
         }
 
@@ -467,7 +491,7 @@ public partial class StudioViewModel : ViewModelBase
                 return;
             }
             _liveProviders.Clear();
-            _workspace.SetStreamingState(false);
+            SyncLiveState();
             foreach (var providerId in _liveBroadcasts.Keys.ToList())
                 await EndLiveBroadcastAsync(providerId);
         }
@@ -482,17 +506,36 @@ public partial class StudioViewModel : ViewModelBase
     private async Task EndLiveBroadcastAsync(string providerId, bool reportFailure = true)
     {
         if (!_liveBroadcasts.Remove(providerId, out var broadcast)) return;
-        RefreshLiveWatchUrl();
+        SyncLiveState();
 
         var result = await _broadcasts.EndAsync(broadcast, CancellationToken.None);
         if (reportFailure && !result.IsSuccess) StreamError.ShowError(result.Message);
     }
 
-    private void RefreshLiveWatchUrl() =>
-        LiveWatchUrl = _liveBroadcasts
-            .Where(entry => _liveProviders.Contains(entry.Key))
-            .Select(entry => entry.Value.WatchUrl)
-            .FirstOrDefault(url => !string.IsNullOrEmpty(url)) ?? "";
+    // Brings the on-air state and the "⋯" list in line with the platforms live right now.
+    private void SyncLiveState()
+    {
+        for (var index = LivePlatforms.Count - 1; index >= 0; index--)
+        {
+            if (!_liveProviders.Contains(LivePlatforms[index].ProviderId)) LivePlatforms.RemoveAt(index);
+        }
+
+        var position = 0;
+        foreach (var providerId in StreamingProviders.All.Where(_liveProviders.Contains))
+        {
+            var platform = LivePlatforms.FirstOrDefault(live => live.ProviderId == providerId);
+            if (platform == null)
+            {
+                platform = new LivePlatformViewModel(providerId, _providerStore.Get(providerId)?.UserName ?? "");
+                LivePlatforms.Insert(position, platform);
+            }
+            platform.WatchUrl = _liveBroadcasts.TryGetValue(providerId, out var broadcast) ? broadcast.WatchUrl ?? "" : "";
+            position++;
+        }
+
+        OnPropertyChanged(nameof(LivePlatformsToolTip));
+        _workspace.SetStreamingState(_liveProviders.Count > 0);
+    }
 
     // A platform that failed or dropped while others stay live: the message says the show goes on.
     private string WithLivesLeft(string message)
@@ -813,7 +856,7 @@ public partial class StudioViewModel : ViewModelBase
         {
             if (e.IsStreaming) _liveProviders.Add(e.ProviderId);
             else _liveProviders.Remove(e.ProviderId);
-            _workspace.SetStreamingState(_liveProviders.Count > 0);
+            SyncLiveState();
             if (!string.IsNullOrWhiteSpace(e.Message)) StreamError.ShowError(WithLivesLeft(e.Message));
             // A live cut by the network still has to end on the platform.
             if (!e.IsStreaming) _ = EndLiveBroadcastAsync(e.ProviderId);
