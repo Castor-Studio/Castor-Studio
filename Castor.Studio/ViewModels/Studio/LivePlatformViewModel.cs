@@ -16,4 +16,6 @@ public sealed partial class LivePlatformViewModel(string providerId, string acco
     private string _watchUrl = "";
 
     public bool HasWatchUrl => WatchUrl.Length > 0;
+
+    public string WatchLabel => $"Voir sur {Name}";
 }

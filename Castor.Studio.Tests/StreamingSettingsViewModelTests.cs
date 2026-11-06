@@ -114,7 +114,7 @@ public sealed class StreamingSettingsViewModelTests
         Option(page, "youtube").IsSelected = true;
 
         Assert.True(page.IsDirty);
-        Assert.Equal("2 lives en même temps : prévoyez environ 8000 kbps d'envoi.", page.MultistreamHint);
+        Assert.Equal("2 lives en même temps : prévoyez environ 8000 kbps d'envoi.", page.DestinationHint);
         var saved = new ApplicationSettings();
         page.Save(saved);
         Assert.Equal(["twitch", "youtube"], saved.StreamingProviderIds);
@@ -131,7 +131,7 @@ public sealed class StreamingSettingsViewModelTests
 
         Assert.False(Option(page, "youtube").CanToggle);
         Assert.True(Option(page, "twitch").CanToggle);
-        Assert.False(page.HasMultistreamHint);
+        Assert.Equal("Cochez plusieurs plateformes pour y diffuser en même temps.", page.DestinationHint);
     }
 
     [Fact]

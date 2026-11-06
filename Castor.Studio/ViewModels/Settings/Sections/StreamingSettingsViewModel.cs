@@ -36,7 +36,7 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
     partial void OnStreamingBitrateChanged(double value)
     {
         OnPropertyChanged(nameof(StreamingBitrateDisplay));
-        OnPropertyChanged(nameof(MultistreamHint));
+        OnPropertyChanged(nameof(DestinationHint));
     }
 
     private readonly StreamingDestinationChoice _destinations = new();
@@ -49,13 +49,12 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
 
     public int SelectedDestinationCount => _destinations.SelectedCount;
 
-    // Each platform receives the whole stream: the upload adds up.
-    public string MultistreamHint => SelectedDestinationCount > 1
+    // One line under the ticks: how to go live on both, or, once both are ticked, the upload it
+    // takes, since each platform receives the whole stream.
+    public string DestinationHint => SelectedDestinationCount > 1
         ? $"{SelectedDestinationCount} lives en même temps : prévoyez environ " +
           $"{SelectedDestinationCount * (int)StreamingBitrate} kbps d'envoi."
-        : "";
-
-    public bool HasMultistreamHint => MultistreamHint.Length > 0;
+        : "Cochez plusieurs plateformes pour y diffuser en même temps.";
 
     public string DestinationSummary => Destinations.Count switch
     {
@@ -125,8 +124,7 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
     {
         // Also what marks the page as edited.
         OnPropertyChanged(nameof(SelectedDestinationCount));
-        OnPropertyChanged(nameof(MultistreamHint));
-        OnPropertyChanged(nameof(HasMultistreamHint));
+        OnPropertyChanged(nameof(DestinationHint));
     }
 
     protected override void LoadCore(ApplicationSettings settings)
