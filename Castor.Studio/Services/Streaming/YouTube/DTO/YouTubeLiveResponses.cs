@@ -94,9 +94,6 @@ internal sealed class GoogleApiErrorResponse
 
 internal sealed class GoogleApiError
 {
-    [JsonPropertyName("code")]
-    public int Code { get; init; }
-
     [JsonPropertyName("message")]
     public string? Message { get; init; }
 
