@@ -28,7 +28,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         var request = new StreamingRequest(
             new SceneDefinition(),
-            "",
+            new StreamingDestination("twitch", "", ""),
             30,
             6_000,
             192,
@@ -37,6 +37,53 @@ public sealed class LibObsSceneRuntimeTests
 
         Assert.Contains("clé de stream Twitch", LibObsSceneRuntime.ValidateStreamingRequest(request));
     }
+
+    [Theory]
+    [InlineData("", "live-key", "serveur YouTube")]
+    [InlineData("rtmp://a.rtmp.youtube.com", "live-key", "serveur YouTube")]
+    [InlineData("https://a.rtmp.youtube.com/live2", "live-key", "serveur YouTube")]
+    [InlineData("rtmp://a.rtmp.youtube.com/live2", "", "clé de stream YouTube")]
+    public void YouTube_request_requires_an_ingest_server_and_a_key(string server, string key, string expected)
+    {
+        var request = YouTubeRequest(server, key);
+
+        Assert.Contains(expected, LibObsSceneRuntime.ValidateStreamingRequest(request));
+    }
+
+    [Fact]
+    public void YouTube_request_with_its_ingest_server_passes_validation()
+    {
+        Assert.Empty(LibObsSceneRuntime.ValidateStreamingRequest(
+            YouTubeRequest("rtmp://a.rtmp.youtube.com/live2", "live-key")));
+    }
+
+    [Theory]
+    [InlineData(ObsOutputStopCode.ConnectFailed, "Connexion au serveur YouTube impossible.")]
+    [InlineData(ObsOutputStopCode.InvalidStream, "YouTube a refusé la clé de stream.")]
+    [InlineData(ObsOutputStopCode.Disconnected, "La connexion au serveur YouTube a été interrompue.")]
+    public void Live_stop_messages_name_the_platform(ObsOutputStopCode code, string expected)
+    {
+        Assert.Equal(expected, LibObsSceneRuntime.StreamingStopMessage(
+            new ObsOutputStateChangedEventArgs(ObsOutputState.Stopped, code), "YouTube"));
+    }
+
+    [Fact]
+    public void Streaming_destination_never_prints_its_key()
+    {
+        var destination = new StreamingDestination("youtube", "rtmp://a.rtmp.youtube.com/live2", "secret-key");
+
+        Assert.DoesNotContain("secret-key", destination.ToString());
+        Assert.DoesNotContain("secret-key", YouTubeRequest(destination.Server, destination.StreamKey).ToString());
+    }
+
+    private static StreamingRequest YouTubeRequest(string server, string key) => new(
+        new SceneDefinition(),
+        new StreamingDestination("youtube", server, key),
+        30,
+        6_000,
+        192,
+        48_000,
+        2);
 
     // libobs can end an output right after its start with a success code and no error: the
     // user still has to be told, or the RECORD button just flickers back.
@@ -76,7 +123,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         var request = new StreamingRequest(
             new SceneDefinition(),
-            "live-key",
+            new StreamingDestination("twitch", "", "live-key"),
             fps,
             videoBitrate,
             audioBitrate,
@@ -91,7 +138,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         var request = new StreamingRequest(
             new SceneDefinition(),
-            "live-key",
+            new StreamingDestination("twitch", "", "live-key"),
             30,
             6_000,
             192,

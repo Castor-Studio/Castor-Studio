@@ -92,14 +92,25 @@
 				</Button.Flyout>
 			</Button>
 
-			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
-                    Content="ARRÊTER LE LIVE"
-                    IsVisible="{Binding IsStreaming}"
-                    IsEnabled="{Binding !IsStreamingTransition}"
-                    Command="{Binding StopStreamingCommand}"
-                    Classes="ctrl-btn"
-                    Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
-                    BorderBrush="{DynamicResource AppStopBorder}"/>
+			<!-- The watch button only shows when the platform gives the live a page of its own (YouTube). -->
+			<Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsStreaming}">
+				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="ARRÊTER LE LIVE"
+                        IsEnabled="{Binding !IsStreamingTransition}"
+                        Command="{Binding StopStreamingCommand}"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
+                        BorderBrush="{DynamicResource AppStopBorder}"/>
+				<Button Grid.Column="1" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="↗"
+                        IsVisible="{Binding HasLiveWatchUrl}"
+                        Command="{Binding OpenLiveWatchPageCommand}"
+                        ToolTip.Tip="Ouvrir la page du live"
+                        AutomationProperties.Name="Ouvrir la page du live"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
+                        BorderBrush="{DynamicResource AppBorder}"/>
+			</Grid>
 
 			<!-- One click starts recording: the active scene by default. The arrow opens the choice
 			     of scenes to record, each into its own file. The folder is set in Settings and

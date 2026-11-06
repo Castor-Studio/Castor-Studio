@@ -19,12 +19,18 @@ public sealed class ApplicationSettings
     public int SelectedChannelsIndex { get; set; }
     public int SelectedAudioBitrateIndex { get; set; } = 1;
 
-    /* Index plateforme : 0=Twitch, 1=YouTube Live, 2=Personnalisé (RTMP).
-     * (Facebook Live, ex-index 2, a été retiré — migration dans
-     * StreamingSettingsViewModel.LoadCore.) */
-    public int SelectedPlatformIndex { get; set; }
-    public string StreamKey { get; set; } = "";
-    public string RtmpUrl { get; set; } = "";
+    // Live destination when several accounts are connected (a StreamingProviders id). Empty or
+    // disconnected: the first connected account in StreamingProviders.All order.
+    public string StreamingProviderId { get; set; } = "";
+
+    // YouTube broadcast created at each live start.
+    public string YouTubeBroadcastTitle { get; set; } = DefaultYouTubeBroadcastTitle;
+    public YouTubePrivacy YouTubePrivacy { get; set; } = YouTubePrivacy.Public;
+
+    public const string DefaultYouTubeBroadcastTitle = "Live Castor Studio";
+
+    // YouTube refuses longer titles.
+    public const int YouTubeBroadcastTitleMaxLength = 100;
 
     // Chosen in the "Scène active" bar; applies to live and recording.
     public SceneTransitionKind SceneTransitionKind { get; set; } = SceneTransition.Default.Kind;

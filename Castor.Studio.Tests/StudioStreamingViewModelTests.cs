@@ -3,6 +3,7 @@ using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
+using CastorApplication.Services.Streaming;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Studio;
@@ -35,7 +36,7 @@ public sealed class StudioStreamingViewModelTests
 
             var request = Assert.IsType<StreamingRequest>(fixture.StreamingRuntime.Request);
             Assert.Equal(fixture.Scene.Id, request.Scene.Id);
-            Assert.Equal("live-key", request.StreamKey);
+            Assert.Equal(new StreamingDestination("twitch", "", "live-key"), request.Destination);
             Assert.Equal(25, request.Fps);
             Assert.Equal(5_500, request.VideoBitrateKbps);
             Assert.Equal(320, request.AudioBitrateKbps);
@@ -71,7 +72,7 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.Null(fixture.StreamingRuntime.Request);
             Assert.False(fixture.Workspace.IsStreaming);
-            Assert.Contains("Compte Twitch déconnecté", fixture.ViewModel.StreamError.Text);
+            Assert.Contains("Compte de streaming déconnecté", fixture.ViewModel.StreamError.Text);
         }
         finally
         {
@@ -216,7 +217,7 @@ public sealed class StudioStreamingViewModelTests
         var fixture = CreateFixture(null);
         try
         {
-            Assert.Equal("Compte Twitch non connecté", fixture.ViewModel.ConnectedAccountLabel);
+            Assert.Equal("Aucun compte de streaming connecté", fixture.ViewModel.ConnectedAccountLabel);
 
             fixture.ProviderStore.Save(ConnectedProvider());
 
@@ -237,8 +238,8 @@ public sealed class StudioStreamingViewModelTests
             var viewModel = fixture.ViewModel;
             Assert.False(viewModel.IsAccountConnected);
             Assert.False(viewModel.StartStreamingCommand.CanExecute(null));
-            Assert.Equal("Connectez un compte Twitch pour lancer le live.", viewModel.StartStreamingBlockedReason);
-            Assert.Equal("Twitch", viewModel.DestinationLabel);
+            Assert.Equal("Connectez un compte Twitch ou YouTube pour lancer le live.", viewModel.StartStreamingBlockedReason);
+            Assert.Equal("Twitch ou YouTube", viewModel.DestinationLabel);
 
             var requested = 0;
             viewModel.AccountSettingsRequested += (_, _) => requested++;
@@ -247,7 +248,7 @@ public sealed class StudioStreamingViewModelTests
 
             // An earlier failed attempt left the account error behind.
             await viewModel.StartStreamingCommand.ExecuteAsync(null);
-            Assert.Contains("Compte Twitch déconnecté", viewModel.StreamError.Text);
+            Assert.Contains("Compte de streaming déconnecté", viewModel.StreamError.Text);
 
             // Back from Settings with an account connected.
             fixture.ProviderStore.Save(ConnectedProvider());
@@ -263,6 +264,220 @@ public sealed class StudioStreamingViewModelTests
         }
     }
 
+    [Fact]
+    public async Task Start_live_pushes_to_the_youtube_ingest_server()
+    {
+        var fixture = CreateFixture(ConnectedYouTube());
+        try
+        {
+            Assert.Equal("YouTube · Club TV", fixture.ViewModel.DestinationLabel);
+
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            var request = Assert.IsType<StreamingRequest>(fixture.StreamingRuntime.Request);
+            Assert.Equal(
+                new StreamingDestination("youtube", "rtmp://a.rtmp.youtube.com/live2", "yt-key"),
+                request.Destination);
+            Assert.True(fixture.Workspace.IsStreaming);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public void Youtube_account_without_ingest_server_cannot_go_live()
+    {
+        var account = ConnectedYouTube();
+        account.IngestUrl = "";
+        var fixture = CreateFixture(account);
+        try
+        {
+            Assert.False(fixture.ViewModel.IsAccountConnected);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Theory]
+    [InlineData("", "twitch")]
+    [InlineData("twitch", "twitch")]
+    [InlineData("youtube", "youtube")]
+    public async Task With_two_accounts_the_setting_picks_the_destination(string chosen, string expected)
+    {
+        var fixture = CreateFixture(
+            ConnectedProvider(),
+            new ApplicationSettings { StreamingProviderId = chosen },
+            others: [ConnectedYouTube()]);
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal(expected, fixture.StreamingRuntime.Request?.Destination.ProviderId);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public void A_chosen_destination_that_is_disconnected_falls_back_to_the_connected_one()
+    {
+        var fixture = CreateFixture(ConnectedProvider(), new ApplicationSettings { StreamingProviderId = "youtube" });
+        try
+        {
+            Assert.Equal("Twitch · Castor", fixture.ViewModel.DestinationLabel);
+
+            fixture.ProviderStore.Save(ConnectedYouTube());
+
+            Assert.Equal("YouTube · Club TV", fixture.ViewModel.DestinationLabel);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    private static LiveBroadcast YouTubeBroadcast() =>
+        new("youtube", "b1", "https://www.youtube.com/watch?v=b1");
+
+    private static FakeBroadcastService BroadcastsCreating(LiveBroadcast broadcast) => new()
+    {
+        PrepareResult = new LiveBroadcastResult(StudioRuntimeResult.Success(), broadcast)
+    };
+
+    [Fact]
+    public async Task Live_broadcast_is_prepared_before_the_output_and_ended_after_it()
+    {
+        var broadcast = YouTubeBroadcast();
+        var fixture = CreateFixture(ConnectedYouTube(), broadcasts: BroadcastsCreating(broadcast));
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal(["youtube"], fixture.Broadcasts.Prepared);
+            Assert.NotNull(fixture.StreamingRuntime.Request);
+            Assert.Equal("https://www.youtube.com/watch?v=b1", fixture.ViewModel.LiveWatchUrl);
+            Assert.True(fixture.ViewModel.OpenLiveWatchPageCommand.CanExecute(null));
+            Assert.Empty(fixture.Broadcasts.Ended);
+
+            await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
+            // The runtime also signals the stop: the broadcast still ends once.
+            fixture.StreamingRuntime.RaiseState(false);
+
+            Assert.Equal([broadcast], fixture.Broadcasts.Ended);
+            Assert.Equal("", fixture.ViewModel.LiveWatchUrl);
+            Assert.False(fixture.ViewModel.HasLiveWatchUrl);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Failed_broadcast_keeps_the_output_from_starting()
+    {
+        var broadcasts = new FakeBroadcastService
+        {
+            PrepareResult = new LiveBroadcastResult(StudioRuntimeResult.Failure("Le quota de l'API YouTube est épuisé."))
+        };
+        var fixture = CreateFixture(ConnectedYouTube(), broadcasts: broadcasts);
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Null(fixture.StreamingRuntime.Request);
+            Assert.False(fixture.Workspace.IsStreaming);
+            Assert.Equal("Le quota de l'API YouTube est épuisé.", fixture.ViewModel.StreamError.Text);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Output_that_fails_to_start_ends_its_broadcast()
+    {
+        var broadcast = YouTubeBroadcast();
+        var fixture = CreateFixture(ConnectedYouTube(), broadcasts: BroadcastsCreating(broadcast));
+        fixture.StreamingRuntime.StartResult = StudioRuntimeResult.Failure("YouTube a refusé la clé de stream.");
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal([broadcast], fixture.Broadcasts.Ended);
+            Assert.False(fixture.Workspace.IsStreaming);
+            Assert.Equal("", fixture.ViewModel.LiveWatchUrl);
+            Assert.Equal("YouTube a refusé la clé de stream.", fixture.ViewModel.StreamError.Text);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Unexpected_stop_ends_the_broadcast()
+    {
+        var broadcast = YouTubeBroadcast();
+        var fixture = CreateFixture(ConnectedYouTube(), broadcasts: BroadcastsCreating(broadcast));
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            fixture.StreamingRuntime.RaiseState(false, "La connexion au serveur YouTube a été interrompue.");
+
+            Assert.Equal([broadcast], fixture.Broadcasts.Ended);
+            Assert.False(fixture.Workspace.IsStreaming);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task A_broadcast_youtube_could_not_end_is_reported_after_the_stop()
+    {
+        var fixture = CreateFixture(ConnectedYouTube(), broadcasts: BroadcastsCreating(YouTubeBroadcast()));
+        fixture.Broadcasts.EndResult = StudioRuntimeResult.Failure("Le live est arrêté, mais YouTube n'a pas pu le terminer.");
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+            await fixture.ViewModel.StopStreamingCommand.ExecuteAsync(null);
+
+            Assert.False(fixture.Workspace.IsStreaming);
+            Assert.Equal("Le live est arrêté, mais YouTube n'a pas pu le terminer.", fixture.ViewModel.StreamError.Text);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task Twitch_lives_have_no_watch_page()
+    {
+        var fixture = CreateFixture(ConnectedProvider());
+        try
+        {
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+
+            Assert.Equal(["twitch"], fixture.Broadcasts.Prepared);
+            Assert.False(fixture.ViewModel.HasLiveWatchUrl);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     private static ProviderSettings ConnectedProvider() => new()
     {
         ProviderId = "twitch",
@@ -271,9 +486,21 @@ public sealed class StudioStreamingViewModelTests
         StreamKey = "live-key"
     };
 
+    private static ProviderSettings ConnectedYouTube() => new()
+    {
+        ProviderId = "youtube",
+        IsConnected = true,
+        UserName = "Club TV",
+        StreamKey = "yt-key",
+        IngestUrl = "rtmp://a.rtmp.youtube.com/live2",
+        StreamId = "stream-1"
+    };
+
     private static Fixture CreateFixture(
         ProviderSettings? provider,
-        ApplicationSettings? settings = null)
+        ApplicationSettings? settings = null,
+        FakeBroadcastService? broadcasts = null,
+        params ProviderSettings[] others)
     {
         var directory = Path.Combine(Path.GetTempPath(), $"castor-stream-viewmodel-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
@@ -284,7 +511,8 @@ public sealed class StudioStreamingViewModelTests
         workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
         var streamingRuntime = new FakeStreamingRuntime();
         var recordingRuntime = new FakeRecordingRuntime();
-        var providerStore = new FakeProviderStore(provider);
+        var providerStore = new FakeProviderStore(provider == null ? others : [provider, .. others]);
+        broadcasts ??= new FakeBroadcastService();
         var viewModel = new StudioViewModel(
             workspace,
             new FakeStudioRuntime(),
@@ -292,7 +520,8 @@ public sealed class StudioStreamingViewModelTests
             recordingRuntime,
             streamingRuntime,
             providerStore,
-            settingsService);
+            settingsService,
+            broadcasts: broadcasts);
         return new Fixture(
             directory,
             workspace,
@@ -300,7 +529,8 @@ public sealed class StudioStreamingViewModelTests
             viewModel,
             streamingRuntime,
             recordingRuntime,
-            providerStore);
+            providerStore,
+            broadcasts);
     }
 
     private sealed record Fixture(
@@ -310,9 +540,33 @@ public sealed class StudioStreamingViewModelTests
         StudioViewModel ViewModel,
         FakeStreamingRuntime StreamingRuntime,
         FakeRecordingRuntime RecordingRuntime,
-        FakeProviderStore ProviderStore) : IDisposable
+        FakeProviderStore ProviderStore,
+        FakeBroadcastService Broadcasts) : IDisposable
     {
         public void Dispose() => System.IO.Directory.Delete(Directory, recursive: true);
+    }
+
+    private sealed class FakeBroadcastService : ILiveBroadcastService
+    {
+        public LiveBroadcastResult PrepareResult { get; set; } = LiveBroadcastResult.None;
+        public StudioRuntimeResult EndResult { get; set; } = StudioRuntimeResult.Success();
+        public List<string> Prepared { get; } = [];
+        public List<LiveBroadcast> Ended { get; } = [];
+
+        public Task<LiveBroadcastResult> PrepareAsync(
+            ProviderSettings account,
+            ApplicationSettings settings,
+            CancellationToken cancellationToken)
+        {
+            Prepared.Add(account.ProviderId);
+            return Task.FromResult(PrepareResult);
+        }
+
+        public Task<StudioRuntimeResult> EndAsync(LiveBroadcast broadcast, CancellationToken cancellationToken)
+        {
+            Ended.Add(broadcast);
+            return Task.FromResult(EndResult);
+        }
     }
 
     private sealed class FakeStreamingRuntime : IStreamingRuntime
@@ -379,21 +633,22 @@ public sealed class StudioStreamingViewModelTests
         public StudioRuntimeResult ResumeRecording(Guid sessionId) => StudioRuntimeResult.Success();
     }
 
-    private sealed class FakeProviderStore(ProviderSettings? provider) : IProviderStore
+    private sealed class FakeProviderStore(IEnumerable<ProviderSettings> providers) : IProviderStore
     {
-        private ProviderSettings? _provider = provider;
+        private readonly List<ProviderSettings> _providers = [.. providers];
         public event EventHandler? Changed;
-        public IReadOnlyCollection<ProviderSettings> GetAll() => _provider == null ? [] : [_provider];
+        public IReadOnlyCollection<ProviderSettings> GetAll() => _providers;
         public ProviderSettings? Get(string providerId) =>
-            _provider?.ProviderId == providerId ? _provider : null;
+            _providers.FirstOrDefault(provider => provider.ProviderId == providerId);
         public void Save(ProviderSettings next)
         {
-            _provider = next;
+            _providers.RemoveAll(provider => provider.ProviderId == next.ProviderId);
+            _providers.Add(next);
             Changed?.Invoke(this, EventArgs.Empty);
         }
         public void Delete(string providerId)
         {
-            if (_provider?.ProviderId == providerId) _provider = null;
+            _providers.RemoveAll(provider => provider.ProviderId == providerId);
             Changed?.Invoke(this, EventArgs.Empty);
         }
     }

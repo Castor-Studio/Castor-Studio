@@ -45,7 +45,7 @@ public sealed record RecordingRequest(
 
 public sealed record StreamingRequest(
     SceneDefinition Scene,
-    string StreamKey,
+    StreamingDestination Destination,
     int Fps,
     int VideoBitrateKbps,
     int AudioBitrateKbps,

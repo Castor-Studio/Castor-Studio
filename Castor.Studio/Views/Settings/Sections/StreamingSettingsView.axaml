@@ -19,10 +19,25 @@
                            Classes="setting-label"/>
 
                 <StackPanel Grid.Column="1" Spacing="3">
-                    <TextBlock Text="Twitch"
+                    <!-- A choice only with two connected accounts; otherwise the one used, or how to get one. -->
+                    <ComboBox MaxWidth="260"
+                              MinWidth="220"
+                              HorizontalAlignment="Left"
+                              IsVisible="{Binding CanChooseDestination}"
+                              ItemsSource="{Binding Destinations}"
+                              SelectedItem="{Binding SelectedDestination}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:StreamingDestinationOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{Binding DestinationSummary}"
+                               IsVisible="{Binding !CanChooseDestination}"
                                Foreground="{DynamicResource AppFg2}"
-                               FontWeight="SemiBold"/>
-                    <TextBlock Text="Le compte utilisé se configure dans Paramètres → Comptes."
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="Les comptes se configurent dans Paramètres → Comptes."
                                Foreground="{DynamicResource AppFg4}"
                                FontSize="11"/>
                 </StackPanel>
@@ -52,6 +67,59 @@
                                Foreground="{DynamicResource AppFg4}"
                                Text="{Binding StreamingBitrateDisplay}"/>
 
+                </StackPanel>
+
+            </Grid>
+
+        </StackPanel>
+
+        <!-- Each YouTube live is a broadcast of its own, created when the live starts. -->
+        <StackPanel Spacing="14"
+                    IsVisible="{Binding IsYouTubeConnected}">
+
+            <TextBlock Text="YOUTUBE"
+                       Classes="section-title"/>
+
+            <Grid ColumnDefinitions="211,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Titre du live"
+                           Classes="setting-label"/>
+
+                <TextBox Grid.Column="1"
+                         MinWidth="320"
+                         MaxWidth="460"
+                         MaxLength="{Binding YouTubeBroadcastTitleMaxLength}"
+                         HorizontalAlignment="Left"
+                         Background="{DynamicResource AppSurface2}"
+                         BorderBrush="{DynamicResource AppBorder2}"
+                         Foreground="{DynamicResource AppFg2}"
+                         PlaceholderText="Live Castor Studio"
+                         Text="{Binding YouTubeBroadcastTitle}"/>
+
+            </Grid>
+
+            <Grid ColumnDefinitions="211,*">
+
+                <TextBlock Grid.Column="0"
+                           Text="Visibilité"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1" Spacing="3">
+                    <ComboBox MaxWidth="260"
+                              MinWidth="220"
+                              HorizontalAlignment="Left"
+                              ItemsSource="{Binding PrivacyOptions}"
+                              SelectedItem="{Binding SelectedPrivacy}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:YouTubePrivacyOption">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="Appliqués au prochain live : un live en cours garde les siens."
+                               Foreground="{DynamicResource AppFg4}"
+                               FontSize="11"/>
                 </StackPanel>
 
             </Grid>

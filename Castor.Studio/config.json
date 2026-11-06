@@ -10,6 +10,12 @@
         "user:read:email",
         "channel:read:stream_key"
       ]
+    },
+    "youtube": {
+      "clientId": "",
+      "scopes": [
+        "https://www.googleapis.com/auth/youtube"
+      ]
     }
   }
 }

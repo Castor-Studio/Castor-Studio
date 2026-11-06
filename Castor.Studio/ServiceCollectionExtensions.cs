@@ -9,11 +9,14 @@ using CastorApplication.Services.Ai;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Providers.Twitch;
+using CastorApplication.Services.Auth.Providers.YouTube;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Config;
 using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Platform;
 using CastorApplication.Services.Settings;
+using CastorApplication.Services.Streaming;
+using CastorApplication.Services.Streaming.YouTube;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
@@ -32,11 +35,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(desktop);
 
         services.AddSingleton<HttpClient>();
-        services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+        // DPAPI is Windows-only, like Castor itself; anywhere else sessions last one run.
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<ITokenStore, EncryptedFileTokenStore>();
+        else
+            services.AddSingleton<ITokenStore, InMemoryTokenStore>();
         services.AddSingleton<IProviderStore, ProviderStore>();
         services.AddSingleton<IConfigService, JsonConfigService>();
         services.AddSingleton<IAuthProvider, TwitchAuthProvider>();
+        services.AddSingleton<IAuthProvider, YouTubeAuthProvider>();
         services.AddSingleton<IAuthService, AuthService>();
+        services.AddSingleton<IYouTubeLiveService, YouTubeLiveService>();
+        services.AddSingleton<ILiveBroadcastService, LiveBroadcastService>();
         services.AddSingleton<ProviderRegistry>();
         services.AddSingleton<SettingsService>();
         services.AddSingleton<IPrimaryMonitorResolutionProvider, WindowsPrimaryMonitorResolutionProvider>();
@@ -91,7 +101,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<SettingsService>(),
             provider.GetRequiredService<VideoCanvasResolutionResolver>(),
             provider.GetRequiredService<StatusMessageService>(),
-            cancelRecordingDialog: provider.GetRequiredService<ICancelRecordingDialogService>()
+            cancelRecordingDialog: provider.GetRequiredService<ICancelRecordingDialogService>(),
+            broadcasts: provider.GetRequiredService<ILiveBroadcastService>()
         ));
 
         services.AddSingleton(provider => new ScenesViewModel(
