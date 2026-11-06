@@ -26,8 +26,11 @@ public partial class StudioViewModel : ViewModelBase
     private readonly IStreamingRuntime _streamingRuntime;
     private readonly IProviderStore _providerStore;
     private readonly ILiveBroadcastService _broadcasts;
-    // Broadcast of the running live, ended once its output stops.
-    private LiveBroadcast? _activeBroadcast;
+    // Platforms live right now (StreamingProviders ids), from the start results and the
+    // runtime's signals: the studio is on air while one of them is.
+    private readonly HashSet<string> _liveProviders = new(StringComparer.Ordinal);
+    // Platform-side broadcast wrapping each live (YouTube), ended once that live stops.
+    private readonly Dictionary<string, LiveBroadcast> _liveBroadcasts = new(StringComparer.Ordinal);
     private readonly SettingsService _settingsService;
     private readonly VideoCanvasResolutionResolver _resolutionResolver;
     private readonly DispatcherTimer _sessionTimer;
@@ -115,26 +118,15 @@ public partial class StudioViewModel : ViewModelBase
     // DÉMARRER is disabled with the reason, and the account area turns into a way to connect one.
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(StartStreamingCommand))]
-    [NotifyPropertyChangedFor(nameof(StartStreamingBlockedReason), nameof(DestinationLabel))]
+    [NotifyPropertyChangedFor(nameof(StartStreamingBlockedReason))]
     private bool _isAccountConnected;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DestinationLabel))]
-    private string _connectedAccountName = "";
-
-    // Platform of the account the live goes to (StreamingProviders id), empty without one.
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DestinationLabel))]
-    private string _destinationProviderId = "";
 
     public string StartStreamingBlockedReason =>
         IsAccountConnected ? "" : "Connectez un compte Twitch ou YouTube pour lancer le live.";
 
-    // Filled in with the account as soon as one is connected, including after a round trip to
-    // Settings > Comptes from the panel.
-    public string DestinationLabel => IsAccountConnected
-        ? $"{StreamingProviders.DisplayName(DestinationProviderId)} · {ConnectedAccountName}"
-        : "Twitch ou YouTube";
+    // Every platform the live goes to, filled in as soon as an account is connected, including
+    // after a round trip to Settings > Comptes from the panel.
+    [ObservableProperty] private string _destinationLabel = NoDestinationLabel;
 
     // Public page of the running live, when the platform gives one (YouTube broadcast).
     [ObservableProperty]
@@ -394,56 +386,72 @@ public partial class StudioViewModel : ViewModelBase
         }
 
         var settings = _settingsService.Load();
-        var account = GetActiveAccount(settings);
-        if (account == null)
+        var accounts = GetLiveAccounts(settings);
+        if (accounts.Count == 0)
         {
             StreamError.ShowError(AccountDisconnectedError);
             RefreshProviderState();
             return;
         }
 
+        // With several platforms, each message says which one it is about.
+        string AboutPlatform(string providerId, string message)
+        {
+            var name = StreamingProviders.DisplayName(providerId);
+            return accounts.Count > 1 && !message.Contains(name, StringComparison.Ordinal)
+                ? $"{name} : {message}"
+                : message;
+        }
+
         IsStreamingTransition = true;
-        LiveBroadcast? broadcast = null;
-        var started = false;
+        var errors = new List<string>();
         try
         {
-            // The platform-side broadcast comes first: without it, YouTube would receive a stream
-            // nobody can watch, so a failure here keeps the output from starting.
-            var prepared = await _broadcasts.PrepareAsync(account, settings, cancellationToken);
-            if (!prepared.Result.IsSuccess)
+            // Each platform-side broadcast comes before the outputs: without it, YouTube would
+            // receive a stream nobody can watch. A platform whose broadcast fails is left out,
+            // the others still go live.
+            var destinations = new List<StreamingDestination>();
+            foreach (var account in accounts)
             {
-                StreamError.ShowError(prepared.Result.Message);
-                return;
-            }
-            broadcast = prepared.Broadcast;
-
-            var results = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
-                scene.ToDefinition(),
-                [ToDestination(account)],
-                FpsFromIndex(settings.SelectedFpsIndex),
-                (int)settings.StreamingBitrate,
-                AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
-                AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
-                AudioChannelsFromIndex(settings.SelectedChannelsIndex)), cancellationToken);
-            var failure = results.FirstOrDefault(destination => !destination.Result.IsSuccess);
-            if (failure != null)
-            {
-                StreamError.ShowError(failure.Result.Message);
-                return;
+                var prepared = await _broadcasts.PrepareAsync(account, settings, cancellationToken);
+                if (!prepared.Result.IsSuccess)
+                {
+                    errors.Add(AboutPlatform(account.ProviderId, prepared.Result.Message));
+                    continue;
+                }
+                if (prepared.Broadcast != null) _liveBroadcasts[account.ProviderId] = prepared.Broadcast;
+                destinations.Add(ToDestination(account));
             }
 
-            started = true;
-            _activeBroadcast = broadcast;
-            LiveWatchUrl = broadcast?.WatchUrl ?? "";
-            _workspace.SetStreamingState(true);
+            if (destinations.Count > 0)
+            {
+                var results = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
+                    scene.ToDefinition(),
+                    destinations,
+                    FpsFromIndex(settings.SelectedFpsIndex),
+                    (int)settings.StreamingBitrate,
+                    AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
+                    AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
+                    AudioChannelsFromIndex(settings.SelectedChannelsIndex)), cancellationToken);
+                foreach (var result in results)
+                {
+                    if (result.Result.IsSuccess) _liveProviders.Add(result.ProviderId);
+                    else errors.Add(AboutPlatform(result.ProviderId, result.Result.Message));
+                }
+            }
+
+            _workspace.SetStreamingState(_liveProviders.Count > 0);
         }
         finally
         {
             // A broadcast created for an output that never started must not stay scheduled.
-            if (!started && broadcast != null)
-                await _broadcasts.EndAsync(broadcast, CancellationToken.None);
+            foreach (var providerId in _liveBroadcasts.Keys.Where(id => !_liveProviders.Contains(id)).ToList())
+                await EndLiveBroadcastAsync(providerId, reportFailure: false);
+            RefreshLiveWatchUrl();
             IsStreamingTransition = false;
         }
+
+        if (errors.Count > 0) StreamError.ShowError(WithLivesLeft(string.Join(Environment.NewLine, errors.Distinct())));
     }
 
     [RelayCommand]
@@ -458,8 +466,10 @@ public partial class StudioViewModel : ViewModelBase
                 StreamError.ShowError(result.Message);
                 return;
             }
+            _liveProviders.Clear();
             _workspace.SetStreamingState(false);
-            await EndActiveBroadcastAsync();
+            foreach (var providerId in _liveBroadcasts.Keys.ToList())
+                await EndLiveBroadcastAsync(providerId);
         }
         finally
         {
@@ -469,15 +479,26 @@ public partial class StudioViewModel : ViewModelBase
 
     // Both a requested stop and the runtime's stop signal land here: the broadcast is taken
     // first, so it is ended once.
-    private async Task EndActiveBroadcastAsync()
+    private async Task EndLiveBroadcastAsync(string providerId, bool reportFailure = true)
     {
-        var broadcast = _activeBroadcast;
-        _activeBroadcast = null;
-        LiveWatchUrl = "";
-        if (broadcast == null) return;
+        if (!_liveBroadcasts.Remove(providerId, out var broadcast)) return;
+        RefreshLiveWatchUrl();
 
         var result = await _broadcasts.EndAsync(broadcast, CancellationToken.None);
-        if (!result.IsSuccess) StreamError.ShowError(result.Message);
+        if (reportFailure && !result.IsSuccess) StreamError.ShowError(result.Message);
+    }
+
+    private void RefreshLiveWatchUrl() =>
+        LiveWatchUrl = _liveBroadcasts
+            .Where(entry => _liveProviders.Contains(entry.Key))
+            .Select(entry => entry.Value.WatchUrl)
+            .FirstOrDefault(url => !string.IsNullOrEmpty(url)) ?? "";
+
+    // A platform that failed or dropped while others stay live: the message says the show goes on.
+    private string WithLivesLeft(string message)
+    {
+        var live = StreamingProviders.All.Where(_liveProviders.Contains).Select(StreamingProviders.DisplayName).ToList();
+        return live.Count == 0 ? message : $"{message}{Environment.NewLine}Le live continue sur {string.Join(" et ", live)}.";
     }
 
     // One session per target: the program (following the active scene) if ticked, then each
@@ -790,10 +811,12 @@ public partial class StudioViewModel : ViewModelBase
     {
         void ApplyState()
         {
-            _workspace.SetStreamingState(e.IsStreaming);
-            if (!string.IsNullOrWhiteSpace(e.Message)) StreamError.ShowError(e.Message);
+            if (e.IsStreaming) _liveProviders.Add(e.ProviderId);
+            else _liveProviders.Remove(e.ProviderId);
+            _workspace.SetStreamingState(_liveProviders.Count > 0);
+            if (!string.IsNullOrWhiteSpace(e.Message)) StreamError.ShowError(WithLivesLeft(e.Message));
             // A live cut by the network still has to end on the platform.
-            if (!e.IsStreaming) _ = EndActiveBroadcastAsync();
+            if (!e.IsStreaming) _ = EndLiveBroadcastAsync(e.ProviderId);
         }
 
         if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
@@ -887,18 +910,20 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     private const string NoAccountLabel = "Aucun compte de streaming connecté";
+    private const string NoDestinationLabel = "Twitch ou YouTube";
     private const string AccountDisconnectedError = "Compte de streaming déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
 
-    // The account chosen in Settings › Streaming if it can go live, else the first one that can.
-    private ProviderSettings? GetActiveAccount(ApplicationSettings settings)
+    // The platforms chosen in Settings › Streaming that can go live, in StreamingProviders.All
+    // order. None of them ready: the first account that can, so one connected account always works.
+    private List<ProviderSettings> GetLiveAccounts(ApplicationSettings settings)
     {
         var usable = StreamingProviders.All
             .Select(_providerStore.Get)
             .OfType<ProviderSettings>()
             .Where(IsReadyToStream)
             .ToList();
-        return usable.FirstOrDefault(account => account.ProviderId == settings.StreamingProviderId)
-            ?? usable.FirstOrDefault();
+        var chosen = usable.Where(account => settings.StreamingProviderIds.Contains(account.ProviderId)).ToList();
+        return chosen.Count > 0 ? chosen : [.. usable.Take(1)];
     }
 
     internal static bool IsReadyToStream(ProviderSettings? account) =>
@@ -911,16 +936,18 @@ public partial class StudioViewModel : ViewModelBase
 
     private void RefreshProviderState()
     {
-        var provider = GetActiveAccount(_settingsService.Load());
-        ConnectedAccountLabel = provider == null
+        var accounts = GetLiveAccounts(_settingsService.Load());
+        ConnectedAccountLabel = accounts.Count == 0
             ? NoAccountLabel
-            : $"Connecté en tant que {provider.UserName}";
-        ConnectedAccountName = provider?.UserName ?? "";
-        DestinationProviderId = provider?.ProviderId ?? "";
-        IsAccountConnected = provider != null;
+            : $"Connecté en tant que {string.Join(", ", accounts.Select(account => account.UserName).Distinct())}";
+        DestinationLabel = accounts.Count == 0
+            ? NoDestinationLabel
+            : string.Join(" + ", accounts.Select(account =>
+                $"{StreamingProviders.DisplayName(account.ProviderId)} · {account.UserName}"));
+        IsAccountConnected = accounts.Count > 0;
 
         // An account error left from an earlier attempt no longer applies once one is connected.
-        if (provider != null && StreamError.Text == AccountDisconnectedError) StreamError.Clear();
+        if (accounts.Count > 0 && StreamError.Text == AccountDisconnectedError) StreamError.Clear();
     }
 
     private void StartSessionTimerIfNeeded()
