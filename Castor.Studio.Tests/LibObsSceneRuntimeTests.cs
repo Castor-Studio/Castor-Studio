@@ -28,7 +28,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         var request = new StreamingRequest(
             new SceneDefinition(),
-            new StreamingDestination("twitch", "", ""),
+            [new StreamingDestination("twitch", "", "")],
             30,
             6_000,
             192,
@@ -78,12 +78,134 @@ public sealed class LibObsSceneRuntimeTests
 
     private static StreamingRequest YouTubeRequest(string server, string key) => new(
         new SceneDefinition(),
-        new StreamingDestination("youtube", server, key),
+        [new StreamingDestination("youtube", server, key)],
         30,
         6_000,
         192,
         48_000,
         2);
+
+    [Fact]
+    public void Streaming_request_needs_at_least_one_destination()
+    {
+        Assert.Contains("au moins une plateforme",
+            LibObsSceneRuntime.ValidateStreamingRequest(YouTubeRequest("", "") with { Destinations = [] }));
+    }
+
+    [Fact]
+    public void Streaming_request_refuses_two_lives_on_the_same_platform()
+    {
+        var request = YouTubeRequest("rtmp://a.rtmp.youtube.com/live2", "first") with
+        {
+            Destinations =
+            [
+                new StreamingDestination("youtube", "rtmp://a.rtmp.youtube.com/live2", "first"),
+                new StreamingDestination("youtube", "rtmp://b.rtmp.youtube.com/live2", "second")
+            ]
+        };
+
+        Assert.Contains("un seul live", LibObsSceneRuntime.ValidateStreamingRequest(request));
+    }
+
+    [Fact]
+    public void Streaming_request_checks_every_destination()
+    {
+        var request = YouTubeRequest("rtmp://a.rtmp.youtube.com/live2", "yt-key") with
+        {
+            Destinations =
+            [
+                new StreamingDestination("youtube", "rtmp://a.rtmp.youtube.com/live2", "yt-key"),
+                new StreamingDestination("twitch", "", "")
+            ]
+        };
+
+        Assert.Contains("clé de stream Twitch", LibObsSceneRuntime.ValidateStreamingRequest(request));
+        Assert.Empty(LibObsSceneRuntime.ValidateStreamingRequest(request with
+        {
+            Destinations = [request.Destinations[0], new StreamingDestination("twitch", "", "tw-key")]
+        }));
+    }
+
+    [Fact]
+    public void Live_refused_at_start_without_reason_names_its_platform()
+    {
+        Assert.Equal("Le live YouTube s'est arrêté dès son démarrage.", LibObsSceneRuntime.FailedStreamingStartMessage(
+            new ObsOutputStateChangedEventArgs(ObsOutputState.Stopped, ObsOutputStopCode.Success), "YouTube"));
+        Assert.Equal("Twitch a refusé la clé de stream.", LibObsSceneRuntime.FailedStreamingStartMessage(
+            new ObsOutputStateChangedEventArgs(ObsOutputState.Stopped, ObsOutputStopCode.InvalidStream), "Twitch"));
+    }
+
+    // Nothing listens on port 1: both lives fail to connect. What the native runtime proves
+    // here is that each platform gets its own outcome, and that the shared encoders and the
+    // outputs are all released, so the next start finds a free runtime.
+    [Fact]
+    public async Task Native_runtime_reports_each_live_of_a_multistream_on_its_own()
+    {
+        var runtime = _runtime;
+        var scene = new SceneDefinition { Name = "Multistream" };
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
+            Assert.True(runtime.AddSource(scene.Id,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Live source", _mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var request = new StreamingRequest(
+                scene,
+                [
+                    new StreamingDestination("youtube", "rtmp://127.0.0.1:1/live2", "first-key"),
+                    new StreamingDestination("other", "rtmp://127.0.0.1:1/app", "second-key")
+                ],
+                30,
+                1_000,
+                128,
+                48_000,
+                2);
+
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                var results = await runtime.StartStreamingAsync(request, timeout.Token);
+
+                Assert.Equal(["youtube", "other"], results.Select(result => result.ProviderId));
+                Assert.All(results, result =>
+                {
+                    Assert.False(result.Result.IsSuccess);
+                    Assert.NotEmpty(result.Result.Message);
+                });
+                // Settles the outputs that ended on their own without waiting for their release.
+                Assert.True((await runtime.StopStreamingAsync(timeout.Token)).IsSuccess);
+            }
+
+            Assert.True(runtime.RemoveScene(scene.Id).IsSuccess);
+        }
+        finally
+        {
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await runtime.StopStreamingAsync(cleanup.Token);
+            RemoveScenes(scene.Id);
+        }
+    }
+
+    [Fact]
+    public async Task Native_runtime_refuses_a_live_on_an_unknown_scene_for_every_destination()
+    {
+        var runtime = _runtime;
+        Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+        var request = YouTubeRequest("rtmp://127.0.0.1:1/live2", "key") with
+        {
+            Scene = new SceneDefinition(),
+            Destinations =
+            [
+                new StreamingDestination("youtube", "rtmp://127.0.0.1:1/live2", "key"),
+                new StreamingDestination("twitch", "", "key")
+            ]
+        };
+
+        var results = await runtime.StartStreamingAsync(request, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+        Assert.All(results, result => Assert.Contains("n'existe pas", result.Result.Message));
+    }
 
     // libobs can end an output right after its start with a success code and no error: the
     // user still has to be told, or the RECORD button just flickers back.
@@ -123,7 +245,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         var request = new StreamingRequest(
             new SceneDefinition(),
-            new StreamingDestination("twitch", "", "live-key"),
+            [new StreamingDestination("twitch", "", "live-key")],
             fps,
             videoBitrate,
             audioBitrate,
@@ -138,7 +260,7 @@ public sealed class LibObsSceneRuntimeTests
     {
         var request = new StreamingRequest(
             new SceneDefinition(),
-            new StreamingDestination("twitch", "", "live-key"),
+            [new StreamingDestination("twitch", "", "live-key")],
             30,
             6_000,
             192,
