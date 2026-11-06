@@ -33,6 +33,9 @@ public sealed class ApplicationSettings
     public SceneTransition ToSceneTransition() =>
         SceneTransition.From(SceneTransitionKind, SceneTransitionDurationMs);
 
+    // Read by the AI on each start: a change applies to the next one.
+    public AiDevice AiDevice { get; set; } = AiDevice.Auto;
+
     public int SelectedOutputFormatIndex { get; set; }
     public string OutputPath { get; set; } = DefaultOutputPath;
 

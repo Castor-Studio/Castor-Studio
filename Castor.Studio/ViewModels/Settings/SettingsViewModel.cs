@@ -42,7 +42,8 @@ public partial class SettingsViewModel : ViewModelBase
         AudioSettingsViewModel audioSettingsViewModel,
         StreamingSettingsViewModel streamingSettingsViewModel,
         OutputSettingsViewModel outputSettingsViewModel,
-        AccountsSettingsViewModel accountsSettingsViewModel)
+        AccountsSettingsViewModel accountsSettingsViewModel,
+        AdvancedSettingsViewModel advancedSettingsViewModel)
     {
         _authService = authService;
         _providerStore = store;
@@ -87,6 +88,13 @@ public partial class SettingsViewModel : ViewModelBase
         {
             Title = "Comptes",
             ViewModel = accountsSettingsViewModel,
+            SelectCommand = SelectSectionCommand
+        });
+
+        Sections.Add(new()
+        {
+            Title = "Avancé",
+            ViewModel = advancedSettingsViewModel,
             SelectCommand = SelectSectionCommand
         });
 

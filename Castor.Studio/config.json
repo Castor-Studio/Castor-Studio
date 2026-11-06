@@ -1,6 +1,5 @@
 ﻿{
   "aiWorker": {
-    "device": "gpu",
     "gpuAdapter": 0
   },
   "providers": {

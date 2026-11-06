@@ -18,8 +18,8 @@ namespace CastorApplication.Models.Config
     /// <summary>Local AI worker (Castor.AI) started by the app.</summary>
     public class AiWorkerConfig
     {
-        /// <summary>"gpu" (DirectML, CPU fallback) or "cpu".</summary>
-        public string Device { get; set; } = "gpu";
+        // The device (auto, CPU or GPU) is a user setting: ApplicationSettings.AiDevice. Older
+        // files still carry "device", ignored on load.
 
         /// <summary>DXGI adapter index used by DirectML, 0 = default display adapter.</summary>
         public int GpuAdapter { get; set; }
