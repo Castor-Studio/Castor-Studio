@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Threading;
 using CastorApplication.Models.Settings;
@@ -9,7 +10,19 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CastorApplication.ViewModels.Settings.Sections;
 
-public sealed record StreamingDestinationOption(string ProviderId, string Label);
+// A platform the live can go to; every ticked one goes live at once.
+public sealed partial class StreamingDestinationOption(string providerId, string label) : ViewModelBase
+{
+    public string ProviderId { get; } = providerId;
+    public string Label { get; } = label;
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    // False for the last ticked platform: a live needs somewhere to go.
+    [ObservableProperty]
+    private bool _canToggle = true;
+}
 
 public sealed record YouTubePrivacyOption(YouTubePrivacy Privacy, string Label)
 {
@@ -28,8 +41,8 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
 {
     private readonly IProviderStore? _providerStore;
 
-    // Kept as loaded while its account is not connected, so a reconnection finds the choice back.
-    private string _storedProviderId = "";
+    // Kept as loaded for accounts not ready to stream, so a reconnection finds the choice back.
+    private List<string> _storedProviderIds = [];
 
     [ObservableProperty]
     private double _streamingBitrate = 4000;
@@ -37,16 +50,26 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
     public string StreamingBitrateDisplay => $"{(int)StreamingBitrate}";
 
     partial void OnStreamingBitrateChanged(double value)
-        => OnPropertyChanged(nameof(StreamingBitrateDisplay));
+    {
+        OnPropertyChanged(nameof(StreamingBitrateDisplay));
+        OnPropertyChanged(nameof(MultistreamHint));
+    }
 
     // Accounts that can go live. The choice only matters with two of them: one alone is used
     // whatever is stored.
     public ObservableCollection<StreamingDestinationOption> Destinations { get; } = [];
 
-    [ObservableProperty]
-    private StreamingDestinationOption? _selectedDestination;
-
     public bool CanChooseDestination => Destinations.Count > 1;
+
+    public int SelectedDestinationCount => Destinations.Count(option => option.IsSelected);
+
+    // Each platform receives the whole stream: the upload adds up.
+    public string MultistreamHint => SelectedDestinationCount > 1
+        ? $"{SelectedDestinationCount} lives en même temps : prévoyez environ " +
+          $"{SelectedDestinationCount * (int)StreamingBitrate} kbps d'envoi."
+        : "";
+
+    public bool HasMultistreamHint => MultistreamHint.Length > 0;
 
     public string DestinationSummary => Destinations.Count switch
     {
@@ -87,20 +110,23 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
     private void RefreshDestinations()
     {
         var wasDirty = IsDirty;
-        var selected = SelectedDestination?.ProviderId ?? _storedProviderId;
+        // Ticks made on the page survive an account connected meanwhile.
+        var chosen = ChosenProviderIds();
 
+        foreach (var option in Destinations) option.PropertyChanged -= OnDestinationOptionChanged;
         Destinations.Clear();
         foreach (var providerId in StreamingProviders.All)
         {
             var account = _providerStore?.Get(providerId);
             if (!StudioViewModel.IsReadyToStream(account)) continue;
-            Destinations.Add(new StreamingDestinationOption(
+            var option = new StreamingDestinationOption(
                 providerId,
-                $"{StreamingProviders.DisplayName(providerId)} · {account!.UserName}"));
+                $"{StreamingProviders.DisplayName(providerId)} · {account!.UserName}");
+            option.PropertyChanged += OnDestinationOptionChanged;
+            Destinations.Add(option);
         }
 
-        SelectedDestination = Destinations.FirstOrDefault(option => option.ProviderId == selected)
-            ?? Destinations.FirstOrDefault();
+        ApplyChoice(chosen);
         // An account connected elsewhere is not an edit of this page.
         IsDirty = wasDirty;
 
@@ -109,12 +135,44 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
         OnPropertyChanged(nameof(IsYouTubeConnected));
     }
 
+    // Ticked platforms, plus the stored ones whose account cannot go live right now.
+    private List<string> ChosenProviderIds() =>
+    [
+        .. Destinations.Where(option => option.IsSelected).Select(option => option.ProviderId)
+            .Concat(_storedProviderIds.Where(id => Destinations.All(option => option.ProviderId != id)))
+            .Distinct()
+    ];
+
+    // Nothing chosen can go live: the first account is ticked, as the studio would use it.
+    private void ApplyChoice(IReadOnlyCollection<string> providerIds)
+    {
+        foreach (var option in Destinations) option.IsSelected = providerIds.Contains(option.ProviderId);
+        if (Destinations.Count > 0 && !Destinations.Any(option => option.IsSelected))
+            Destinations[0].IsSelected = true;
+        RefreshToggles();
+    }
+
+    private void OnDestinationOptionChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(StreamingDestinationOption.IsSelected)) return;
+        RefreshToggles();
+        // Also what marks the page as edited.
+        OnPropertyChanged(nameof(SelectedDestinationCount));
+        OnPropertyChanged(nameof(MultistreamHint));
+        OnPropertyChanged(nameof(HasMultistreamHint));
+    }
+
+    private void RefreshToggles()
+    {
+        var lastOne = SelectedDestinationCount == 1;
+        foreach (var option in Destinations) option.CanToggle = !(lastOne && option.IsSelected);
+    }
+
     protected override void LoadCore(ApplicationSettings settings)
     {
         StreamingBitrate = settings.StreamingBitrate;
-        _storedProviderId = settings.StreamingProviderIds.FirstOrDefault() ?? "";
-        SelectedDestination = Destinations.FirstOrDefault(option => option.ProviderId == _storedProviderId)
-            ?? Destinations.FirstOrDefault();
+        _storedProviderIds = [.. settings.StreamingProviderIds];
+        ApplyChoice(_storedProviderIds);
         YouTubeBroadcastTitle = settings.YouTubeBroadcastTitle;
         SelectedPrivacy = YouTubePrivacyOption.For(settings.YouTubePrivacy);
     }
@@ -123,10 +181,10 @@ public partial class StreamingSettingsViewModel : SettingsSectionViewModel
     {
         settings.StreamingBitrate = StreamingBitrate;
         // Saving with a single account connected must not erase the choice made for two.
-        if (CanChooseDestination && SelectedDestination != null)
+        if (CanChooseDestination)
         {
-            settings.StreamingProviderIds = [SelectedDestination.ProviderId];
-            _storedProviderId = SelectedDestination.ProviderId;
+            _storedProviderIds = ChosenProviderIds();
+            settings.StreamingProviderIds = [.. _storedProviderIds];
         }
 
         // An empty title would make YouTube refuse the broadcast at the next live.
