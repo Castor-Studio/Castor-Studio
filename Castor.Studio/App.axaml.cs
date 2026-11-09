@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using CastorApplication.ViewModels.Shell;
 using CastorApplication.Services.Ai;
 using CastorApplication.Services.Diagnostics;
+using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Studio;
 using CastorApplication.Views;
 using Dock.Settings;
@@ -39,6 +40,7 @@ public partial class App : Application
             collection.AddCommonServices(desktop);
             _services = collection.BuildServiceProvider();
             desktop.MainWindow = new MainWindow { DataContext = _services.GetRequiredService<MainViewModel>() };
+            ShowCrashNoticeOnceOpened(desktop.MainWindow, _services.GetRequiredService<ICrashNoticeDialogService>());
             desktop.Exit += (_, _) =>
             {
                 AppLog.Info("Shutting down");
@@ -53,6 +55,22 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    // Only the most recent unclean exit: older ones are in the log, and a stack of dialogs at
+    // startup would say nothing more.
+    private static void ShowCrashNoticeOnceOpened(Window mainWindow, ICrashNoticeDialogService notices)
+    {
+        if (Program.UncleanExits is not [var latest, ..]) return;
+
+        async void OnOpened(object? sender, EventArgs e)
+        {
+            mainWindow.Opened -= OnOpened;
+            try { await notices.ShowAsync(latest); }
+            catch (Exception exception) { AppLog.Warning("Could not show the crash notice", exception); }
+        }
+
+        mainWindow.Opened += OnOpened;
     }
 
     private static async Task ShutdownServicesAsync(ServiceProvider services)

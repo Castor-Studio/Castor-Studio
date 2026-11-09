@@ -1,4 +1,5 @@
 using CastorApplication.Services.Diagnostics;
+using CastorApplication.ViewModels.Shell;
 
 namespace Castor.Studio.Tests;
 
@@ -129,5 +130,32 @@ public sealed class CrashReportingTests : IDisposable
         second.EndSession();
         // Its session file stays, for when it really ends.
         Assert.Single(Reporter(processId: 300).BeginSession());
+    }
+
+    [Fact]
+    public void The_notice_points_to_the_report_or_else_to_the_logs()
+    {
+        var crashed = new CrashNoticeDialogViewModel(new UncleanExit(Now, @"C:\logs\crash.txt"), @"C:\logs");
+        var killed = new CrashNoticeDialogViewModel(new UncleanExit(Now, null), @"C:\logs");
+
+        Assert.Equal(@"C:\logs\crash.txt", crashed.ShownPath);
+        Assert.Contains("Un rapport a été enregistré", crashed.Message);
+        Assert.Equal(@"C:\logs", killed.ShownPath);
+        Assert.Contains("arrêt forcé", killed.Message);
+    }
+
+    [Fact]
+    public void Showing_the_report_opens_it_and_closes_the_notice()
+    {
+        string? shown = null;
+        var closed = false;
+        var viewModel = new CrashNoticeDialogViewModel(
+            new UncleanExit(Now, @"C:\logs\crash.txt"), @"C:\logs", path => shown = path);
+        viewModel.CloseRequested += () => closed = true;
+
+        viewModel.ShowFileCommand.Execute(null);
+
+        Assert.Equal(@"C:\logs\crash.txt", shown);
+        Assert.True(closed);
     }
 }
