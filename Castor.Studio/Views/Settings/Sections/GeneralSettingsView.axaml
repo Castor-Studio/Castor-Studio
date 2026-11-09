@@ -40,6 +40,32 @@
                           FontSize="13"/>
             </Grid>
 
+            <!-- Logs and crash reports: what a tester attaches to a bug report. -->
+            <Grid ColumnDefinitions="211,*">
+                <TextBlock Grid.Column="0"
+                           Text="Journaux"
+                           Classes="setting-label"/>
+
+                <StackPanel Grid.Column="1"
+                            Spacing="6">
+                    <Button Content="Ouvrir le dossier des journaux"
+                            Command="{Binding OpenLogsFolderCommand}"
+                            HorizontalAlignment="Left"
+                            Padding="12,6"
+                            CornerRadius="5"
+                            Cursor="Hand"
+                            FontSize="12"
+                            Background="{DynamicResource AppSurface2}"
+                            BorderBrush="{DynamicResource AppBorder2}"
+                            BorderThickness="1"
+                            Foreground="{DynamicResource AppFg2}"/>
+                    <SelectableTextBlock Text="{Binding LogsDirectory}"
+                                         TextWrapping="Wrap"
+                                         Foreground="{DynamicResource AppFg4}"
+                                         FontSize="11"/>
+                </StackPanel>
+            </Grid>
+
             <Rectangle Height="1"
                        Fill="{DynamicResource AppBorder}"
                        Margin="0,4"/>
@@ -66,6 +92,10 @@
                                    Foreground="{DynamicResource AppFg5}"
                                    FontSize="12.5"
                                    FontStyle="Italic"/>
+
+                        <SelectableTextBlock Text="{Binding VersionText}"
+                                             Foreground="{DynamicResource AppFg4}"
+                                             FontSize="11.5"/>
                     </StackPanel>
 
                 </Grid>
