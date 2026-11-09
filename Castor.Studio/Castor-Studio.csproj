@@ -7,6 +7,7 @@
 		<Nullable>enable</Nullable>
 		<BuiltInComInteropSupport>true</BuiltInComInteropSupport>
 		<ApplicationManifest>app.manifest</ApplicationManifest>
+		<ApplicationIcon>Assets\Brand\castor-icon.ico</ApplicationIcon>
 		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 		<Platforms>AnyCPU;x64</Platforms>
 	</PropertyGroup>
