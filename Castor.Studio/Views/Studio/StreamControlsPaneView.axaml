@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Studio"
+             xmlns:settings="using:CastorApplication.ViewModels.Settings.Sections"
              xmlns:converters="using:CastorApplication.Converters"
              xmlns:controls="using:CastorApplication.Controls"
              x:Class="CastorApplication.Views.Studio.StreamControlsPaneView"
@@ -50,14 +51,76 @@
 							<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
 							<!-- Destination and account only: the outgoing scene is already in the status bar, and is
 							     chosen in the "Scène active" selector. -->
+							<!-- One account: its name. Two: a tick per platform, from Settings › Streaming; DÉMARRER
+							     saves the ticks back there. -->
 							<StackPanel Spacing="4">
 								<TextBlock Text="Destination" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
 								<TextBlock Text="{Binding DestinationLabel}" Foreground="{DynamicResource AppFg1}"
+                                           IsVisible="{Binding !CanChooseGoLiveDestination}"
                                            FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+								<ItemsControl ItemsSource="{Binding GoLiveDestinations.Options}"
+                                              IsVisible="{Binding CanChooseGoLiveDestination}">
+									<ItemsControl.ItemTemplate>
+										<DataTemplate x:DataType="settings:StreamingDestinationOption">
+											<!-- Logo, platform and account, as on Settings › Comptes. -->
+											<CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanToggle}">
+												<StackPanel Orientation="Horizontal" Spacing="8">
+													<Border CornerRadius="4" Width="20" Height="20" ClipToBounds="True" VerticalAlignment="Center">
+														<Image Source="{Binding ProviderId, Converter={x:Static converters:PlatformLogoConverter.Instance}}"
+                                                               Width="20" Height="20" Stretch="UniformToFill"/>
+													</Border>
+													<StackPanel Spacing="1" VerticalAlignment="Center">
+														<TextBlock Text="{Binding PlatformName}" FontSize="12" Foreground="{DynamicResource AppFg1}"/>
+														<TextBlock Text="{Binding AccountName}" FontSize="10" Foreground="{DynamicResource AppFg4}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+													</StackPanel>
+												</StackPanel>
+											</CheckBox>
+										</DataTemplate>
+									</ItemsControl.ItemTemplate>
+								</ItemsControl>
 							</StackPanel>
-							<!-- Connected account: its name, as before. Otherwise: what it takes to connect one, right
-							     here. -->
-							<Border IsVisible="{Binding IsAccountConnected}"
+							<!-- Title, description and visibility, kept for the next live. The title goes to every
+							     ticked platform; the rest only exists on YouTube. -->
+							<StackPanel Spacing="4" IsVisible="{Binding IsAccountConnected}">
+								<TextBlock Text="Titre du live" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+								<TextBox Text="{Binding GoLiveTitle}"
+                                         MaxLength="{Binding LiveTitleMaxLength}"
+                                         PlaceholderText="Live Castor Studio"
+                                         FontSize="12"
+                                         Background="{DynamicResource AppSurface2}"
+                                         BorderBrush="{DynamicResource AppBorder2}"
+                                         Foreground="{DynamicResource AppFg1}"/>
+							</StackPanel>
+							<StackPanel Spacing="4" IsVisible="{Binding IsYouTubeChosen}">
+								<TextBlock Text="Description YouTube" Foreground="{DynamicResource AppFg3}" FontSize="11"/>
+								<TextBox Text="{Binding GoLiveDescription}"
+                                         MaxLength="{Binding LiveDescriptionMaxLength}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         MinHeight="56"
+                                         MaxHeight="120"
+                                         PlaceholderText="Facultative"
+                                         FontSize="12"
+                                         Background="{DynamicResource AppSurface2}"
+                                         BorderBrush="{DynamicResource AppBorder2}"
+                                         Foreground="{DynamicResource AppFg1}"/>
+								<TextBlock Text="Visibilité YouTube" Foreground="{DynamicResource AppFg3}" FontSize="11"
+                                           Margin="0,6,0,0"/>
+								<ComboBox HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding PrivacyOptions}"
+                                          SelectedItem="{Binding GoLivePrivacy}"
+                                          FontSize="12">
+									<ComboBox.ItemTemplate>
+										<DataTemplate x:DataType="settings:YouTubePrivacyOption">
+											<TextBlock Text="{Binding Label}"/>
+										</DataTemplate>
+									</ComboBox.ItemTemplate>
+								</ComboBox>
+							</StackPanel>
+							<!-- Connected account: its name, as before; with two platforms the ticks above already
+							     name them. Otherwise: what it takes to connect one, right here. -->
+							<Border IsVisible="{Binding ShowConnectedAccount}"
                                     Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,8"
                                     BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
 								<StackPanel Orientation="Horizontal" Spacing="6">
@@ -92,14 +155,77 @@
 				</Button.Flyout>
 			</Button>
 
-			<Button Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
-                    Content="ARRÊTER LE LIVE"
-                    IsVisible="{Binding IsStreaming}"
-                    IsEnabled="{Binding !IsStreamingTransition}"
-                    Command="{Binding StopStreamingCommand}"
-                    Classes="ctrl-btn"
-                    Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
-                    BorderBrush="{DynamicResource AppStopBorder}"/>
+			<!-- Stop ends every platform at once; the list (⋯) shows each live with its public page and
+			     stops them one by one, as the recordings' list does. -->
+			<Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsStreaming}">
+				<Button Grid.Column="0" Margin="3" HorizontalAlignment="Stretch" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        Content="ARRÊTER LE LIVE"
+                        IsEnabled="{Binding !IsStreamingTransition}"
+                        Command="{Binding StopStreamingCommand}"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
+                        BorderBrush="{DynamicResource AppStopBorder}"/>
+				<Button Grid.Column="1" Margin="3" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                        x:Name="LivePlatformsButton"
+                        Content="⋯"
+                        ToolTip.Tip="{Binding LivePlatformsToolTip}"
+                        AutomationProperties.Name="Lives en cours"
+                        Classes="ctrl-btn"
+                        Background="{DynamicResource AppSurface2}" Foreground="{DynamicResource AppFg3}"
+                        BorderBrush="{DynamicResource AppBorder}">
+					<Button.Flyout>
+						<Flyout Placement="Top">
+							<StackPanel Width="320" Spacing="10" Margin="4">
+								<TextBlock Text="LIVES EN COURS"
+                                           FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+								<Rectangle Height="1" Fill="{DynamicResource AppBorder2}"/>
+								<ItemsControl ItemsSource="{Binding LivePlatforms}">
+									<ItemsControl.ItemTemplate>
+										<DataTemplate x:DataType="vm:LivePlatformViewModel">
+											<Border Background="{DynamicResource AppSurface2}" CornerRadius="5" Padding="10,8" Margin="0,0,0,6"
+                                                    BorderBrush="{DynamicResource AppBorder2}" BorderThickness="1">
+												<Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+													<StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8">
+														<Border CornerRadius="4" Width="24" Height="24" ClipToBounds="True" VerticalAlignment="Center">
+															<Image Source="{Binding ProviderId, Converter={x:Static converters:PlatformLogoConverter.Instance}}"
+                                                                   Width="24" Height="24" Stretch="UniformToFill"/>
+														</Border>
+														<StackPanel Spacing="1" VerticalAlignment="Center">
+															<TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource AppFg1}"/>
+															<TextBlock Text="{Binding AccountName}" FontSize="10"
+                                                                       Foreground="{DynamicResource AppFg4}" TextTrimming="CharacterEllipsis"/>
+														</StackPanel>
+													</StackPanel>
+													<TextBlock Grid.Row="0" Grid.Column="1" Text="En direct" FontSize="10"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                               Classes="session-state live"/>
+													<StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
+														<Button Content="{Binding WatchLabel}" FontSize="11" Padding="10,4" CornerRadius="5"
+                                                                IsVisible="{Binding HasWatchUrl}"
+                                                                Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).OpenLiveWatchPageCommand, FallbackValue={x:Null}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip.Tip="Ouvrir la page publique du live"
+                                                                Background="{DynamicResource AppSurface3}" Foreground="{DynamicResource AppFg2}"
+                                                                BorderBrush="{DynamicResource AppBorder}" BorderThickness="1"/>
+														<Button Content="Arrêter" FontSize="11" Padding="10,4" CornerRadius="5"
+                                                                Command="{Binding $parent[ItemsControl].((vm:StudioViewModel)DataContext).StopLivePlatformCommand, FallbackValue={x:Null}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip.Tip="Arrêter ce live ; les autres continuent"
+                                                                Background="{DynamicResource AppStopBg}" Foreground="{DynamicResource StatusErrorBrush}"
+                                                                BorderBrush="{DynamicResource AppStopBorder}" BorderThickness="1"/>
+													</StackPanel>
+												</Grid>
+											</Border>
+										</DataTemplate>
+									</ItemsControl.ItemTemplate>
+								</ItemsControl>
+								<controls:MessageBar Text="{Binding StreamError.Text}"/>
+							</StackPanel>
+						</Flyout>
+					</Button.Flyout>
+				</Button>
+			</Grid>
 
 			<!-- One click starts recording: the active scene by default. The arrow opens the choice
 			     of scenes to record, each into its own file. The folder is set in Settings and

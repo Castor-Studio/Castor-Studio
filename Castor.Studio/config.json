@@ -7,7 +7,15 @@
       "clientId": "scbp8wnfpqgm4rjxij8r4fklq93dsh",
       "scopes": [
         "user:read:email",
-        "channel:read:stream_key"
+        "channel:read:stream_key",
+        "channel:manage:broadcast"
+      ]
+    },
+    "youtube": {
+      "clientId": "959994717010-2h79hhls8of21djpgbeb44egohjq6gll.apps.googleusercontent.com",
+      "clientSecret": "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",
+      "scopes": [
+        "https://www.googleapis.com/auth/youtube"
       ]
     }
   }

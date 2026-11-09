@@ -67,13 +67,13 @@
             </Border>
 
             <!-- YouTube -->
-            <!--<Border Background="{DynamicResource AppSurface}"
+            <Border Background="{DynamicResource AppSurface}"
                     BorderBrush="{DynamicResource AppBorder}"
                     BorderThickness="1"
                     CornerRadius="8"
                     Padding="14">
 
-                <Grid ColumnDefinitions="Auto,*,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
 
                     <StackPanel Grid.Column="0"
                                 Orientation="Horizontal"
@@ -98,22 +98,48 @@
                                        FontSize="13"
                                        FontWeight="SemiBold"/>
 
-                            <TextBlock Text="{Binding YoutubeStatus}"
+                            <TextBlock Text="{Binding YouTubeStatus}"
                                        Foreground="{DynamicResource AppFg4}"
-                                       FontSize="11"/>
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="420"/>
 
                         </StackPanel>
 
                     </StackPanel>
 
                     <Button Grid.Column="2"
-                            Content="{Binding YoutubeButtonText}"
+                            Content="{Binding YouTubeButtonText}"
                             Classes="platform-connect"
-                            Command="{Binding ToggleYoutubeCommand}"/>
+                            Command="{Binding ToggleYouTubeCommand}"/>
+
+                    <!-- Google's page does not carry the code: it has to be typed there. -->
+                    <StackPanel Grid.Row="1"
+                                Grid.ColumnSpan="3"
+                                Orientation="Horizontal"
+                                Spacing="10"
+                                Margin="48,12,0,0"
+                                IsVisible="{Binding HasYouTubeUserCode}">
+
+                        <SelectableTextBlock Text="{Binding YouTubeUserCode}"
+                                             FontFamily="{StaticResource AppMonoFont}"
+                                             FontSize="20"
+                                             FontWeight="SemiBold"
+                                             Foreground="{DynamicResource AppFg1}"
+                                             VerticalAlignment="Center"/>
+
+                        <Button Content="Copier le code"
+                                Click="OnCopyYouTubeCodeClick"
+                                FontSize="11"
+                                Padding="10,4"
+                                CornerRadius="5"
+                                VerticalAlignment="Center"/>
+
+                    </StackPanel>
 
                 </Grid>
 
-            </Border>-->
+            </Border>
 
             <!-- Facebook -->
             <!--<Border Background="{DynamicResource AppSurface}"

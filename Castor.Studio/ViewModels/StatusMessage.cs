@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 namespace CastorApplication.ViewModels;
 
 // One message line with its lifetime (see StatusMessageService): ShowInfo expires on its own,
-// ShowError stays until Dismiss, Clear, or a newer message replaces it.
+// ShowWarning and ShowError stay until Dismiss, Clear, or a newer message replaces them.
 public sealed partial class StatusMessage : ObservableObject
 {
     private readonly IStatusMessageTimer _timer;
@@ -32,6 +32,9 @@ public sealed partial class StatusMessage : ObservableObject
         Show(text, isError: false);
         if (HasText) _expiry = _timer.Schedule(_infoLifetime, Clear);
     }
+
+    // Something to act on that is not a failure: it must not vanish before it is read.
+    public void ShowWarning(string text) => Show(text, isError: false);
 
     public void ShowError(string text) => Show(text, isError: true);
 

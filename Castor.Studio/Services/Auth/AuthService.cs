@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using CastorApplication.Models.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Storage;
-using TwitchLib.Api;
 
 namespace CastorApplication.Services.Auth
 {
@@ -16,11 +15,13 @@ namespace CastorApplication.Services.Auth
 
         private readonly ProviderRegistry _providers;
         private readonly ITokenStore _tokenStore;
+        private readonly IProviderStore _providerStore;
 
-        public AuthService(ProviderRegistry providers, ITokenStore tokenStore)
+        public AuthService(ProviderRegistry providers, ITokenStore tokenStore, IProviderStore providerStore)
         {
             _providers = providers;
             _tokenStore = tokenStore;
+            _providerStore = providerStore;
         }
 
         public async Task<DeviceCodeResult> BeginLoginAsync(
@@ -86,7 +87,19 @@ namespace CastorApplication.Services.Auth
                     return null;
                 }
 
-                var refreshed = await provider.RefreshAsync(session, ct);
+                AuthSession refreshed;
+                try
+                {
+                    refreshed = await provider.RefreshAsync(session, ct);
+                }
+                catch (InvalidGrantException)
+                {
+                    // Revoked or expired for good: retrying would fail the same way on every
+                    // call. The account turns disconnected and waits for a new login.
+                    await _tokenStore.DeleteAsync(providerId, ct);
+                    MarkDisconnected(providerId);
+                    return null;
+                }
 
                 await _tokenStore.SaveAsync(refreshed, ct);
 
@@ -119,6 +132,16 @@ namespace CastorApplication.Services.Auth
             }
 
             await _tokenStore.DeleteAsync(providerId, ct);
+        }
+
+        // The account stays listed, with its name, so the UI can offer to reconnect it.
+        private void MarkDisconnected(string providerId)
+        {
+            var account = _providerStore.Get(providerId);
+            if (account is not { IsConnected: true }) return;
+
+            account.IsConnected = false;
+            _providerStore.Save(account);
         }
 
         public string GetClientId(string providerId)

@@ -43,11 +43,15 @@ public sealed record RecordingRequest(
     // False: a dedicated view renders SceneId alone, whatever the program shows.
     bool FollowsProgram = true);
 
+// One live per destination, all showing Scene and sharing the same encoding settings.
 public sealed record StreamingRequest(
     SceneDefinition Scene,
-    string StreamKey,
+    IReadOnlyList<StreamingDestination> Destinations,
     int Fps,
     int VideoBitrateKbps,
     int AudioBitrateKbps,
     int AudioSampleRate,
     int AudioChannels);
+
+// Each destination starts or fails on its own: a refused key leaves the other lives running.
+public sealed record StreamingDestinationResult(string ProviderId, StudioRuntimeResult Result);
