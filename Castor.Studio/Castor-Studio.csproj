@@ -42,10 +42,6 @@
 	  <Content Include="config.json">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
-	  <!-- OAuth clients, read over config.json. Optional: the build goes on without it. -->
-	  <Content Include="credentials.json" Condition="Exists('credentials.json')">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Content>
 	</ItemGroup>
 	
 	<ItemGroup>
