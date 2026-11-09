@@ -1,5 +1,6 @@
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Settings;
 using LibObs;
 
@@ -157,6 +158,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         catch (Exception exception)
         {
             _unavailableMessage = $"LibObs n'a pas pu être initialisé : {exception.Message}";
+            AppLog.Error("libobs startup failed", exception);
             TryShutdownAfterFailedStartup();
         }
     }
@@ -1384,8 +1386,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 {
                 }
 
+                AppLog.Info("libobs shutting down");
                 Obs.Shutdown();
                 _initialized = false;
+                AppLog.Info("libobs shut down");
             }
         }
     }

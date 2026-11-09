@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using CastorApplication.ViewModels.Shell;
 using CastorApplication.Services.Ai;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Studio;
 using CastorApplication.Views;
 using Dock.Settings;
@@ -40,12 +41,14 @@ public partial class App : Application
             desktop.MainWindow = new MainWindow { DataContext = _services.GetRequiredService<MainViewModel>() };
             desktop.Exit += (_, _) =>
             {
+                AppLog.Info("Shutting down");
                 _services.GetRequiredService<StudioDockViewModel>().SaveLayout();
                 // Off the UI thread: blocking it here while the shutdown awaits a continuation
                 // posted back to it (stopping the AI worker does) would never return.
                 var services = _services;
                 Task.Run(() => ShutdownServicesAsync(services)).GetAwaiter().GetResult();
                 _services = null;
+                AppLog.Info("Services stopped");
             };
         }
 
@@ -57,22 +60,29 @@ public partial class App : Application
         // Keep this order: the AI session owns the scene renders it reads, and libobs must
         // not be shut down while recording or an AI render still holds native handles.
         try { await services.GetRequiredService<IAiAnalysisClient>().StopSessionAsync("desktop_exit", CancellationToken.None); }
-        catch { }
+        catch (Exception exception) { AppLog.Warning("Stopping the AI session on exit failed", exception); }
 
         var workspace = services.GetRequiredService<ViewModels.Studio.StudioWorkspaceViewModel>();
         if (workspace.IsRecording)
         {
             try { await services.GetRequiredService<IRecordingRuntime>().StopRecordingAsync(CancellationToken.None); }
-            catch { }
+            catch (Exception exception) { AppLog.Error("Stopping the recording on exit failed", exception); }
         }
         if (workspace.IsStreaming)
         {
             try { await services.GetRequiredService<IStreamingRuntime>().StopStreamingAsync(CancellationToken.None); }
-            catch { }
+            catch (Exception exception) { AppLog.Error("Stopping the stream on exit failed", exception); }
         }
 
         try { await services.GetRequiredService<IAiAnalysisClient>().DisposeAsync(); }
-        catch { }
+        catch (Exception exception) { AppLog.Warning("Disposing the AI client on exit failed", exception); }
+
+        // Recordings are finalized and lives ended: nothing the user made can be lost past this
+        // point. libobs currently crashes inside Obs.Shutdown (access violation in obs.dll) on
+        // every exit; without this, every normal close would be reported as a crash at the next
+        // start. The log still shows "libobs shutting down" with no "libobs shut down" after it.
+        Program.MarkShutdownReached();
+
         // AiClient (Castor.AI) is only IAsyncDisposable: a synchronous Dispose would throw.
         await services.DisposeAsync();
     }
