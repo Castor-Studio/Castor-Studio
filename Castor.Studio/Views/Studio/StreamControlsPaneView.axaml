@@ -30,9 +30,7 @@
                     x:Name="GoLiveButton"
                     IsVisible="{Binding !IsStreaming}"
                     IsEnabled="{Binding !IsStreamingTransition}"
-                    Classes="ctrl-btn"
-                    Background="{StaticResource AppGoLiveFill}" Foreground="{StaticResource AppGoLiveFg}"
-                    BorderBrush="{StaticResource AppGoLiveBorder}">
+                    Classes="ctrl-btn go-live">
 				<StackPanel Orientation="Horizontal" Spacing="10">
 					<Viewbox Width="18" Height="18" VerticalAlignment="Center">
 						<Canvas Width="24" Height="24">
@@ -235,9 +233,7 @@
                         Command="{Binding StartRecordingCommand}"
                         ToolTip.Tip="{Binding RecordingButtonToolTip}"
                         ToolTip.ShowOnDisabled="True"
-                        Classes="ctrl-btn"
-                        Background="{StaticResource AppRecFill}" Foreground="{StaticResource AppRecFillFg}"
-                        BorderBrush="{StaticResource AppRecFillBorder}">
+                        Classes="ctrl-btn rec">
 					<StackPanel Orientation="Horizontal" Spacing="10">
 						<Ellipse Width="10" Height="10" Fill="{StaticResource AppRecFillFg}" VerticalAlignment="Center"/>
 						<TextBlock Text="ENREGISTRER" VerticalAlignment="Center"/>
@@ -247,9 +243,7 @@
                         Content="▾"
                         ToolTip.Tip="Choisir les scènes à enregistrer"
                         AutomationProperties.Name="Choisir les scènes à enregistrer"
-                        Classes="ctrl-btn"
-                        Background="{StaticResource AppRecFill}" Foreground="{StaticResource AppRecFillFg}"
-                        BorderBrush="{StaticResource AppRecFillBorder}">
+                        Classes="ctrl-btn rec">
 					<Button.Flyout>
 						<Flyout Placement="Top">
 							<StackPanel Width="300" Spacing="10" Margin="4">

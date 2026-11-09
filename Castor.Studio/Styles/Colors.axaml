@@ -14,10 +14,10 @@
 
     <!-- The two big Studio buttons: same fills in both themes. -->
     <SolidColorBrush x:Key="AppGoLiveFill" Color="#0b6b46"/>
-    <SolidColorBrush x:Key="AppGoLiveBorder" Color="#8fd3b5"/>
+    <SolidColorBrush x:Key="AppGoLiveFillHover" Color="#0f7a51"/>
     <SolidColorBrush x:Key="AppGoLiveFg" Color="#e3f6ed"/>
     <SolidColorBrush x:Key="AppRecFill" Color="#b3201a"/>
-    <SolidColorBrush x:Key="AppRecFillBorder" Color="#e8a9a5"/>
+    <SolidColorBrush x:Key="AppRecFillHover" Color="#c4261f"/>
     <SolidColorBrush x:Key="AppRecFillFg" Color="#fdeceb"/>
 
     <ResourceDictionary.ThemeDictionaries>

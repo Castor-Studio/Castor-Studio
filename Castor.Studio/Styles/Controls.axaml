@@ -192,6 +192,36 @@
     <Style Selector="Button.ctrl-btn:pointerover /template/ ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource AppNavHoverBg}"/>
     </Style>
+    <!-- The two big Studio buttons keep their fill, a shade lighter under the pointer, and have
+         no outline. Pressed goes back to the plain fill instead of Fluent's grey. -->
+    <Style Selector="Button.ctrl-btn.go-live, Button.ctrl-btn.rec">
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.ctrl-btn.go-live">
+        <Setter Property="Background" Value="{DynamicResource AppGoLiveFill}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppGoLiveFg}"/>
+    </Style>
+    <Style Selector="Button.ctrl-btn.go-live:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppGoLiveFillHover}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppGoLiveFg}"/>
+    </Style>
+    <Style Selector="Button.ctrl-btn.go-live:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppGoLiveFill}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppGoLiveFg}"/>
+    </Style>
+    <Style Selector="Button.ctrl-btn.rec">
+        <Setter Property="Background" Value="{DynamicResource AppRecFill}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppRecFillFg}"/>
+    </Style>
+    <Style Selector="Button.ctrl-btn.rec:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppRecFillHover}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppRecFillFg}"/>
+    </Style>
+    <Style Selector="Button.ctrl-btn.rec:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AppRecFill}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AppRecFillFg}"/>
+    </Style>
     <Style Selector="Button.scene-menu-item">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="{DynamicResource AppFg2}"/>

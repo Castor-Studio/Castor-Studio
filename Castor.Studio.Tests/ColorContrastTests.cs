@@ -39,6 +39,8 @@ public sealed class ColorContrastTests
         ("AppChipFg", "AppChipBg", Text),
         ("AppGoLiveFg", "AppGoLiveFill", Text),
         ("AppRecFillFg", "AppRecFill", Text),
+        ("AppGoLiveFg", "AppGoLiveFillHover", Text),
+        ("AppRecFillFg", "AppRecFillHover", Text),
         // The ✕ of an error MessageBar under the pointer.
         ("AppFg1", "AppErrorBorder", Text),
     ];
