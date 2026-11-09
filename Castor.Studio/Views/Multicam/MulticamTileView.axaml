@@ -6,15 +6,13 @@
              xmlns:dockSettings="using:Dock.Settings"
              x:DataType="vm:MulticamSceneTile">
 
-<!-- One color, one meaning: green for the scene chosen for output while nothing is running,
-     red once it really goes out (stream or recording), blue for what the AI is doing, neutral
-     for the rest. The border goes from 1 to 2 px while giving back 1 px of padding, so the
+<!-- One color, one meaning: red for the scene chosen for output, whether or not it is streamed
+     or recorded yet, blue for what the AI is doing, neutral for the rest. The border goes from 1 to 2 px while giving back 1 px of padding, so the
      video does not move a pixel when a tile changes state. -->
 <Border Classes="tile"
         Classes.aiConsidered="{Binding IsAiConsidered}"
         Classes.aiPick="{Binding IsAiSelected}"
         Classes.onAir="{Binding IsOnAir}"
-        Classes.live="{Binding IsOutputLive}"
         dockSettings:DockProperties.IsDragEnabled="False"
         dockSettings:DockProperties.IsDropEnabled="False"
         DoubleTapped="OnTileDoubleTapped"
@@ -49,27 +47,22 @@
 		</Style>
 		<!-- Declared after the suggestion: a suggested scene already on output reads as on output
 		     first. -->
+		<!-- Same red as the RECORD button, in both themes. -->
 		<Style Selector="Border.tile.onAir">
-			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppRecFill}"/>
 			<Setter Property="BorderThickness" Value="2"/>
 			<Setter Property="Padding" Value="0"/>
-		</Style>
-		<Style Selector="Border.tile.onAir.live">
-			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
 		</Style>
 
 		<!-- The band becomes the tally: a fill you spot on the wall without reading. -->
 		<Style Selector="Border.tile.onAir Border.band">
-			<Setter Property="Background" Value="{DynamicResource StatusOkBrush}"/>
-		</Style>
-		<Style Selector="Border.tile.onAir.live Border.band">
-			<Setter Property="Background" Value="{DynamicResource StatusErrorBrush}"/>
+			<Setter Property="Background" Value="{DynamicResource AppRecFill}"/>
 		</Style>
 		<Style Selector="Border.tile.onAir Border.band TextBlock">
-			<Setter Property="Foreground" Value="{DynamicResource AppOnStatusFg}"/>
+			<Setter Property="Foreground" Value="{DynamicResource AppRecFillFg}"/>
 		</Style>
 		<Style Selector="Border.tile.onAir Border.band Ellipse">
-			<Setter Property="Fill" Value="{DynamicResource AppOnStatusFg}"/>
+			<Setter Property="Fill" Value="{DynamicResource AppRecFillFg}"/>
 		</Style>
 
 		<Style Selector="Border.tile.aiPick Border.foot">

@@ -7,8 +7,8 @@
              x:DataType="vm:MulticamViewModel">
 
 	<UserControl.Styles>
-		<!-- The large Spotlight image has the same tally as the tiles: green while the scene
-		     is only selected, red once it is streamed or recorded. -->
+		<!-- The large Spotlight image has the same tally as the tiles: red as soon as the scene
+		     is selected for output. -->
 		<Style Selector="Border.spotlight">
 			<Setter Property="BorderBrush" Value="{DynamicResource AppBorder}"/>
 			<Setter Property="BorderThickness" Value="1"/>
@@ -21,24 +21,18 @@
 			<Setter Property="Foreground" Value="{DynamicResource AppFg1}"/>
 		</Style>
 		<Style Selector="Border.spotlight.onAir">
-			<Setter Property="BorderBrush" Value="{DynamicResource StatusOkBrush}"/>
+			<Setter Property="BorderBrush" Value="{DynamicResource AppRecFill}"/>
 			<Setter Property="BorderThickness" Value="2"/>
 			<Setter Property="Padding" Value="0"/>
 		</Style>
-		<Style Selector="Border.spotlight.onAir.live">
-			<Setter Property="BorderBrush" Value="{DynamicResource StatusErrorBrush}"/>
-		</Style>
 		<Style Selector="Border.spotlight.onAir Border.band">
-			<Setter Property="Background" Value="{DynamicResource StatusOkBrush}"/>
-		</Style>
-		<Style Selector="Border.spotlight.onAir.live Border.band">
-			<Setter Property="Background" Value="{DynamicResource StatusErrorBrush}"/>
+			<Setter Property="Background" Value="{DynamicResource AppRecFill}"/>
 		</Style>
 		<Style Selector="Border.spotlight.onAir Border.band TextBlock">
-			<Setter Property="Foreground" Value="{DynamicResource AppOnStatusFg}"/>
+			<Setter Property="Foreground" Value="{DynamicResource AppRecFillFg}"/>
 		</Style>
 		<Style Selector="Border.spotlight.onAir Border.band Ellipse">
-			<Setter Property="Fill" Value="{DynamicResource AppOnStatusFg}"/>
+			<Setter Property="Fill" Value="{DynamicResource AppRecFillFg}"/>
 		</Style>
 
 		<!-- Output marker of the toolbar: the outgoing scene, readable without searching for its
@@ -177,7 +171,6 @@
 			<Grid RowDefinitions="*, Auto" Margin="5" IsVisible="{Binding IsSpotlightLayout}">
 				<Border Grid.Row="0" Classes="spotlight"
                         Classes.onAir="{Binding SpotlightScene, Converter={x:Static ObjectConverters.IsNotNull}}"
-                        Classes.live="{Binding IsOutputLive}"
                         Background="{DynamicResource AppSurface}"
                         CornerRadius="8" Margin="5">
 					<Grid RowDefinitions="Auto, *">
