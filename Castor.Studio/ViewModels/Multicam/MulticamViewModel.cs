@@ -505,9 +505,6 @@ public partial class MulticamViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Drops every AI marking, for when the pipeline stops or is turned off.</summary>
-    public void ClearAiFocus() => SetAiFocus(null);
-
     partial void OnColumnChoiceChanged(int value) => OnPropertyChanged(nameof(GridColumns));
 
     partial void OnLayoutChanged(MulticamLayout value)
@@ -539,9 +536,6 @@ public partial class MulticamViewModel : ViewModelBase
 
     [RelayCommand]
     private void UseSpotlightLayout() => Layout = MulticamLayout.Spotlight;
-
-    [RelayCommand]
-    private void SetColumns(int columns) => ColumnChoice = columns;
 
     [RelayCommand]
     private async Task SetAiOff() => await StopAiAsync(false, "user_disabled");
