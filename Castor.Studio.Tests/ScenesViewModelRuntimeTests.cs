@@ -838,6 +838,192 @@ public sealed class ScenesViewModelRuntimeTests
     }
 
     [Fact]
+    public async Task Import_keeps_the_saved_stacking_order()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            Sources = [MediaSource("Devant", @"C:\media\front.mp4"), MediaSource("Derrière", @"C:\media\back.mp4")]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var scene = Assert.Single(viewModel.Scenes);
+        Assert.Equal(["Devant", "Derrière"], scene.Sources.Select(source => source.Name));
+        // The engine's own stack, not just the list: rank 0 is the foreground.
+        Assert.Equal(
+            scene.Sources.Select(source => source.Id),
+            sourceRuntime.GetSourceOrder(scene.Id).SourceIds);
+    }
+
+    [Fact]
+    public async Task Import_opens_cameras_screens_and_microphones_again()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            Sources =
+            [
+                new SourceDefinition
+                {
+                    Name = "Caméra plateau", Origin = SourceOrigin.HardwareVideo, OriginLabel = "Logitech C920",
+                    OriginPath = "Logitech C920:\\\\?\\usb#vid_046d", VideoCaptureKind = VideoCaptureKind.Camera
+                },
+                new SourceDefinition
+                {
+                    Name = "Écran", Origin = SourceOrigin.HardwareVideo, OriginLabel = "Écran 1",
+                    OriginPath = "\\\\?\\DISPLAY#1", VideoCaptureKind = VideoCaptureKind.Monitor
+                },
+                new SourceDefinition
+                {
+                    Name = "Micro", Origin = SourceOrigin.HardwareAudio, OriginLabel = "Micro USB",
+                    OriginPath = "{0.0.1.00000000}.{abc}", AudioCaptureKind = AudioCaptureKind.Microphone
+                },
+                // Saved before capture kinds were: nothing says what to open.
+                new SourceDefinition { Name = "Ancienne", Origin = SourceOrigin.HardwareVideo, OriginPath = "device" }
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var scene = Assert.Single(viewModel.Scenes);
+        Assert.Equal(["Caméra plateau", "Écran", "Micro"], scene.Sources.Select(source => source.Name));
+        Assert.Equal(
+            [SourceKind.Video, SourceKind.Video, SourceKind.Audio],
+            scene.Sources.Select(source => source.Kind));
+        var camera = sourceRuntime.AddedRequests.OfType<SourceAddRequest.Video>()
+            .Single(request => request.Option.Type == VideoCaptureKind.Camera);
+        Assert.Equal("Logitech C920:\\\\?\\usb#vid_046d", camera.Option.Id);
+        Assert.Equal("Caméra plateau", camera.RequestedName);
+        var microphone = Assert.Single(sourceRuntime.AddedRequests.OfType<SourceAddRequest.Audio>());
+        Assert.Equal(("{0.0.1.00000000}.{abc}", AudioCaptureKind.Microphone), (microphone.Option.Id, microphone.Option.Type));
+        Assert.Contains("1 source(s) non prise(s) en charge ignorée(s)", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task Import_gives_sources_back_their_layout_on_the_current_canvas()
+    {
+        var zoom = new SourceZoom(2, 0.3, 0.6);
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            CanvasWidth = 1280,
+            CanvasHeight = 720,
+            Sources =
+            [
+                MediaSource("Caméra", @"C:\media\cam.mp4",
+                    new SourceLayout(new SourcePlacement(100, 50, 0.5, 0.5, new SourceCrop(10, 0, 20, 0), 90), zoom)),
+                MediaSource("Fond", @"C:\media\bg.mp4")
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var camera = Assert.Single(viewModel.Scenes).Sources.Single(source => source.Name == "Caméra");
+        var layout = Assert.Single(sourceRuntime.Layouts).Value;
+        Assert.Equal(camera.Id, sourceRuntime.Layouts.Keys.Single());
+        // 1280×720 → 1920×1080: position and scale follow the canvas, the crop stays in source pixels.
+        Assert.Equal(new SourcePlacement(150, 75, 0.75, 0.75, new SourceCrop(10, 0, 20, 0), 90), layout.Placement);
+        Assert.Equal(zoom, layout.Zoom);
+    }
+
+    [Fact]
+    public async Task A_refused_layout_still_imports_the_source_and_says_so()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            Sources =
+            [
+                MediaSource("Caméra", @"C:\media\cam.mp4",
+                    new SourceLayout(new SourcePlacement(0, 0, 1, 1, SourceCrop.None), SourceZoom.None))
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime
+        {
+            Place = (_, _, _) => SourceTransformResult.Failure("rognage impossible")
+        };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        Assert.Single(Assert.Single(viewModel.Scenes).Sources);
+        Assert.Contains("1 source(s) non replacée(s) (rognage impossible)", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task Saving_writes_renamed_sources_with_their_composition_in_engine_order()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            sourceRuntime: sourceRuntime,
+            sceneCollection: collection,
+            savedScenesPath: @"C:\saved.json",
+            mediaPath: @"C:\media\clip.mp4");
+        var scene = CreateScene(viewModel, "Plateau");
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        var back = scene.Sources[1];
+        var layout = new SourceLayout(new SourcePlacement(320, 180, 0.5, 0.5, new SourceCrop(0, 10, 0, 10), 15), new SourceZoom(3));
+        sourceRuntime.SetSourceLayout(scene.Id, scene.Sources[0].Id, layout with { Zoom = SourceZoom.None });
+        sourceRuntime.SetSourceLayout(scene.Id, back.Id, layout);
+
+        viewModel.BeginRenameSourceCommand.Execute(back);
+        viewModel.RenameSourceName = "Plan large";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+        viewModel.RaiseSourceCommand.Execute(back);
+
+        Assert.True(await viewModel.SaveScenesAsync());
+
+        var saved = Assert.Single(collection.Saved);
+        Assert.Equal((1920, 1080), (saved.CanvasWidth, saved.CanvasHeight));
+        var first = saved.Sources[0];
+        Assert.Equal("Plan large", first.Name);
+        Assert.Equal(layout, first.Layout);
+        Assert.Equal(layout with { Zoom = SourceZoom.None }, saved.Sources[1].Layout);
+    }
+
+    [Fact]
+    public async Task Moving_a_source_is_an_unsaved_change()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            sourceRuntime: sourceRuntime,
+            sceneCollection: collection,
+            savedScenesPath: @"C:\saved.json",
+            mediaPath: @"C:\media\clip.mp4");
+        var scene = CreateScene(viewModel, "Plateau");
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        var placement = new SourcePlacement(0, 0, 1, 1, SourceCrop.None);
+        sourceRuntime.SetSourceLayout(scene.Id, scene.Sources[0].Id, new SourceLayout(placement, SourceZoom.None));
+        Assert.True(await viewModel.SaveScenesAsync());
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+
+        sourceRuntime.SetSourceLayout(scene.Id, scene.Sources[0].Id, new SourceLayout(placement with { X = 200 }, SourceZoom.None));
+
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+    }
+
+    private static SourceDefinition MediaSource(string name, string path, SourceLayout? layout = null) => new()
+    {
+        Name = name,
+        Kind = SourceKind.Media,
+        Origin = SourceOrigin.File,
+        OriginPath = path,
+        Layout = layout
+    };
+
+    [Fact]
     public async Task A_missing_saved_scenes_file_is_a_first_launch()
     {
         var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>())
@@ -1045,9 +1231,38 @@ public sealed class ScenesViewModelRuntimeTests
                 : SourceOrderResult.Success(Layers(sceneId).ToArray());
 
         // The composition itself is covered by SceneCompositionViewModelTests; here, the scene
-        // only has to return one for the canvas to follow gestures.
+        // returns the layouts it was given, in its stacking order, for saving to read back.
+        public Dictionary<Guid, SourceLayout> Layouts { get; } = [];
+        public Func<Guid, Guid, SourceLayout, SourceTransformResult>? Place { get; set; }
+
         public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
-            SceneCompositionResult.Success(new SceneComposition(1920, 1080, []));
+            SceneCompositionResult.Success(new SceneComposition(
+                1920,
+                1080,
+                Layers(sceneId)
+                    .Where(Layouts.ContainsKey)
+                    .Select(sourceId => Transform(sourceId, Layouts[sourceId]))
+                    .ToArray()));
+
+        public SourceTransformResult SetSourceLayout(Guid sceneId, Guid sourceId, SourceLayout layout)
+        {
+            var result = Place?.Invoke(sceneId, sourceId, layout);
+            if (result is { IsSuccess: false }) return result;
+
+            Layouts[sourceId] = layout;
+            return SourceTransformResult.Success(Transform(sourceId, layout));
+        }
+
+        private static SourceTransform Transform(Guid sourceId, SourceLayout layout)
+        {
+            var placement = layout.Placement;
+            return new SourceTransform(
+                sourceId, placement.X, placement.Y, 640 * placement.ScaleX, 360 * placement.ScaleY,
+                placement.ScaleX, placement.ScaleY, placement.Crop, 640, 360, true, placement.Rotation)
+            {
+                Zoom = layout.Zoom
+            };
+        }
 
         public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement) =>
             SourceTransformResult.Failure("Aucune source composée.");

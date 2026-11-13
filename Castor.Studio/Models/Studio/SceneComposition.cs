@@ -58,6 +58,38 @@ public readonly record struct SourcePlacement(
     double Rotation = 0);
 
 /// <summary>
+/// Everything the operator composed for a source, as saved with its scene: the frame's
+/// placement and the image zoom inside it. Restoring it gives the source back its look.
+/// </summary>
+public sealed record SourceLayout(SourcePlacement Placement, SourceZoom Zoom)
+{
+    /// <summary>
+    /// This layout moved from a <paramref name="fromWidth"/> × <paramref name="fromHeight"/>
+    /// canvas to a <paramref name="toWidth"/> × <paramref name="toHeight"/> one: position and
+    /// scale follow the canvas, so the source keeps its share of the picture. The crop is in
+    /// source pixels and does not move. An unknown size on either side keeps the layout as is.
+    /// </summary>
+    public SourceLayout Rescaled(int fromWidth, int fromHeight, int toWidth, int toHeight)
+    {
+        if (fromWidth <= 0 || fromHeight <= 0 || toWidth <= 0 || toHeight <= 0) return this;
+        if (fromWidth == toWidth && fromHeight == toHeight) return this;
+
+        var ratioX = (double)toWidth / fromWidth;
+        var ratioY = (double)toHeight / fromHeight;
+        return this with
+        {
+            Placement = Placement with
+            {
+                X = Placement.X * ratioX,
+                Y = Placement.Y * ratioY,
+                ScaleX = Placement.ScaleX * ratioX,
+                ScaleY = Placement.ScaleY * ratioY
+            }
+        };
+    }
+}
+
+/// <summary>
 /// A source's color, the one of its dot in the list, ready for the engine.
 /// </summary>
 public readonly record struct OverlayTint(float Red, float Green, float Blue)

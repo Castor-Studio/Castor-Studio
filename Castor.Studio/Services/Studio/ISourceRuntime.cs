@@ -150,4 +150,17 @@ internal interface ISourceRuntime
     /// A refused zoom touches nothing, like a refused placement.
     /// </remarks>
     SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom);
+
+    /// <summary>
+    /// Gives a source back a saved layout, frame and zoom, and returns the confirmed transform.
+    /// Unlike <see cref="SetSourceZoom"/>, a zoom on a source with no image yet (a file still
+    /// opening, a camera starting up) is not refused: it waits for the image.
+    /// </summary>
+    SourceTransformResult SetSourceLayout(Guid sceneId, Guid sourceId, SourceLayout layout)
+    {
+        var placed = SetSourceTransform(sceneId, sourceId, layout.Placement);
+        return placed.IsSuccess && layout.Zoom.IsZoomed
+            ? SetSourceZoom(sceneId, sourceId, layout.Zoom)
+            : placed;
+    }
 }

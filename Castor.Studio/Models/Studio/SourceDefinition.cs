@@ -15,6 +15,10 @@ public sealed class SourceDefinition
     // sources saved before these were recorded.
     public VideoCaptureKind? VideoCaptureKind { get; set; }
     public AudioCaptureKind? AudioCaptureKind { get; set; }
+
+    // The engine owns the composition: this is only a copy read from it when saving, and given
+    // back to it when loading. Null when nothing was read (older files, engine unavailable).
+    public SourceLayout? Layout { get; set; }
 }
 
 public sealed record CaptureSourceOption(

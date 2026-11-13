@@ -23,6 +23,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         // zoom added is kept to return one without the other.
         public SourceZoom Zoom { get; set; } = SourceZoom.None;
         public SourceCrop ZoomCrop { get; set; } = SourceCrop.None;
+
+        // A restored zoom on a source with no image yet: without its size there is no window to
+        // crop, so the zoom is applied once the first image gives one.
+        public bool ZoomPending { get; set; }
     }
 
     // One native display per window that asked for a preview - a Studio panel and the
@@ -108,6 +112,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private string _unavailableMessage = "";
     private ObsVideoSettings? _videoSettings;
     private ApplicationSettings? _pendingVideoSettings;
+    private Timer? _pendingZoomTimer;
 
     public bool IsAvailable => _initialized && !_disposed;
     public string UnavailableMessage => _unavailableMessage;
@@ -462,19 +467,90 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
                 return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
 
-            // A source with no image yet (a camera starting up) has no known size: its crop can only
-            // be bounded from below.
-            var crop = placement.Crop;
-            var sourceWidth = (int)source.Source.Width;
-            var sourceHeight = (int)source.Source.Height;
-            if ((sourceWidth > 0 && crop.Left + crop.Right >= sourceWidth) ||
-                (sourceHeight > 0 && crop.Top + crop.Bottom >= sourceHeight))
-                return SourceTransformResult.Failure("Ce rognage ne laisserait plus rien de la source.");
+            if (CropLeavesNothing(source, placement.Crop))
+                return SourceTransformResult.Failure(CropLeavesNothingMessage);
 
             // Zoom belongs to the image, not the frame: it follows the frame being moved, stretched or
             // cropped.
             return Compose(sourceId, source, placement, source.Zoom, "Transformation");
         }
+    }
+
+    public SourceTransformResult SetSourceLayout(Guid sceneId, Guid sourceId, SourceLayout layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+
+        var invalid = ValidatePlacement(layout.Placement) ?? ValidateZoom(layout.Zoom);
+        if (invalid != null) return SourceTransformResult.Failure(invalid);
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
+            if (CropLeavesNothing(source, layout.Placement.Crop))
+                return SourceTransformResult.Failure(CropLeavesNothingMessage);
+
+            // An audio source has no image to enlarge: its zoom, if a file holds one, means nothing.
+            var zoom = layout.Zoom.IsZoomed && source.ProvidesVideo ? layout.Zoom : SourceZoom.None;
+            var result = Compose(sourceId, source, layout.Placement, zoom, "Composition");
+            if (source.ZoomPending)
+                _pendingZoomTimer ??= new Timer(_ => ApplyPendingZooms(), null, PendingZoomPeriod, PendingZoomPeriod);
+            return result;
+        }
+    }
+
+    private static readonly TimeSpan PendingZoomPeriod = TimeSpan.FromMilliseconds(250);
+
+    // Polled: libobs gives no signal when a source's size becomes known. The timer only runs
+    // while a zoom is waiting.
+    private void ApplyPendingZooms()
+    {
+        lock (_gate)
+        {
+            var waiting = false;
+            if (IsAvailable)
+            {
+                foreach (var sources in _sources.Values)
+                {
+                    foreach (var (sourceId, source) in sources)
+                    {
+                        if (!source.ZoomPending) continue;
+                        if (source.Source.Width == 0 || source.Source.Height == 0)
+                        {
+                            waiting = true;
+                            continue;
+                        }
+
+                        var placement = ReadTransform(sourceId, source).Placement;
+                        var result = Compose(sourceId, source, placement, source.Zoom, "Zoom");
+                        if (!result.IsSuccess)
+                        {
+                            // Retrying a refusal would only repeat it: the source stays unzoomed.
+                            AppLog.Warning($"Restored zoom dropped: {result.Message}");
+                            source.ZoomPending = false;
+                        }
+                    }
+                }
+            }
+
+            if (waiting) return;
+            _pendingZoomTimer?.Dispose();
+            _pendingZoomTimer = null;
+        }
+    }
+
+    private const string CropLeavesNothingMessage = "Ce rognage ne laisserait plus rien de la source.";
+
+    // A source with no image yet (a camera starting up) has no known size: its crop can only be
+    // bounded from below.
+    private static bool CropLeavesNothing(NativeSource source, SourceCrop crop)
+    {
+        var sourceWidth = (int)source.Source.Width;
+        var sourceHeight = (int)source.Source.Height;
+        return (sourceWidth > 0 && crop.Left + crop.Right >= sourceWidth) ||
+               (sourceHeight > 0 && crop.Top + crop.Bottom >= sourceHeight);
     }
 
     public SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom)
@@ -522,6 +598,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         var previousCrop = item.Crop;
         var previousZoom = source.Zoom;
         var previousZoomCrop = source.ZoomCrop;
+        var previousZoomPending = source.ZoomPending;
         try
         {
             // Position, scale, rotation and bounds go together (obs_sceneitem_set_info2); alignment
@@ -543,6 +620,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 crop.Bottom + zoomCrop.Bottom);
             source.Zoom = zoom;
             source.ZoomCrop = zoomCrop;
+            // Only SetSourceLayout lets a zoom reach a source with no image; once kept, it stays
+            // waiting through frame gestures until the image comes.
+            source.ZoomPending = zoom.IsZoomed && (source.Source.Width == 0 || source.Source.Height == 0);
             return SourceTransformResult.Success(ReadTransform(sourceId, source));
         }
         catch (Exception exception)
@@ -555,6 +635,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 item.Crop = previousCrop;
                 source.Zoom = previousZoom;
                 source.ZoomCrop = previousZoomCrop;
+                source.ZoomPending = previousZoomPending;
             }
             catch
             {
@@ -1343,6 +1424,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             _disposed = true;
             if (_settingsService != null)
                 _settingsService.SettingsSaved -= OnSettingsSaved;
+            _pendingZoomTimer?.Dispose();
+            _pendingZoomTimer = null;
 
             var recordings = _recordings.Values.ToList();
             var streams = _streams.Values.ToList();

@@ -108,10 +108,14 @@ public sealed partial class SceneTransferDialogViewModel : ViewModelBase
 
     // The current selection is pre-checked; with nothing selected, every scene is, which is
     // what the export has always written.
-    public static SceneTransferDialogViewModel ForExport(IReadOnlyCollection<SceneItemViewModel> scenes)
+    // capture: what to write for a scene, its composition included; its bare definition by default.
+    public static SceneTransferDialogViewModel ForExport(
+        IReadOnlyCollection<SceneItemViewModel> scenes,
+        Func<SceneItemViewModel, SceneDefinition>? capture = null)
     {
+        capture ??= scene => scene.ToDefinition();
         var anySelected = scenes.Any(scene => scene.IsMultiSelected);
-        var items = scenes.Select(scene => new SceneTransferItem(scene.ToDefinition())
+        var items = scenes.Select(scene => new SceneTransferItem(capture(scene))
         {
             IsChecked = !anySelected || scene.IsMultiSelected
         });

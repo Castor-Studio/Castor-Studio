@@ -210,8 +210,38 @@ public partial class ScenesViewModel : ViewModelBase
 
     public bool HasUnsavedSceneChanges => _savedScenesPath != null && TakeScenesSnapshot() != _savedScenesSnapshot;
 
+    // Moving or cropping a source is a change to save like any other: the snapshot holds the
+    // composition too.
     private string TakeScenesSnapshot() =>
-        JsonSerializer.Serialize(Scenes.Select(scene => SceneExportMapper.ToExport(scene.ToDefinition())));
+        JsonSerializer.Serialize(Scenes.Select(scene => SceneExportMapper.ToExport(CaptureDefinition(scene))));
+
+    /// <summary>
+    /// What gets written for a scene: its definition, plus the composition the engine holds for
+    /// it, read now. Sources come in the engine's stacking order, foreground first.
+    /// </summary>
+    private SceneDefinition CaptureDefinition(SceneItemViewModel scene)
+    {
+        var definition = scene.ToDefinition();
+        var read = _sourceRuntime.GetSceneComposition(scene.Id);
+        if (!read.IsSuccess) return definition;
+
+        var composition = read.Composition;
+        definition.CanvasWidth = composition.CanvasWidth;
+        definition.CanvasHeight = composition.CanvasHeight;
+        var ranks = new Dictionary<Guid, int>(composition.Sources.Count);
+        for (var rank = 0; rank < composition.Sources.Count; rank++)
+        {
+            var transform = composition.Sources[rank];
+            ranks[transform.SourceId] = rank;
+            var source = definition.Sources.FirstOrDefault(candidate => candidate.Id == transform.SourceId);
+            if (source != null) source.Layout = new SourceLayout(transform.Placement, transform.Zoom);
+        }
+
+        definition.Sources = definition.Sources
+            .OrderBy(source => ranks.TryGetValue(source.Id, out var rank) ? rank : int.MaxValue)
+            .ToList();
+        return definition;
+    }
 
     // Startup: the scenes saved at the end of the previous session come back. No file yet is
     // a first launch, not a failure.
@@ -243,9 +273,9 @@ public partial class ScenesViewModel : ViewModelBase
 
         try
         {
-            var snapshot = TakeScenesSnapshot();
-            await _sceneCollectionService.SaveAsync(
-                _savedScenesPath, Scenes.Select(scene => scene.ToDefinition()).ToArray(), cancellationToken);
+            var scenes = Scenes.Select(CaptureDefinition).ToArray();
+            var snapshot = JsonSerializer.Serialize(scenes.Select(SceneExportMapper.ToExport));
+            await _sceneCollectionService.SaveAsync(_savedScenesPath, scenes, cancellationToken);
             _savedScenesSnapshot = snapshot;
             return true;
         }
@@ -527,7 +557,7 @@ public partial class ScenesViewModel : ViewModelBase
             return;
         }
 
-        var dialog = SceneTransferDialogViewModel.ForExport(Scenes);
+        var dialog = SceneTransferDialogViewModel.ForExport(Scenes, CaptureDefinition);
         if (!await _transferDialogService.ShowAsync(dialog)) return;
 
         var scenes = dialog.CheckedItems.Select(item => item.Definition).ToArray();
@@ -609,6 +639,8 @@ public partial class ScenesViewModel : ViewModelBase
             var importedCount = 0;
             var firstFailure = "";
             var firstSourceFailure = "";
+            var layoutFailures = 0;
+            var firstLayoutFailure = "";
             foreach (var definition in imported)
             {
                 var importedSources = NormalizeImportedSources(definition.Sources, ref skipped);
@@ -623,8 +655,11 @@ public partial class ScenesViewModel : ViewModelBase
                 }
 
                 definition.Name = result.EffectiveName;
-                foreach (var source in importedSources)
+                // The engine stacks each added source in the foreground: adding from the background
+                // up rebuilds the saved order, foreground first.
+                for (var index = importedSources.Count - 1; index >= 0; index--)
                 {
+                    var source = importedSources[index];
                     var sourceResult = _sourceRuntime.AddSource(definition.Id, CreateImportRequest(source));
                     if (!sourceResult.IsSuccess)
                     {
@@ -634,7 +669,19 @@ public partial class ScenesViewModel : ViewModelBase
                     }
 
                     source.Name = sourceResult.EffectiveName;
-                    definition.Sources.Add(source);
+                    definition.Sources.Insert(0, source);
+
+                    if (source.Layout is not { } layout) continue;
+                    // A source that could not be placed is still imported, at the engine's default place.
+                    var layoutResult = _sourceRuntime.SetSourceLayout(
+                        definition.Id,
+                        source.Id,
+                        layout.Rescaled(definition.CanvasWidth, definition.CanvasHeight, BaseCanvasWidth, BaseCanvasHeight));
+                    if (!layoutResult.IsSuccess)
+                    {
+                        layoutFailures++;
+                        if (firstLayoutFailure.Length == 0) firstLayoutFailure = layoutResult.Message;
+                    }
                 }
                 _workspace.AddScene(definition);
                 importedCount++;
@@ -644,6 +691,8 @@ public partial class ScenesViewModel : ViewModelBase
             if (skipped > 0) details.Add($"{skipped} source(s) non prise(s) en charge ignorée(s)");
             if (failed > 0) details.Add($"{failed} scène(s) refusée(s) ({firstFailure})");
             if (sourceFailures > 0) details.Add($"{sourceFailures} source(s) refusée(s) ({firstSourceFailure})");
+            if (layoutFailures > 0)
+                details.Add($"{layoutFailures} source(s) non replacée(s) ({firstLayoutFailure})");
             // Anything left behind has to be read before it goes away: it stays like an error.
             // Restoring the saved scenes at startup only speaks up when something was left behind.
             if (details.Count > 0)
@@ -971,9 +1020,17 @@ public partial class ScenesViewModel : ViewModelBase
         AddSource(scene, definition, new SourceAddRequest.Network(definition.Id, definition.Name, url));
     }
 
-    private static SourceAddRequest CreateImportRequest(SourceDefinition source) => source.Origin == SourceOrigin.Network
-        ? new SourceAddRequest.Network(source.Id, source.Name, source.OriginPath)
-        : new SourceAddRequest.Media(source.Id, source.Name, source.OriginPath, source.Loop);
+    // A device that is not plugged in is still recreated, like OBS does: the source keeps its
+    // place and its layout, and shows nothing while the device is missing.
+    private static SourceAddRequest CreateImportRequest(SourceDefinition source) => source.Origin switch
+    {
+        SourceOrigin.Network => new SourceAddRequest.Network(source.Id, source.Name, source.OriginPath),
+        SourceOrigin.HardwareVideo => new SourceAddRequest.Video(source.Id, source.Name, new CaptureSourceOption(
+            source.OriginPath, source.OriginLabel, source.VideoCaptureKind!.Value, source.OriginPath)),
+        SourceOrigin.HardwareAudio => new SourceAddRequest.Audio(source.Id, source.Name, new AudioSourceOption(
+            source.OriginPath, source.OriginLabel, source.AudioCaptureKind!.Value, source.OriginPath)),
+        _ => new SourceAddRequest.Media(source.Id, source.Name, source.OriginPath, source.Loop)
+    };
 
     private void AddSource(SceneItemViewModel scene, SourceDefinition definition, SourceAddRequest request)
     {
@@ -1015,6 +1072,27 @@ public partial class ScenesViewModel : ViewModelBase
             {
                 source.Kind = SourceKind.Video;
                 source.VideoCaptureKind = Models.Studio.VideoCaptureKind.Network;
+                normalized.Add(source);
+                continue;
+            }
+
+            // A device opens again from its id and what it captures. Files written before the
+            // capture kind was saved cannot tell a camera from a screen: those are left out.
+            if (source.Origin == SourceOrigin.HardwareVideo &&
+                source.VideoCaptureKind is Models.Studio.VideoCaptureKind.Monitor or
+                    Models.Studio.VideoCaptureKind.Window or Models.Studio.VideoCaptureKind.Camera &&
+                !string.IsNullOrWhiteSpace(source.OriginPath))
+            {
+                source.Kind = SourceKind.Video;
+                normalized.Add(source);
+                continue;
+            }
+
+            if (source.Origin == SourceOrigin.HardwareAudio &&
+                source.AudioCaptureKind is { } audioKind && audioKind != Models.Studio.AudioCaptureKind.File &&
+                !string.IsNullOrWhiteSpace(source.OriginPath))
+            {
+                source.Kind = SourceKind.Audio;
                 normalized.Add(source);
                 continue;
             }
