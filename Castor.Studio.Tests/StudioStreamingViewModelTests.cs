@@ -81,6 +81,33 @@ public sealed class StudioStreamingViewModelTests
         }
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Live_and_recording_run_together_whichever_starts_first(bool recordFirst)
+    {
+        var fixture = CreateFixture(ConnectedProvider(), new ApplicationSettings { OutputPath = Path.GetTempPath() });
+
+        try
+        {
+            if (recordFirst) await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
+            if (!recordFirst) await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+
+            Assert.NotNull(fixture.StreamingRuntime.Request);
+            Assert.NotNull(fixture.RecordingRuntime.Request);
+            Assert.True(fixture.Workspace.IsStreaming);
+            Assert.True(fixture.Workspace.IsRecording);
+            Assert.Equal("", fixture.ViewModel.StreamError.Text);
+            Assert.Equal("", fixture.ViewModel.RecordError.Text);
+            Assert.Equal("En direct", fixture.ViewModel.SceneBarStatusText);
+        }
+        finally
+        {
+            fixture.Dispose();
+        }
+    }
+
     [Fact]
     public async Task Runtime_failure_does_not_mark_the_workspace_live()
     {
@@ -179,32 +206,6 @@ public sealed class StudioStreamingViewModelTests
 
             Assert.False(fixture.Workspace.IsStreaming);
             Assert.Equal("Connexion Twitch interrompue", fixture.ViewModel.StreamError.Text);
-        }
-        finally
-        {
-            fixture.Dispose();
-        }
-    }
-
-    [Fact]
-    public async Task Recording_and_live_cannot_start_at_the_same_time()
-    {
-        var fixture = CreateFixture(ConnectedProvider());
-        try
-        {
-            fixture.Workspace.TrySetRecordingState(RecordingState.Recording);
-            await fixture.ViewModel.StartStreamingCommand.ExecuteAsync(null);
-
-            Assert.Null(fixture.StreamingRuntime.Request);
-            Assert.Contains("Arrêtez l'enregistrement", fixture.ViewModel.StreamError.Text);
-
-            fixture.Workspace.TrySetRecordingState(RecordingState.Stopping);
-            fixture.Workspace.TrySetRecordingState(RecordingState.Idle);
-            fixture.Workspace.SetStreamingState(true);
-            await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
-
-            Assert.Null(fixture.RecordingRuntime.Request);
-            Assert.Contains("Arrêtez le live", fixture.ViewModel.RecordError.Text);
         }
         finally
         {

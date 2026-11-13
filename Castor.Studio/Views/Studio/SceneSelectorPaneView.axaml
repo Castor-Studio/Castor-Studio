@@ -139,8 +139,8 @@
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
 				<Border Grid.Column="4" Classes="ready-pill" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"><StackPanel Orientation="Horizontal" Spacing="6">
-					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
-					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
+					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
+					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}" Classes.ready="{Binding !IsOnAir}"
                                FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
 				</StackPanel></Border>
 			</Grid>
@@ -172,8 +172,8 @@
 					<TextBlock Grid.Column="1" Classes="duration" Text="{Binding TransitionDurationText}"/>
 				</Grid>
 				<Border Classes="ready-pill" Classes.ready="{Binding !IsOnAir}" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal" Spacing="6">
-					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
-					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" Classes.ready="{Binding !IsOnAir}"
+					<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}" Classes.ready="{Binding !IsOnAir}" VerticalAlignment="Center"/>
+					<TextBlock Text="{Binding SceneBarStatusText}" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}" Classes.ready="{Binding !IsOnAir}"
                                FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
 				</StackPanel></Border>
 			</StackPanel>

@@ -149,11 +149,11 @@
                             Height="36"
                             Padding="14,0">
 						<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-							<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}" VerticalAlignment="Center"/>
+							<Ellipse Width="8" Height="8" Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}" VerticalAlignment="Center"/>
 							<TextBlock Text="{Binding GlobalStatusText}"
                                        FontSize="12.5"
                                        FontWeight="SemiBold"
-                                       Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
+                                       Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}"
                                        VerticalAlignment="Center"/>
 							<!-- Active scene: what goes to recording or live, readable from
 							     any workspace. The choice stays with the Studio selector. -->

@@ -37,7 +37,10 @@ public partial class StudioViewModel : ViewModelBase
     private readonly TimeProvider _timeProvider;
     // Without a dialog to confirm with, cancelling is not offered: it deletes a file.
     private readonly ICancelRecordingDialogService? _cancelRecordingDialog;
-    private readonly RecordingClock _sessionClock;
+    // The status timer shows the live while there is one, the recording otherwise: a live
+    // started during a recording counts from its own start, and never pauses with it.
+    private readonly RecordingClock _recordingClock;
+    private readonly RecordingClock _liveClock;
     private bool _loadingTransition;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
@@ -270,6 +273,8 @@ public partial class StudioViewModel : ViewModelBase
         ? "En direct"
         : IsRecordingPaused ? "En pause" : IsRecording ? "Enregistrement" : "Prêt";
     public bool IsRecordingPaused => _workspace.RecordingState == RecordingState.Paused;
+    // What the on-air indicators show as paused: a paused recording does not pause a live.
+    public bool IsSessionPaused => IsRecordingPaused && !IsStreaming;
 
     public ObservableCollection<RecordingSessionViewModel> RecordingSessions => _workspace.RecordingSessions;
 
@@ -371,7 +376,8 @@ public partial class StudioViewModel : ViewModelBase
         _cancelRecordingDialog = cancelRecordingDialog;
         _broadcasts = broadcasts ?? NoLiveBroadcastService.Instance;
         _timeProvider = timeProvider ?? TimeProvider.System;
-        _sessionClock = new RecordingClock(_timeProvider);
+        _recordingClock = new RecordingClock(_timeProvider);
+        _liveClock = new RecordingClock(_timeProvider);
         messages ??= new StatusMessageService();
         RecordError = messages.Create();
         StreamError = messages.Create();
@@ -474,12 +480,6 @@ public partial class StudioViewModel : ViewModelBase
         if (!_streamingRuntime.IsAvailable)
         {
             StreamError.ShowError(_streamingRuntime.UnavailableMessage);
-            return;
-        }
-
-        if (IsRecording)
-        {
-            StreamError.ShowError("Arrêtez l'enregistrement avant de lancer le live.");
             return;
         }
 
@@ -643,12 +643,6 @@ public partial class StudioViewModel : ViewModelBase
     private async Task StartRecording(CancellationToken cancellationToken)
     {
         RecordError.Clear();
-        if (IsStreaming)
-        {
-            RecordError.ShowError("Arrêtez le live avant de démarrer l'enregistrement.");
-            return;
-        }
-
         if (!_recordingRuntime.IsAvailable)
         {
             RecordError.ShowError(_recordingRuntime.UnavailableMessage);
@@ -1007,16 +1001,7 @@ public partial class StudioViewModel : ViewModelBase
         else if (e.PropertyName is nameof(StudioWorkspaceViewModel.RecordingState) or nameof(StudioWorkspaceViewModel.IsStreaming))
         {
             NotifySessionStateChanged();
-            if (IsRecording || IsStreaming)
-            {
-                StartSessionTimerIfNeeded();
-                TrackRecordingPause();
-            }
-            else
-            {
-                ResetSessionTimer();
-            }
-
+            SyncSessionClocks();
             NotifySessionCommandsChanged();
         }
     }
@@ -1039,6 +1024,7 @@ public partial class StudioViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsOnAir));
         OnPropertyChanged(nameof(SceneBarStatusText));
         OnPropertyChanged(nameof(IsRecordingPaused));
+        OnPropertyChanged(nameof(IsSessionPaused));
         OnPropertyChanged(nameof(PauseButtonText));
         OnPropertyChanged(nameof(CanTogglePauseRecording));
         OnPropertyChanged(nameof(PauseToolTip));
@@ -1087,25 +1073,25 @@ public partial class StudioViewModel : ViewModelBase
         if (accounts.Count > 0 && StreamError.Text == AccountDisconnectedError) StreamError.Clear();
     }
 
-    private void StartSessionTimerIfNeeded()
+    // Each clock runs with its own output; Start keeps a running clock as it is.
+    private void SyncSessionClocks()
     {
-        if (_sessionClock.IsStarted) return;
-        _sessionClock.Start();
-        StreamTimerText = "00:00:00";
-        _sessionTimer.Start();
-    }
+        if (IsStreaming) _liveClock.Start();
+        else _liveClock.Reset();
 
-    private void TrackRecordingPause()
-    {
-        _sessionClock.SetPaused(IsRecordingPaused);
+        if (IsRecording)
+        {
+            _recordingClock.Start();
+            _recordingClock.SetPaused(IsRecordingPaused);
+        }
+        else
+        {
+            _recordingClock.Reset();
+        }
+
+        if (IsOnAir) _sessionTimer.Start();
+        else _sessionTimer.Stop();
         RefreshSessionTimer();
-    }
-
-    private void ResetSessionTimer()
-    {
-        _sessionTimer.Stop();
-        _sessionClock.Reset();
-        StreamTimerText = "00:00:00";
     }
 
     private void OnSessionTimerTick(object? sender, EventArgs e) => RefreshSessionTimer();
@@ -1113,8 +1099,7 @@ public partial class StudioViewModel : ViewModelBase
     // While paused the text holds still: the pause in progress is taken off as it grows.
     internal void RefreshSessionTimer()
     {
-        if (!_sessionClock.IsStarted) return;
-        StreamTimerText = _sessionClock.Text;
+        StreamTimerText = (IsStreaming ? _liveClock : _recordingClock).Text;
         foreach (var session in RecordingSessions) session.RefreshTimer();
     }
 

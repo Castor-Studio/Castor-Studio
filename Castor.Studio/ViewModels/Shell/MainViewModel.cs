@@ -43,6 +43,8 @@ public partial class MainViewModel : ViewModelBase
     // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
     public bool IsOnAir => _workspace.IsStreaming || _workspace.IsRecording;
     public bool IsRecordingPaused => _workspace.RecordingState == RecordingState.Paused;
+    // What the on-air indicators show as paused: a paused recording does not pause a live.
+    public bool IsSessionPaused => IsRecordingPaused && !_workspace.IsStreaming;
 
     // Window-wide shortcut (MainWindow.axaml): pause / resume works from every workspace.
     public IRelayCommand TogglePauseRecordingCommand => _studioViewModel.TogglePauseRecordingCommand;
@@ -229,6 +231,7 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(GlobalStatusText));
         OnPropertyChanged(nameof(IsOnAir));
         OnPropertyChanged(nameof(IsRecordingPaused));
+        OnPropertyChanged(nameof(IsSessionPaused));
     }
 
     partial void OnCurrentPageKindChanged(MainPageKind value)

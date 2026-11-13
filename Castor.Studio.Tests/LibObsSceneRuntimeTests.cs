@@ -916,6 +916,87 @@ public sealed class LibObsSceneRuntimeTests
         }
     }
 
+    [Fact]
+    public async Task Live_started_and_lost_mid_recording_leaves_the_recording_running()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"castor-record-live-{Guid.NewGuid():N}.mkv");
+        var runtime = _runtime;
+        var first = new SceneDefinition { Name = "Plateau" };
+        var second = Guid.NewGuid();
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            Assert.True(runtime.CreateScene(first.Id, first.Name).IsSuccess);
+            Assert.True(runtime.CreateScene(second, "Caméra").IsSuccess);
+            Assert.True(runtime.AddSource(first.Id,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Source 1", _mediaPath, true)).IsSuccess);
+            Assert.True(runtime.AddSource(second,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Source 2", _mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+            Assert.True((await runtime.StartRecordingAsync(
+                CreateRecordingRequest(first.Id, outputPath, RecordingContainer.Mkv), timeout.Token)).IsSuccess);
+            await Task.Delay(300, timeout.Token);
+
+            // Joins the recording on the program channel, with the audio it already runs: no
+            // refusal, and no audio reset under the running output. The server is unreachable,
+            // so the live ends at once and lets the channel go.
+            var results = await runtime.StartStreamingAsync(new StreamingRequest(
+                first, [new StreamingDestination("youtube", "rtmp://127.0.0.1:1/live2", "key")],
+                30, 1_000, 128, 48_000, 2), timeout.Token);
+            var live = Assert.Single(results);
+            Assert.False(live.Result.IsSuccess);
+            Assert.DoesNotContain("Arrêtez", live.Result.Message);
+            Assert.True((await runtime.StopStreamingAsync(timeout.Token)).IsSuccess);
+
+            // The recording still owns the program channel: it switches scene and ends cleanly.
+            var switched = runtime.SwitchRecordingScene(second);
+            Assert.True(switched.IsSuccess, switched.Message);
+            await Task.Delay(300, timeout.Token);
+            var stopped = await runtime.StopRecordingAsync(timeout.Token);
+            Assert.True(stopped.IsSuccess, stopped.Message);
+            Assert.True(new FileInfo(outputPath).Length > 0);
+        }
+        finally
+        {
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await runtime.StopStreamingAsync(cleanup.Token);
+            await StopRecordingAndRemoveScenesAsync(first.Id, second);
+            File.Delete(outputPath);
+        }
+    }
+
+    [Fact]
+    public async Task Live_with_other_audio_settings_than_a_running_recording_is_refused()
+    {
+        var outputPath = Path.Combine(Path.GetTempPath(), $"castor-record-audio-{Guid.NewGuid():N}.mkv");
+        var runtime = _runtime;
+        var scene = new SceneDefinition { Name = "Plateau" };
+        try
+        {
+            Assert.True(runtime.IsAvailable, runtime.UnavailableMessage);
+            Assert.True(runtime.CreateScene(scene.Id, scene.Name).IsSuccess);
+            Assert.True(runtime.AddSource(scene.Id,
+                new SourceAddRequest.Media(Guid.NewGuid(), "Source", _mediaPath, true)).IsSuccess);
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            Assert.True((await runtime.StartRecordingAsync(
+                CreateRecordingRequest(scene.Id, outputPath, RecordingContainer.Mkv), timeout.Token)).IsSuccess);
+
+            // libobs cannot reset audio under the running recording: 44.1 kHz mono is refused.
+            var results = await runtime.StartStreamingAsync(new StreamingRequest(
+                scene, [new StreamingDestination("youtube", "rtmp://127.0.0.1:1/live2", "key")],
+                30, 1_000, 128, 44_100, 1), timeout.Token);
+
+            Assert.Contains("réglages audio", Assert.Single(results).Result.Message);
+            Assert.True((await runtime.StopRecordingAsync(timeout.Token)).IsSuccess);
+        }
+        finally
+        {
+            await StopRecordingAndRemoveScenesAsync(scene.Id);
+            File.Delete(outputPath);
+        }
+    }
+
     [Theory]
     [InlineData(SceneTransitionKind.Cut)]
     [InlineData(SceneTransitionKind.Fade)]

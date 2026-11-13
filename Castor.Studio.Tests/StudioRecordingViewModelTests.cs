@@ -342,6 +342,32 @@ public sealed class StudioRecordingViewModelTests
     }
 
     [Fact]
+    public async Task Status_timer_follows_a_live_started_mid_recording_and_ignores_its_pause()
+    {
+        using var fixture = CreateRecordingFixture();
+        await fixture.ViewModel.StartRecordingCommand.ExecuteAsync(null);
+        fixture.Time.Now += TimeSpan.FromSeconds(10);
+
+        // The live counts from its own start...
+        fixture.Workspace.SetStreamingState(true);
+        Assert.Equal("00:00:00", fixture.ViewModel.StreamTimerText);
+        fixture.Time.Now += TimeSpan.FromSeconds(5);
+
+        // ...and goes on while the recording pauses: on air is not paused.
+        fixture.ViewModel.TogglePauseRecordingCommand.Execute(null);
+        fixture.Time.Now += TimeSpan.FromSeconds(5);
+        fixture.ViewModel.RefreshSessionTimer();
+        Assert.Equal("00:00:10", fixture.ViewModel.StreamTimerText);
+        Assert.True(fixture.ViewModel.IsRecordingPaused);
+        Assert.False(fixture.ViewModel.IsSessionPaused);
+
+        // Back to the recording once the live ends: 15 s recorded before the pause.
+        fixture.Workspace.SetStreamingState(false);
+        Assert.Equal("00:00:15", fixture.ViewModel.StreamTimerText);
+        Assert.True(fixture.ViewModel.IsSessionPaused);
+    }
+
+    [Fact]
     public async Task Runtime_pause_events_drive_the_paused_state()
     {
         using var fixture = CreateRecordingFixture();

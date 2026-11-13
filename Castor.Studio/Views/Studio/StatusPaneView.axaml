@@ -29,7 +29,7 @@
 				</Border>
 
 				<TextBlock Grid.Column="2" Text="{Binding StreamTimerText}"
-                           Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
+                           Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}"
                            FontSize="15" FontWeight="Medium" LetterSpacing="0.6" FontFamily="{StaticResource AppMonoFont}"
                            Margin="12,0" VerticalAlignment="Center"/>
 
@@ -54,7 +54,7 @@
 				</Border>
 
 				<TextBlock Text="{Binding StreamTimerText}"
-                           Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsRecordingPaused}"
+                           Classes="session-state" Classes.live="{Binding IsOnAir}" Classes.paused="{Binding IsSessionPaused}"
                            FontSize="15" FontWeight="Medium" LetterSpacing="0.6" FontFamily="{StaticResource AppMonoFont}"
                            HorizontalAlignment="Center"/>
 

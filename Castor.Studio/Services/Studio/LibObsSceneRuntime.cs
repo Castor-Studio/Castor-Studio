@@ -103,9 +103,14 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private ObsEncoder? _streamingAudioEncoder;
     private Guid? _streamingSceneId;
     // The program channel (0) never carries a scene directly: it carries this transition, which
-    // shows the live or recording scene and animates the change to the next one.
+    // shows the live or recording scene and animates the change to the next one. A live and a
+    // program recording running together share it.
     private ObsTransition? _programTransition;
     private SceneTransitionKind _programTransitionKind;
+    private Guid? _programSceneId;
+    // The audio format the running outputs were started with: libobs cannot reset audio while
+    // one of them is active, so a live and a recording running together must agree on it.
+    private (int SampleRate, int Channels)? _audioFormat;
     private SceneTransition _transition = SceneTransition.Default;
     private bool _initialized;
     private bool _disposed;
@@ -940,8 +945,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         lock (_gate)
         {
             if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
-            if (_streams.Count > 0)
-                return StudioRuntimeResult.Failure("Arrêtez le live avant de démarrer l'enregistrement.");
             var sessionId = request.SessionId == Guid.Empty ? Guid.NewGuid() : request.SessionId;
             if (_recordings.ContainsKey(sessionId) ||
                 request.FollowsProgram && _recordings.Values.Any(running => running.FollowsProgram))
@@ -960,26 +963,33 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             var validationError = ValidateRecordingRequest(request);
             if (validationError.Length > 0) return StudioRuntimeResult.Failure(validationError);
-            // Resetting the video or audio would pull the frames from under the sessions
-            // already running; they all started from the same settings anyway.
-            if (_recordings.Count > 0 && !AreSameVideoSettings(_videoSettings, CreateRecordingVideoSettings(request)))
+            // Resetting the video or audio would pull the frames from under the outputs
+            // already running (other recordings, a live): this one must fit what they use.
+            var outputsRunning = _recordings.Count > 0 || _streams.Count > 0;
+            var (runningOutputs, stopThem) = _streams.Count > 0
+                ? ("du live", "Arrêtez-le")
+                : ("des autres enregistrements", "Arrêtez-les");
+            if (outputsRunning && !AreSameVideoSettings(_videoSettings, CreateRecordingVideoSettings(request)))
                 return StudioRuntimeResult.Failure(
-                    "Les réglages vidéo ont changé depuis le début des autres enregistrements. Arrêtez-les avant d'en démarrer un nouveau.");
+                    $"Les réglages vidéo ont changé depuis le début {runningOutputs}. {stopThem} avant de démarrer l'enregistrement.");
+            if (outputsRunning && _audioFormat != (request.AudioSampleRate, request.AudioChannels))
+                return StudioRuntimeResult.Failure(
+                    $"Les réglages audio ont changé depuis le début {runningOutputs}. {stopThem} avant de démarrer l'enregistrement.");
 
             ObsView? view = null;
             RecordingResources? resources = null;
             try
             {
-                if (_recordings.Count == 0)
+                if (!outputsRunning)
                 {
                     EnsureVideoSettingsForRecording(request);
-                    ConfigureRecordingMedia(request);
+                    ResetAudioFormat(request.AudioSampleRate, request.AudioChannels);
                 }
 
                 ObsVideo? video = null;
                 if (request.FollowsProgram)
                 {
-                    ShowOnProgram(scene);
+                    ShowOnProgram(request.SceneId, scene);
                 }
                 else
                 {
@@ -1008,7 +1018,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             catch (Exception exception)
             {
                 ReleaseRecordingParts(resources?.Output, resources?.VideoEncoder, resources?.AudioEncoder, view);
-                if (request.FollowsProgram) ReleaseProgramTransition();
+                if (request.FollowsProgram) ReleaseProgramIfUnused();
                 ApplyPendingVideoSettingsIfIdle();
                 return StudioRuntimeResult.Failure($"Démarrage de l'enregistrement impossible : {exception.Message}");
             }
@@ -1067,7 +1077,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                TransitionProgramTo(scene);
+                TransitionProgramTo(sceneId, scene);
                 // Keeps the "scene in use by the recording" guard on the scene actually
                 // being recorded now, so the previous one becomes deletable again.
                 session.SceneId = sceneId;
@@ -1219,9 +1229,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
                 return ForEveryDestination(request, StudioRuntimeResult.Unavailable(UnavailableMessageForOperation()));
             if (_streams.Count > 0)
                 return ForEveryDestination(request, StudioRuntimeResult.Failure("Un live est déjà en cours."));
-            if (_recordings.Count > 0)
-                return ForEveryDestination(request,
-                    StudioRuntimeResult.Failure("Arrêtez l'enregistrement avant de lancer le live."));
             if (!_scenes.TryGetValue(request.Scene.Id, out var scene))
                 return ForEveryDestination(request,
                     StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs."));
@@ -1233,16 +1240,22 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             var validationError = ValidateStreamingRequest(request);
             if (validationError.Length > 0)
                 return ForEveryDestination(request, StudioRuntimeResult.Failure(validationError));
+            // Recordings already running keep the audio they started with: the live takes it as is,
+            // and the video too (any change waits for every output to stop).
+            var recording = _recordings.Count > 0;
+            if (recording && _audioFormat != (request.AudioSampleRate, request.AudioChannels))
+                return ForEveryDestination(request, StudioRuntimeResult.Failure(
+                    "Les réglages audio ont changé depuis le début de l'enregistrement. Arrêtez-le avant de lancer le live."));
 
             try
             {
-                ConfigureStreamingMedia(request);
-                ShowOnProgram(scene);
+                if (!recording) ResetAudioFormat(request.AudioSampleRate, request.AudioChannels);
+                ShowOnProgram(request.Scene.Id, scene);
                 sessions = CreateStreamingSessions(request);
             }
             catch (Exception exception)
             {
-                ReleaseProgramTransition();
+                ReleaseProgramIfUnused();
                 ApplyPendingVideoSettingsIfIdle();
                 return ForEveryDestination(request,
                     StudioRuntimeResult.Failure($"Démarrage du live impossible : {exception.Message}"));
@@ -1330,7 +1343,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             try
             {
-                TransitionProgramTo(scene);
+                TransitionProgramTo(sceneId, scene);
                 _streamingSceneId = sceneId;
                 return StudioRuntimeResult.Success();
             }
@@ -1477,17 +1490,29 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    // Start of a live or recording: the scene shows at once, with no animation.
-    private void ShowOnProgram(ObsScene scene)
+    // Start of a live or recording: the scene shows at once, with no animation. An output
+    // joining one already on the program shares its channel instead of resetting it.
+    private void ShowOnProgram(Guid sceneId, ObsScene scene)
     {
+        if (_programTransition != null)
+        {
+            TransitionProgramTo(sceneId, scene);
+            return;
+        }
+
         using var sceneSource = scene.Source;
         ReplaceProgramTransition(sceneSource);
+        _programSceneId = sceneId;
     }
 
     // Scene change during a live or recording: the selected transition animates it. If it has
     // changed since, the new one picks up the displayed scene before starting.
-    private void TransitionProgramTo(ObsScene scene)
+    private void TransitionProgramTo(Guid sceneId, ObsScene scene)
     {
+        // A live and a program recording both follow the active scene: the second switch must
+        // not restart, or cut short, the transition the first one started.
+        if (_programTransition != null && _programSceneId == sceneId) return;
+
         if (_programTransition == null || _programTransitionKind != _transition.Kind)
         {
             using var shown = _programTransition?.ActiveSource;
@@ -1498,6 +1523,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         // libobs refuses to start towards the scene already shown: it is there, nothing to animate.
         if (!_transition.IsAnimated || !_programTransition!.Start(sceneSource, _transition.DurationMs))
             _programTransition!.Set(sceneSource);
+        _programSceneId = sceneId;
     }
 
     private void ReplaceProgramTransition(ObsSource? shown)
@@ -1547,6 +1573,14 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    // The channel goes with the last output on it: a live and a program recording each leave
+    // it to the other.
+    private void ReleaseProgramIfUnused()
+    {
+        if (_streams.Count > 0 || _recordings.Values.Any(running => running.FollowsProgram)) return;
+        ReleaseProgramTransition();
+    }
+
     private void ReleaseProgramTransition()
     {
         try
@@ -1559,6 +1593,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         var transition = _programTransition;
         _programTransition = null;
+        _programSceneId = null;
         try
         {
             transition?.Dispose();
@@ -1611,13 +1646,15 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             ScaleType = ObsScaleType.Bicubic
         };
 
-    private static void ConfigureRecordingMedia(RecordingRequest request)
+    // Only while no output runs: libobs refuses to reset audio under an active one.
+    private void ResetAudioFormat(int sampleRate, int channels)
     {
         Obs.ResetAudio(new ObsAudioSettings
         {
-            SamplesPerSecond = (uint)request.AudioSampleRate,
-            Speakers = request.AudioChannels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
+            SamplesPerSecond = (uint)sampleRate,
+            Speakers = channels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
         });
+        _audioFormat = (sampleRate, channels);
     }
 
     // video: the scene's own mix for a dedicated session, null for the program (main mix).
@@ -1719,15 +1756,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         if (request.AudioSampleRate <= 0 || request.AudioChannels is < 1 or > 2)
             return "La configuration audio doit être mono ou stéréo avec une fréquence valide.";
         return "";
-    }
-
-    private static void ConfigureStreamingMedia(StreamingRequest request)
-    {
-        Obs.ResetAudio(new ObsAudioSettings
-        {
-            SamplesPerSecond = (uint)request.AudioSampleRate,
-            Speakers = request.AudioChannels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
-        });
     }
 
     // Twitch keeps the OBS service catalog, which picks the closest ingest server ("auto").
@@ -1906,7 +1934,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     {
         _recordings.Remove(session.Id);
         if (session.StateHandler != null) session.Output.StateChanged -= session.StateHandler;
-        if (session.FollowsProgram) ReleaseProgramTransition();
+        if (session.FollowsProgram) ReleaseProgramIfUnused();
         ReleaseRecordingParts(session.Output, session.VideoEncoder, session.AudioEncoder, session.View);
         ApplyPendingVideoSettingsIfIdle();
     }
@@ -1973,8 +2001,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    // Teardown order documented by LibObs: output, then encoders. The encoders, the program
-    // channel and the waiting video settings belong to every live, so they go with the last.
+    // Teardown order documented by LibObs: output, then encoders. The encoders belong to every
+    // live, so they go with the last; the program channel also waits for a program recording.
     private void ReleaseStreamingSessionCore(StreamingSession session)
     {
         _streams.Remove(session.ProviderId);
@@ -1985,7 +2013,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         ReleaseStreamingEncoders();
         _streamingSceneId = null;
-        ReleaseProgramTransition();
+        ReleaseProgramIfUnused();
         ApplyPendingVideoSettingsIfIdle();
     }
 
