@@ -7,18 +7,6 @@ namespace Castor.Studio.Tests;
 public sealed class UnavailableRuntimeTests
 {
     [Fact]
-    public async Task Runtime_never_reports_success()
-    {
-        var runtime = new UnavailableStudioRuntime();
-
-        var result = await runtime.StartPreviewAsync(new SceneDefinition(), CancellationToken.None);
-
-        Assert.False(runtime.IsAvailable);
-        Assert.Equal(StudioRuntimeStatus.Unavailable, result.Status);
-        Assert.Contains("LibObs", result.Message);
-    }
-
-    [Fact]
     public void Ai_client_is_explicitly_unavailable()
     {
         var client = new UnavailableAiAnalysisClient("Worker IA introuvable");

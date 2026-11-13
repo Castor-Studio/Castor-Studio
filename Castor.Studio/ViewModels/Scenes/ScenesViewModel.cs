@@ -17,7 +17,6 @@ namespace CastorApplication.ViewModels.Scenes;
 public partial class ScenesViewModel : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
-    private readonly IStudioRuntime _runtime;
     private readonly IScenePreviewRuntime _previewRuntime;
     private readonly ISceneRuntime _sceneRuntime;
     private readonly ISourceRuntime _sourceRuntime;
@@ -170,7 +169,6 @@ public partial class ScenesViewModel : ViewModelBase
 
     internal ScenesViewModel(
         StudioWorkspaceViewModel workspace,
-        IStudioRuntime runtime,
         IScenePreviewRuntime previewRuntime,
         ISceneRuntime sceneRuntime,
         ISourceRuntime sourceRuntime,
@@ -188,7 +186,6 @@ public partial class ScenesViewModel : ViewModelBase
         _savedScenesPath = savedScenesPath;
         _transferDialogService = transferDialogService;
         _workspace = workspace;
-        _runtime = runtime;
         _previewRuntime = previewRuntime;
         _sceneRuntime = sceneRuntime;
         _sourceRuntime = sourceRuntime;
@@ -483,9 +480,6 @@ public partial class ScenesViewModel : ViewModelBase
             : $"{failures.Count} scène(s) non supprimée(s) : {string.Join(" | ", failures)}";
         SelectedScene = _workspace.ActiveScene;
     }
-
-    [RelayCommand]
-    private void StartSelectedFileScenesTogether() => SceneIoStatus.ShowError(_runtime.UnavailableMessage);
 
     [RelayCommand]
     private void BeginRenameScene(SceneItemViewModel scene)

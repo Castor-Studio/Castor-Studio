@@ -918,7 +918,6 @@ public sealed class StudioStreamingViewModelTests
         broadcasts ??= new FakeBroadcastService();
         var viewModel = new StudioViewModel(
             workspace,
-            new FakeStudioRuntime(),
             new UnavailableScenePreviewRuntime(),
             recordingRuntime,
             streamingRuntime,
@@ -1073,15 +1072,4 @@ public sealed class StudioStreamingViewModelTests
         }
     }
 
-    private sealed class FakeStudioRuntime : IStudioRuntime
-    {
-        public bool IsAvailable => false;
-        public string UnavailableMessage => "Preview indisponible";
-        public Task<StudioRuntimeResult> StartPreviewAsync(
-            SceneDefinition scene,
-            CancellationToken cancellationToken) => Unavailable();
-        public Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken) => Unavailable();
-        private static Task<StudioRuntimeResult> Unavailable() =>
-            Task.FromResult(StudioRuntimeResult.Unavailable("Preview indisponible"));
-    }
 }

@@ -21,7 +21,6 @@ namespace CastorApplication.ViewModels.Studio;
 public partial class StudioViewModel : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
-    private readonly IStudioRuntime _runtime;
     private readonly IScenePreviewRuntime _previewRuntime;
     private readonly IRecordingRuntime _recordingRuntime;
     private readonly IStreamingRuntime _streamingRuntime;
@@ -358,7 +357,6 @@ public partial class StudioViewModel : ViewModelBase
 
     internal StudioViewModel(
         StudioWorkspaceViewModel workspace,
-        IStudioRuntime runtime,
         IScenePreviewRuntime previewRuntime,
         IRecordingRuntime recordingRuntime,
         IStreamingRuntime streamingRuntime,
@@ -378,7 +376,6 @@ public partial class StudioViewModel : ViewModelBase
         RecordError = messages.Create();
         StreamError = messages.Create();
         _workspace = workspace;
-        _runtime = runtime;
         _previewRuntime = previewRuntime;
         _recordingRuntime = recordingRuntime;
         _streamingRuntime = streamingRuntime;

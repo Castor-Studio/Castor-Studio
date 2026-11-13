@@ -1098,7 +1098,6 @@ public sealed class ScenesViewModelRuntimeTests
         string? savedScenesPath = null) =>
         new(
             workspace ?? new StudioWorkspaceViewModel(),
-            new UnavailableStudioRuntime(),
             previewRuntime ?? new UnavailableScenePreviewRuntime(),
             runtime,
             sourceRuntime ??= new FakeSourceRuntime(),

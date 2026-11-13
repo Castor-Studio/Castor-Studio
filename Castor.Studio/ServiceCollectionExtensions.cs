@@ -60,7 +60,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DockLayoutService>();
         services.AddSingleton<StatusMessageService>();
 
-        services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
 
         services.AddSingleton(provider =>
             new LibObsSceneRuntime(
@@ -98,7 +97,6 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(provider => new StudioViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
-            provider.GetRequiredService<IStudioRuntime>(),
             provider.GetRequiredService<IScenePreviewRuntime>(),
             provider.GetRequiredService<IRecordingRuntime>(),
             provider.GetRequiredService<IStreamingRuntime>(),
@@ -112,7 +110,6 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(provider => new ScenesViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
-            provider.GetRequiredService<IStudioRuntime>(),
             provider.GetRequiredService<IScenePreviewRuntime>(),
             provider.GetRequiredService<ISceneRuntime>(),
             provider.GetRequiredService<ISourceRuntime>(),

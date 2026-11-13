@@ -238,16 +238,6 @@
 						</Button.Flyout>
 					</Button>
 
-					<Button Classes="scene-toolbar-item"
-                            Command="{Binding StartSelectedFileScenesTogetherCommand}"
-                            ToolTip.Tip="Démarre en même temps les scènes sélectionnées qui contiennent une source fichier">
-						<Grid ColumnDefinitions="20, *">
-							<TextBlock Grid.Column="0" Text="▶" FontSize="10" Foreground="{DynamicResource AppFg4}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-							<TextBlock Grid.Column="1" Text="Démarrer ensemble" Margin="6,0,0,0" VerticalAlignment="Center"/>
-						</Grid>
-					</Button>
-
 					<Button Classes="scene-toolbar-item danger"
                             Command="{Binding DeleteSelectedScenesCommand}">
 						<Grid ColumnDefinitions="20, *">

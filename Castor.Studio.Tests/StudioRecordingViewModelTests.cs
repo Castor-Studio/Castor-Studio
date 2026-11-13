@@ -32,7 +32,6 @@ public sealed class StudioRecordingViewModelTests
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
                 workspace,
-                new FakeStudioRuntime(),
                 new UnavailableScenePreviewRuntime(),
                 recordingRuntime,
                 new FakeStreamingRuntime(),
@@ -80,7 +79,6 @@ public sealed class StudioRecordingViewModelTests
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
                 workspace,
-                new FakeStudioRuntime(),
                 new UnavailableScenePreviewRuntime(),
                 recordingRuntime,
                 new FakeStreamingRuntime(),
@@ -136,7 +134,6 @@ public sealed class StudioRecordingViewModelTests
             };
             var viewModel = new StudioViewModel(
                 workspace,
-                new FakeStudioRuntime(),
                 new UnavailableScenePreviewRuntime(),
                 recordingRuntime,
                 new FakeStreamingRuntime(),
@@ -169,7 +166,6 @@ public sealed class StudioRecordingViewModelTests
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
                 workspace,
-                new FakeStudioRuntime(),
                 new UnavailableScenePreviewRuntime(),
                 recordingRuntime,
                 new FakeStreamingRuntime(),
@@ -203,7 +199,6 @@ public sealed class StudioRecordingViewModelTests
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
                 workspace,
-                new FakeStudioRuntime(),
                 new UnavailableScenePreviewRuntime(),
                 recordingRuntime,
                 new FakeStreamingRuntime(),
@@ -251,7 +246,6 @@ public sealed class StudioRecordingViewModelTests
             workspace.AddSource(scene, new SourceDefinition { Name = "Écran", Kind = SourceKind.Video });
             var viewModel = new StudioViewModel(
                 workspace,
-                new FakeStudioRuntime(),
                 new UnavailableScenePreviewRuntime(),
                 new FakeRecordingRuntime(),
                 new FakeStreamingRuntime(),
@@ -805,7 +799,7 @@ public sealed class StudioRecordingViewModelTests
             workspace.SelectScene(first);
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                workspace, new UnavailableScenePreviewRuntime(), recordingRuntime,
                 new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
 
             // Idle: the output is not running, so a scene switch has nothing to re-point -
@@ -843,7 +837,7 @@ public sealed class StudioRecordingViewModelTests
             var second = workspace.CreateScene("Caméra");
             var recordingRuntime = new FakeRecordingRuntime();
             var viewModel = new StudioViewModel(
-                workspace, new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(), recordingRuntime,
+                workspace, new UnavailableScenePreviewRuntime(), recordingRuntime,
                 new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
 
             await viewModel.StartRecordingCommand.ExecuteAsync(null);
@@ -867,7 +861,7 @@ public sealed class StudioRecordingViewModelTests
             var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
             settingsService.Save(new ApplicationSettings { OutputPath = directory });
             var viewModel = new StudioViewModel(
-                new StudioWorkspaceViewModel(), new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(),
+                new StudioWorkspaceViewModel(), new UnavailableScenePreviewRuntime(),
                 new FakeRecordingRuntime(), new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
             var newFolder = Path.Combine(directory, "Captures");
 
@@ -894,7 +888,7 @@ public sealed class StudioRecordingViewModelTests
                 SceneTransitionDurationMs = 1000
             });
             var viewModel = new StudioViewModel(
-                new StudioWorkspaceViewModel(), new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(),
+                new StudioWorkspaceViewModel(), new UnavailableScenePreviewRuntime(),
                 new FakeRecordingRuntime(), new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
 
             // Loading the kind first must not write it back with the default duration.
@@ -925,7 +919,7 @@ public sealed class StudioRecordingViewModelTests
             var settingsService = new SettingsService(Path.Combine(directory, "settings.json"));
             settingsService.Save(new ApplicationSettings());
             var viewModel = new StudioViewModel(
-                new StudioWorkspaceViewModel(), new FakeStudioRuntime(), new UnavailableScenePreviewRuntime(),
+                new StudioWorkspaceViewModel(), new UnavailableScenePreviewRuntime(),
                 new FakeRecordingRuntime(), new FakeStreamingRuntime(), new FakeProviderStore(), settingsService);
 
             Assert.Equal(1, viewModel.TransitionDurationStep);
@@ -1126,7 +1120,6 @@ public sealed class StudioRecordingViewModelTests
         var time = new ManualTimeProvider();
         var viewModel = new StudioViewModel(
             workspace,
-            new FakeStudioRuntime(),
             new UnavailableScenePreviewRuntime(),
             runtime,
             new FakeStreamingRuntime(),
@@ -1136,16 +1129,6 @@ public sealed class StudioRecordingViewModelTests
             cancelRecordingDialog: cancelDialog
         );
         return new RecordingFixture(directory, workspace, runtime, viewModel, time, cancelDialog);
-    }
-
-    private sealed class FakeStudioRuntime : IStudioRuntime
-    {
-        public bool IsAvailable => false;
-        public string UnavailableMessage => "Preview indisponible";
-        public Task<StudioRuntimeResult> StartPreviewAsync(SceneDefinition scene, CancellationToken cancellationToken) => Failure();
-        public Task<StudioRuntimeResult> StopPreviewAsync(Guid sceneId, CancellationToken cancellationToken) => Failure();
-        private static Task<StudioRuntimeResult> Failure() =>
-            Task.FromResult(StudioRuntimeResult.Unavailable("Preview indisponible"));
     }
 
     private sealed class FakeStreamingRuntime : IStreamingRuntime
