@@ -14,8 +14,6 @@ namespace CastorApplication.Models.Auth
 
         public required string VerificationUri { get; init; }
 
-        public string? VerificationUriComplete { get; init; }
-
         public required TimeSpan ExpiresIn { get; init; }
 
         public required TimeSpan Interval { get; init; }

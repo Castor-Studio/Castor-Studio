@@ -1,5 +1,4 @@
 ﻿using CastorApplication.Models.Auth;
-using CastorApplication.Models.Auth.Options;
 using CastorApplication.Models.Config;
 using CastorApplication.Services.Auth.Providers.Twitch.DTO;
 using CastorApplication.Services.Config;
