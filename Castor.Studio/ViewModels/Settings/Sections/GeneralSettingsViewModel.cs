@@ -2,7 +2,6 @@ using CastorApplication.Models.Settings;
 using CastorApplication.Services;
 using CastorApplication.Services.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 
 namespace CastorApplication.ViewModels.Settings.Sections;
 
@@ -23,12 +22,8 @@ public partial class GeneralSettingsViewModel : SettingsSectionViewModel
     [ObservableProperty]
     private bool _showDockTitles = true;
 
-    // What a tester quotes in a bug report, and where the files to attach are.
+    // What a tester quotes in a bug report.
     public string VersionText => $"Version {AppInfo.Version}";
-    public string LogsDirectory => AppLog.Directory;
-
-    [RelayCommand]
-    private void OpenLogsFolder() => AppInfo.ShowInExplorer(LogsDirectory);
 
     partial void OnSelectedThemeIndexChanged(int value)
     {
