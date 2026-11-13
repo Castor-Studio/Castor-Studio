@@ -1,4 +1,3 @@
-using Castor.AI;
 using Castor.AI.Providers;
 using CastorApplication.Models.Settings;
 using CastorApplication.Services.Ai;

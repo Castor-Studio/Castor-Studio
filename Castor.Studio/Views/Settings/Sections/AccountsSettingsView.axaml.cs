@@ -1,8 +1,6 @@
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 using CastorApplication.ViewModels.Settings.Sections;
 
 namespace CastorApplication.Views.Settings.Sections;

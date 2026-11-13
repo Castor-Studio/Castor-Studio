@@ -1,5 +1,4 @@
 using System.Net;
-using CastorApplication.Models.Studio;
 using CastorApplication.Services.Studio;
 
 namespace Castor.Studio.Tests;

@@ -1,6 +1,4 @@
-using CastorApplication.Models.Studio;
 using CastorApplication.Services.Ai;
-using CastorApplication.Services.Studio;
 
 namespace Castor.Studio.Tests;
 

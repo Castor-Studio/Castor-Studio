@@ -1,5 +1,4 @@
-﻿using System.IO;
-using System.Text.Json;
+﻿using System.Text.Json;
 using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Auth.Storage

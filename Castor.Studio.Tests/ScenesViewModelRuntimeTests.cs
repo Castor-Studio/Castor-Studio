@@ -3,7 +3,6 @@ using CastorApplication.Models.Studio;
 using CastorApplication.Services;
 using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Settings;
-using CastorApplication.Services.Platform;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Studio;

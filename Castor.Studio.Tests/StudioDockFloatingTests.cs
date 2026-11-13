@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-using System.Linq;
 using CastorApplication.Docking;
 using CastorApplication.Services.Settings;
 using Dock.Model.Controls;

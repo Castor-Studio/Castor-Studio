@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using System.Linq;
 using Avalonia;
 using CastorApplication.Docking;
 using CastorApplication.Services.Settings;

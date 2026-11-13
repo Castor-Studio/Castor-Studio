@@ -1,4 +1,3 @@
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;

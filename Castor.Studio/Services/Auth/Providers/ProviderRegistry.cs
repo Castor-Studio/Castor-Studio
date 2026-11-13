@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace CastorApplication.Services.Auth.Providers
+﻿namespace CastorApplication.Services.Auth.Providers
 {
     public sealed class ProviderRegistry
     {

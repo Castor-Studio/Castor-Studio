@@ -1,4 +1,3 @@
-using System;
 using CastorApplication.Models.Studio;
 
 namespace CastorApplication.Services.Studio;

@@ -1,7 +1,5 @@
 ﻿using CastorApplication.Models.Config;
 using Newtonsoft.Json;
-using System.IO;
-using System;
 
 namespace CastorApplication.Services.Config
 {
