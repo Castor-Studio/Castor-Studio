@@ -246,7 +246,7 @@ public sealed class MulticamAiSessionTests
     {
         var client = new FakeAiClient();
         var workspace = new StudioWorkspaceViewModel();
-        var scene = workspace.CreateSceneWithVideo("Plateau");
+        workspace.CreateSceneWithVideo("Plateau");
         var viewModel = new MulticamViewModel(client, workspace);
         var tile = viewModel.Tiles.Single();
         tile.IsSelected = true;
