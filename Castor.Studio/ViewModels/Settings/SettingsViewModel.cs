@@ -16,8 +16,6 @@ namespace CastorApplication.ViewModels.Settings;
 
 public partial class SettingsViewModel : ViewModelBase
 {
-    private readonly IAuthService _authService;
-    private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
 
     [ObservableProperty]
@@ -34,8 +32,6 @@ public partial class SettingsViewModel : ViewModelBase
         section => section.ViewModel is ISettingsSection settingsSection && settingsSection.IsDirty);
 
     public SettingsViewModel(
-        IAuthService authService,
-        IProviderStore store,
         SettingsService settingsService,
         GeneralSettingsViewModel generalSettingsViewModel,
         VideoSettingsViewModel videoSettingsViewModel,
@@ -45,8 +41,6 @@ public partial class SettingsViewModel : ViewModelBase
         AccountsSettingsViewModel accountsSettingsViewModel,
         AdvancedSettingsViewModel advancedSettingsViewModel)
     {
-        _authService = authService;
-        _providerStore = store;
         _settingsService = settingsService;
 
         Sections.Add(new()

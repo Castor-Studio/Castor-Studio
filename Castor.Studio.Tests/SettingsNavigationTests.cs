@@ -66,8 +66,6 @@ public sealed class SettingsNavigationTests
             var store = new EmptyProviderStore();
             var auth = new UnusedAuthService();
             ViewModel = new SettingsViewModel(
-                auth,
-                store,
                 settingsService,
                 new GeneralSettingsViewModel(new FakeThemeService(), new FakeDockChromeService()),
                 new VideoSettingsViewModel(new VideoCanvasResolutionResolver(
