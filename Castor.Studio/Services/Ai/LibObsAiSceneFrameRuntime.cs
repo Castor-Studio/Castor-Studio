@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Studio;
 using LibObs;
 
@@ -104,7 +104,13 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
                 OnVideo = frame => OnFrame(sceneId, frame),
                 FrameRateDivisor = divisor,
             });
-            output.CallbackFailed += (_, args) => Debug.WriteLine($"[Castor.AI frames {sceneId:N}] {args}");
+            // The callback runs once per frame: a failing one would fill the log in seconds.
+            var callbackFailureLogged = 0;
+            output.CallbackFailed += (_, args) =>
+            {
+                if (Interlocked.Exchange(ref callbackFailureLogged, 1) == 0)
+                    AppLog.Warning($"AI frame callback failed for scene {sceneId:N} (further failures not logged): {args}");
+            };
             try
             {
                 output.Start();
@@ -132,9 +138,9 @@ internal sealed class LibObsAiSceneFrameRuntime : IAiSceneFrameRuntime
     {
         // The output first: it waits for running callbacks, then the mix can leave the render loop.
         try { render.Output.Dispose(); }
-        catch (Exception exception) { Debug.WriteLine($"[Castor.AI frames] output release failed: {exception.Message}"); }
+        catch (Exception exception) { AppLog.Warning("Releasing the AI frame output failed", exception); }
         try { render.View.Dispose(); }
-        catch (Exception exception) { Debug.WriteLine($"[Castor.AI frames] view release failed: {exception.Message}"); }
+        catch (Exception exception) { AppLog.Warning("Releasing the AI frame view failed", exception); }
     }
 
     private static ObsVideoInfo? VideoInfo()

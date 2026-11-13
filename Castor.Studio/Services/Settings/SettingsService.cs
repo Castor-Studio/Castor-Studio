@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using CastorApplication.Models.Settings;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Settings;
 
@@ -114,7 +114,7 @@ public sealed class SettingsService
 
     private static void LogError(string message, Exception ex)
     {
-        Debug.WriteLine($"[SettingsService] {message} {ex.GetType().Name}: {ex.Message}");
+        AppLog.Error($"Settings: {message}", ex);
     }
 
     private static string BuildDefaultSettingsPath(string appFolderName)

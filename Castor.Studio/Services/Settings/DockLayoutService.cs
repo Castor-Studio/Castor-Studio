@@ -1,7 +1,7 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using CastorApplication.Services.Diagnostics;
 using Dock.Model.Core;
 using Dock.Serializer.SystemTextJson;
 
@@ -79,7 +79,7 @@ public sealed class DockLayoutService
 
     private static void LogError(string message, Exception ex)
     {
-        Debug.WriteLine($"[DockLayoutService] {message} {ex.GetType().Name}: {ex.Message}");
+        AppLog.Error($"Dock layout: {message}", ex);
     }
 
     private static string BuildDefaultLayoutPath(string appFolderName)

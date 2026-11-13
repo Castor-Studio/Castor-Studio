@@ -1,4 +1,4 @@
-using System.Diagnostics;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Studio;
 using LibObs;
 
@@ -58,7 +58,7 @@ internal sealed class LibObsAiAudioCaptureRuntime(IAiSceneSourceProvider sources
         foreach (var capture in captures)
         {
             try { capture.Registration?.Dispose(); }
-            catch (Exception exception) { Debug.WriteLine($"[Castor.AI audio] release failed: {exception.Message}"); }
+            catch (Exception exception) { AppLog.Warning("Releasing an AI audio capture failed", exception); }
         }
     }
 

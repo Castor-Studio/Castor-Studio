@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using CastorApplication.Models.Auth;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Auth.Storage;
 
@@ -113,6 +114,7 @@ public sealed class EncryptedFileTokenStore : ITokenStore
         // The next save replaces the file.
         catch (Exception exception) when (exception is CryptographicException or JsonException or IOException)
         {
+            AppLog.Warning($"Stored accounts unreadable, every account is disconnected: {_filePath}", exception);
             _sessions.Clear();
         }
 

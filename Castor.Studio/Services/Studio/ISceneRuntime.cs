@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Studio;
 
@@ -15,8 +17,11 @@ internal sealed record SceneRuntimeResult(
     public static SceneRuntimeResult Unavailable(string message) =>
         new(StudioRuntimeStatus.Unavailable, Message: message);
 
-    public static SceneRuntimeResult Failure(string message) =>
-        new(StudioRuntimeStatus.Failure, Message: message);
+    public static SceneRuntimeResult Failure(string message, [CallerMemberName] string operation = "")
+    {
+        AppLog.Warning($"{operation} failed: {message}");
+        return new(StudioRuntimeStatus.Failure, Message: message);
+    }
 }
 
 internal interface ISceneRuntime

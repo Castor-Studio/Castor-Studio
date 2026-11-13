@@ -1,5 +1,7 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Studio;
 
@@ -45,8 +47,11 @@ internal sealed record SourceRuntimeResult(
     public static SourceRuntimeResult Unavailable(string message) =>
         new(StudioRuntimeStatus.Unavailable, Message: message);
 
-    public static SourceRuntimeResult Failure(string message) =>
-        new(StudioRuntimeStatus.Failure, Message: message);
+    public static SourceRuntimeResult Failure(string message, [CallerMemberName] string operation = "")
+    {
+        AppLog.Warning($"{operation} failed: {message}");
+        return new(StudioRuntimeStatus.Failure, Message: message);
+    }
 }
 
 internal sealed record SourceOrderResult(
@@ -62,8 +67,11 @@ internal sealed record SourceOrderResult(
     public static SourceOrderResult Unavailable(string message) =>
         new(StudioRuntimeStatus.Unavailable, [], message);
 
-    public static SourceOrderResult Failure(string message) =>
-        new(StudioRuntimeStatus.Failure, [], message);
+    public static SourceOrderResult Failure(string message, [CallerMemberName] string operation = "")
+    {
+        AppLog.Warning($"{operation} failed: {message}");
+        return new(StudioRuntimeStatus.Failure, [], message);
+    }
 }
 
 internal sealed record SceneCompositionResult(
@@ -79,8 +87,11 @@ internal sealed record SceneCompositionResult(
     public static SceneCompositionResult Unavailable(string message) =>
         new(StudioRuntimeStatus.Unavailable, SceneComposition.Empty, message);
 
-    public static SceneCompositionResult Failure(string message) =>
-        new(StudioRuntimeStatus.Failure, SceneComposition.Empty, message);
+    public static SceneCompositionResult Failure(string message, [CallerMemberName] string operation = "")
+    {
+        AppLog.Warning($"{operation} failed: {message}");
+        return new(StudioRuntimeStatus.Failure, SceneComposition.Empty, message);
+    }
 }
 
 internal sealed record SourceTransformResult(
@@ -96,8 +107,11 @@ internal sealed record SourceTransformResult(
     public static SourceTransformResult Unavailable(string message) =>
         new(StudioRuntimeStatus.Unavailable, null, message);
 
-    public static SourceTransformResult Failure(string message) =>
-        new(StudioRuntimeStatus.Failure, null, message);
+    public static SourceTransformResult Failure(string message, [CallerMemberName] string operation = "")
+    {
+        AppLog.Warning($"{operation} failed: {message}");
+        return new(StudioRuntimeStatus.Failure, null, message);
+    }
 }
 
 internal interface ISourceRuntime

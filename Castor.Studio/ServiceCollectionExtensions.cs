@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Castor.AI;
@@ -13,6 +12,7 @@ using CastorApplication.Services.Auth.Providers.Twitch;
 using CastorApplication.Services.Auth.Providers.YouTube;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Config;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Platform;
 using CastorApplication.Services.Settings;
@@ -200,7 +200,7 @@ public static class ServiceCollectionExtensions
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"[Castor.AI] Failed to list the GPU adapters: {exception.Message}");
+            AppLog.Warning("Could not list the GPU adapters", exception);
             return null;
         }
     }

@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Text.Json;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Settings;
 
 namespace CastorApplication.Services.Ai;
@@ -29,7 +29,7 @@ internal sealed class AiDeviceMemory(string? filePath = null)
         catch (Exception exception)
         {
             // Not remembered: the next start tries the GPU again.
-            Debug.WriteLine($"[AiDeviceMemory] Failed to save {_filePath}: {exception.Message}");
+            AppLog.Warning($"Could not save the AI device memory {_filePath}", exception);
         }
     }
 
@@ -42,7 +42,7 @@ internal sealed class AiDeviceMemory(string? filePath = null)
         }
         catch (Exception exception)
         {
-            Debug.WriteLine($"[AiDeviceMemory] Failed to read {_filePath}: {exception.Message}");
+            AppLog.Warning($"Could not read the AI device memory {_filePath}", exception);
         }
         return new State();
     }

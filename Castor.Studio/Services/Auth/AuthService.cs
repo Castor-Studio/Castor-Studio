@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using CastorApplication.Models.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Storage;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Auth
 {
@@ -92,8 +93,9 @@ namespace CastorApplication.Services.Auth
                 {
                     refreshed = await provider.RefreshAsync(session, ct);
                 }
-                catch (InvalidGrantException)
+                catch (InvalidGrantException exception)
                 {
+                    AppLog.Warning($"{providerId}: refresh token rejected, account disconnected", exception);
                     // Revoked or expired for good: retrying would fail the same way on every
                     // call. The account turns disconnected and waits for a new login.
                     await _tokenStore.DeleteAsync(providerId, ct);
@@ -126,9 +128,10 @@ namespace CastorApplication.Services.Auth
 
                 await provider.RevokeAsync(session, ct);
             }
-            catch
+            catch (Exception exception)
             {
-                // log only
+                // The local session goes anyway: the user asked to log out.
+                AppLog.Warning($"{providerId}: token revocation failed", exception);
             }
 
             await _tokenStore.DeleteAsync(providerId, ct);

@@ -1,3 +1,6 @@
+using System.Runtime.CompilerServices;
+using CastorApplication.Services.Diagnostics;
+
 namespace CastorApplication.Models.Studio;
 
 public enum StudioRuntimeStatus
@@ -13,7 +16,11 @@ public sealed record StudioRuntimeResult(StudioRuntimeStatus Status, string Mess
 
     public static StudioRuntimeResult Success() => new(StudioRuntimeStatus.Success);
     public static StudioRuntimeResult Unavailable(string message) => new(StudioRuntimeStatus.Unavailable, message);
-    public static StudioRuntimeResult Failure(string message) => new(StudioRuntimeStatus.Failure, message);
+    public static StudioRuntimeResult Failure(string message, [CallerMemberName] string operation = "")
+    {
+        AppLog.Warning($"{operation} failed: {message}");
+        return new(StudioRuntimeStatus.Failure, message);
+    }
 }
 
 public enum RecordingContainer

@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Text.Json;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Auth.Storage
 {
@@ -33,8 +34,9 @@ namespace CastorApplication.Services.Auth.Storage
                            JsonOptions)
                        ?? new T();
             }
-            catch
+            catch (Exception exception)
             {
+                AppLog.Warning($"Could not read {_filePath}, defaults used", exception);
                 return new T();
             }
         }

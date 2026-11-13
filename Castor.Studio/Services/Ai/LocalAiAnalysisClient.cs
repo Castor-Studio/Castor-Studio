@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Diagnostics;
 using Castor.AI;
 using Castor.AI.Providers;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services.Ai;
 
@@ -28,6 +29,7 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
     private IReadOnlyDictionary<AiMicrophone, int> _microphones = new Dictionary<AiMicrophone, int>();
     private float _lastAcceptedConfidence;
     private string _lastStartingDetail = "";
+    private AiConnectionState? _lastLoggedState;
     private bool _starting;
     private bool _gpuFallbackReported;
     private bool _gpuFallbackPending;
@@ -184,7 +186,10 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
         catch (Exception exception)
         {
             ClearSession();
-            throw new InvalidOperationException(DescribeStartFailure(exception), exception);
+            var message = DescribeStartFailure(exception);
+            if (exception is OperationCanceledException) AppLog.Info(message);
+            else AppLog.Error($"AI session start failed ({_lastStartingDetail})", exception);
+            throw new InvalidOperationException(message, exception);
         }
         finally
         {
@@ -294,6 +299,13 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
     private void OnStateChanged(object? sender, AiStateChange change)
     {
         if (change.State == AiConnectionState.Starting) _lastStartingDetail = change.Detail;
+        // Starting repeats with download progress: only the transitions go to the log.
+        if (change.State != _lastLoggedState)
+        {
+            _lastLoggedState = change.State;
+            if (change.State == AiConnectionState.Faulted) AppLog.Warning($"AI worker faulted: {change.Detail}");
+            else AppLog.Info($"AI worker {change.State}: {change.Detail}");
+        }
 
         SessionStatusChanged?.Invoke(this, new AiSessionStatusEvent(change.State, change.Detail));
 
@@ -312,7 +324,11 @@ internal sealed class LocalAiAnalysisClient : IAiAnalysisClient
 
     private void OnLogReceived(object? sender, AiLogEntry entry)
     {
-        Debug.WriteLine($"[Castor.AI {entry.Source}] {entry.Message}");
+        // The client echoes every payload it sends: worth seeing in a debugger, noise in a file.
+        if (entry.Source == "client" && entry.Message.StartsWith("payload ", StringComparison.Ordinal))
+            Debug.WriteLine($"[Castor.AI {entry.Source}] {entry.Message}");
+        else
+            AppLog.Info($"AI {entry.Source}: {entry.Message}");
 
         if (!_gpuFallbackReported && entry.Message.Contains(GpuFallbackLog, StringComparison.OrdinalIgnoreCase))
         {

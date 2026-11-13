@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Linq;
 using System.ComponentModel;
@@ -9,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CastorApplication.ViewModels.Settings.Sections;
 using CastorApplication.Services.Auth;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Settings;
 using CastorApplication.Services.Auth.Storage;
 
@@ -159,7 +159,7 @@ public partial class SettingsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[SettingsViewModel] Failed to save settings. {ex.GetType().Name}: {ex.Message}");
+            AppLog.Error("Saving the settings failed", ex);
         }
     }
 

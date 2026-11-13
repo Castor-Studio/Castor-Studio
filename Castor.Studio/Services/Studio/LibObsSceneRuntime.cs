@@ -1883,6 +1883,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             }
         }
 
+        if (notification != null) LogOutputState($"Recording {session.Id:N}", args, unexpectedlyStopped);
         if (settleStart) session.Started.TrySetResult(args);
         if (settleStop) session.Stopped.TrySetResult(args);
         if (notification != null) StateChanged?.Invoke(this, notification);
@@ -1956,6 +1957,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             }
         }
 
+        if (notification != null) LogOutputState($"Live {session.PlatformName}", args, unexpectedlyStopped);
         if (settleStart) session.Started.TrySetResult(args);
         if (settleStop) session.Stopped.TrySetResult(args);
         if (notification != null) StreamingStateChanged?.Invoke(this, notification);
@@ -1985,6 +1987,23 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         _streamingSceneId = null;
         ReleaseProgramTransition();
         ApplyPendingVideoSettingsIfIdle();
+    }
+
+    // Starts and stops land in the log, with libobs' own code and error: a beta tester's
+    // "my live cut out" is otherwise left with nothing to go on.
+    private static void LogOutputState(string output, ObsOutputStateChangedEventArgs args, bool unexpectedlyStopped)
+    {
+        if (args.State == ObsOutputState.Started)
+        {
+            AppLog.Info($"{output} started");
+            return;
+        }
+
+        if (args.State != ObsOutputState.Stopped) return;
+        var details = $"code {args.StopCode?.ToString() ?? "none"}"
+            + (string.IsNullOrWhiteSpace(args.Error) ? "" : $", error: {args.Error}");
+        if (unexpectedlyStopped) AppLog.Error($"{output} stopped on its own ({details})");
+        else AppLog.Info($"{output} stopped ({details})");
     }
 
     private static string RecordingStopMessage(ObsOutputStateChangedEventArgs state)

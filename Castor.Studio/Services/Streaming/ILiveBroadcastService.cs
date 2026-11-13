@@ -1,7 +1,9 @@
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Streaming.Twitch;
 using CastorApplication.Services.Streaming.YouTube;
 
@@ -116,11 +118,14 @@ internal sealed class LiveBroadcastService(IYouTubeLiveService youTube, ITwitchC
         }
     }
 
-    private static LiveBroadcastResult Warning(string reason) =>
-        new(new StudioRuntimeResult(StudioRuntimeStatus.Success, $"Twitch : titre non modifié. {reason}"));
+    private static LiveBroadcastResult Warning(string reason)
+    {
+        AppLog.Warning($"Twitch title not changed: {reason}");
+        return new(new StudioRuntimeResult(StudioRuntimeStatus.Success, $"Twitch : titre non modifié. {reason}"));
+    }
 
-    private static LiveBroadcastResult Failure(string message) =>
-        new(StudioRuntimeResult.Failure(message));
+    private static LiveBroadcastResult Failure(string message, [CallerMemberName] string operation = "") =>
+        new(StudioRuntimeResult.Failure(message, operation));
 
     private static bool IsPlatformFailure(Exception exception) =>
         exception is YouTubeApiException or TwitchApiException or HttpRequestException or InvalidOperationException;
