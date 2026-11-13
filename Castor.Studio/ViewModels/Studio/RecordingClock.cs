@@ -8,8 +8,6 @@ internal sealed class RecordingClock(TimeProvider timeProvider)
     private DateTimeOffset? _pausedSince;
     private TimeSpan _pausedTotal;
 
-    public bool IsStarted => _startedAt != null;
-
     public void Start()
     {
         _startedAt ??= timeProvider.GetUtcNow();
