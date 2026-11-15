@@ -1,15 +1,18 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Avalonia;
-using Avalonia.Media;
 using Avalonia.Threading;
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Settings.Providers;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services;
+using CastorApplication.Services.Dialogs;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Settings;
+using CastorApplication.Services.Streaming;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Scenes;
+using CastorApplication.ViewModels.Settings.Sections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -18,17 +21,31 @@ namespace CastorApplication.ViewModels.Studio;
 public partial class StudioViewModel : ViewModelBase
 {
     private readonly StudioWorkspaceViewModel _workspace;
-    private readonly IStudioRuntime _runtime;
     private readonly IScenePreviewRuntime _previewRuntime;
     private readonly IRecordingRuntime _recordingRuntime;
     private readonly IStreamingRuntime _streamingRuntime;
     private readonly IProviderStore _providerStore;
+    private readonly ILiveBroadcastService _broadcasts;
+    // Platforms live right now (StreamingProviders ids), from the start results and the
+    // runtime's signals: the studio is on air while one of them is.
+    private readonly HashSet<string> _liveProviders = new(StringComparer.Ordinal);
+    // Platform-side broadcast wrapping each live (YouTube), ended once that live stops.
+    private readonly Dictionary<string, LiveBroadcast> _liveBroadcasts = new(StringComparer.Ordinal);
     private readonly SettingsService _settingsService;
+    private readonly VideoCanvasResolutionResolver _resolutionResolver;
     private readonly DispatcherTimer _sessionTimer;
-    private DateTime? _sessionStartUtc;
+    private readonly TimeProvider _timeProvider;
+    // Without a dialog to confirm with, cancelling is not offered: it deletes a file.
+    private readonly ICancelRecordingDialogService? _cancelRecordingDialog;
+    // The status timer shows the live while there is one, the recording otherwise: a live
+    // started during a recording counts from its own start, and never pauses with it.
+    private readonly RecordingClock _recordingClock;
+    private readonly RecordingClock _liveClock;
+    private bool _loadingTransition;
 
     public ObservableCollection<SceneItemViewModel> Scenes => _workspace.Scenes;
     public bool IsStreaming => _workspace.IsStreaming;
+    public RecordingState RecordingState => _workspace.RecordingState;
     public bool IsRecording => _workspace.IsRecording;
 
     public SceneItemViewModel? ActiveScene
@@ -61,45 +78,332 @@ public partial class StudioViewModel : ViewModelBase
 
     public bool ShowPreviewPlaceholder => PreviewPlaceholderText.Length > 0;
 
+    // The preview's empty screens. An unavailable engine is not one: the preview itself
+    // says what is wrong.
+    public bool ShowNoScene => _previewRuntime.IsAvailable && ActiveScene == null;
+    public bool ShowNoVideoSource => _previewRuntime.IsAvailable && ActiveScene != null
+        && !StudioWorkspaceViewModel.HasVideoSource(ActiveScene);
+    public bool ShowEmptyPreview => ShowNoScene || ShowNoVideoSource;
+
+    // Change from one scene to another on live and recording. The preview always hard-cuts:
+    // it shows the active scene, not the program output.
+    public IReadOnlyList<SceneTransitionOption> TransitionOptions => SceneTransitionOption.All;
+    public IReadOnlyList<int> TransitionDurations => SceneTransitionOption.Durations;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsTransitionAnimated), nameof(TransitionDurationText))]
+    private SceneTransitionOption? _selectedTransition = SceneTransitionOption.For(SceneTransition.Default.Kind);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TransitionDurationStep), nameof(TransitionDurationText))]
+    private int _transitionDurationMs = SceneTransition.DefaultDurationMs;
+
+    // A cut has no duration: the duration slider grays out.
+    public bool IsTransitionAnimated => SelectedTransition?.Kind != SceneTransitionKind.Cut;
+
+    // The slider moves from preset to preset, not millisecond by millisecond: a drag only writes
+    // settings on each step, and always lands on a round value.
+    public double TransitionDurationStep
+    {
+        get => SceneTransitionOption.StepOf(TransitionDurationMs);
+        set => TransitionDurationMs = SceneTransitionOption.DurationAt((int)Math.Round(value));
+    }
+
+    public int TransitionDurationLastStep => TransitionDurations.Count - 1;
+
+    public string TransitionDurationText => IsTransitionAnimated ? $"{TransitionDurationMs} ms" : "";
+
     [ObservableProperty] private string _streamTimerText = "00:00:00";
     [ObservableProperty] private bool _isStreamingTransition;
-    [ObservableProperty] private string _connectedAccountLabel = "Compte Twitch non connecté";
-    [ObservableProperty] private string _recordError = "";
-    [ObservableProperty] private string _streamError = "";
+    [ObservableProperty] private string _connectedAccountLabel = NoAccountLabel;
+
+    // Without a connected account the live cannot start, so the go-live panel says so up front:
+    // DÉMARRER is disabled with the reason, and the account area turns into a way to connect one.
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(StartStreamingCommand))]
+    [NotifyPropertyChangedFor(nameof(StartStreamingBlockedReason), nameof(ShowConnectedAccount))]
+    private bool _isAccountConnected;
+
+    public string StartStreamingBlockedReason =>
+        IsAccountConnected ? "" : "Connectez un compte Twitch ou YouTube pour lancer le live.";
+
+    // Every platform the live goes to, filled in as soon as an account is connected, including
+    // after a round trip to Settings > Comptes from the panel.
+    [ObservableProperty] private string _destinationLabel = NoDestinationLabel;
+
+    // ── Go-live panel: where the live goes, its title and its YouTube details ────────────────
+    // Read again from the settings each time the panel opens; DÉMARRER saves what it shows, so
+    // the next live and Settings › Streaming start from it.
+
+    public StreamingDestinationChoice GoLiveDestinations { get; } = new();
+
+    public bool CanChooseGoLiveDestination => GoLiveDestinations.CanChoose;
+
+    // With two platforms, their ticks already name the accounts.
+    public bool ShowConnectedAccount => IsAccountConnected && !CanChooseGoLiveDestination;
+
+    public bool IsYouTubeChosen => GoLiveDestinations.IsSelected(StreamingProviders.YouTube);
+
+    public IReadOnlyList<YouTubePrivacyOption> PrivacyOptions => YouTubePrivacyOption.All;
+
+    public int LiveTitleMaxLength => ApplicationSettings.LiveTitleMaxLength;
+
+    public int LiveDescriptionMaxLength => ApplicationSettings.LiveDescriptionMaxLength;
+
+    // Given to every ticked platform.
+    [ObservableProperty] private string _goLiveTitle = ApplicationSettings.DefaultLiveTitle;
+
+    // YouTube only, like the visibility.
+    [ObservableProperty] private string _goLiveDescription = "";
+
+    [ObservableProperty] private YouTubePrivacyOption? _goLivePrivacy = YouTubePrivacyOption.For(YouTubePrivacy.Public);
+
+    public void ResetGoLivePanel()
+    {
+        var settings = _settingsService.Load();
+        RefreshGoLiveDestinations(settings);
+        GoLiveTitle = settings.LiveTitle;
+        GoLiveDescription = settings.LiveDescription;
+        GoLivePrivacy = YouTubePrivacyOption.For(settings.YouTubePrivacy);
+    }
+
+    private void RefreshGoLiveDestinations(ApplicationSettings settings)
+    {
+        GoLiveDestinations.Refresh(_providerStore, [.. GetLiveAccounts(settings).Select(account => account.ProviderId)]);
+        OnPropertyChanged(nameof(CanChooseGoLiveDestination));
+        OnPropertyChanged(nameof(ShowConnectedAccount));
+    }
+
+    // What the panel shows is what goes live. Saved only when it differs: every save reaches
+    // the runtime and the other pages.
+    private void SaveGoLiveChoice(ApplicationSettings settings)
+    {
+        var changed = false;
+        // Same rule as Settings › Streaming: one account alone leaves the choice made for two.
+        var chosen = GoLiveDestinations.SelectedProviderIds;
+        if (GoLiveDestinations.CanChoose && !settings.StreamingProviderIds.SequenceEqual(chosen))
+        {
+            settings.StreamingProviderIds = [.. chosen];
+            changed = true;
+        }
+
+        var title = ApplicationSettings.NormalizeLiveTitle(GoLiveTitle);
+        if (title != settings.LiveTitle)
+        {
+            settings.LiveTitle = title;
+            changed = true;
+        }
+
+        // Hidden without YouTube: whatever they hold was not meant for this live.
+        if (IsYouTubeChosen)
+        {
+            var description = ApplicationSettings.NormalizeLiveDescription(GoLiveDescription);
+            var privacy = GoLivePrivacy?.Privacy ?? YouTubePrivacy.Public;
+            if (description != settings.LiveDescription || privacy != settings.YouTubePrivacy)
+            {
+                settings.LiveDescription = description;
+                settings.YouTubePrivacy = privacy;
+                changed = true;
+            }
+        }
+
+        if (changed) _settingsService.Save(settings);
+    }
+
+    // The platforms live right now, in StreamingProviders.All order: listed under "⋯" while on air.
+    public ObservableCollection<LivePlatformViewModel> LivePlatforms { get; } = [];
+
+    public string LivePlatformsToolTip => LivePlatforms.Count == 1
+        ? $"Live en cours sur {LivePlatforms[0].Name}"
+        : $"{LivePlatforms.Count} lives en cours";
+
+    [RelayCommand]
+    private void OpenLiveWatchPage(LivePlatformViewModel? platform)
+    {
+        if (platform is { HasWatchUrl: true }) WebBrowser.Open(platform.WatchUrl);
+    }
+
+    // Stops one platform; the others stay live, and the studio stays on air until the last.
+    [RelayCommand]
+    private async Task StopLivePlatform(LivePlatformViewModel? platform)
+    {
+        if (platform == null) return;
+        IsStreamingTransition = true;
+        try
+        {
+            var result = await _streamingRuntime.StopStreamingAsync(platform.ProviderId, CancellationToken.None);
+            if (!result.IsSuccess)
+            {
+                StreamError.ShowError(result.Message);
+                return;
+            }
+            _liveProviders.Remove(platform.ProviderId);
+            SyncLiveState();
+            await EndLiveBroadcastAsync(platform.ProviderId);
+        }
+        finally
+        {
+            IsStreamingTransition = false;
+        }
+    }
+
+    // The shell answers by opening Settings on the accounts section (MainViewModel).
+    public event EventHandler? AccountSettingsRequested;
+
+    [RelayCommand]
+    private void OpenAccountSettings() => AccountSettingsRequested?.Invoke(this, EventArgs.Empty);
+
+    // The empty preview leads to the Scenes page, where scenes and sources are made (MainViewModel).
+    public event EventHandler? ScenesPageRequested;
+
+    [RelayCommand]
+    private void OpenScenes() => ScenesPageRequested?.Invoke(this, EventArgs.Empty);
+
+    // Errors only: they stay until dismissed (closing their flyout) or until the scene or the
+    // page changes, so a failure from an earlier attempt is not shown as a current one.
+    public StatusMessage RecordError { get; }
+    public StatusMessage StreamError { get; }
     [ObservableProperty] private string _outputInfoText = "";
-    [ObservableProperty] private string _recordingOutputDirectory = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordingButtonToolTip))]
+    private string _recordingOutputDirectory = "";
 
     public string StreamStatusText => IsStreaming ? "EN DIRECT" : "OFFLINE";
-    public IBrush StreamStatusBrush => SolidColorBrush.Parse(IsStreaming ? "#f87171" : "#3c3c4e");
-    public IBrush StreamTimerBrush => SolidColorBrush.Parse(IsStreaming || IsRecording ? "#f87171" : "#3c3c4e");
-    public string SceneBarStatusText => IsStreaming ? "EN DIRECT" : IsRecording ? "REC" : "Prêt";
-    public IBrush SceneBarStatusBrush => SolidColorBrush.Parse(IsStreaming || IsRecording ? "#f87171" : "#34d399");
+    public string SceneBarStatusText => IsStreaming
+        ? "En direct"
+        : IsRecordingPaused ? "En pause" : IsRecording ? "Enregistrement" : "Prêt";
+    public bool IsRecordingPaused => _workspace.RecordingState == RecordingState.Paused;
+    // What the on-air indicators show as paused: a paused recording does not pause a live.
+    public bool IsSessionPaused => IsRecordingPaused && !IsStreaming;
+
+    public ObservableCollection<RecordingSessionViewModel> RecordingSessions => _workspace.RecordingSessions;
+
+    // Each session's container and encoder decide whether it can pause; the global pause
+    // is offered as long as one of them can.
+    public string PauseUnavailableReason =>
+        RecordingSessions.Count > 0 && !RecordingSessions.Any(session => session.CanPause)
+            ? RecordingSessions[0].PauseUnavailableReason
+            : "";
+
+    public const string PauseShortcutText = "Ctrl+Maj+P";
+
+    public bool CanTogglePauseRecording =>
+        PauseUnavailableReason.Length == 0 &&
+        _workspace.RecordingState is RecordingState.Recording or RecordingState.Paused;
+
+    public string PauseButtonText => IsRecordingPaused ? "REPRENDRE" : "PAUSE";
+
+    private bool HasSeveralSessions => RecordingSessions.Count > 1;
+
+    public string PauseToolTip => PauseUnavailableReason.Length > 0
+        ? PauseUnavailableReason
+        : (IsRecordingPaused, HasSeveralSessions) switch
+        {
+            (true, true) => $"Reprendre tous les enregistrements ({PauseShortcutText})",
+            (true, false) => $"Reprendre l'enregistrement dans le même fichier ({PauseShortcutText})",
+            (false, true) => $"Mettre tous les enregistrements en pause ({PauseShortcutText})",
+            _ => $"Mettre l'enregistrement en pause ({PauseShortcutText})"
+        };
+
+    public string CancelAllToolTip => HasSeveralSessions
+        ? "Arrêter tous les enregistrements et supprimer leurs fichiers"
+        : "Arrêter l'enregistrement et supprimer son fichier";
+
+    public string RecordingSessionsToolTip => RecordingSessions.Count == 1
+        ? "Enregistrement en cours"
+        : $"{RecordingSessions.Count} enregistrements en cours";
+
+    // ── Before recording: what to record ─────────────────────────────────────────────
+    // The program alone by default, so ENREGISTRER stays one click. Ticked scenes are each
+    // recorded into a file of their own, with or without the program.
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RecordingTargetCount), nameof(RecordingSelectionSummary),
+        nameof(RecordingLoadWarning), nameof(RecordingButtonToolTip), nameof(HasRecordingTarget))]
+    [NotifyCanExecuteChangedFor(nameof(StartRecordingCommand))]
+    private bool _recordProgram = true;
+
+    public ObservableCollection<RecordingSceneOption> RecordingSceneOptions { get; } = [];
+
+    public int RecordingTargetCount =>
+        (RecordProgram ? 1 : 0) + RecordingSceneOptions.Count(option => option.IsSelected);
+
+    public bool HasRecordingTarget => RecordingTargetCount > 0;
+
+    // Each extra scene is rendered and encoded on its own (x264, on the processor).
+    public const int HeavyRecordingTargetCount = 3;
+
+    public string RecordingLoadWarning => RecordingTargetCount >= HeavyRecordingTargetCount
+        ? $"{RecordingTargetCount} enregistrements à la fois : chaque scène est rendue et encodée à part, " +
+          "le processeur et la carte graphique risquent de saturer et de perdre des images."
+        : "";
+
+    public string RecordingSelectionSummary
+    {
+        get
+        {
+            var scenes = RecordingSceneOptions.Count(option => option.IsSelected);
+            var sceneText = scenes == 1 ? "1 scène" : $"{scenes} scènes";
+            return (RecordProgram, scenes) switch
+            {
+                (_, 0) when RecordProgram => "la scène active",
+                (true, _) => $"la scène active et {sceneText} à part",
+                (false, 0) => "rien",
+                _ => $"{sceneText} à part"
+            };
+        }
+    }
+
+    public string RecordingButtonToolTip => HasRecordingTarget
+        ? $"Enregistre {RecordingSelectionSummary} dans : {RecordingOutputDirectory}"
+        : "Choisissez au moins une scène à enregistrer.";
+    // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
+    public bool IsOnAir => IsStreaming || IsRecording;
 
     internal StudioViewModel(
         StudioWorkspaceViewModel workspace,
-        IStudioRuntime runtime,
         IScenePreviewRuntime previewRuntime,
         IRecordingRuntime recordingRuntime,
         IStreamingRuntime streamingRuntime,
         IProviderStore providerStore,
-        SettingsService settingsService)
+        SettingsService settingsService,
+        VideoCanvasResolutionResolver? resolutionResolver = null,
+        StatusMessageService? messages = null,
+        TimeProvider? timeProvider = null,
+        ICancelRecordingDialogService? cancelRecordingDialog = null,
+        ILiveBroadcastService? broadcasts = null)
     {
+        _cancelRecordingDialog = cancelRecordingDialog;
+        _broadcasts = broadcasts ?? NoLiveBroadcastService.Instance;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _recordingClock = new RecordingClock(_timeProvider);
+        _liveClock = new RecordingClock(_timeProvider);
+        messages ??= new StatusMessageService();
+        RecordError = messages.Create();
+        StreamError = messages.Create();
         _workspace = workspace;
-        _runtime = runtime;
         _previewRuntime = previewRuntime;
         _recordingRuntime = recordingRuntime;
         _streamingRuntime = streamingRuntime;
         _providerStore = providerStore;
         _settingsService = settingsService;
+        _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
+        _workspace.Scenes.CollectionChanged += (_, _) => SyncRecordingSceneOptions();
+        _workspace.RecordingSessions.CollectionChanged += (_, _) => NotifyRecordingSessionsChanged();
+        SyncRecordingSceneOptions();
         _recordingRuntime.StateChanged += OnRecordingRuntimeStateChanged;
         _streamingRuntime.StreamingStateChanged += OnStreamingRuntimeStateChanged;
         _providerStore.Changed += OnProviderStoreChanged;
+        _settingsService.SettingsSaved += OnSettingsSaved;
         _sessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _sessionTimer.Tick += OnSessionTimerTick;
+        GoLiveDestinations.SelectionChanged += (_, _) => OnPropertyChanged(nameof(IsYouTubeChosen));
+        ResetGoLivePanel();
         RefreshProviderState();
         RefreshOutputInfo();
         RefreshBaseCanvasSize();
+        RefreshTransition();
     }
 
     public void RefreshOutputInfo()
@@ -113,70 +417,156 @@ public partial class StudioViewModel : ViewModelBase
     }
 
     // Keeps the native preview's aspect ratio correct when the base resolution changes,
-    // same as ScenesViewModel's own OnSettingsSaved.
-    private void OnSettingsSaved(object? sender, EventArgs e) => RefreshBaseCanvasSize();
+    // same as ScenesViewModel's own OnSettingsSaved. The output info follows too, so the
+    // ENREGISTRER tooltip names the new folder even from a panel detached beside Settings.
+    private void OnSettingsSaved(object? sender, EventArgs e)
+    {
+        RefreshBaseCanvasSize();
+        RefreshOutputInfo();
+        RefreshTransition();
+        // The live destination is a setting when several accounts are connected.
+        RefreshProviderState();
+    }
+
+    // Type and duration reload one after the other: without this guard, the first would be saved
+    // with the second's old value.
+    private void RefreshTransition()
+    {
+        _loadingTransition = true;
+        try
+        {
+            var transition = _settingsService.Load().ToSceneTransition();
+            SelectedTransition = SceneTransitionOption.For(transition.Kind);
+            TransitionDurationMs = SceneTransitionOption.NearestDuration(transition.DurationMs);
+        }
+        finally
+        {
+            _loadingTransition = false;
+        }
+    }
+
+    partial void OnSelectedTransitionChanged(SceneTransitionOption? value) => SaveTransition();
+
+    partial void OnTransitionDurationMsChanged(int value) => SaveTransition();
+
+    // The runtime rereads the transition on every save: the next scene change uses it, a running
+    // live included.
+    private void SaveTransition()
+    {
+        // A ComboBox being emptied pushes null: nothing chosen, nothing to save.
+        if (_loadingTransition || SelectedTransition == null) return;
+
+        var settings = _settingsService.Load();
+        if (settings.SceneTransitionKind == SelectedTransition.Kind &&
+            settings.SceneTransitionDurationMs == TransitionDurationMs)
+            return;
+
+        settings.SceneTransitionKind = SelectedTransition.Kind;
+        settings.SceneTransitionDurationMs = TransitionDurationMs;
+        _settingsService.Save(settings);
+    }
 
     private void RefreshBaseCanvasSize()
     {
-        var baseResolution = BaseResolutionFromIndex(_settingsService.Load().SelectedBaseResolutionIndex);
-        BaseCanvasWidth = baseResolution.Width;
-        BaseCanvasHeight = baseResolution.Height;
+        var resolution = _resolutionResolver.Resolve(_settingsService.Load());
+        BaseCanvasWidth = resolution.Width;
+        BaseCanvasHeight = resolution.Height;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsAccountConnected))]
     private async Task StartStreaming(CancellationToken cancellationToken)
     {
-        StreamError = "";
+        StreamError.Clear();
         if (!_streamingRuntime.IsAvailable)
         {
-            StreamError = _streamingRuntime.UnavailableMessage;
-            return;
-        }
-
-        if (IsRecording)
-        {
-            StreamError = "Arrêtez l'enregistrement avant de lancer le live.";
+            StreamError.ShowError(_streamingRuntime.UnavailableMessage);
             return;
         }
 
         var scene = ActiveScene;
         if (scene == null || !StudioWorkspaceViewModel.HasVideoSource(scene))
         {
-            StreamError = "Aucune source vidéo dans la scène active.";
-            return;
-        }
-
-        var provider = GetConnectedTwitchProvider();
-        if (provider == null)
-        {
-            StreamError = "Compte Twitch déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
-            RefreshProviderState();
+            StreamError.ShowError("Aucune source vidéo dans la scène active.");
             return;
         }
 
         var settings = _settingsService.Load();
+        SaveGoLiveChoice(settings);
+        var accounts = GetLiveAccounts(settings);
+        if (accounts.Count == 0)
+        {
+            StreamError.ShowError(AccountDisconnectedError);
+            RefreshProviderState();
+            return;
+        }
+
+        // With several platforms, each message says which one it is about.
+        string AboutPlatform(string providerId, string message)
+        {
+            var name = StreamingProviders.DisplayName(providerId);
+            return accounts.Count > 1 && !message.Contains(name, StringComparison.Ordinal)
+                ? $"{name} : {message}"
+                : message;
+        }
+
         IsStreamingTransition = true;
+        var errors = new List<string>();
+        // Platforms that go live all the same, with something left undone (a Twitch title).
+        var warnings = new List<string>();
         try
         {
-            var result = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
-                scene.ToDefinition(),
-                provider.StreamKey!,
-                FpsFromIndex(settings.SelectedFpsIndex),
-                (int)settings.StreamingBitrate,
-                AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
-                AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
-                AudioChannelsFromIndex(settings.SelectedChannelsIndex)), cancellationToken);
-            if (!result.IsSuccess)
+            // Each platform-side broadcast comes before the outputs: without it, YouTube would
+            // receive a stream nobody can watch. A platform whose broadcast fails is left out,
+            // the others still go live.
+            var destinations = new List<StreamingDestination>();
+            foreach (var account in accounts)
             {
-                StreamError = result.Message;
-                return;
+                var prepared = await _broadcasts.PrepareAsync(account, settings, cancellationToken);
+                if (!prepared.Result.IsSuccess)
+                {
+                    errors.Add(AboutPlatform(account.ProviderId, prepared.Result.Message));
+                    continue;
+                }
+                if (prepared.Result.Message.Length > 0)
+                    warnings.Add(AboutPlatform(account.ProviderId, prepared.Result.Message));
+                if (prepared.Broadcast != null) _liveBroadcasts[account.ProviderId] = prepared.Broadcast;
+                destinations.Add(ToDestination(account));
             }
 
-            _workspace.SetStreamingState(true);
+            if (destinations.Count > 0)
+            {
+                var results = await _streamingRuntime.StartStreamingAsync(new StreamingRequest(
+                    scene.ToDefinition(),
+                    destinations,
+                    FpsFromIndex(settings.SelectedFpsIndex),
+                    (int)settings.StreamingBitrate,
+                    AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
+                    AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
+                    AudioChannelsFromIndex(settings.SelectedChannelsIndex)), cancellationToken);
+                foreach (var result in results)
+                {
+                    if (result.Result.IsSuccess) _liveProviders.Add(result.ProviderId);
+                    else errors.Add(AboutPlatform(result.ProviderId, result.Result.Message));
+                }
+            }
         }
         finally
         {
+            SyncLiveState();
+            // A broadcast created for an output that never started must not stay scheduled.
+            foreach (var providerId in _liveBroadcasts.Keys.Where(id => !_liveProviders.Contains(id)).ToList())
+                await EndLiveBroadcastAsync(providerId, reportFailure: false);
             IsStreamingTransition = false;
+        }
+
+        if (errors.Count > 0)
+        {
+            StreamError.ShowError(string.Join(Environment.NewLine,
+                [WithLivesLeft(string.Join(Environment.NewLine, errors.Distinct())), .. warnings]));
+        }
+        else if (warnings.Count > 0)
+        {
+            StreamError.ShowWarning(string.Join(Environment.NewLine, warnings));
         }
     }
 
@@ -189,10 +579,13 @@ public partial class StudioViewModel : ViewModelBase
             var result = await _streamingRuntime.StopStreamingAsync(cancellationToken);
             if (!result.IsSuccess)
             {
-                StreamError = result.Message;
+                StreamError.ShowError(result.Message);
                 return;
             }
-            _workspace.SetStreamingState(false);
+            _liveProviders.Clear();
+            SyncLiveState();
+            foreach (var providerId in _liveBroadcasts.Keys.ToList())
+                await EndLiveBroadcastAsync(providerId);
         }
         finally
         {
@@ -200,97 +593,359 @@ public partial class StudioViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand]
+    // Both a requested stop and the runtime's stop signal land here: the broadcast is taken
+    // first, so it is ended once.
+    private async Task EndLiveBroadcastAsync(string providerId, bool reportFailure = true)
+    {
+        if (!_liveBroadcasts.Remove(providerId, out var broadcast)) return;
+        SyncLiveState();
+
+        var result = await _broadcasts.EndAsync(broadcast, CancellationToken.None);
+        if (reportFailure && !result.IsSuccess) StreamError.ShowError(result.Message);
+    }
+
+    // Brings the on-air state and the "⋯" list in line with the platforms live right now.
+    private void SyncLiveState()
+    {
+        for (var index = LivePlatforms.Count - 1; index >= 0; index--)
+        {
+            if (!_liveProviders.Contains(LivePlatforms[index].ProviderId)) LivePlatforms.RemoveAt(index);
+        }
+
+        var position = 0;
+        foreach (var providerId in StreamingProviders.All.Where(_liveProviders.Contains))
+        {
+            var platform = LivePlatforms.FirstOrDefault(live => live.ProviderId == providerId);
+            if (platform == null)
+            {
+                platform = new LivePlatformViewModel(providerId, _providerStore.Get(providerId)?.UserName ?? "");
+                LivePlatforms.Insert(position, platform);
+            }
+            platform.WatchUrl = _liveBroadcasts.TryGetValue(providerId, out var broadcast) ? broadcast.WatchUrl ?? "" : "";
+            position++;
+        }
+
+        OnPropertyChanged(nameof(LivePlatformsToolTip));
+        _workspace.SetStreamingState(_liveProviders.Count > 0);
+    }
+
+    // A platform that failed or dropped while others stay live: the message says the show goes on.
+    private string WithLivesLeft(string message)
+    {
+        var live = StreamingProviders.All.Where(_liveProviders.Contains).Select(StreamingProviders.DisplayName).ToList();
+        return live.Count == 0 ? message : $"{message}{Environment.NewLine}Le live continue sur {string.Join(" et ", live)}.";
+    }
+
+    // One session per target: the program (following the active scene) if ticked, then each
+    // ticked scene into a file of its own. A target that fails is reported by name while the
+    // others keep recording.
+    [RelayCommand(CanExecute = nameof(HasRecordingTarget))]
     private async Task StartRecording(CancellationToken cancellationToken)
     {
-        RecordError = "";
-        if (IsStreaming)
-        {
-            RecordError = "Arrêtez le live avant de démarrer l'enregistrement.";
-            return;
-        }
-
+        RecordError.Clear();
         if (!_recordingRuntime.IsAvailable)
         {
-            RecordError = _recordingRuntime.UnavailableMessage;
+            RecordError.ShowError(_recordingRuntime.UnavailableMessage);
             return;
         }
 
-        var scene = ActiveScene;
-        if (scene == null || !StudioWorkspaceViewModel.HasVideoSource(scene))
+        var targets = new List<SceneItemViewModel?>();
+        if (RecordProgram) targets.Add(null);
+        targets.AddRange(RecordingSceneOptions.Where(option => option.IsSelected).Select(option => option.Scene));
+        if (targets.Count == 0)
         {
-            RecordError = "Aucune source vidéo dans la scène active.";
+            RecordError.ShowError("Choisissez au moins une scène à enregistrer.");
             return;
         }
 
         var settings = _settingsService.Load();
         var container = FormatFromIndex(settings.SelectedOutputFormatIndex);
-        string path;
-        try
-        {
-            path = RecordingOutputPath.Create(settings.OutputPath, container, DateTime.Now);
-        }
-        catch (Exception exception)
-        {
-            RecordError = exception.Message;
-            return;
-        }
-
-        RecordingOutputDirectory = Path.GetDirectoryName(path) ?? "";
-        var (baseWidth, baseHeight) = BaseResolutionFromIndex(settings.SelectedBaseResolutionIndex);
+        var baseResolution = _resolutionResolver.Resolve(settings);
         var (width, height) = OutputResolutionFromIndex(settings.SelectedOutputResolutionIndex);
-        var result = await _recordingRuntime.StartRecordingAsync(new RecordingRequest(
-            scene.Id,
-            path,
-            FpsFromIndex(settings.SelectedFpsIndex),
-            (int)settings.VideoBitrate,
-            AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
-            AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
-            AudioChannelsFromIndex(settings.SelectedChannelsIndex),
-            baseWidth,
-            baseHeight,
-            width,
-            height,
-            container), cancellationToken);
-        if (!result.IsSuccess)
+        var timestamp = DateTime.Now;
+        var takenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var failures = new List<string>();
+        string Describe(SceneItemViewModel? target, string message) =>
+            targets.Count == 1 ? message : $"{target?.Name ?? "Scène active"} : {message}";
+
+        foreach (var target in targets)
         {
-            RecordError = result.Message;
-            return;
+            var scene = target ?? ActiveScene;
+            if (scene == null || !StudioWorkspaceViewModel.HasVideoSource(scene))
+            {
+                failures.Add(Describe(target, target == null
+                    ? "Aucune source vidéo dans la scène active."
+                    : "Cette scène n'a pas de source vidéo."));
+                continue;
+            }
+
+            string path;
+            try
+            {
+                path = RecordingOutputPath.Create(settings.OutputPath, container, timestamp, target?.Name, takenPaths);
+            }
+            catch (Exception exception)
+            {
+                failures.Add(Describe(target, exception.Message));
+                continue;
+            }
+
+            takenPaths.Add(path);
+            RecordingOutputDirectory = Path.GetDirectoryName(path) ?? "";
+            var sessionId = Guid.NewGuid();
+            var result = await _recordingRuntime.StartRecordingAsync(new RecordingRequest(
+                scene.Id,
+                path,
+                FpsFromIndex(settings.SelectedFpsIndex),
+                (int)settings.VideoBitrate,
+                AudioBitrateFromIndex(settings.SelectedAudioBitrateIndex),
+                AudioSampleRateFromIndex(settings.SelectedSampleRateIndex),
+                AudioChannelsFromIndex(settings.SelectedChannelsIndex),
+                baseResolution.Width,
+                baseResolution.Height,
+                width,
+                height,
+                container,
+                sessionId,
+                FollowsProgram: target == null), cancellationToken);
+            if (!result.IsSuccess)
+            {
+                failures.Add(Describe(target, result.Message));
+                continue;
+            }
+
+            _workspace.RecordingSessions.Add(new RecordingSessionViewModel(
+                sessionId,
+                _workspace,
+                target,
+                path,
+                _recordingRuntime.GetPauseUnavailableReason(sessionId),
+                _timeProvider));
+            _workspace.RefreshRecordingState();
         }
 
-        _workspace.SetRecordingState(true);
+        if (failures.Count > 0) RecordError.ShowError(string.Join(Environment.NewLine, failures));
+    }
+
+    // Prefixed with the session's name once several are running, so the message says which.
+    private string DescribeSession(RecordingSessionViewModel session, string message) =>
+        HasSeveralSessions ? $"{session.Name} : {message}" : message;
+
+    private void ApplySessionState(RecordingSessionViewModel session, RecordingState state)
+    {
+        session.Apply(state);
+        // The list drops a session as soon as it is over.
+        if (session.State == RecordingState.Idle) _workspace.RecordingSessions.Remove(session);
+        _workspace.RefreshRecordingState();
+        NotifySessionCommandsChanged();
+    }
+
+    // ── Global actions: every session at once ────────────────────────────────────────
+
+    [RelayCommand(CanExecute = nameof(CanTogglePauseRecording))]
+    private void TogglePauseRecording()
+    {
+        RecordError.Clear();
+        var pausing = _workspace.RecordingState == RecordingState.Recording;
+        var sessions = RecordingSessions
+            .Where(session => session.CanPause &&
+                              session.State == (pausing ? RecordingState.Recording : RecordingState.Paused))
+            .ToList();
+        var failures = sessions
+            .Select(session => SetSessionPaused(session, pausing))
+            .Where(failure => failure.Length > 0)
+            .ToList();
+        if (failures.Count > 0) RecordError.ShowError(string.Join(Environment.NewLine, failures));
     }
 
     [RelayCommand]
-    private async Task StopRecording(CancellationToken cancellationToken)
+    private Task StopRecording(CancellationToken cancellationToken) =>
+        StopSessionsAsync([.. RecordingSessions], cancellationToken);
+
+    public bool CanCancelRecording =>
+        _cancelRecordingDialog != null &&
+        RecordingSessions.Any(session => session.IsActive);
+
+    [RelayCommand(CanExecute = nameof(CanCancelRecording))]
+    private Task CancelRecording(CancellationToken cancellationToken) =>
+        CancelSessionsAsync([.. RecordingSessions.Where(session => session.IsActive)], cancellationToken);
+
+    // ── One session ──────────────────────────────────────────────────────────────────
+
+    private static bool CanToggleSessionPause(RecordingSessionViewModel? session) =>
+        session is { IsActive: true, CanPause: true };
+
+    [RelayCommand(CanExecute = nameof(CanToggleSessionPause))]
+    private void ToggleSessionPause(RecordingSessionViewModel? session)
     {
-        var result = await _recordingRuntime.StopRecordingAsync(cancellationToken);
-        if (!result.IsSuccess)
+        if (session == null) return;
+        RecordError.Clear();
+        var failure = SetSessionPaused(session, !session.IsPaused);
+        if (failure.Length > 0) RecordError.ShowError(failure);
+    }
+
+    private static bool CanStopSession(RecordingSessionViewModel? session) => session is { IsActive: true };
+
+    [RelayCommand(CanExecute = nameof(CanStopSession))]
+    private Task StopSession(RecordingSessionViewModel? session, CancellationToken cancellationToken) =>
+        session == null ? Task.CompletedTask : StopSessionsAsync([session], cancellationToken);
+
+    private bool CanCancelSession(RecordingSessionViewModel? session) =>
+        _cancelRecordingDialog != null && session is { IsActive: true };
+
+    [RelayCommand(CanExecute = nameof(CanCancelSession))]
+    private Task CancelSession(RecordingSessionViewModel? session, CancellationToken cancellationToken) =>
+        session == null ? Task.CompletedTask : CancelSessionsAsync([session], cancellationToken);
+
+    // "" on success. On failure libobs left the output as it was, so the state stays too.
+    private string SetSessionPaused(RecordingSessionViewModel session, bool paused)
+    {
+        var result = paused
+            ? _recordingRuntime.PauseRecording(session.Id)
+            : _recordingRuntime.ResumeRecording(session.Id);
+        if (!result.IsSuccess) return DescribeSession(session, result.Message);
+
+        // The runtime also reports the change; applying it twice is a no-op.
+        ApplySessionState(session, paused ? RecordingState.Paused : RecordingState.Recording);
+        return "";
+    }
+
+    // The stops run side by side, each returning once its output released the file; their
+    // results are applied together afterwards, on the caller's thread.
+    private async Task<IReadOnlyList<RecordingSessionViewModel>> StopSessionsCoreAsync(
+        IReadOnlyList<RecordingSessionViewModel> sessions,
+        CancellationToken cancellationToken)
+    {
+        // A session that ended on its own (while a dialog was open) has nothing left to stop.
+        var running = sessions.Where(RecordingSessions.Contains).ToList();
+        var results = await Task.WhenAll(running.Select(session =>
+            _recordingRuntime.StopRecordingAsync(session.Id, cancellationToken)));
+
+        var failures = new List<string>();
+        var stillRunning = new List<RecordingSessionViewModel>();
+        for (var i = 0; i < running.Count; i++)
         {
-            RecordError = result.Message;
-            return;
+            var session = running[i];
+            if (!results[i].IsSuccess && session.State is not RecordingState.Idle && RecordingSessions.Contains(session))
+            {
+                failures.Add(DescribeSession(session, results[i].Message));
+                stillRunning.Add(session);
+                continue;
+            }
+            ApplySessionState(session, RecordingState.Idle);
         }
-        _workspace.SetRecordingState(false);
+
+        if (failures.Count > 0) RecordError.ShowError(string.Join(Environment.NewLine, failures));
+        return stillRunning;
+    }
+
+    private async Task StopSessionsAsync(IReadOnlyList<RecordingSessionViewModel> sessions, CancellationToken cancellationToken)
+    {
+        RecordError.Clear();
+        await StopSessionsCoreAsync(sessions, cancellationToken);
+    }
+
+    // Throws takes away: stop, then delete the files these sessions created - and only those,
+    // whose names RecordingOutputPath picked so that they did not exist beforehand.
+    private async Task CancelSessionsAsync(IReadOnlyList<RecordingSessionViewModel> sessions, CancellationToken cancellationToken)
+    {
+        if (_cancelRecordingDialog == null || sessions.Count == 0) return;
+        if (!await _cancelRecordingDialog.ConfirmAsync([.. sessions.Select(session => session.OutputPath)])) return;
+
+        RecordError.Clear();
+        // Still running: their files are in use, so they stay, like the recordings.
+        var stillRunning = await StopSessionsCoreAsync(sessions, cancellationToken);
+
+        var undeleted = new List<string>();
+        foreach (var session in sessions.Except(stillRunning))
+        {
+            if (!await RecordingFile.TryDeleteAsync(session.OutputPath))
+                undeleted.Add(session.OutputPath);
+        }
+
+        if (undeleted.Count == 0) return;
+        var files = undeleted.Count == 1
+            ? $"son fichier n'a pas pu être supprimé. Il est peut-être ouvert dans une autre application, " +
+              $"ou protégé en écriture. Supprimez-le à la main : {undeleted[0]}"
+            : "ces fichiers n'ont pas pu être supprimés. Ils sont peut-être ouverts dans une autre application, " +
+              $"ou protégés en écriture. Supprimez-les à la main :{Environment.NewLine}{string.Join(Environment.NewLine, undeleted)}";
+        var message = $"Enregistrement annulé, mais {files}";
+        RecordError.ShowError(RecordError.Text.Length > 0 ? $"{RecordError.Text}{Environment.NewLine}{message}" : message);
     }
 
     private void OnRecordingRuntimeStateChanged(object? sender, RecordingStateChangedEventArgs e)
     {
         void ApplyState()
         {
-            _workspace.SetRecordingState(e.IsRecording);
-            if (!string.IsNullOrWhiteSpace(e.Message)) RecordError = e.Message;
+            // Events of a session not listed yet (its start is still being awaited) or gone
+            // already are dropped: the start result and the stop result cover them.
+            var session = RecordingSessions.FirstOrDefault(candidate => candidate.Id == e.SessionId);
+            if (session == null) return;
+            var message = string.IsNullOrWhiteSpace(e.Message) ? "" : DescribeSession(session, e.Message);
+            ApplySessionState(session, e.State);
+            if (message.Length > 0) RecordError.ShowError(message);
         }
 
         if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
         else Dispatcher.UIThread.Post(ApplyState);
     }
 
+    // Keeps one option per scene, in the scenes' order, ticks preserved.
+    private void SyncRecordingSceneOptions()
+    {
+        var existing = RecordingSceneOptions.ToDictionary(option => option.Scene);
+        RecordingSceneOptions.Clear();
+        foreach (var scene in _workspace.Scenes)
+        {
+            if (!existing.TryGetValue(scene, out var option))
+            {
+                option = new RecordingSceneOption(scene);
+                option.PropertyChanged += (_, _) => NotifyRecordingSelectionChanged();
+            }
+            RecordingSceneOptions.Add(option);
+        }
+        NotifyRecordingSelectionChanged();
+    }
+
+    private void NotifyRecordingSelectionChanged()
+    {
+        OnPropertyChanged(nameof(RecordingTargetCount));
+        OnPropertyChanged(nameof(HasRecordingTarget));
+        OnPropertyChanged(nameof(RecordingSelectionSummary));
+        OnPropertyChanged(nameof(RecordingLoadWarning));
+        OnPropertyChanged(nameof(RecordingButtonToolTip));
+        StartRecordingCommand.NotifyCanExecuteChanged();
+    }
+
+    private void NotifyRecordingSessionsChanged()
+    {
+        OnPropertyChanged(nameof(PauseUnavailableReason));
+        OnPropertyChanged(nameof(CanTogglePauseRecording));
+        OnPropertyChanged(nameof(PauseToolTip));
+        OnPropertyChanged(nameof(RecordingSessionsToolTip));
+        OnPropertyChanged(nameof(CancelAllToolTip));
+        NotifySessionCommandsChanged();
+    }
+
+    private void NotifySessionCommandsChanged()
+    {
+        TogglePauseRecordingCommand.NotifyCanExecuteChanged();
+        CancelRecordingCommand.NotifyCanExecuteChanged();
+        ToggleSessionPauseCommand.NotifyCanExecuteChanged();
+        StopSessionCommand.NotifyCanExecuteChanged();
+        CancelSessionCommand.NotifyCanExecuteChanged();
+    }
+
     private void OnStreamingRuntimeStateChanged(object? sender, StreamingStateChangedEventArgs e)
     {
         void ApplyState()
         {
-            _workspace.SetStreamingState(e.IsStreaming);
-            if (!string.IsNullOrWhiteSpace(e.Message)) StreamError = e.Message;
+            if (e.IsStreaming) _liveProviders.Add(e.ProviderId);
+            else _liveProviders.Remove(e.ProviderId);
+            SyncLiveState();
+            if (!string.IsNullOrWhiteSpace(e.Message)) StreamError.ShowError(WithLivesLeft(e.Message));
+            // A live cut by the network still has to end on the platform.
+            if (!e.IsStreaming) _ = EndLiveBroadcastAsync(e.ProviderId);
         }
 
         if (Application.Current == null || Dispatcher.UIThread.CheckAccess()) ApplyState();
@@ -310,13 +965,14 @@ public partial class StudioViewModel : ViewModelBase
     // alone - starting an output points the channel at the active scene anyway.
     private void ApplyActiveSceneToRecording()
     {
-        if (!_workspace.IsRecording) return;
+        // Sessions dedicated to a scene keep their scene; only the program one follows.
+        if (!RecordingSessions.Any(session => session.FollowsProgram)) return;
 
         var scene = ActiveScene;
         if (scene == null) return;
 
         var result = _recordingRuntime.SwitchRecordingScene(scene.Id);
-        if (!result.IsSuccess) RecordError = result.Message;
+        if (!result.IsSuccess) RecordError.ShowError(result.Message);
     }
 
     private void ApplyActiveSceneToStreaming()
@@ -327,7 +983,7 @@ public partial class StudioViewModel : ViewModelBase
         if (scene == null) return;
 
         var result = _streamingRuntime.SwitchStreamingScene(scene.Id);
-        if (!result.IsSuccess) StreamError = result.Message;
+        if (!result.IsSuccess) StreamError.ShowError(result.Message);
     }
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -336,14 +992,17 @@ public partial class StudioViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(ActiveScene));
             NotifyPreviewChanged();
+            // Whatever went wrong was about the previous scene; a failed switch reports again.
+            RecordError.Clear();
+            StreamError.Clear();
             ApplyActiveSceneToRecording();
             ApplyActiveSceneToStreaming();
         }
-        else if (e.PropertyName is nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))
+        else if (e.PropertyName is nameof(StudioWorkspaceViewModel.RecordingState) or nameof(StudioWorkspaceViewModel.IsStreaming))
         {
             NotifySessionStateChanged();
-            if (IsRecording || IsStreaming) StartSessionTimerIfNeeded();
-            else ResetSessionTimer();
+            SyncSessionClocks();
+            NotifySessionCommandsChanged();
         }
     }
 
@@ -351,60 +1010,100 @@ public partial class StudioViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(PreviewPlaceholderText));
         OnPropertyChanged(nameof(ShowPreviewPlaceholder));
+        OnPropertyChanged(nameof(ShowNoScene));
+        OnPropertyChanged(nameof(ShowNoVideoSource));
+        OnPropertyChanged(nameof(ShowEmptyPreview));
     }
 
     private void NotifySessionStateChanged()
     {
         OnPropertyChanged(nameof(IsStreaming));
+        OnPropertyChanged(nameof(RecordingState));
         OnPropertyChanged(nameof(IsRecording));
         OnPropertyChanged(nameof(StreamStatusText));
-        OnPropertyChanged(nameof(StreamStatusBrush));
-        OnPropertyChanged(nameof(StreamTimerBrush));
+        OnPropertyChanged(nameof(IsOnAir));
         OnPropertyChanged(nameof(SceneBarStatusText));
-        OnPropertyChanged(nameof(SceneBarStatusBrush));
+        OnPropertyChanged(nameof(IsRecordingPaused));
+        OnPropertyChanged(nameof(IsSessionPaused));
+        OnPropertyChanged(nameof(PauseButtonText));
+        OnPropertyChanged(nameof(CanTogglePauseRecording));
+        OnPropertyChanged(nameof(PauseToolTip));
     }
 
-    private ProviderSettings? GetConnectedTwitchProvider()
+    private const string NoAccountLabel = "Aucun compte de streaming connecté";
+    private const string NoDestinationLabel = "Twitch ou YouTube";
+    private const string AccountDisconnectedError = "Compte de streaming déconnecté. Reconnectez-vous dans Paramètres → Comptes.";
+
+    // The platforms chosen in Settings › Streaming that can go live, in StreamingProviders.All
+    // order. None of them ready: the first account that can, so one connected account always works.
+    private List<ProviderSettings> GetLiveAccounts(ApplicationSettings settings)
     {
-        var provider = _providerStore.Get("twitch");
-        return provider is { IsConnected: true } && !string.IsNullOrWhiteSpace(provider.StreamKey)
-            ? provider
-            : null;
+        var usable = StreamingProviders.All
+            .Select(_providerStore.Get)
+            .OfType<ProviderSettings>()
+            .Where(IsReadyToStream)
+            .ToList();
+        var chosen = usable.Where(account => settings.StreamingProviderIds.Contains(account.ProviderId)).ToList();
+        return chosen.Count > 0 ? chosen : [.. usable.Take(1)];
     }
+
+    internal static bool IsReadyToStream(ProviderSettings? account) =>
+        account is { IsConnected: true }
+        && !string.IsNullOrWhiteSpace(account.StreamKey)
+        && (account.ProviderId == StreamingProviders.Twitch || !string.IsNullOrWhiteSpace(account.IngestUrl));
+
+    private static StreamingDestination ToDestination(ProviderSettings account) =>
+        new(account.ProviderId, account.IngestUrl ?? "", account.StreamKey!);
 
     private void RefreshProviderState()
     {
-        var provider = GetConnectedTwitchProvider();
-        ConnectedAccountLabel = provider == null
-            ? "Compte Twitch non connecté"
-            : $"Connecté en tant que {provider.UserName}";
+        var settings = _settingsService.Load();
+        var accounts = GetLiveAccounts(settings);
+        RefreshGoLiveDestinations(settings);
+        ConnectedAccountLabel = accounts.Count == 0
+            ? NoAccountLabel
+            : $"Connecté en tant que {string.Join(", ", accounts.Select(account => account.UserName).Distinct())}";
+        DestinationLabel = accounts.Count == 0
+            ? NoDestinationLabel
+            : string.Join(" + ", accounts.Select(account =>
+                $"{StreamingProviders.DisplayName(account.ProviderId)} · {account.UserName}"));
+        IsAccountConnected = accounts.Count > 0;
+
+        // An account error left from an earlier attempt no longer applies once one is connected.
+        if (accounts.Count > 0 && StreamError.Text == AccountDisconnectedError) StreamError.Clear();
     }
 
-    private void StartSessionTimerIfNeeded()
+    // Each clock runs with its own output; Start keeps a running clock as it is.
+    private void SyncSessionClocks()
     {
-        if (_sessionStartUtc != null) return;
-        _sessionStartUtc = DateTime.UtcNow;
-        StreamTimerText = "00:00:00";
-        _sessionTimer.Start();
+        if (IsStreaming) _liveClock.Start();
+        else _liveClock.Reset();
+
+        if (IsRecording)
+        {
+            _recordingClock.Start();
+            _recordingClock.SetPaused(IsRecordingPaused);
+        }
+        else
+        {
+            _recordingClock.Reset();
+        }
+
+        if (IsOnAir) _sessionTimer.Start();
+        else _sessionTimer.Stop();
+        RefreshSessionTimer();
     }
 
-    private void ResetSessionTimer()
-    {
-        _sessionTimer.Stop();
-        _sessionStartUtc = null;
-        StreamTimerText = "00:00:00";
-    }
+    private void OnSessionTimerTick(object? sender, EventArgs e) => RefreshSessionTimer();
 
-    private void OnSessionTimerTick(object? sender, EventArgs e)
+    // While paused the text holds still: the pause in progress is taken off as it grows.
+    internal void RefreshSessionTimer()
     {
-        if (_sessionStartUtc == null) return;
-        var elapsed = DateTime.UtcNow - _sessionStartUtc.Value;
-        StreamTimerText = $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+        StreamTimerText = (IsStreaming ? _liveClock : _recordingClock).Text;
+        foreach (var session in RecordingSessions) session.RefreshTimer();
     }
 
     private static int FpsFromIndex(int index) => index switch { 0 => 60, 2 => 25, _ => 30 };
-    private static (int Width, int Height) BaseResolutionFromIndex(int index) =>
-        VideoResolution.BaseFromIndex(index);
     private static (int Width, int Height) OutputResolutionFromIndex(int index) =>
         VideoResolution.OutputFromIndex(index);
     private static int AudioSampleRateFromIndex(int index) => index == 1 ? 44_100 : 48_000;

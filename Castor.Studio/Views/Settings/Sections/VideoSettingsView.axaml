@@ -4,7 +4,7 @@
              x:Class="CastorApplication.Views.Settings.Sections.VideoSettingsView"
              x:DataType="vm:VideoSettingsViewModel">
 
-    <StackPanel Margin="28,20"
+    <StackPanel Margin="33,24"
                 Spacing="28">
 
         <StackPanel Spacing="14">
@@ -12,7 +12,7 @@
             <TextBlock Text="VIDÉO"
                        Classes="section-title"/>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Résolution de base"
@@ -21,18 +21,14 @@
                 <ComboBox Grid.Column="1"
                           MaxWidth="260"
                           HorizontalAlignment="Left"
-                          SelectedIndex="{Binding SelectedBaseResolutionIndex}">
-
-                    <ComboBoxItem Content="3840x2160 (4K)"/>
-                    <ComboBoxItem Content="1920x1080 (Full HD)"/>
-                    <ComboBoxItem Content="1280x720 (HD)"/>
-                    <ComboBoxItem Content="2560x1440 (2K)"/>
-
+                          ItemsSource="{Binding BaseResolutionOptions}"
+                          SelectedItem="{Binding SelectedBaseResolution}"
+                          DisplayMemberBinding="{Binding Label}">
                 </ComboBox>
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Résolution de sortie"
@@ -52,7 +48,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Images par seconde"
@@ -71,7 +67,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Débit enregistrement (kbps)"

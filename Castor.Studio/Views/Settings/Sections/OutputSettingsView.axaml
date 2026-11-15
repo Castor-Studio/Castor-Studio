@@ -4,7 +4,7 @@
              x:Class="CastorApplication.Views.Settings.Sections.OutputSettingsView"
              x:DataType="vm:OutputSettingsViewModel">
 
-    <StackPanel Margin="28,20"
+    <StackPanel Margin="33,24"
                 Spacing="28">
 
         <StackPanel Spacing="14">
@@ -12,7 +12,7 @@
             <TextBlock Text="SORTIE"
                        Classes="section-title"/>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Format d'enregistrement"
@@ -31,7 +31,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Dossier de sortie"

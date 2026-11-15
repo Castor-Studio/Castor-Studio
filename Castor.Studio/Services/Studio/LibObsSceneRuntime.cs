@@ -1,5 +1,6 @@
 using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Settings;
 using LibObs;
 
@@ -10,24 +11,83 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private const string FfmpegOutputId = "ffmpeg_output";
     private const string LibVpxVp9EncoderName = "libvpx-vp9";
     private const string LibOpusEncoderName = "libopus";
+    private const string WinRtRuntimeRelativePath = "obs-runtime\\bin\\64bit\\libobs-winrt.dll";
 
     private sealed record NativeSource(
         ObsSource Source,
         ObsSceneItem Item,
         bool IsMedia,
-        bool ProvidesVideo);
+        bool ProvidesVideo)
+    {
+        // libobs knows a single crop: the operator's and the zoom's are added up in it. What the
+        // zoom added is kept to return one without the other.
+        public SourceZoom Zoom { get; set; } = SourceZoom.None;
+        public SourceCrop ZoomCrop { get; set; } = SourceCrop.None;
+
+        // A restored zoom on a source with no image yet: without its size there is no window to
+        // crop, so the zoom is applied once the first image gives one.
+        public bool ZoomPending { get; set; }
+    }
 
     // One native display per window that asked for a preview - a Studio panel and the
     // Scenes page (or two detached panels) can each hold their own live session instead of
     // taking turns on a single global one.
     private sealed class PreviewSession
     {
+        // libobs's graphics thread reads this field every frame while the UI thread replaces it: a
+        // reference swaps atomically, with no lock. Taking one here would deadlock with the
+        // operations waiting on that same thread.
+        private volatile CompositionOverlay _overlay = CompositionOverlay.Empty;
+
         public required ObsView View { get; init; }
         public required ObsSource SceneSource { get; init; }
         public required Guid SceneId { get; init; }
         public required uint CanvasWidth { get; init; }
         public required uint CanvasHeight { get; init; }
         public required ObsDisplay Display { get; init; }
+
+        /// <summary>What is painted over this session's picture.</summary>
+        public CompositionOverlay Overlay
+        {
+            get => _overlay;
+            set => _overlay = value;
+        }
+    }
+
+    // What every running output goes through, recording or live: the libobs signals awaited
+    // by start and stop, and whether the stop was asked for.
+    private abstract class OutputSession
+    {
+        public required ObsOutput Output { get; init; }
+        public TaskCompletionSource<ObsOutputStateChangedEventArgs> Started { get; } = NewOutputSignal();
+        public TaskCompletionSource<ObsOutputStateChangedEventArgs> Stopped { get; } = NewOutputSignal();
+        public EventHandler<ObsOutputStateChangedEventArgs>? StateHandler { get; set; }
+        public bool StopRequested { get; set; }
+        // Set on the stop signal: what the output held is free again even before the release.
+        public bool Ended { get; set; }
+    }
+
+    // One running recording. The program-following session renders the program channel;
+    // a dedicated one has its own view and video mix, so it keeps showing its scene.
+    private sealed class RecordingSession : OutputSession
+    {
+        public required Guid Id { get; init; }
+        public required bool FollowsProgram { get; init; }
+        public required RecordingContainer Container { get; init; }
+        public ObsEncoder? VideoEncoder { get; init; }
+        public ObsEncoder? AudioEncoder { get; init; }
+        public ObsView? View { get; init; }
+        public Guid SceneId { get; set; }
+    }
+
+    // One running live, keyed by its platform. Unlike recordings, lives all show the program
+    // channel and share the runtime's single pair of streaming encoders: the picture is
+    // encoded once, however many platforms receive it.
+    private sealed class StreamingSession : OutputSession
+    {
+        public required string ProviderId { get; init; }
+        public required string PlatformName { get; init; }
+        public required ObsService Service { get; init; }
     }
 
     private readonly object _gate = new();
@@ -35,26 +95,29 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     private readonly Dictionary<Guid, Dictionary<Guid, NativeSource>> _sources = [];
     private readonly Dictionary<IntPtr, PreviewSession> _previewSessions = [];
     private readonly SettingsService? _settingsService;
-    private ObsOutput? _recordingOutput;
-    private ObsEncoder? _recordingVideoEncoder;
-    private ObsEncoder? _recordingAudioEncoder;
-    private Guid? _recordingSceneId;
-    private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _recordingStarted;
-    private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _recordingStopped;
-    private bool _recordingStopRequested;
-    private ObsOutput? _streamingOutput;
+    private readonly VideoCanvasResolutionResolver _resolutionResolver;
+    private readonly Dictionary<Guid, RecordingSession> _recordings = [];
+    private readonly Dictionary<string, StreamingSession> _streams = new(StringComparer.Ordinal);
+    // Created with the lives started together, released with the last of them.
     private ObsEncoder? _streamingVideoEncoder;
     private ObsEncoder? _streamingAudioEncoder;
-    private ObsService? _streamingService;
     private Guid? _streamingSceneId;
-    private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStarted;
-    private TaskCompletionSource<ObsOutputStateChangedEventArgs>? _streamingStopped;
-    private bool _streamingStopRequested;
+    // The program channel (0) never carries a scene directly: it carries this transition, which
+    // shows the live or recording scene and animates the change to the next one. A live and a
+    // program recording running together share it.
+    private ObsTransition? _programTransition;
+    private SceneTransitionKind _programTransitionKind;
+    private Guid? _programSceneId;
+    // The audio format the running outputs were started with: libobs cannot reset audio while
+    // one of them is active, so a live and a recording running together must agree on it.
+    private (int SampleRate, int Channels)? _audioFormat;
+    private SceneTransition _transition = SceneTransition.Default;
     private bool _initialized;
     private bool _disposed;
     private string _unavailableMessage = "";
     private ObsVideoSettings? _videoSettings;
     private ApplicationSettings? _pendingVideoSettings;
+    private Timer? _pendingZoomTimer;
 
     public bool IsAvailable => _initialized && !_disposed;
     public string UnavailableMessage => _unavailableMessage;
@@ -68,17 +131,33 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public ObsSourceAudioCapture? AddSourceAudioCapture(Guid sceneId, Guid sourceId, ObsSourceAudioCallback callback)
+    {
+        lock (_gate)
+        {
+            if (!IsAvailable || !_sources.TryGetValue(sceneId, out var sources) ||
+                !sources.TryGetValue(sourceId, out var source)) return null;
+            // Owned by the source: disposing it (source removed) also stops the callbacks.
+            return source.Source.AddAudioCaptureCallback(callback);
+        }
+    }
+
     public event EventHandler<RecordingStateChangedEventArgs>? StateChanged;
     public event EventHandler<StreamingStateChangedEventArgs>? StreamingStateChanged;
     public event EventHandler? PreviewResetRequested;
 
-    public LibObsSceneRuntime(SettingsService? settingsService = null)
+    public LibObsSceneRuntime(
+        SettingsService? settingsService = null,
+        VideoCanvasResolutionResolver? resolutionResolver = null)
     {
         _settingsService = settingsService;
+        _resolutionResolver = resolutionResolver ?? new VideoCanvasResolutionResolver(settingsService);
         try
         {
             Obs.Startup();
-            _videoSettings = CreatePreviewVideoSettings(settingsService?.Load() ?? new ApplicationSettings());
+            var settings = settingsService?.Load() ?? new ApplicationSettings();
+            _transition = settings.ToSceneTransition();
+            _videoSettings = CreatePreviewVideoSettings(settings, _resolutionResolver.Resolve(settings));
             Obs.ResetVideo(_videoSettings);
             Obs.ResetAudio(new ObsAudioSettings());
             Obs.LoadModules().EnsureSuccess();
@@ -89,6 +168,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         catch (Exception exception)
         {
             _unavailableMessage = $"LibObs n'a pas pu être initialisé : {exception.Message}";
+            AppLog.Error("libobs startup failed", exception);
             TryShutdownAfterFailedStartup();
         }
     }
@@ -148,7 +228,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
         lock (_gate)
         {
-            if (_recordingSceneId == sceneId)
+            if (_recordings.Values.Any(session => !session.Ended && session.SceneId == sceneId))
                 return SceneRuntimeResult.Failure("Cette scène est utilisée par l'enregistrement en cours.");
             if (_streamingSceneId == sceneId)
                 return SceneRuntimeResult.Failure("Cette scène est utilisée par le live en cours.");
@@ -246,6 +326,30 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public SourceRuntimeResult RenameSource(Guid sceneId, Guid sourceId, string requestedName)
+    {
+        if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+        if (string.IsNullOrWhiteSpace(requestedName))
+            return SourceRuntimeResult.Failure("Le nom de la source est obligatoire.");
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceRuntimeResult.Failure("Cette source n'existe pas dans LibObs.");
+
+            try
+            {
+                source.Source.Name = requestedName.Trim();
+                return SourceRuntimeResult.Success(source.Source.Name);
+            }
+            catch (Exception exception)
+            {
+                return SourceRuntimeResult.Failure($"Renommage impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
     public SourceRuntimeResult SetMediaLoop(Guid sceneId, Guid sourceId, bool loop)
     {
         if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
@@ -272,6 +376,377 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public SourceOrderResult GetSourceOrder(Guid sceneId)
+    {
+        if (!IsAvailable) return SourceOrderResult.Unavailable(UnavailableMessageForOperation());
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceOrderResult.Unavailable(UnavailableMessageForOperation());
+            if (!_scenes.TryGetValue(sceneId, out var scene) || !_sources.TryGetValue(sceneId, out var sources))
+                return SourceOrderResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                return SourceOrderResult.Success(ReadLayerOrder(scene, sources));
+            }
+            catch (Exception exception)
+            {
+                return SourceOrderResult.Failure($"Lecture de l'ordre impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
+    {
+        if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+        if (layerIndex < 0) return SourceRuntimeResult.Failure("Le rang d'une source ne peut pas être négatif.");
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceRuntimeResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceRuntimeResult.Failure("Cette source n'existe pas dans LibObs.");
+            if (layerIndex >= sources.Count)
+                return SourceRuntimeResult.Failure("Ce rang dépasse le nombre de sources de la scène.");
+
+            try
+            {
+                // libobs numbers its scene items from background (0) to foreground, the reverse of the rank
+                // the operator handles. The count kept here stays in step with the native scene through
+                // AddSource/RemoveSource, under this lock.
+                source.Item.SetOrderPosition(sources.Count - 1 - layerIndex);
+                return SourceRuntimeResult.Success(source.Source.Name);
+            }
+            catch (Exception exception)
+            {
+                return SourceRuntimeResult.Failure($"Réordonnancement impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    public SceneCompositionResult GetSceneComposition(Guid sceneId)
+    {
+        if (!IsAvailable) return SceneCompositionResult.Unavailable(UnavailableMessageForOperation());
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SceneCompositionResult.Unavailable(UnavailableMessageForOperation());
+            if (!_scenes.TryGetValue(sceneId, out var scene) || !_sources.TryGetValue(sceneId, out var sources))
+                return SceneCompositionResult.Failure("Cette scène n'existe pas dans LibObs.");
+
+            try
+            {
+                // One take under the lock: order and transforms describe the same moment of the engine,
+                // never two states mixed together.
+                var transforms = new List<SourceTransform>(sources.Count);
+                foreach (var sourceId in ReadLayerOrder(scene, sources))
+                {
+                    if (sources.TryGetValue(sourceId, out var native))
+                        transforms.Add(ReadTransform(sourceId, native));
+                }
+
+                return SceneCompositionResult.Success(new SceneComposition(
+                    (int)(_videoSettings?.BaseWidth ?? 0),
+                    (int)(_videoSettings?.BaseHeight ?? 0),
+                    transforms));
+            }
+            catch (Exception exception)
+            {
+                return SceneCompositionResult.Failure(
+                    $"Lecture de la composition impossible dans LibObs : {exception.Message}");
+            }
+        }
+    }
+
+    public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement)
+    {
+        if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+
+        var invalid = ValidatePlacement(placement);
+        if (invalid != null) return SourceTransformResult.Failure(invalid);
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
+
+            if (CropLeavesNothing(source, placement.Crop))
+                return SourceTransformResult.Failure(CropLeavesNothingMessage);
+
+            // Zoom belongs to the image, not the frame: it follows the frame being moved, stretched or
+            // cropped.
+            return Compose(sourceId, source, placement, source.Zoom, "Transformation");
+        }
+    }
+
+    public SourceTransformResult SetSourceLayout(Guid sceneId, Guid sourceId, SourceLayout layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+
+        var invalid = ValidatePlacement(layout.Placement) ?? ValidateZoom(layout.Zoom);
+        if (invalid != null) return SourceTransformResult.Failure(invalid);
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
+            if (CropLeavesNothing(source, layout.Placement.Crop))
+                return SourceTransformResult.Failure(CropLeavesNothingMessage);
+
+            // An audio source has no image to enlarge: its zoom, if a file holds one, means nothing.
+            var zoom = layout.Zoom.IsZoomed && source.ProvidesVideo ? layout.Zoom : SourceZoom.None;
+            var result = Compose(sourceId, source, layout.Placement, zoom, "Composition");
+            if (source.ZoomPending)
+                _pendingZoomTimer ??= new Timer(_ => ApplyPendingZooms(), null, PendingZoomPeriod, PendingZoomPeriod);
+            return result;
+        }
+    }
+
+    private static readonly TimeSpan PendingZoomPeriod = TimeSpan.FromMilliseconds(250);
+
+    // Polled: libobs gives no signal when a source's size becomes known. The timer only runs
+    // while a zoom is waiting.
+    private void ApplyPendingZooms()
+    {
+        lock (_gate)
+        {
+            var waiting = false;
+            if (IsAvailable)
+            {
+                foreach (var sources in _sources.Values)
+                {
+                    foreach (var (sourceId, source) in sources)
+                    {
+                        if (!source.ZoomPending) continue;
+                        if (source.Source.Width == 0 || source.Source.Height == 0)
+                        {
+                            waiting = true;
+                            continue;
+                        }
+
+                        var placement = ReadTransform(sourceId, source).Placement;
+                        var result = Compose(sourceId, source, placement, source.Zoom, "Zoom");
+                        if (!result.IsSuccess)
+                        {
+                            // Retrying a refusal would only repeat it: the source stays unzoomed.
+                            AppLog.Warning($"Restored zoom dropped: {result.Message}");
+                            source.ZoomPending = false;
+                        }
+                    }
+                }
+            }
+
+            if (waiting) return;
+            _pendingZoomTimer?.Dispose();
+            _pendingZoomTimer = null;
+        }
+    }
+
+    private const string CropLeavesNothingMessage = "Ce rognage ne laisserait plus rien de la source.";
+
+    // A source with no image yet (a camera starting up) has no known size: its crop can only be
+    // bounded from below.
+    private static bool CropLeavesNothing(NativeSource source, SourceCrop crop)
+    {
+        var sourceWidth = (int)source.Source.Width;
+        var sourceHeight = (int)source.Source.Height;
+        return (sourceWidth > 0 && crop.Left + crop.Right >= sourceWidth) ||
+               (sourceHeight > 0 && crop.Top + crop.Bottom >= sourceHeight);
+    }
+
+    public SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom)
+    {
+        if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+
+        var invalid = ValidateZoom(zoom);
+        if (invalid != null) return SourceTransformResult.Failure(invalid);
+
+        lock (_gate)
+        {
+            if (!IsAvailable) return SourceTransformResult.Unavailable(UnavailableMessageForOperation());
+            if (!_sources.TryGetValue(sceneId, out var sources) || !sources.TryGetValue(sourceId, out var source))
+                return SourceTransformResult.Failure("Cette source n'existe pas dans LibObs.");
+
+            // With no image (an audio source, a camera starting up), there is nothing to enlarge;
+            // going back to the full image always remains possible.
+            if (zoom.IsZoomed && (!source.ProvidesVideo || source.Source.Width == 0 || source.Source.Height == 0))
+                return SourceTransformResult.Failure("Cette source n'a pas d'image à zoomer.");
+
+            var placement = ReadTransform(sourceId, source).Placement;
+            return Compose(sourceId, source, placement, zoom.IsZoomed ? zoom : SourceZoom.None, "Zoom");
+        }
+    }
+
+    // Writes the frame and the zoom in one go, under the lock. Without zoom, the item has no
+    // bounds: its size is the cropped source, scaled. With a zoom, the crop takes in the zoomed
+    // window and "stretch" bounds of the frame's size bring the image back: the frame does not
+    // move a pixel. The item's scale stays the operator's; libobs ignores it while bounds are set.
+    private static SourceTransformResult Compose(
+        Guid sourceId,
+        NativeSource source,
+        SourcePlacement placement,
+        SourceZoom zoom,
+        string operation)
+    {
+        var crop = placement.Crop;
+        var visibleWidth = Math.Max(0, (int)source.Source.Width - crop.Left - crop.Right);
+        var visibleHeight = Math.Max(0, (int)source.Source.Height - crop.Top - crop.Bottom);
+        var zoomCrop = zoom.CropWithin(visibleWidth, visibleHeight);
+        var zoomed = zoomCrop != SourceCrop.None;
+
+        var item = source.Item;
+        var previousTransform = item.Transform;
+        var previousCrop = item.Crop;
+        var previousZoom = source.Zoom;
+        var previousZoomCrop = source.ZoomCrop;
+        var previousZoomPending = source.ZoomPending;
+        try
+        {
+            // Position, scale, rotation and bounds go together (obs_sceneitem_set_info2); alignment
+            // stays what the item already has. Crop is not part of it in libobs: it follows.
+            item.ApplyTransform(previousTransform with
+            {
+                Position = new ObsVector2((float)placement.X, (float)placement.Y),
+                Scale = new ObsVector2((float)placement.ScaleX, (float)placement.ScaleY),
+                RotationDegrees = (float)placement.Rotation,
+                BoundsType = zoomed ? ObsBoundsType.Stretch : ObsBoundsType.None,
+                Bounds = zoomed
+                    ? new ObsVector2((float)(visibleWidth * placement.ScaleX), (float)(visibleHeight * placement.ScaleY))
+                    : new ObsVector2(0, 0)
+            });
+            item.Crop = new ObsSceneItemCrop(
+                crop.Left + zoomCrop.Left,
+                crop.Top + zoomCrop.Top,
+                crop.Right + zoomCrop.Right,
+                crop.Bottom + zoomCrop.Bottom);
+            source.Zoom = zoom;
+            source.ZoomCrop = zoomCrop;
+            // Only SetSourceLayout lets a zoom reach a source with no image; once kept, it stays
+            // waiting through frame gestures until the image comes.
+            source.ZoomPending = zoom.IsZoomed && (source.Source.Width == 0 || source.Source.Height == 0);
+            return SourceTransformResult.Success(ReadTransform(sourceId, source));
+        }
+        catch (Exception exception)
+        {
+            // Two writes on the libobs side: one failing after the other would leave the source in a
+            // state nobody asked for. The old one is returned as is.
+            try
+            {
+                item.ApplyTransform(previousTransform);
+                item.Crop = previousCrop;
+                source.Zoom = previousZoom;
+                source.ZoomCrop = previousZoomCrop;
+                source.ZoomPending = previousZoomPending;
+            }
+            catch
+            {
+            }
+
+            return SourceTransformResult.Failure($"{operation} impossible dans LibObs : {exception.Message}");
+        }
+    }
+
+    // Refused before reaching the engine, like a placement: a non-finite number means nothing
+    // to libobs, and a center outside the image would aim at nothing.
+    private static string? ValidateZoom(SourceZoom zoom)
+    {
+        if (!double.IsFinite(zoom.Factor) || zoom.Factor < SourceZoom.MinFactor || zoom.Factor > SourceZoom.MaxFactor)
+            return $"Le zoom d'une source doit être compris entre ×{SourceZoom.MinFactor:0} et ×{SourceZoom.MaxFactor:0}.";
+        if (!double.IsFinite(zoom.CenterX) || !double.IsFinite(zoom.CenterY) ||
+            zoom.CenterX is < 0 or > 1 || zoom.CenterY is < 0 or > 1)
+            return "Le centre du zoom doit tomber dans l'image de la source.";
+
+        return null;
+    }
+
+    // Refused before reaching the engine: a zero or negative scale would make the source vanish
+    // or flip, a non-finite number means nothing to libobs.
+    private static string? ValidatePlacement(SourcePlacement placement)
+    {
+        if (!double.IsFinite(placement.X) || !double.IsFinite(placement.Y))
+            return "La position d'une source doit être un nombre fini.";
+        if (!double.IsFinite(placement.Rotation))
+            return "La rotation d'une source doit être un nombre fini.";
+        if (!double.IsFinite(placement.ScaleX) || !double.IsFinite(placement.ScaleY) ||
+            placement.ScaleX <= 0 || placement.ScaleY <= 0)
+            return "L'échelle d'une source doit être strictement positive.";
+
+        var crop = placement.Crop;
+        if (crop.Left < 0 || crop.Top < 0 || crop.Right < 0 || crop.Bottom < 0)
+            return "Le rognage d'une source ne peut pas être négatif.";
+
+        return null;
+    }
+
+    // The composed rectangle is deduced here, next to the engine: it is its rule (source size,
+    // minus the crop, item scale), and it has no place in the interface, which just places that
+    // rectangle. The crop returned is the operator's: what the zoom added to libobs's is
+    // removed from it.
+    private static SourceTransform ReadTransform(Guid sourceId, NativeSource native)
+    {
+        var position = native.Item.Position;
+        var scale = native.Item.Scale;
+        var engineCrop = native.Item.Crop;
+        var zoomCrop = native.ZoomCrop;
+        var crop = new ObsSceneItemCrop(
+            Math.Max(0, engineCrop.Left - zoomCrop.Left),
+            Math.Max(0, engineCrop.Top - zoomCrop.Top),
+            Math.Max(0, engineCrop.Right - zoomCrop.Right),
+            Math.Max(0, engineCrop.Bottom - zoomCrop.Bottom));
+        var sourceWidth = (int)native.Source.Width;
+        var sourceHeight = (int)native.Source.Height;
+        var croppedWidth = Math.Max(0, sourceWidth - (int)crop.Left - (int)crop.Right);
+        var croppedHeight = Math.Max(0, sourceHeight - (int)crop.Top - (int)crop.Bottom);
+
+        return new SourceTransform(
+            sourceId,
+            position.X,
+            position.Y,
+            croppedWidth * (double)scale.X,
+            croppedHeight * (double)scale.Y,
+            scale.X,
+            scale.Y,
+            new SourceCrop((int)crop.Left, (int)crop.Top, (int)crop.Right, (int)crop.Bottom),
+            sourceWidth,
+            sourceHeight,
+            native.Item.IsVisible,
+            native.Item.RotationDegrees)
+        {
+            Zoom = native.Zoom
+        };
+    }
+
+    // libobs lists its items from background to foreground; the reverse is returned, translated
+    // to application ids so no native handle leaves the runtime.
+    private static IReadOnlyList<Guid> ReadLayerOrder(ObsScene scene, Dictionary<Guid, NativeSource> sources)
+    {
+        var sourceIdsByItemId = new Dictionary<long, Guid>(sources.Count);
+        foreach (var (sourceId, native) in sources)
+            sourceIdsByItemId[native.Item.Id] = sourceId;
+
+        var items = scene.GetItems();
+        try
+        {
+            var ordered = new List<Guid>(items.Count);
+            for (var index = items.Count - 1; index >= 0; index--)
+            {
+                if (sourceIdsByItemId.TryGetValue(items[index].Id, out var sourceId))
+                    ordered.Add(sourceId);
+            }
+
+            return ordered;
+        }
+        finally
+        {
+            // GetItems() takes a reference on each item: releasing them is up to us.
+            foreach (var item in items) item.Dispose();
+        }
+    }
+
     private void OnSettingsSaved(object? sender, EventArgs e)
     {
         var settings = _settingsService?.Load();
@@ -280,7 +755,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         lock (_gate)
         {
             if (!IsAvailable) return;
-            if (_recordingOutput != null || _streamingOutput != null)
+            // Unlike video, the transition can change during a live: it applies from the next scene
+            // change.
+            _transition = settings.ToSceneTransition();
+            if (_recordings.Count > 0 || _streams.Count > 0)
             {
                 _pendingVideoSettings = settings;
                 return;
@@ -292,7 +770,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     private void ApplyVideoSettingsCore(ApplicationSettings settings)
     {
-        var next = CreatePreviewVideoSettings(settings);
+        var next = CreatePreviewVideoSettings(settings, _resolutionResolver.Resolve(settings));
         if (AreSameVideoSettings(_videoSettings, next))
         {
             _pendingVideoSettings = null;
@@ -317,9 +795,10 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         PreviewResetRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private static ObsVideoSettings CreatePreviewVideoSettings(ApplicationSettings settings)
+    internal static ObsVideoSettings CreatePreviewVideoSettings(
+        ApplicationSettings settings,
+        VideoCanvasResolution baseResolution)
     {
-        var (baseWidth, baseHeight) = VideoResolution.BaseFromIndex(settings.SelectedBaseResolutionIndex);
         var (outputWidth, outputHeight) = VideoResolution.OutputFromIndex(settings.SelectedOutputResolutionIndex);
         var fps = settings.SelectedFpsIndex switch
         {
@@ -331,8 +810,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         return new ObsVideoSettings
         {
             FpsNumerator = (uint)fps,
-            BaseWidth = (uint)baseWidth,
-            BaseHeight = (uint)baseHeight,
+            BaseWidth = (uint)baseResolution.Width,
+            BaseHeight = (uint)baseResolution.Height,
             OutputWidth = (uint)outputWidth,
             OutputHeight = (uint)outputHeight,
         };
@@ -414,6 +893,17 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    public void SetCompositionOverlay(IntPtr windowHandle, CompositionOverlay overlay)
+    {
+        ArgumentNullException.ThrowIfNull(overlay);
+
+        lock (_gate)
+        {
+            if (!IsAvailable || !_previewSessions.TryGetValue(windowHandle, out var session)) return;
+            session.Overlay = overlay;
+        }
+    }
+
     public void ResizePreview(IntPtr windowHandle, uint width, uint height)
     {
         if (width == 0 || height == 0) return;
@@ -450,15 +940,20 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        Task<ObsOutputStateChangedEventArgs> startedTask;
+        RecordingSession session;
 
         lock (_gate)
         {
             if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
-            if (_recordingOutput != null)
+            var sessionId = request.SessionId == Guid.Empty ? Guid.NewGuid() : request.SessionId;
+            if (_recordings.ContainsKey(sessionId) ||
+                request.FollowsProgram && _recordings.Values.Any(running => running.FollowsProgram))
                 return StudioRuntimeResult.Failure("Un enregistrement est déjà en cours.");
-            if (_streamingOutput != null)
-                return StudioRuntimeResult.Failure("Arrêtez le live avant de démarrer l'enregistrement.");
+            // ffmpeg_output takes its frames straight from the main mix: it has no encoder
+            // to connect to a scene's own mix.
+            if (!request.FollowsProgram && request.Container == RecordingContainer.WebM)
+                return StudioRuntimeResult.Failure(
+                    "Le format WebM n'enregistre que la scène active. Choisissez MP4 ou MKV pour enregistrer d'autres scènes.");
             if (!_scenes.TryGetValue(request.SceneId, out var scene))
                 return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
             if (!_sources.TryGetValue(request.SceneId, out var sources) ||
@@ -468,41 +963,87 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             var validationError = ValidateRecordingRequest(request);
             if (validationError.Length > 0) return StudioRuntimeResult.Failure(validationError);
+            // Resetting the video or audio would pull the frames from under the outputs
+            // already running (other recordings, a live): this one must fit what they use.
+            var outputsRunning = _recordings.Count > 0 || _streams.Count > 0;
+            var (runningOutputs, stopThem) = _streams.Count > 0
+                ? ("du live", "Arrêtez-le")
+                : ("des autres enregistrements", "Arrêtez-les");
+            if (outputsRunning && !AreSameVideoSettings(_videoSettings, CreateRecordingVideoSettings(request)))
+                return StudioRuntimeResult.Failure(
+                    $"Les réglages vidéo ont changé depuis le début {runningOutputs}. {stopThem} avant de démarrer l'enregistrement.");
+            if (outputsRunning && _audioFormat != (request.AudioSampleRate, request.AudioChannels))
+                return StudioRuntimeResult.Failure(
+                    $"Les réglages audio ont changé depuis le début {runningOutputs}. {stopThem} avant de démarrer l'enregistrement.");
 
+            ObsView? view = null;
+            RecordingResources? resources = null;
             try
             {
-                EnsureVideoSettingsForRecording(request);
-                ConfigureRecordingMedia(request);
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
+                if (!outputsRunning)
+                {
+                    EnsureVideoSettingsForRecording(request);
+                    ResetAudioFormat(request.AudioSampleRate, request.AudioChannels);
+                }
 
-                var resources = request.Container == RecordingContainer.WebM
-                    ? CreateWebMOutput(request)
-                    : CreateMuxerOutput(request);
+                ObsVideo? video = null;
+                if (request.FollowsProgram)
+                {
+                    ShowOnProgram(request.SceneId, scene);
+                }
+                else
+                {
+                    view = ObsView.Create();
+                    using (var sceneSource = scene.Source)
+                        view.SetSource(0, sceneSource);
+                    video = view.Add(Obs.VideoInfo
+                        ?? throw new InvalidOperationException("La vidéo LibObs n'est pas active."));
+                }
 
-                _recordingOutput = resources.Output;
-                _recordingVideoEncoder = resources.VideoEncoder;
-                _recordingAudioEncoder = resources.AudioEncoder;
-                _recordingSceneId = request.SceneId;
-                _recordingStarted = NewOutputSignal();
-                _recordingStopped = NewOutputSignal();
-                _recordingOutput.StateChanged += OnRecordingOutputStateChanged;
-                startedTask = _recordingStarted.Task;
-                _recordingOutput.Start();
+                resources = request.Container == RecordingContainer.WebM
+                    ? CreateWebMOutput(request, sessionId)
+                    : CreateMuxerOutput(request, sessionId, video);
+                session = new RecordingSession
+                {
+                    Id = sessionId,
+                    FollowsProgram = request.FollowsProgram,
+                    Container = request.Container,
+                    Output = resources.Output,
+                    VideoEncoder = resources.VideoEncoder,
+                    AudioEncoder = resources.AudioEncoder,
+                    View = view,
+                    SceneId = request.SceneId
+                };
             }
             catch (Exception exception)
             {
-                ReleaseRecordingResourcesCore();
+                ReleaseRecordingParts(resources?.Output, resources?.VideoEncoder, resources?.AudioEncoder, view);
+                if (request.FollowsProgram) ReleaseProgramIfUnused();
+                ApplyPendingVideoSettingsIfIdle();
+                return StudioRuntimeResult.Failure($"Démarrage de l'enregistrement impossible : {exception.Message}");
+            }
+
+            var started = session;
+            session.StateHandler = (_, args) => OnRecordingOutputStateChanged(started, args);
+            session.Output.StateChanged += session.StateHandler;
+            _recordings.Add(session.Id, session);
+            try
+            {
+                session.Output.Start();
+            }
+            catch (Exception exception)
+            {
+                ReleaseRecordingSessionCore(session);
                 return StudioRuntimeResult.Failure($"Démarrage de l'enregistrement impossible : {exception.Message}");
             }
         }
 
         try
         {
-            var state = await startedTask.WaitAsync(cancellationToken);
+            var state = await session.Started.Task.WaitAsync(cancellationToken);
             return state.State == ObsOutputState.Started
                 ? StudioRuntimeResult.Success()
-                : StudioRuntimeResult.Failure(RecordingStopMessage(state));
+                : StudioRuntimeResult.Failure(UnexpectedRecordingStopMessage(state));
         }
         catch (OperationCanceledException)
         {
@@ -510,12 +1051,12 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             {
                 try
                 {
-                    _recordingOutput?.ForceStop();
+                    session.Output.ForceStop();
                 }
                 catch
                 {
                 }
-                ReleaseRecordingResourcesCore();
+                if (IsRegistered(session)) ReleaseRecordingSessionCore(session);
             }
             throw;
         }
@@ -526,20 +1067,20 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         lock (_gate)
         {
             if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
-            // Nothing running: StartRecordingAsync sets the program channel itself, from
-            // whichever scene is active when the user hits record.
-            if (_recordingOutput == null) return StudioRuntimeResult.Success();
-            if (_recordingSceneId == sceneId) return StudioRuntimeResult.Success();
+            // Nothing follows the program: StartRecordingAsync sets the program channel itself,
+            // from whichever scene is active when the user hits record.
+            var session = _recordings.Values.FirstOrDefault(running => running.FollowsProgram && !running.Ended);
+            if (session == null) return StudioRuntimeResult.Success();
+            if (session.SceneId == sceneId) return StudioRuntimeResult.Success();
             if (!_scenes.TryGetValue(sceneId, out var scene))
                 return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
 
             try
             {
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
+                TransitionProgramTo(sceneId, scene);
                 // Keeps the "scene in use by the recording" guard on the scene actually
                 // being recorded now, so the previous one becomes deletable again.
-                _recordingSceneId = sceneId;
+                session.SceneId = sceneId;
                 return StudioRuntimeResult.Success();
             }
             catch (Exception exception)
@@ -549,25 +1090,97 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    public async Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken)
+    public string GetPauseUnavailableReason(Guid sessionId)
     {
-        Task<ObsOutputStateChangedEventArgs> stoppedTask;
-        ObsOutput output;
         lock (_gate)
         {
-            if (_recordingOutput == null || _recordingStopped == null)
-                return StudioRuntimeResult.Success();
-
-            output = _recordingOutput;
-            stoppedTask = _recordingStopped.Task;
+            if (!_recordings.TryGetValue(sessionId, out var session)) return "";
             try
             {
-                _recordingStopRequested = true;
-                output.Stop();
+                return session.Output.CanPause ? "" : PauseUnsupportedMessage(session.Container);
+            }
+            catch (ObjectDisposedException)
+            {
+                return "";
+            }
+        }
+    }
+
+    public StudioRuntimeResult PauseRecording(Guid sessionId) => SetRecordingPaused(sessionId, true);
+
+    public StudioRuntimeResult ResumeRecording(Guid sessionId) => SetRecordingPaused(sessionId, false);
+
+    private StudioRuntimeResult SetRecordingPaused(Guid sessionId, bool paused)
+    {
+        lock (_gate)
+        {
+            if (!_recordings.TryGetValue(sessionId, out var session) || session.StopRequested || session.Ended)
+                return StudioRuntimeResult.Failure("Cet enregistrement n'est plus en cours.");
+
+            try
+            {
+                if (session.Output.TryPause(paused)) return StudioRuntimeResult.Success();
+
+                // libobs refuses while the encoders are still applying the previous pause or
+                // resume; the output keeps its current state.
+                var reason = session.Output.LastError;
+                return StudioRuntimeResult.Failure(!string.IsNullOrWhiteSpace(reason)
+                    ? reason
+                    : paused
+                        ? "La mise en pause a échoué. Réessayez dans un instant."
+                        : "La reprise a échoué. Réessayez dans un instant.");
+            }
+            catch (NotSupportedException)
+            {
+                return StudioRuntimeResult.Failure(PauseUnsupportedMessage(session.Container));
             }
             catch (Exception exception)
             {
-                _recordingStopRequested = false;
+                return StudioRuntimeResult.Failure(paused
+                    ? $"Mise en pause impossible : {exception.Message}"
+                    : $"Reprise impossible : {exception.Message}");
+            }
+        }
+    }
+
+    // ffmpeg_output, used for WebM, has no pause support; ffmpeg_muxer (MP4, MKV) does.
+    private static string PauseUnsupportedMessage(RecordingContainer container) =>
+        container == RecordingContainer.WebM
+            ? "Le format WebM ne permet pas la pause. Choisissez MP4 ou MKV dans Paramètres."
+            : "L'encodeur ou le format choisi ne permet pas la pause.";
+
+    public async Task<StudioRuntimeResult> StopRecordingAsync(CancellationToken cancellationToken)
+    {
+        List<Guid> sessionIds;
+        lock (_gate)
+        {
+            sessionIds = [.. _recordings.Keys];
+        }
+
+        var results = await Task.WhenAll(sessionIds.Select(id => StopRecordingAsync(id, cancellationToken)));
+        var failures = results.Where(result => !result.IsSuccess).Select(result => result.Message).ToList();
+        return failures.Count == 0
+            ? StudioRuntimeResult.Success()
+            : StudioRuntimeResult.Failure(string.Join(Environment.NewLine, failures));
+    }
+
+    public async Task<StudioRuntimeResult> StopRecordingAsync(Guid sessionId, CancellationToken cancellationToken)
+    {
+        RecordingSession session;
+        lock (_gate)
+        {
+            if (!_recordings.TryGetValue(sessionId, out var running))
+                return StudioRuntimeResult.Success();
+
+            session = running;
+            try
+            {
+                session.StopRequested = true;
+                session.Output.Stop();
+            }
+            catch (Exception exception)
+            {
+                session.StopRequested = false;
                 return StudioRuntimeResult.Failure($"Arrêt de l'enregistrement impossible : {exception.Message}");
             }
         }
@@ -575,112 +1188,162 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         ObsOutputStateChangedEventArgs state;
         try
         {
-            state = await stoppedTask.WaitAsync(cancellationToken);
+            state = await session.Stopped.Task.WaitAsync(cancellationToken);
         }
         catch (OperationCanceledException)
         {
             lock (_gate)
             {
-                if (ReferenceEquals(output, _recordingOutput)) ReleaseRecordingResourcesCore();
+                if (IsRegistered(session)) ReleaseRecordingSessionCore(session);
             }
             throw;
         }
         lock (_gate)
         {
-            if (ReferenceEquals(output, _recordingOutput)) ReleaseRecordingResourcesCore();
+            if (IsRegistered(session)) ReleaseRecordingSessionCore(session);
         }
         return state.StopCode is null or ObsOutputStopCode.Success
             ? StudioRuntimeResult.Success()
             : StudioRuntimeResult.Failure(RecordingStopMessage(state));
     }
 
-    public async Task<StudioRuntimeResult> StartStreamingAsync(
+    private bool IsRegistered(RecordingSession session) =>
+        _recordings.TryGetValue(session.Id, out var registered) && ReferenceEquals(registered, session);
+
+    private bool IsRegistered(StreamingSession session) =>
+        _streams.TryGetValue(session.ProviderId, out var registered) && ReferenceEquals(registered, session);
+
+    // Starts one live per destination, all fed by the same encoders. A destination that
+    // fails (refused key, unreachable server) is reported on its own; the others go on.
+    public async Task<IReadOnlyList<StreamingDestinationResult>> StartStreamingAsync(
         StreamingRequest request,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        Task<ObsOutputStateChangedEventArgs> startedTask;
+        List<StreamingSession> sessions;
+        var startFailures = new Dictionary<string, StudioRuntimeResult>(StringComparer.Ordinal);
 
         lock (_gate)
         {
-            if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
-            if (_streamingOutput != null)
-                return StudioRuntimeResult.Failure("Un live est déjà en cours.");
-            if (_recordingOutput != null)
-                return StudioRuntimeResult.Failure("Arrêtez l'enregistrement avant de lancer le live.");
+            if (!IsAvailable)
+                return ForEveryDestination(request, StudioRuntimeResult.Unavailable(UnavailableMessageForOperation()));
+            if (_streams.Count > 0)
+                return ForEveryDestination(request, StudioRuntimeResult.Failure("Un live est déjà en cours."));
             if (!_scenes.TryGetValue(request.Scene.Id, out var scene))
-                return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
+                return ForEveryDestination(request,
+                    StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs."));
             if (!_sources.TryGetValue(request.Scene.Id, out var sources) ||
                 !sources.Values.Any(source => source.ProvidesVideo))
-                return StudioRuntimeResult.Failure(
-                    "La scène doit contenir au moins une source vidéo ou média.");
+                return ForEveryDestination(request, StudioRuntimeResult.Failure(
+                    "La scène doit contenir au moins une source vidéo ou média."));
 
             var validationError = ValidateStreamingRequest(request);
-            if (validationError.Length > 0) return StudioRuntimeResult.Failure(validationError);
+            if (validationError.Length > 0)
+                return ForEveryDestination(request, StudioRuntimeResult.Failure(validationError));
+            // Recordings already running keep the audio they started with: the live takes it as is,
+            // and the video too (any change waits for every output to stop).
+            var recording = _recordings.Count > 0;
+            if (recording && _audioFormat != (request.AudioSampleRate, request.AudioChannels))
+                return ForEveryDestination(request, StudioRuntimeResult.Failure(
+                    "Les réglages audio ont changé depuis le début de l'enregistrement. Arrêtez-le avant de lancer le live."));
 
             try
             {
-                ConfigureStreamingMedia(request);
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
-
-                var resources = CreateStreamingOutput(request);
-                _streamingOutput = resources.Output;
-                _streamingVideoEncoder = resources.VideoEncoder;
-                _streamingAudioEncoder = resources.AudioEncoder;
-                _streamingService = resources.Service;
-                _streamingSceneId = request.Scene.Id;
-                _streamingStarted = NewOutputSignal();
-                _streamingStopped = NewOutputSignal();
-                _streamingOutput.StateChanged += OnStreamingOutputStateChanged;
-                startedTask = _streamingStarted.Task;
-                _streamingOutput.Start();
+                if (!recording) ResetAudioFormat(request.AudioSampleRate, request.AudioChannels);
+                ShowOnProgram(request.Scene.Id, scene);
+                sessions = CreateStreamingSessions(request);
             }
             catch (Exception exception)
             {
-                ReleaseStreamingResourcesCore();
-                return StudioRuntimeResult.Failure($"Démarrage du live impossible : {exception.Message}");
+                ReleaseProgramIfUnused();
+                ApplyPendingVideoSettingsIfIdle();
+                return ForEveryDestination(request,
+                    StudioRuntimeResult.Failure($"Démarrage du live impossible : {exception.Message}"));
+            }
+
+            // All registered before the first start: a session released early must not take
+            // the shared encoders with it while the others still need them.
+            _streamingSceneId = request.Scene.Id;
+            foreach (var session in sessions)
+            {
+                var registered = session;
+                session.StateHandler = (_, args) => OnStreamingOutputStateChanged(registered, args);
+                session.Output.StateChanged += session.StateHandler;
+                _streams.Add(session.ProviderId, session);
+            }
+
+            foreach (var session in sessions)
+            {
+                try
+                {
+                    session.Output.Start();
+                }
+                catch (Exception exception)
+                {
+                    startFailures[session.ProviderId] = StudioRuntimeResult.Failure(
+                        $"Démarrage du live {session.PlatformName} impossible : {exception.Message}");
+                    ReleaseStreamingSessionCore(session);
+                }
             }
         }
 
         try
         {
-            var state = await startedTask.WaitAsync(cancellationToken);
-            return state.State == ObsOutputState.Started
-                ? StudioRuntimeResult.Success()
-                : StudioRuntimeResult.Failure(StreamingStopMessage(state));
+            var results = new List<StreamingDestinationResult>(sessions.Count);
+            foreach (var session in sessions)
+            {
+                if (startFailures.TryGetValue(session.ProviderId, out var failure))
+                {
+                    results.Add(new(session.ProviderId, failure));
+                    continue;
+                }
+
+                var state = await session.Started.Task.WaitAsync(cancellationToken);
+                results.Add(new(session.ProviderId, state.State == ObsOutputState.Started
+                    ? StudioRuntimeResult.Success()
+                    : StudioRuntimeResult.Failure(FailedStreamingStartMessage(state, session.PlatformName))));
+            }
+            return results;
         }
         catch (OperationCanceledException)
         {
             lock (_gate)
             {
-                try
+                foreach (var session in sessions.Where(IsRegistered))
                 {
-                    _streamingOutput?.ForceStop();
+                    try
+                    {
+                        session.Output.ForceStop();
+                    }
+                    catch
+                    {
+                    }
+                    ReleaseStreamingSessionCore(session);
                 }
-                catch
-                {
-                }
-                ReleaseStreamingResourcesCore();
             }
             throw;
         }
     }
+
+    private static IReadOnlyList<StreamingDestinationResult> ForEveryDestination(
+        StreamingRequest request,
+        StudioRuntimeResult result) =>
+        [.. request.Destinations.Select(destination => new StreamingDestinationResult(destination.ProviderId, result))];
 
     public StudioRuntimeResult SwitchStreamingScene(Guid sceneId)
     {
         lock (_gate)
         {
             if (!IsAvailable) return StudioRuntimeResult.Unavailable(UnavailableMessageForOperation());
-            if (_streamingOutput == null) return StudioRuntimeResult.Success();
+            // Every live shows the program channel: one switch moves them all.
+            if (_streams.Count == 0) return StudioRuntimeResult.Success();
             if (_streamingSceneId == sceneId) return StudioRuntimeResult.Success();
             if (!_scenes.TryGetValue(sceneId, out var scene))
                 return StudioRuntimeResult.Failure("Cette scène n'existe pas dans LibObs.");
 
             try
             {
-                using (var sceneSource = scene.Source)
-                    Obs.SetOutputSource(0, sceneSource);
+                TransitionProgramTo(sceneId, scene);
                 _streamingSceneId = sceneId;
                 return StudioRuntimeResult.Success();
             }
@@ -693,55 +1356,77 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
     public async Task<StudioRuntimeResult> StopStreamingAsync(CancellationToken cancellationToken)
     {
-        Task<ObsOutputStateChangedEventArgs> stoppedTask;
-        ObsOutput output;
+        List<string> providerIds;
         lock (_gate)
         {
-            if (_streamingOutput == null || _streamingStopped == null)
-                return StudioRuntimeResult.Success();
+            providerIds = [.. _streams.Keys];
+        }
 
-            output = _streamingOutput;
-            stoppedTask = _streamingStopped.Task;
+        var results = await Task.WhenAll(providerIds.Select(id => StopStreamingAsync(id, cancellationToken)));
+        var failures = results.Where(result => !result.IsSuccess).Select(result => result.Message).ToList();
+        return failures.Count == 0
+            ? StudioRuntimeResult.Success()
+            : StudioRuntimeResult.Failure(string.Join(Environment.NewLine, failures));
+    }
+
+    public async Task<StudioRuntimeResult> StopStreamingAsync(string providerId, CancellationToken cancellationToken)
+    {
+        StreamingSession session;
+        lock (_gate)
+        {
+            if (!_streams.TryGetValue(providerId, out var running))
+                return StudioRuntimeResult.Success();
+            // Already ended on its own and reported then; only its release is left.
+            if (running.Ended)
+            {
+                ReleaseStreamingSessionCore(running);
+                return StudioRuntimeResult.Success();
+            }
+
+            session = running;
             try
             {
-                _streamingStopRequested = true;
-                output.Stop();
+                session.StopRequested = true;
+                session.Output.Stop();
             }
             catch (Exception exception)
             {
-                _streamingStopRequested = false;
-                return StudioRuntimeResult.Failure($"Arrêt du live impossible : {exception.Message}");
+                session.StopRequested = false;
+                return StudioRuntimeResult.Failure($"Arrêt du live {session.PlatformName} impossible : {exception.Message}");
             }
         }
 
         ObsOutputStateChangedEventArgs state;
         try
         {
-            state = await stoppedTask.WaitAsync(cancellationToken);
+            state = await session.Stopped.Task.WaitAsync(cancellationToken);
         }
         catch (OperationCanceledException)
         {
             lock (_gate)
             {
-                try
+                if (IsRegistered(session))
                 {
-                    if (ReferenceEquals(output, _streamingOutput)) output.ForceStop();
+                    try
+                    {
+                        session.Output.ForceStop();
+                    }
+                    catch
+                    {
+                    }
+                    ReleaseStreamingSessionCore(session);
                 }
-                catch
-                {
-                }
-                if (ReferenceEquals(output, _streamingOutput)) ReleaseStreamingResourcesCore();
             }
             throw;
         }
 
         lock (_gate)
         {
-            if (ReferenceEquals(output, _streamingOutput)) ReleaseStreamingResourcesCore();
+            if (IsRegistered(session)) ReleaseStreamingSessionCore(session);
         }
         return state.StopCode is null or ObsOutputStopCode.Success
             ? StudioRuntimeResult.Success()
-            : StudioRuntimeResult.Failure(StreamingStopMessage(state));
+            : StudioRuntimeResult.Failure(StreamingStopMessage(state, session.PlatformName));
     }
 
     public void Dispose()
@@ -752,30 +1437,27 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             _disposed = true;
             if (_settingsService != null)
                 _settingsService.SettingsSaved -= OnSettingsSaved;
+            _pendingZoomTimer?.Dispose();
+            _pendingZoomTimer = null;
 
-            if (_recordingOutput != null)
+            var recordings = _recordings.Values.ToList();
+            var streams = _streams.Values.ToList();
+            foreach (var output in recordings.Select(session => session.Output)
+                         .Concat(streams.Select(session => session.Output)))
             {
                 try
                 {
-                    _recordingOutput.ForceStop();
-                }
-                catch
-                {
-                }
-            }
-            if (_streamingOutput != null)
-            {
-                try
-                {
-                    _streamingOutput.ForceStop();
+                    output.ForceStop();
                 }
                 catch
                 {
                 }
             }
 
-            ReleaseRecordingResourcesCore();
-            ReleaseStreamingResourcesCore();
+            foreach (var session in recordings)
+                ReleaseRecordingSessionCore(session);
+            foreach (var session in streams)
+                ReleaseStreamingSessionCore(session);
             DisposeAllPreviewSessions();
 
             foreach (var sceneSources in _sources.Values)
@@ -791,9 +1473,133 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             if (_initialized)
             {
+                // Previews are closed: their badge textures go before the graphics context holding them.
+                try
+                {
+                    ObsPreviewGraphics.ReleaseTextures();
+                }
+                catch
+                {
+                }
+
+                AppLog.Info("libobs shutting down");
                 Obs.Shutdown();
                 _initialized = false;
+                AppLog.Info("libobs shut down");
             }
+        }
+    }
+
+    // Start of a live or recording: the scene shows at once, with no animation. An output
+    // joining one already on the program shares its channel instead of resetting it.
+    private void ShowOnProgram(Guid sceneId, ObsScene scene)
+    {
+        if (_programTransition != null)
+        {
+            TransitionProgramTo(sceneId, scene);
+            return;
+        }
+
+        using var sceneSource = scene.Source;
+        ReplaceProgramTransition(sceneSource);
+        _programSceneId = sceneId;
+    }
+
+    // Scene change during a live or recording: the selected transition animates it. If it has
+    // changed since, the new one picks up the displayed scene before starting.
+    private void TransitionProgramTo(Guid sceneId, ObsScene scene)
+    {
+        // A live and a program recording both follow the active scene: the second switch must
+        // not restart, or cut short, the transition the first one started.
+        if (_programTransition != null && _programSceneId == sceneId) return;
+
+        if (_programTransition == null || _programTransitionKind != _transition.Kind)
+        {
+            using var shown = _programTransition?.ActiveSource;
+            ReplaceProgramTransition(shown);
+        }
+
+        using var sceneSource = scene.Source;
+        // libobs refuses to start towards the scene already shown: it is there, nothing to animate.
+        if (!_transition.IsAnimated || !_programTransition!.Start(sceneSource, _transition.DurationMs))
+            _programTransition!.Set(sceneSource);
+        _programSceneId = sceneId;
+    }
+
+    private void ReplaceProgramTransition(ObsSource? shown)
+    {
+        var next = CreateProgramTransition(_transition.Kind);
+        try
+        {
+            next.Set(shown);
+            using var nextSource = next.Source;
+            Obs.SetOutputSource(0, nextSource);
+        }
+        catch
+        {
+            next.Dispose();
+            throw;
+        }
+
+        var previous = _programTransition;
+        _programTransition = next;
+        _programTransitionKind = _transition.Kind;
+        previous?.Dispose();
+    }
+
+    private ObsTransition CreateProgramTransition(SceneTransitionKind kind)
+    {
+        const string name = "Castor - transition programme";
+        var transition = kind switch
+        {
+            SceneTransitionKind.Fade => ObsTransition.CreateFade(name),
+            SceneTransitionKind.FadeToBlack => ObsTransition.CreateFadeToColor(
+                name, new ObsFadeToColorTransitionSettings { Color = 0xFF000000 }),
+            SceneTransitionKind.Swipe => ObsTransition.CreateSwipe(name, new ObsSwipeTransitionSettings()),
+            SceneTransitionKind.Slide => ObsTransition.CreateSlide(name, new ObsSlideTransitionSettings()),
+            _ => ObsTransition.CreateCut(name)
+        };
+
+        try
+        {
+            // Scenes are canvas-sized: so is the transition, or it would reframe them.
+            transition.SetSize(_videoSettings?.BaseWidth ?? 1920, _videoSettings?.BaseHeight ?? 1080);
+            return transition;
+        }
+        catch
+        {
+            transition.Dispose();
+            throw;
+        }
+    }
+
+    // The channel goes with the last output on it: a live and a program recording each leave
+    // it to the other.
+    private void ReleaseProgramIfUnused()
+    {
+        if (_streams.Count > 0 || _recordings.Values.Any(running => running.FollowsProgram)) return;
+        ReleaseProgramTransition();
+    }
+
+    private void ReleaseProgramTransition()
+    {
+        try
+        {
+            if (_initialized) Obs.SetOutputSource(0, null);
+        }
+        catch
+        {
+        }
+
+        var transition = _programTransition;
+        _programTransition = null;
+        _programSceneId = null;
+        try
+        {
+            transition?.Dispose();
+        }
+        catch
+        {
         }
     }
 
@@ -840,16 +1646,19 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             ScaleType = ObsScaleType.Bicubic
         };
 
-    private static void ConfigureRecordingMedia(RecordingRequest request)
+    // Only while no output runs: libobs refuses to reset audio under an active one.
+    private void ResetAudioFormat(int sampleRate, int channels)
     {
         Obs.ResetAudio(new ObsAudioSettings
         {
-            SamplesPerSecond = (uint)request.AudioSampleRate,
-            Speakers = request.AudioChannels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
+            SamplesPerSecond = (uint)sampleRate,
+            Speakers = channels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
         });
+        _audioFormat = (sampleRate, channels);
     }
 
-    private static RecordingResources CreateMuxerOutput(RecordingRequest request)
+    // video: the scene's own mix for a dedicated session, null for the program (main mix).
+    private static RecordingResources CreateMuxerOutput(RecordingRequest request, Guid sessionId, ObsVideo? video)
     {
         ObsEncoder? videoEncoder = null;
         ObsEncoder? audioEncoder = null;
@@ -861,18 +1670,29 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             videoSettings.SetInt(ObsKnownSettings.Encoder.Bitrate, request.VideoBitrateKbps);
             videoSettings.SetInt(ObsKnownSettings.Encoder.KeyframeIntervalSeconds, 2);
             videoSettings.SetString(ObsKnownSettings.Encoder.Preset, "veryfast");
-            videoEncoder = ObsEncoder.CreateVideo(ObsKnownIds.Encoders.X264, "castor-record-video", videoSettings);
-            videoEncoder.AttachToVideo();
+            try
+            {
+                videoEncoder = ObsEncoder.CreateVideo(ObsKnownIds.Encoders.X264, $"castor-record-video-{sessionId:N}", videoSettings);
+            }
+            catch (Exception exception)
+            {
+                throw new InvalidOperationException(
+                    $"l'encodeur vidéo n'a pas pu être créé, la machine en fait peut-être déjà tourner trop ({exception.Message})",
+                    exception);
+            }
+            if (video == null) videoEncoder.AttachToVideo();
+            else videoEncoder.SetVideo(video);
 
+            // Views mix no audio: every session records the global mix.
             using var audioSettings = new ObsData();
             audioSettings.SetInt(ObsKnownSettings.Encoder.Bitrate, request.AudioBitrateKbps);
-            audioEncoder = ObsEncoder.CreateAudio(ObsKnownIds.Encoders.FfmpegAac, "castor-record-audio", settings: audioSettings);
+            audioEncoder = ObsEncoder.CreateAudio(ObsKnownIds.Encoders.FfmpegAac, $"castor-record-audio-{sessionId:N}", settings: audioSettings);
             audioEncoder.AttachToAudio();
 
             using var outputSettings = new ObsData();
             outputSettings.SetString(ObsKnownSettings.Output.Path, request.OutputPath);
             outputSettings.SetString(ObsKnownSettings.Output.MuxerSettings, "");
-            output = ObsOutput.Create(ObsKnownIds.Outputs.FfmpegMuxer, "castor-record-output", outputSettings);
+            output = ObsOutput.Create(ObsKnownIds.Outputs.FfmpegMuxer, $"castor-record-output-{sessionId:N}", outputSettings);
             output.SetVideoEncoder(videoEncoder);
             output.SetAudioEncoder(audioEncoder);
             return new(output, videoEncoder, audioEncoder);
@@ -886,7 +1706,7 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
-    private static RecordingResources CreateWebMOutput(RecordingRequest request)
+    private static RecordingResources CreateWebMOutput(RecordingRequest request, Guid sessionId)
     {
         using var settings = new ObsData();
         settings.SetString("url", request.OutputPath);
@@ -903,8 +1723,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         ObsOutput? output = null;
         try
         {
-            output = ObsOutput.Create(FfmpegOutputId, "castor-record-output", settings);
-            LibObsOutputInterop.SetAudioMixers(output, 1);
+            output = ObsOutput.Create(FfmpegOutputId, $"castor-record-output-{sessionId:N}", settings);
+            // A raw ffmpeg output only creates its audio tracks for the requested mixes.
+            output.Mixers = 1;
             return new(output, null, null);
         }
         catch
@@ -917,7 +1738,19 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
     internal static string ValidateStreamingRequest(StreamingRequest request)
     {
         if (request.Scene.Id == Guid.Empty) return "L'identifiant de la scène est obligatoire.";
-        if (string.IsNullOrWhiteSpace(request.StreamKey)) return "La clé de stream Twitch est obligatoire.";
+        if (request.Destinations.Count == 0) return "Choisissez au moins une plateforme pour le live.";
+        // Lives are keyed by platform: a second one would have nothing to tell it apart.
+        if (request.Destinations.DistinctBy(destination => destination.ProviderId, StringComparer.Ordinal).Count()
+            != request.Destinations.Count)
+            return "Une plateforme ne peut recevoir qu'un seul live à la fois.";
+        foreach (var destination in request.Destinations)
+        {
+            if (string.IsNullOrWhiteSpace(destination.StreamKey))
+                return $"La clé de stream {destination.DisplayName} est obligatoire.";
+            // Only Twitch picks its ingest server itself; the others must say where to push.
+            if (!destination.UsesPlatformServer && !RtmpStreamUrl.IsValid(destination.Server))
+                return $"L'adresse du serveur {destination.DisplayName} est invalide.";
+        }
         if (request.Fps <= 0 || request.VideoBitrateKbps <= 0 || request.AudioBitrateKbps <= 0)
             return "Les débits et le nombre d'images par seconde doivent être supérieurs à zéro.";
         if (request.AudioSampleRate <= 0 || request.AudioChannels is < 1 or > 2)
@@ -925,31 +1758,40 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         return "";
     }
 
-    private static void ConfigureStreamingMedia(StreamingRequest request)
+    // Twitch keeps the OBS service catalog, which picks the closest ingest server ("auto").
+    // Every other platform hands Castor its own ingest address, pushed as a custom RTMP server.
+    private static ObsService CreateStreamingService(StreamingDestination destination)
     {
-        Obs.ResetAudio(new ObsAudioSettings
+        using var serviceSettings = new ObsData();
+        if (destination.UsesPlatformServer)
         {
-            SamplesPerSecond = (uint)request.AudioSampleRate,
-            Speakers = request.AudioChannels == 1 ? ObsSpeakerLayout.Mono : ObsSpeakerLayout.Stereo
-        });
+            serviceSettings.SetString(ObsKnownSettings.Service.ServiceName, destination.DisplayName);
+            serviceSettings.SetString(ObsKnownSettings.Service.Server, "auto");
+            serviceSettings.SetString(ObsKnownSettings.Service.StreamKey, destination.StreamKey);
+            return ObsService.Create(
+                ObsKnownIds.Services.CommonRtmp,
+                $"castor-{destination.ProviderId}-service",
+                serviceSettings);
+        }
+
+        serviceSettings.SetString(ObsKnownSettings.Service.Server, destination.Server.Trim());
+        serviceSettings.SetString(ObsKnownSettings.Service.StreamKey, destination.StreamKey);
+        return ObsService.Create(
+            ObsKnownIds.Services.CustomRtmp,
+            $"castor-{destination.ProviderId}-service",
+            serviceSettings);
     }
 
-    private static StreamingResources CreateStreamingOutput(StreamingRequest request)
+    // Builds the shared encoders and one RTMP output per destination, none started yet.
+    // On failure nothing is left behind.
+    private List<StreamingSession> CreateStreamingSessions(StreamingRequest request)
     {
-        ObsService? service = null;
-        ObsEncoder? videoEncoder = null;
-        ObsEncoder? audioEncoder = null;
-        ObsOutput? output = null;
+        var services = new List<(StreamingDestination Destination, ObsService Service)>();
+        var sessions = new List<StreamingSession>();
         try
         {
-            using var serviceSettings = new ObsData();
-            serviceSettings.SetString(ObsKnownSettings.Service.ServiceName, "Twitch");
-            serviceSettings.SetString(ObsKnownSettings.Service.Server, "auto");
-            serviceSettings.SetString(ObsKnownSettings.Service.StreamKey, request.StreamKey);
-            service = ObsService.Create(
-                ObsKnownIds.Services.CommonRtmp,
-                "castor-twitch-service",
-                serviceSettings);
+            foreach (var destination in request.Destinations)
+                services.Add((destination, CreateStreamingService(destination)));
 
             using var videoSettings = new ObsData();
             videoSettings.SetString(ObsKnownSettings.Encoder.RateControl, "CBR");
@@ -959,228 +1801,237 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
 
             using var audioSettings = new ObsData();
             audioSettings.SetInt(ObsKnownSettings.Encoder.Bitrate, request.AudioBitrateKbps);
-            service.ApplyEncoderSettings(videoSettings, audioSettings);
+            // Each platform caps the settings in turn (Twitch's maximum bitrate, for one), so
+            // the single encode suits every platform at once.
+            foreach (var (_, service) in services)
+                service.ApplyEncoderSettings(videoSettings, audioSettings);
 
-            videoEncoder = ObsEncoder.CreateVideo(
+            _streamingVideoEncoder = ObsEncoder.CreateVideo(
                 ObsKnownIds.Encoders.X264,
                 "castor-stream-video",
                 videoSettings);
-            videoEncoder.AttachToVideo();
-            audioEncoder = ObsEncoder.CreateAudio(
+            _streamingVideoEncoder.AttachToVideo();
+            _streamingAudioEncoder = ObsEncoder.CreateAudio(
                 ObsKnownIds.Encoders.FfmpegAac,
                 "castor-stream-audio",
                 settings: audioSettings);
-            audioEncoder.AttachToAudio();
+            _streamingAudioEncoder.AttachToAudio();
 
-            using var outputSettings = new ObsData();
-            output = ObsOutput.Create(
-                ObsKnownIds.Outputs.Rtmp,
-                "castor-stream-output",
-                outputSettings);
-            output.SetService(service);
-            output.SetVideoEncoder(videoEncoder);
-            output.SetAudioEncoder(audioEncoder);
-            return new(output, videoEncoder, audioEncoder, service);
+            foreach (var (destination, service) in services)
+            {
+                using var outputSettings = new ObsData();
+                var output = ObsOutput.Create(
+                    ObsKnownIds.Outputs.Rtmp,
+                    $"castor-{destination.ProviderId}-output",
+                    outputSettings);
+                sessions.Add(new StreamingSession
+                {
+                    Output = output,
+                    Service = service,
+                    ProviderId = destination.ProviderId,
+                    PlatformName = destination.DisplayName
+                });
+                output.SetService(service);
+                output.SetVideoEncoder(_streamingVideoEncoder);
+                output.SetAudioEncoder(_streamingAudioEncoder);
+            }
+            return sessions;
         }
         catch
         {
-            output?.Dispose();
-            audioEncoder?.Dispose();
-            videoEncoder?.Dispose();
-            service?.Dispose();
+            foreach (var session in sessions)
+                DisposeQuietly(session.Output);
+            ReleaseStreamingEncoders();
+            foreach (var (_, service) in services)
+                DisposeQuietly(service);
             throw;
         }
     }
 
-    private void OnRecordingOutputStateChanged(object? sender, ObsOutputStateChangedEventArgs args)
+    private void ReleaseStreamingEncoders()
     {
-        TaskCompletionSource<ObsOutputStateChangedEventArgs>? started = null;
-        TaskCompletionSource<ObsOutputStateChangedEventArgs>? stopped = null;
+        DisposeQuietly(_streamingAudioEncoder);
+        DisposeQuietly(_streamingVideoEncoder);
+        _streamingAudioEncoder = null;
+        _streamingVideoEncoder = null;
+    }
+
+    // Teardown runs whatever state libobs left the object in: a failed release must not stop
+    // the next one.
+    private static void DisposeQuietly(IDisposable? disposable)
+    {
+        try
+        {
+            disposable?.Dispose();
+        }
+        catch
+        {
+        }
+    }
+
+    private void OnRecordingOutputStateChanged(RecordingSession session, ObsOutputStateChangedEventArgs args)
+    {
+        var settleStart = false;
+        var settleStop = false;
         RecordingStateChangedEventArgs? notification = null;
-        ObsOutput? unexpectedlyStoppedOutput = null;
+        var unexpectedlyStopped = false;
 
         lock (_gate)
         {
-            if (!ReferenceEquals(sender, _recordingOutput)) return;
+            if (!IsRegistered(session)) return;
+            // Each signal reaches us on a thread-pool item of its own, so a "start" can land
+            // after the "stop" that ended the output: it must not bring the session back.
+            if (session.Ended) return;
 
             if (args.State == ObsOutputState.Started)
             {
-                started = _recordingStarted;
-                notification = new RecordingStateChangedEventArgs(true);
+                settleStart = true;
+                notification = new RecordingStateChangedEventArgs(session.Id, RecordingState.Recording);
+            }
+            else if (args.State == ObsOutputState.Paused)
+            {
+                notification = new RecordingStateChangedEventArgs(session.Id, RecordingState.Paused);
+            }
+            else if (args.State == ObsOutputState.Unpaused)
+            {
+                notification = new RecordingStateChangedEventArgs(session.Id, RecordingState.Recording);
+            }
+            else if (args.State == ObsOutputState.Stopping)
+            {
+                notification = new RecordingStateChangedEventArgs(session.Id, RecordingState.Stopping);
             }
             else if (args.State == ObsOutputState.Stopped)
             {
-                started = _recordingStarted;
-                stopped = _recordingStopped;
-                notification = new RecordingStateChangedEventArgs(false, RecordingStopMessage(args));
-                _recordingSceneId = null;
-                if (!_recordingStopRequested) unexpectedlyStoppedOutput = _recordingOutput;
+                settleStart = true;
+                settleStop = true;
+                session.Ended = true;
+                unexpectedlyStopped = !session.StopRequested;
+                notification = new RecordingStateChangedEventArgs(session.Id, RecordingState.Idle,
+                    unexpectedlyStopped ? UnexpectedRecordingStopMessage(args) : RecordingStopMessage(args));
             }
         }
 
-        started?.TrySetResult(args);
-        stopped?.TrySetResult(args);
+        if (notification != null) LogOutputState($"Recording {session.Id:N}", args, unexpectedlyStopped);
+        if (settleStart) session.Started.TrySetResult(args);
+        if (settleStop) session.Stopped.TrySetResult(args);
         if (notification != null) StateChanged?.Invoke(this, notification);
-        if (unexpectedlyStoppedOutput != null)
-            _ = ReleaseUnexpectedlyStoppedOutputAsync(unexpectedlyStoppedOutput);
+        if (unexpectedlyStopped) _ = ReleaseUnexpectedlyStoppedSessionAsync(session);
     }
 
-    private async Task ReleaseUnexpectedlyStoppedOutputAsync(ObsOutput output)
+    private async Task ReleaseUnexpectedlyStoppedSessionAsync(RecordingSession session)
     {
         // ffmpeg_output emits its stop signal before its plugin stop callback has
         // necessarily finished writing the trailer.
         await Task.Delay(100);
         lock (_gate)
         {
-            if (ReferenceEquals(output, _recordingOutput)) ReleaseRecordingResourcesCore();
+            if (IsRegistered(session)) ReleaseRecordingSessionCore(session);
         }
     }
 
-    private void ReleaseRecordingResourcesCore()
+    // Teardown order documented by LibObs: output, encoders, then the view's video mix.
+    private void ReleaseRecordingSessionCore(RecordingSession session)
     {
-        var output = _recordingOutput;
-        var videoEncoder = _recordingVideoEncoder;
-        var audioEncoder = _recordingAudioEncoder;
+        _recordings.Remove(session.Id);
+        if (session.StateHandler != null) session.Output.StateChanged -= session.StateHandler;
+        if (session.FollowsProgram) ReleaseProgramIfUnused();
+        ReleaseRecordingParts(session.Output, session.VideoEncoder, session.AudioEncoder, session.View);
+        ApplyPendingVideoSettingsIfIdle();
+    }
 
-        _recordingOutput = null;
-        _recordingVideoEncoder = null;
-        _recordingAudioEncoder = null;
-        _recordingSceneId = null;
-        _recordingStarted = null;
-        _recordingStopped = null;
-        _recordingStopRequested = false;
+    private static void ReleaseRecordingParts(ObsOutput? output, ObsEncoder? videoEncoder, ObsEncoder? audioEncoder, ObsView? view)
+    {
+        DisposeQuietly(output);
+        DisposeQuietly(audioEncoder);
+        DisposeQuietly(videoEncoder);
+        DisposeQuietly(view);
+    }
 
-        if (output != null) output.StateChanged -= OnRecordingOutputStateChanged;
-        try
-        {
-            if (_initialized) Obs.SetOutputSource(0, null);
-        }
-        catch
-        {
-        }
-        try
-        {
-            output?.Dispose();
-        }
-        catch
-        {
-        }
-        try
-        {
-            audioEncoder?.Dispose();
-        }
-        catch
-        {
-        }
-        try
-        {
-            videoEncoder?.Dispose();
-        }
-        catch
-        {
-        }
-
-        if (!_disposed && _streamingOutput == null && _pendingVideoSettings != null)
+    // Video settings saved while something was on air wait for the last output to go.
+    private void ApplyPendingVideoSettingsIfIdle()
+    {
+        if (!_disposed && _recordings.Count == 0 && _streams.Count == 0 && _pendingVideoSettings != null)
             ApplyVideoSettingsCore(_pendingVideoSettings);
     }
 
-    private void OnStreamingOutputStateChanged(object? sender, ObsOutputStateChangedEventArgs args)
+    private void OnStreamingOutputStateChanged(StreamingSession session, ObsOutputStateChangedEventArgs args)
     {
-        TaskCompletionSource<ObsOutputStateChangedEventArgs>? started = null;
-        TaskCompletionSource<ObsOutputStateChangedEventArgs>? stopped = null;
+        var settleStart = false;
+        var settleStop = false;
         StreamingStateChangedEventArgs? notification = null;
-        ObsOutput? unexpectedlyStoppedOutput = null;
+        var unexpectedlyStopped = false;
 
         lock (_gate)
         {
-            if (!ReferenceEquals(sender, _streamingOutput)) return;
+            if (!IsRegistered(session)) return;
+            // Same as recordings: a late "start" must not bring an ended live back.
+            if (session.Ended) return;
 
             if (args.State == ObsOutputState.Started)
             {
-                started = _streamingStarted;
-                notification = new StreamingStateChangedEventArgs(true);
+                settleStart = true;
+                notification = new StreamingStateChangedEventArgs(session.ProviderId, true);
             }
             else if (args.State == ObsOutputState.Stopped)
             {
-                started = _streamingStarted;
-                stopped = _streamingStopped;
-                notification = new StreamingStateChangedEventArgs(false, StreamingStopMessage(args));
-                _streamingSceneId = null;
-                if (!_streamingStopRequested) unexpectedlyStoppedOutput = _streamingOutput;
+                settleStart = true;
+                settleStop = true;
+                session.Ended = true;
+                unexpectedlyStopped = !session.StopRequested;
+                notification = new StreamingStateChangedEventArgs(session.ProviderId, false,
+                    StreamingStopMessage(args, session.PlatformName));
+                // The scene stays in use while any live still shows it.
+                if (_streams.Values.All(running => running.Ended)) _streamingSceneId = null;
             }
         }
 
-        started?.TrySetResult(args);
-        stopped?.TrySetResult(args);
+        if (notification != null) LogOutputState($"Live {session.PlatformName}", args, unexpectedlyStopped);
+        if (settleStart) session.Started.TrySetResult(args);
+        if (settleStop) session.Stopped.TrySetResult(args);
         if (notification != null) StreamingStateChanged?.Invoke(this, notification);
-        if (unexpectedlyStoppedOutput != null)
-            _ = ReleaseUnexpectedlyStoppedStreamingOutputAsync(unexpectedlyStoppedOutput);
+        if (unexpectedlyStopped) _ = ReleaseUnexpectedlyStoppedStreamAsync(session);
     }
 
-    private async Task ReleaseUnexpectedlyStoppedStreamingOutputAsync(ObsOutput output)
+    private async Task ReleaseUnexpectedlyStoppedStreamAsync(StreamingSession session)
     {
         await Task.Delay(100);
         lock (_gate)
         {
-            if (ReferenceEquals(output, _streamingOutput)) ReleaseStreamingResourcesCore();
+            if (IsRegistered(session)) ReleaseStreamingSessionCore(session);
         }
     }
 
-    private void ReleaseStreamingResourcesCore()
+    // Teardown order documented by LibObs: output, then encoders. The encoders belong to every
+    // live, so they go with the last; the program channel also waits for a program recording.
+    private void ReleaseStreamingSessionCore(StreamingSession session)
     {
-        var output = _streamingOutput;
-        var videoEncoder = _streamingVideoEncoder;
-        var audioEncoder = _streamingAudioEncoder;
-        var service = _streamingService;
+        _streams.Remove(session.ProviderId);
+        if (session.StateHandler != null) session.Output.StateChanged -= session.StateHandler;
+        DisposeQuietly(session.Output);
+        DisposeQuietly(session.Service);
+        if (_streams.Count > 0) return;
 
-        _streamingOutput = null;
-        _streamingVideoEncoder = null;
-        _streamingAudioEncoder = null;
-        _streamingService = null;
+        ReleaseStreamingEncoders();
         _streamingSceneId = null;
-        _streamingStarted = null;
-        _streamingStopped = null;
-        _streamingStopRequested = false;
+        ReleaseProgramIfUnused();
+        ApplyPendingVideoSettingsIfIdle();
+    }
 
-        if (output != null) output.StateChanged -= OnStreamingOutputStateChanged;
-        try
+    // Starts and stops land in the log, with libobs' own code and error: a beta tester's
+    // "my live cut out" is otherwise left with nothing to go on.
+    private static void LogOutputState(string output, ObsOutputStateChangedEventArgs args, bool unexpectedlyStopped)
+    {
+        if (args.State == ObsOutputState.Started)
         {
-            if (_initialized) Obs.SetOutputSource(0, null);
-        }
-        catch
-        {
-        }
-        try
-        {
-            output?.Dispose();
-        }
-        catch
-        {
-        }
-        try
-        {
-            audioEncoder?.Dispose();
-        }
-        catch
-        {
-        }
-        try
-        {
-            videoEncoder?.Dispose();
-        }
-        catch
-        {
-        }
-        try
-        {
-            service?.Dispose();
-        }
-        catch
-        {
+            AppLog.Info($"{output} started");
+            return;
         }
 
-        if (!_disposed && _recordingOutput == null && _pendingVideoSettings != null)
-            ApplyVideoSettingsCore(_pendingVideoSettings);
+        if (args.State != ObsOutputState.Stopped) return;
+        var details = $"code {args.StopCode?.ToString() ?? "none"}"
+            + (string.IsNullOrWhiteSpace(args.Error) ? "" : $", error: {args.Error}");
+        if (unexpectedlyStopped) AppLog.Error($"{output} stopped on its own ({details})");
+        else AppLog.Info($"{output} stopped ({details})");
     }
 
     private static string RecordingStopMessage(ObsOutputStateChangedEventArgs state)
@@ -1197,15 +2048,33 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         };
     }
 
-    private static string StreamingStopMessage(ObsOutputStateChangedEventArgs state)
+    // A stop nobody asked for is never silent: libobs may report it as a success with no
+    // error at all, and the button would just flip back to RECORD without a word.
+    internal static string UnexpectedRecordingStopMessage(ObsOutputStateChangedEventArgs state)
+    {
+        var message = RecordingStopMessage(state);
+        return message.Length > 0
+            ? message
+            : "L'enregistrement s'est arrêté de lui-même, sans que LibObs en donne la raison. Réessayez.";
+    }
+
+    // A live refused at start may come with a success code and no error: still name the
+    // platform, or the user would not know which one failed.
+    internal static string FailedStreamingStartMessage(ObsOutputStateChangedEventArgs state, string platformName)
+    {
+        var message = StreamingStopMessage(state, platformName);
+        return message.Length > 0 ? message : $"Le live {platformName} s'est arrêté dès son démarrage.";
+    }
+
+    internal static string StreamingStopMessage(ObsOutputStateChangedEventArgs state, string platformName)
     {
         if (!string.IsNullOrWhiteSpace(state.Error)) return state.Error;
         return state.StopCode switch
         {
             null or ObsOutputStopCode.Success => "",
-            ObsOutputStopCode.ConnectFailed => "Connexion au serveur Twitch impossible.",
-            ObsOutputStopCode.InvalidStream => "Twitch a refusé la clé de stream.",
-            ObsOutputStopCode.Disconnected => "La connexion au serveur Twitch a été interrompue.",
+            ObsOutputStopCode.ConnectFailed => $"Connexion au serveur {platformName} impossible.",
+            ObsOutputStopCode.InvalidStream => $"{platformName} a refusé la clé de stream.",
+            ObsOutputStopCode.Disconnected => $"La connexion au serveur {platformName} a été interrompue.",
             ObsOutputStopCode.EncodeError => "L'encodeur vidéo ou audio a rencontré une erreur.",
             ObsOutputStopCode.Unsupported => "La configuration du live n'est pas prise en charge.",
             _ => $"Le live s'est arrêté avec le code {state.StopCode}."
@@ -1216,12 +2085,6 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         ObsOutput Output,
         ObsEncoder? VideoEncoder,
         ObsEncoder? AudioEncoder);
-
-    private sealed record StreamingResources(
-        ObsOutput Output,
-        ObsEncoder VideoEncoder,
-        ObsEncoder AudioEncoder,
-        ObsService Service);
 
     private SourceCatalog EnumerateSources(CancellationToken cancellationToken)
     {
@@ -1274,14 +2137,61 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
         }
     }
 
+    // win-capture.dll loads libobs-winrt.dll for Windows Graphics Capture and crashes
+    // without it. Runtime 0.4.0 ships it; the DXGI/BitBlt fallback stays as a guard
+    // against an incomplete runtime.
+    internal static bool HasWinRtCaptureRuntime(string baseDirectory) =>
+        File.Exists(Path.Combine(baseDirectory, WinRtRuntimeRelativePath));
+
+    internal static ObsWindowsDisplayCaptureSettings CreateDisplayCaptureSettings(
+        string monitorId,
+        string baseDirectory) => new()
+        {
+            MonitorId = monitorId,
+            Method = HasWinRtCaptureRuntime(baseDirectory)
+                ? ObsWindowsDisplayCaptureMethod.Automatic
+                : ObsWindowsDisplayCaptureMethod.DxgiDesktopDuplication
+        };
+
+    internal static ObsWindowsWindowCaptureSettings CreateWindowCaptureSettings(
+        string window,
+        string baseDirectory) => new()
+        {
+            Window = window,
+            Method = HasWinRtCaptureRuntime(baseDirectory)
+                ? ObsWindowsWindowCaptureMethod.Automatic
+                : ObsWindowsWindowCaptureMethod.BitBlt
+        };
+
+    // With restart_on_activate set, ffmpeg_source only starts playback on activation.
+    // Only the program output (live, recording) activates a scene: previews go through
+    // an ObsView, which shows it without activating it, and the media stays black.
+    // So playback starts as soon as the source is created.
+    internal static ObsMediaSourceSettings CreateMediaSourceSettings(SourceAddRequest.Media media) => new()
+    {
+        FilePath = media.FilePath,
+        Loop = media.Loop,
+        RestartWhenActivated = false,
+        CloseWhenInactive = false
+    };
+
+    // Same reason as the media file: the stream has to open as soon as the source exists.
+    // libobs reconnects on its own when the camera drops, so nothing else is retried here.
+    internal static ObsNetworkMediaSourceSettings CreateNetworkMediaSourceSettings(SourceAddRequest.Network network) => new()
+    {
+        Url = network.Url,
+        RestartWhenActivated = false,
+        CloseWhenInactive = false
+    };
+
     private static ObsSource CreateNativeSource(SourceAddRequest request) => request switch
     {
         SourceAddRequest.Video video => video.Option.Type switch
         {
             VideoCaptureKind.Monitor => ObsSource.CreateWindowsDisplayCapture(video.RequestedName,
-                new ObsWindowsDisplayCaptureSettings { MonitorId = video.Option.Id }),
+                CreateDisplayCaptureSettings(video.Option.Id, AppContext.BaseDirectory)),
             VideoCaptureKind.Window => ObsSource.CreateWindowsWindowCapture(video.RequestedName,
-                new ObsWindowsWindowCaptureSettings { Window = video.Option.Id }),
+                CreateWindowCaptureSettings(video.Option.Id, AppContext.BaseDirectory)),
             VideoCaptureKind.Camera => ObsSource.CreateWindowsVideoCaptureDevice(video.RequestedName,
                 new ObsWindowsVideoCaptureDeviceSettings { DeviceId = video.Option.Id }),
             _ => throw new NotSupportedException($"Le type vidéo '{video.Option.Type}' n'est pas pris en charge.")
@@ -1297,7 +2207,9 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             _ => throw new NotSupportedException($"Le type audio '{audio.Option.Type}' n'est pas pris en charge.")
         },
         SourceAddRequest.Media media => ObsSource.CreateMediaSource(media.RequestedName,
-            new ObsMediaSourceSettings { FilePath = media.FilePath, Loop = media.Loop }),
+            CreateMediaSourceSettings(media)),
+        SourceAddRequest.Network network => ObsSource.CreateNetworkMediaSource(network.RequestedName,
+            CreateNetworkMediaSourceSettings(network)),
         _ => throw new NotSupportedException("Ce type de source n'est pas pris en charge.")
     };
 
@@ -1402,7 +2314,8 @@ internal sealed class LibObsSceneRuntime : ISceneRuntime, ISourceRuntime, IRecor
             frame,
             session.SceneSource,
             session.CanvasWidth,
-            session.CanvasHeight);
+            session.CanvasHeight,
+            session.Overlay);
 
     private static void TryRollbackSource(ObsSource? source, ObsSceneItem? item)
     {

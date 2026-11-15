@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using CastorApplication.Models.Settings.Providers;
+﻿using CastorApplication.Models.Settings.Providers;
 
 namespace CastorApplication.Services.Auth.Storage
 {

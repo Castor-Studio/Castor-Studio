@@ -63,7 +63,7 @@ public sealed class MulticamAiFocusTests
         var closeup = workspace.CreateScene("Caméra");
         viewModel.SetAiFocus(wide, [closeup]);
 
-        viewModel.ClearAiFocus();
+        viewModel.SetAiFocus(null);
 
         Assert.All(viewModel.Tiles, tile => Assert.Equal(MulticamAiState.None, tile.AiState));
     }

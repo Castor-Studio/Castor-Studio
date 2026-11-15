@@ -1,8 +1,4 @@
 ﻿using CastorApplication.Models.Settings.Providers;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
 namespace CastorApplication.Services.Auth.Storage
 {

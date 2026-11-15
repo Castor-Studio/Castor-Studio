@@ -1,23 +1,15 @@
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Threading.Tasks;
-using System.Linq;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CastorApplication.ViewModels.Settings.Sections;
-using CastorApplication.Services.Auth;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Settings;
-using CastorApplication.Services.Auth.Storage;
 
 namespace CastorApplication.ViewModels.Settings;
 
 public partial class SettingsViewModel : ViewModelBase
 {
-    private readonly IAuthService _authService;
-    private readonly IProviderStore _providerStore;
     private readonly SettingsService _settingsService;
 
     [ObservableProperty]
@@ -34,18 +26,15 @@ public partial class SettingsViewModel : ViewModelBase
         section => section.ViewModel is ISettingsSection settingsSection && settingsSection.IsDirty);
 
     public SettingsViewModel(
-        IAuthService authService,
-        IProviderStore store,
         SettingsService settingsService,
         GeneralSettingsViewModel generalSettingsViewModel,
         VideoSettingsViewModel videoSettingsViewModel,
         AudioSettingsViewModel audioSettingsViewModel,
         StreamingSettingsViewModel streamingSettingsViewModel,
         OutputSettingsViewModel outputSettingsViewModel,
-        AccountsSettingsViewModel accountsSettingsViewModel)
+        AccountsSettingsViewModel accountsSettingsViewModel,
+        AdvancedSettingsViewModel advancedSettingsViewModel)
     {
-        _authService = authService;
-        _providerStore = store;
         _settingsService = settingsService;
 
         Sections.Add(new()
@@ -90,6 +79,13 @@ public partial class SettingsViewModel : ViewModelBase
             SelectCommand = SelectSectionCommand
         });
 
+        Sections.Add(new()
+        {
+            Title = "Avancé",
+            ViewModel = advancedSettingsViewModel,
+            SelectCommand = SelectSectionCommand
+        });
+
         foreach (var section in SectionViewModels)
         {
             if (section is not INotifyPropertyChanged observable) continue;
@@ -103,6 +99,16 @@ public partial class SettingsViewModel : ViewModelBase
 
         CurrentSection = Sections.FirstOrDefault()?.ViewModel;
         Load();
+    }
+
+    // Opens the accounts section, for callers that send the operator to connect one.
+    public void ShowAccounts() =>
+        CurrentSection = Sections.FirstOrDefault(section => section.ViewModel is AccountsSettingsViewModel)?.ViewModel ?? CurrentSection;
+
+    // Whatever changes the section (the navigation, ShowAccounts), the navigation marks it.
+    partial void OnCurrentSectionChanged(ViewModelBase? value)
+    {
+        foreach (var section in Sections) section.IsSelected = ReferenceEquals(section.ViewModel, value);
     }
 
     [RelayCommand]
@@ -141,7 +147,7 @@ public partial class SettingsViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[SettingsViewModel] Failed to save settings. {ex.GetType().Name}: {ex.Message}");
+            AppLog.Error("Saving the settings failed", ex);
         }
     }
 

@@ -33,6 +33,29 @@ public sealed class RecordingOutputPathTests
     }
 
     [Fact]
+    public void Scene_files_carry_a_safe_scene_name_and_never_collide_with_files_starting_together()
+    {
+        var directory = CreateTemporaryDirectory();
+        try
+        {
+            var timestamp = new DateTime(2026, 9, 3, 16, 30, 42, 123);
+            var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var first = RecordingOutputPath.Create(directory, RecordingContainer.Mkv, timestamp, "Plateau: caméra 1/2", taken);
+            taken.Add(first);
+            var second = RecordingOutputPath.Create(directory, RecordingContainer.Mkv, timestamp, "Plateau: caméra 1/2", taken);
+            var program = RecordingOutputPath.Create(directory, RecordingContainer.Mkv, timestamp, taken: taken);
+
+            Assert.Equal(Path.Combine(directory, "Castor_20260903_163042_123_Plateau_ caméra 1_2.mkv"), first);
+            Assert.Equal(Path.Combine(directory, "Castor_20260903_163042_123_Plateau_ caméra 1_2_2.mkv"), second);
+            Assert.Equal(Path.Combine(directory, "Castor_20260903_163042_123.mkv"), program);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Create_rejects_a_relative_directory()
     {
         var exception = Assert.Throws<InvalidOperationException>(() =>

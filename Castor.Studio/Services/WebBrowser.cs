@@ -1,5 +1,5 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using CastorApplication.Services.Diagnostics;
 
 namespace CastorApplication.Services
 {
@@ -17,7 +17,7 @@ namespace CastorApplication.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to open URL: {ex.Message}");
+                AppLog.Warning($"Could not open {url}", ex);
             }
         }
     }

@@ -146,6 +146,14 @@ L'enregistrement de la disposition, la restauration au démarrage et le thème s
 automatiques. Le panneau apparaît aussi de lui-même dans le menu « Panneaux » de la barre de
 menus, qui est construit à partir de la disposition par défaut.
 
+Pour les couleurs, le contenu du panneau ne prend que des clés de `Styles/Colors.axaml`, en
+`DynamicResource` pour suivre le thème, et jamais de valeur hexadécimale : chaque clé y est
+mesurée sur ses fonds réels, dans les deux thèmes. Un texte posé sur l'image vidéo, noire dans
+les deux thèmes, prend `VideoFgBrush`, `VideoFgMutedBrush` ou `VideoErrorBrush`. Un texte posé
+sur un aplat d'accent ou d'état prend `AppOnAccentFg` ou `AppOnStatusFg`.
+`Castor.Studio.Tests/ColorContrastTests.cs` refait les mesures ; une nouvelle paire
+fond/premier plan s'y ajoute.
+
 ## Deux pièges
 
 **Une disposition enregistrée masque le nouveau panneau.** Le fichier

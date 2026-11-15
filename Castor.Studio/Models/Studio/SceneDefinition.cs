@@ -7,4 +7,9 @@ public sealed class SceneDefinition
     public string Name { get; set; } = "";
     public string Color { get; set; } = "#5b8def";
     public List<SourceDefinition> Sources { get; set; } = [];
+
+    // Canvas the sources' layouts were composed on, to bring them to another resolution.
+    // 0 when unknown.
+    public int CanvasWidth { get; set; }
+    public int CanvasHeight { get; set; }
 }

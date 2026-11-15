@@ -6,7 +6,7 @@
 
 #define AppVersion Version
 #define AppPublisher "Castor Team"
-#define AppExeName "CastorStudio.exe"
+#define AppExeName "Castor-Studio.exe"
 
 [Setup]
 AppId={{A1B2C3D4-CASTOR-STUDIO-APP}}
@@ -37,6 +37,10 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 
 [Files]
 Source: "..\artifacts\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+; Worker bundled by earlier versions: the app now downloads it to the user's profile.
+Type: filesandordirs; Name: "{app}\ai"
 
 [Tasks]
 Name: "desktopicon"; Description: "Créer un raccourci sur le bureau"; GroupDescription: "Options supplémentaires:"

@@ -5,10 +5,15 @@ namespace CastorApplication.Services.Studio;
 
 internal static class RecordingOutputPath
 {
+    // sceneName: set for a scene recorded on its own, so simultaneous files say which scene
+    // they hold. taken: paths already handed out for recordings starting together, whose
+    // files do not exist yet.
     public static string Create(
         string? configuredDirectory,
         RecordingContainer container,
-        DateTime timestamp)
+        DateTime timestamp,
+        string? sceneName = null,
+        IReadOnlySet<string>? taken = null)
     {
         var directory = string.IsNullOrWhiteSpace(configuredDirectory)
             ? ApplicationSettings.DefaultOutputPath
@@ -35,10 +40,21 @@ internal static class RecordingOutputPath
             _ => throw new ArgumentOutOfRangeException(nameof(container))
         };
         var baseName = $"Castor_{timestamp:yyyyMMdd_HHmmss_fff}";
+        if (sceneName != null) baseName += $"_{FileNamePart(sceneName)}";
         var path = Path.Combine(directory, baseName + extension);
-        for (var suffix = 2; File.Exists(path); suffix++)
+        for (var suffix = 2; File.Exists(path) || taken?.Contains(path) == true; suffix++)
             path = Path.Combine(directory, $"{baseName}_{suffix}{extension}");
 
         return path;
+    }
+
+    private const int MaxSceneNameLength = 60;
+
+    private static string FileNamePart(string sceneName)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(sceneName.Trim().Select(c => invalid.Contains(c) ? '_' : c).ToArray()).Trim('.', ' ');
+        if (cleaned.Length > MaxSceneNameLength) cleaned = cleaned[..MaxSceneNameLength].TrimEnd('.', ' ');
+        return cleaned.Length == 0 ? "Scene" : cleaned;
     }
 }

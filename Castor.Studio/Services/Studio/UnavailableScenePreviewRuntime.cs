@@ -1,4 +1,3 @@
-using System;
 using CastorApplication.Models.Studio;
 
 namespace CastorApplication.Services.Studio;
@@ -25,6 +24,10 @@ internal sealed class UnavailableScenePreviewRuntime : IScenePreviewRuntime
         Task.FromResult(StudioRuntimeResult.Unavailable(Message));
 
     public void ResizePreview(IntPtr windowHandle, uint width, uint height)
+    {
+    }
+
+    public void SetCompositionOverlay(IntPtr windowHandle, CompositionOverlay overlay)
     {
     }
 

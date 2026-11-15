@@ -1,0 +1,334 @@
+# Canvas de composition
+
+Dans la page Scènes, l'aperçu montre l'image composée par le moteur **et**, par-dessus, le
+cadre de chaque source composée, à la place et à la taille que le moteur lui donne. C'est ce
+couple image + cadres qui forme le canvas de composition : la surface sur laquelle
+s'appuie la manipulation directe des sources — déplacer, étirer, rogner.
+
+## La règle
+
+**Aucune valeur de transformation n'est calculée ni retenue côté interface.** Position,
+échelle, rognage et empilement appartiennent au moteur. Une valeur recopiée ici finirait par
+décrire autre chose que ce qui est réellement rendu — c'est déjà la règle de l'empilement
+(voir `ISourceRuntime.GetSourceOrder`), le canvas ne fait que l'étendre à la géométrie.
+
+Un geste n'y fait pas exception : il **propose** un placement, le moteur l'écrit ou le
+refuse, et c'est sa réponse qui reste à l'écran. La seule chose montrée avant lui est le
+cadre de la source saisie, le temps qu'il confirme.
+
+## Pourquoi le moteur dessine, et pas Avalonia
+
+L'aperçu de libobs est une **fenêtre Windows** posée sur la page. Elle recouvre tout ce
+qu'Avalonia dessine au même endroit : un cadre en XAML par-dessus l'image est impossible,
+quel que soit l'ordre des éléments. Les cadres sont donc tracés par le moteur lui-même, dans
+la même image et la même projection que la scène — ils tombent sur l'image au pixel près,
+sans décalage possible entre les deux.
+
+C'est aussi ce qui rend la manipulation possible : la fenêtre native est transparente
+aux clics ([`ObsPreviewHost`](../Castor.Studio/Controls/ObsPreviewHost.cs)), les gestes
+tombent donc sur Avalonia derrière, et les transformations lues ici donnent le hit-testing.
+
+## Le chemin d'une transformation
+
+1. `LibObsSceneRuntime.GetSceneComposition(sceneId)` lit, sous un seul verrou, la taille du
+   canvas du moteur et chaque scene item : position, échelle, rognage, visibilité, taille de
+   la source. Le rectangle composé (`Width`, `Height`) est déduit **là**, au contact du
+   moteur et selon sa règle — taille de la source, moins le rognage, mise à l'échelle.
+2. Le résultat est un `SceneComposition` : des `Guid` applicatifs et des nombres, jamais un
+   handle natif. Les sources y sont rangées du premier plan vers l'arrière-plan, comme
+   partout ailleurs dans l'application (rang 0 = premier plan).
+3. `SceneCompositionViewModel` garde de cette lecture les sources réellement composées, dans
+   le sens du dessin — de l'arrière-plan vers le premier plan. Une source masquée, ou sans
+   image comme une source audio, n'a pas de cadre.
+4. `ObsPreviewHost` rend cette liste au moteur pour sa propre surface
+   (`IScenePreviewRuntime.SetCompositionOverlay`). `ObsPreviewGraphics` le peint après la
+   scène, dans le repère du canvas.
+
+## Le vocabulaire de l'overlay
+
+L'overlay reprend la répartition que fait déjà la liste des sources, où la pastille garde sa
+couleur pendant que le texte passe à l'accent : **la couleur dit l'identité, le poids et les
+poignées disent l'état**.
+
+- **Source composée** : un filet de 1 px, de la couleur de sa pastille dans la liste. Sur une
+  composition qui se chevauche, c'est ce qui dit quel cadre est quelle ligne. Une couleur
+  illisible rend l'accent par défaut : un cadre sans couleur exacte reste plus utile qu'une
+  source sans cadre.
+- **Source choisie** : le même cadre, dans la même couleur, épaissi à 2 px.
+- **Source survolée** : le même poids que la source choisie, sans poignées. Le survol annonce
+  ce que le clic va prendre, avec le trait qu'il aura une fois pris ; il se tait pendant un
+  geste et sur la source déjà choisie.
+- **Ses poignées** : huit carrés en `AppAccentFg` à cœur `AppFg1`, quatre aux angles, quatre
+  au milieu des côtés, centrés sur leur point donc à cheval sur le bord — c'est ce qui les
+  rend saisissables des deux côtés du trait, et visibles sur une source collée au bord du
+  canvas.
+- **En rognage** : les carrés cèdent la place à des équerres aux angles et à des barres au
+  milieu des côtés, en `AppAccentFg`, posées à l'intérieur du bord. Le contour de la source
+  **entière**, partie rognée comprise, s'ajoute en pointillé de 2 px, dans la couleur de la
+  source : on voit ce qu'on cache et ce qu'on peut encore rendre. Une autre forme, parce que le
+  même geste n'y fait pas la même chose : on ne tire plus la source, on en retire des bords.
+- **Guides** : pendant un déplacement, une ligne de 1 px en `AppFg1` traverse le canvas là où
+  la source vient de s'accrocher. Neutre, parce qu'un guide n'est à aucune source : dans la
+  couleur d'une pastille, on le prendrait pour un cadre.
+
+Une source tournée est tracée tournée : cadre, poignées, équerres et pointillé sont posés
+dans le repère de la source — son point, puis sa rotation —, exactement comme libobs compose
+l'item.
+
+Tout l'overlay porte une ombre `AppBg` de 1 px de chaque côté. Un cœur coloré posé sur un
+liseré sombre se lit sur n'importe quelle image ; le même trait seul disparaît dès que
+l'image prend sa valeur. Les valeurs du thème sombre valent dans les deux thèmes, la zone
+d'aperçu étant noire en clair comme en sombre.
+
+Tout est tracé **vers l'intérieur** du rectangle de la source : un trait posé à cheval sur le
+bord ferait paraître la source plus grande qu'elle n'est, alors que c'est justement sa taille
+réelle qu'il montre. Et toutes les tailles sont pensées en pixels de l'écran puis converties
+en pixels du canvas : une poignée se vise à la souris, elle ne suit pas l'échelle à laquelle
+le canvas est réduit dans le panneau.
+
+## Choisir une source
+
+Un clic sur l'image choisit la source visée : celle qui est devant, puisque c'est celle que
+l'opérateur voit à cet endroit. Cliquer à côté de toute source, ou en dehors de l'image, ne
+choisit plus rien.
+
+Le clic ne peut pas atterrir sur la surface native : elle se déclare transparente aux tests
+de survol et l'hôte ne teste pas le survol. Il tombe donc sur le fond de `StudioPreview`, qui
+le ramène dans le repère du canvas — un simple rapport de tailles, écrit à un seul endroit,
+et qui est le changement de repère du moteur pris à l'envers.
+
+La sélection est retenue **par identifiant**, jamais par rectangle : elle suit la source
+quand le moteur la déplace, et tombe d'elle-même quand la source cesse d'être composée —
+retirée, masquée, ou scène changée. Montrer des points d'accroche sur une source que le
+moteur ne compose plus laisserait saisir ce qui n'est pas là.
+
+## Manipuler une source
+
+| Geste | Où | Ce qui est écrit |
+| --- | --- | --- |
+| Déplacer | glisser une source | la position |
+| Étirer | glisser une poignée de la source choisie | l'échelle (et la position, pour un bord haut ou gauche) |
+| Rogner | glisser une poignée en mode rognage, ou **Alt** enfoncé | le rognage (et la position, pour un bord haut ou gauche) |
+| Tourner | glisser juste hors d'un coin de la source choisie | la rotation et la position, autour du centre |
+| Annuler | **Échap** pendant le geste | le placement d'avant le geste |
+
+Un clic droit sur une source la choisit et ouvre son menu : rogner ou terminer le rognage,
+réinitialiser le rognage, pivoter de 90° à droite ou à gauche, de 180°, réinitialiser la
+rotation. Ces commandes passent par le moteur comme un geste, et un refus s'y traite de même.
+
+- Appuyer sur une source la choisit et la saisit d'un même geste : pas besoin de cliquer une
+  première fois pour la sélectionner.
+- Les poignées passent avant les sources : elles sont peintes par-dessus tous les cadres, une
+  poignée visible se saisit même quand une autre source est devant à cet endroit.
+- Un angle garde les proportions ; **Maj** les libère. Un côté n'étire que son axe.
+- La poignée tirée emmène son ou ses bords, le bord opposé reste en place. Au rognage, l'image
+  reste immobile sous le bord qui avance : on découvre ou on cache, on ne décale rien.
+- Une source ne se réduit pas sous 8 pixels du canvas — ses poignées se recouvriraient — ni
+  ne se retourne. Un rognage ne descend pas sous zéro et laisse toujours un pixel de la source.
+- Une source déplacée s'**accroche** aux bords et au centre du canvas, et aux bords et
+  centres des autres sources, dès qu'un de ses bords ou son centre en passe à moins de 8 px
+  de l'écran. Une source tournée s'accroche par le rectangle droit qui l'englobe : c'est ce
+  que l'œil aligne. **Ctrl** coupe l'aimant, pour poser une source au pixel près d'un bord.
+- Au survol, le curseur annonce ce qu'un clic saisirait : déplacement sur une source, flèche
+  sur une poignée, flèche en arc hors d'un coin. La flèche suit la direction dans laquelle la
+  poignée tire, rotation comprise, ramenée au plus proche des quatre axes que Windows sait
+  dessiner. Windows n'ayant pas de curseur de rotation, celui-là est dessiné une fois, au
+  premier survol.
+- Pendant le geste, une bulle près du pointeur dit ce qui est écrit : la position, la taille,
+  le rognage de chaque côté, ou l'angle. C'est une fenêtre à elle (`Popup` hors de la couche
+  de la page) : c'est ce qui la laisse passer au-dessus de la surface native.
+
+Les poignées sont rendues dans le sens des aiguilles d'une montre depuis le coin haut-gauche,
+et `CompositionHandle` suit le même ordre. Leur zone de prise est pensée en pixels de l'écran,
+un peu plus large que le carré peint, puis convertie dans le repère du canvas. La zone de
+rotation aussi : 24 px hors de chaque coin, rien n'y est peint.
+
+### Le mode rognage
+
+Le rognage se tient sur la source choisie, et seulement sur elle.
+
+- **Y entrer** : double-clic sur la source choisie, « Rogner » dans son menu, ou **Alt**
+  enfoncé — ce dernier ne dure que le temps de la touche.
+- **En sortir** : **Échap** (hors geste), **Entrée**, un nouveau double-clic, « Terminer le
+  rognage » dans le menu, ou choisir autre chose — une autre source, aucune source, une autre
+  scène. Le mode tombe aussi de lui-même avec la source, quand elle cesse d'être composée.
+
+En rognage, les poignées rognent et les coins ne tournent pas : seules les équerres se
+saisissent, l'intérieur de la source la déplace toujours. Le mode tient d'un geste à l'autre,
+pour rogner plusieurs bords à la suite.
+
+### Tourner
+
+Une source tourne autour de son **centre**, comme on l'attend. libobs, lui, la fait tourner
+autour de son point d'alignement — le coin haut-gauche. L'alignement n'est pas changé :
+`CompositionGeometry` recalcule la position pour que le centre ne bouge pas, toujours depuis
+la transformation du début du geste. **Maj** ramène l'angle au pas de 15°.
+
+Une source tournée s'étire et se rogne le long de **ses** bords : le déplacement du pointeur
+est ramené dans le repère de la source avant d'être appliqué, puis le coin d'origine revient
+dans le canvas par la même rotation. Le clic, lui aussi, se teste dans ce repère : une source
+tournée se saisit là où elle est dessinée.
+
+### Un geste recalculé depuis son origine
+
+`CompositionGeometry` calcule le placement demandé à partir de la transformation lue **au
+début** du geste et du déplacement total du pointeur. Rien n'est cumulé mouvement après
+mouvement : un geste ne dérive pas, quel que soit le nombre de mouvements, et un rognage en
+pixels entiers de la source ne perd rien aux arrondis.
+
+### Écrire dans le moteur
+
+`ISourceRuntime.SetSourceTransform(sceneId, sourceId, placement)` écrit position, échelle,
+rotation et rognage d'un seul tenant, sous le verrou du runtime, et rend la transformation
+que le moteur compose ensuite. Position, échelle et rotation partent d'un bloc
+(`ObsSceneItem.ApplyTransform`), le rognage suit : libobs le tient à part. Il refuse avant
+d'approcher le moteur un nombre non fini, une échelle nulle ou négative, un rognage négatif
+ou qui ne laisserait rien de la source. Si libobs échoue entre ses deux écritures, l'ancien
+placement est rendu tel quel : jamais un mélange des deux.
+
+Le pointeur bouge bien plus souvent que le moteur ne compose. Pendant un geste :
+
+- le cadre suit **chaque** mouvement, sans attendre le moteur — c'est ce qui le garde collé
+  au pointeur ;
+- le moteur reçoit **au plus une écriture toutes les 16 ms** (une image à 60 i/s). La
+  première part tout de suite ; une demande qui arrive plus tôt attend ;
+- une minuterie de `StudioPreview`, à la même cadence, écrit la demande en attente quand le
+  pointeur s'arrête, et le relâcher écrit la dernière ;
+- la relecture périodique de l'aperçu ne ramène pas le cadre en arrière : elle rend les
+  autres sources telles que le moteur les détient, et la source saisie là où le geste la
+  demande.
+
+Au relâcher, la composition est relue : ce qui reste à l'écran est ce que le moteur a
+confirmé, pas ce qui a été demandé.
+
+### Un refus, et rien ne diverge
+
+Une écriture refusée arrête le geste là. La source reprend dans le moteur le placement
+qu'elle avait au début du geste, la composition est relue, et le refus s'écrit sous la liste
+des sources. Si le moteur refuse même ce retour, l'écran ne suit ni la demande ni le retour :
+il montre ce que le moteur détient réellement. Dans tous les cas, ce qui est à l'écran après
+un refus est une lecture du moteur.
+
+Échap, une capture perdue (Alt+Tab, une fenêtre qui passe devant) ou la vue qui disparaît
+en plein geste mènent au même retour : sans relâcher, rien ne dit où l'opérateur voulait
+finir.
+
+## Raccourcis clavier et barre du canvas
+
+Les raccourcis sont écrits à un seul endroit, `CompositionShortcuts` : la touche qui
+déclenche une commande est celle que le menu et les bulles des boutons affichent.
+Touche, bouton et ligne de menu passent ensuite par le même chemin
+(`StudioPreview.Execute`) — ils ne peuvent pas diverger.
+
+| Touches | Effet |
+| --- | --- |
+| Tab / Maj+Tab | source suivante / précédente, dans l'ordre de la liste (premier plan en tête) |
+| Échap | annule le geste, puis quitte le rognage, puis ne choisit plus rien |
+| Flèches / Maj+Flèches | déplace la source de 1 / 10 px du canvas, sans aimant |
+| Ctrl+D | centre la source dans le canvas |
+| Ctrl+F | l'ajuste au canvas, proportions gardées, au centre |
+| Ctrl+R | réinitialise sa transformation : coin haut-gauche, échelle 1, ni rotation, ni rognage, ni zoom |
+| R / Maj+R | pivote de 90° à droite / à gauche |
+| C, Entrée | entre en rognage ou en sort ; Entrée en sort |
+| + / − / 0 | zoome, dézoome l'image, la rend entière |
+| Page↑ / Page↓ | rapproche du premier plan / recule d'un plan |
+| Ctrl+Page↑ / Ctrl+Page↓ | met au premier plan / à l'arrière-plan |
+
+- Ctrl+D, Ctrl+F et Ctrl+R sont ceux d'OBS : un opérateur qui en vient n'a rien à réapprendre.
+- Les touches ne s'écoutent que sur l'aperçu, quand il a le clavier (un clic sur l'image le
+  lui donne). Une lettre seule ne vole donc rien à un champ texte.
+- Alt ne change aucune commande : il tient le rognage, R tourne toujours la source. En
+  rognage, les flèches font glisser l'image zoomée sous son cadre plutôt que le cadre.
+- Une touche sans emploi poursuit son chemin : Tab au-delà de la dernière source rend le
+  focus à la page, une flèche sans source choisie navigue comme ailleurs.
+- Aucune commande ne part pendant un geste : elle écrirait par-dessus ce que le pointeur
+  demande.
+
+L'empilement n'est pas à la composition : le canvas demande un plan
+(`SceneCompositionViewModel.ArrangeSelected`), la liste des sources l'écrit et relit l'ordre
+du moteur, comme pour ses propres boutons.
+
+Le **menu** d'une source (clic droit) est là où les raccourcis s'apprennent : chaque commande
+y porte son icône, et sa touche en face, dessinée en touche de clavier, dans une colonne
+commune à tout le menu. Il s'ouvre sur le nom de la source visée, sous la pastille qu'elle a
+dans la liste.
+
+Une source n'a qu'un menu (`SourceMenu`), qu'on l'ouvre sur l'image ou sur sa ligne dans la
+liste des sources. Sur une ligne, le clic droit choisit d'abord la source sur l'aperçu
+(`SceneCompositionViewModel.Select`). Le menu porte ensuite :
+
+- les commandes de composition, si le moteur compose la source — une source masquée ou
+  audio n'a rien à placer ;
+- ce qui se fait depuis la liste : renommer, lire en boucle (un fichier), et retirer de la
+  scène, en dernier et en rouge.
+
+Les cadres suivent un choix ou une commande venus de la liste sans attendre la relecture
+périodique : la composition prévient l'aperçu à chaque changement de son overlay
+(`OverlayChanged`).
+
+La **barre** sous l'image porte les mêmes commandes à la souris, rangées par ce qu'elles
+modifient :
+
+- **le cadre** : centrer, ajuster, rogner, puis réinitialiser, en dernier puisqu'il défait
+  tout ce qui précède ;
+- **Pivoter** et **Plan** : des icônes seules, sous un nom de groupe qui dit sur quoi elles
+  agissent. Le nom complet et la touche sont dans la bulle ;
+- **le zoom de l'image**, à part à droite, parce qu'il ne touche pas au cadre : la loupe
+  zoome d'un cran, le curseur règle le facteur, et un clic sur le facteur rend l'image
+  entière. Le curseur suit un zoom donné ailleurs (molette, clavier, menu) :
+  `SceneCompositionViewModel.SelectedZoomFactor` est le zoom que le moteur détient.
+
+Elle est sous l'image et non dessus, rien ne pouvant se poser sur la surface native ; ses
+boutons ne prennent pas le clavier, qui reste à l'aperçu. Sans source choisie, elle s'efface
+d'un bloc. Elle n'existe que là où l'aperçu compose : ni le panneau Studio ni le multicam
+n'en ont.
+
+## Rester en phase avec le moteur
+
+Rien ne prévient l'interface qu'une transformation a changé du côté du moteur. La composition
+est donc relue :
+
+- à chaque geste sur la liste des sources (ajout, retrait, déplacement), via `SyncSourceOrder` ;
+- à la fin de chaque geste sur le canvas (relâcher, annulation, refus) ;
+- à chaque sélection de scène, y compris une scène rouverte ou rechargée ;
+- toutes les 250 ms tant que l'aperçu tourne, à la cadence de `ObsPreviewHost`.
+
+Un refus de lecture laisse les derniers cadres en place — ils restent proches du vrai — et
+s'écrit sous la liste des sources, pour ne pas passer pour un aperçu figé.
+
+## Deux fils, aucun verrou partagé
+
+Le thread graphique de libobs relit la liste des cadres à chaque image, pendant que celui de
+l'interface la remplace. L'échange se fait par référence, sans verrou : **prendre le verrou
+du runtime depuis le thread graphique s'interbloquerait** avec les opérations qui, elles,
+attendent ce thread (la destruction d'un display, par exemple). Chaque lecture produit donc
+une liste neuve, qui ne change plus une fois donnée.
+
+Pour la même raison, un symbole graphique manquant ne remonte pas dans le thread de rendu :
+au premier échec, les cadres sont abandonnés pour de bon et l'image continue seule.
+
+## Qui a des cadres, qui n'en a pas
+
+Seule la page Scènes en demande. Le panneau Studio et la grille multicam montrent l'image
+nue : ce sont des vues de ce qui part à l'antenne, pas des vues d'édition. C'est le sens de
+la propriété `Composition` sur `StudioPreview` — non renseignée, aucun cadre.
+
+Les noms des sources ne sont pas écrits sur l'image : ils sont dans la liste sous l'aperçu,
+avec la même pastille de couleur, et l'image reste ce qu'elle est.
+
+## Ce que l'interface ne pilote pas encore
+
+Depuis LibObs 0.4.0, le binding expose tout ce qu'un item sait faire : rotation, alignement,
+*bounds* — un cadre qui contraint la taille rendue — et l'écriture d'un bloc de position,
+échelle et rotation (`ObsSceneItem.ApplyTransform`). L'interface n'en pilote qu'une part :
+
+- **L'alignement** reste celui que libobs donne par défaut, la position désignant le coin
+  haut-gauche de la source. Le calcul des gestes le suppose, et `SetSourceTransform` le garde
+  tel qu'il est.
+- **Les bounds** ne sont pas posés : l'étirement écrit l'**échelle**. Une source dont les
+  bounds seraient posés ailleurs aurait un rectangle rendu que `ReadTransform` ne déduit pas
+  encore ; c'est là, et nulle part ailleurs, qu'il faudrait les lire.
+
+Les transformations vivent dans le moteur le temps de la session : une scène rouverte les
+retrouve telles qu'écrites. L'export de scènes (`SceneCollectionService`) n'emporte encore
+que les sources, pas leur placement.

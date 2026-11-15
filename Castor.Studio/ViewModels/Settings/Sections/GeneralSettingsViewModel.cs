@@ -1,5 +1,6 @@
 using CastorApplication.Models.Settings;
 using CastorApplication.Services;
+using CastorApplication.Services.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace CastorApplication.ViewModels.Settings.Sections;
@@ -20,6 +21,9 @@ public partial class GeneralSettingsViewModel : SettingsSectionViewModel
 
     [ObservableProperty]
     private bool _showDockTitles = true;
+
+    // What a tester quotes in a bug report.
+    public string VersionText => $"Version {AppInfo.Version}";
 
     partial void OnSelectedThemeIndexChanged(int value)
     {

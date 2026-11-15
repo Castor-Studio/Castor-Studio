@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace CastorApplication.Models.Auth
+﻿namespace CastorApplication.Models.Auth
 {
     public sealed class DeviceCodeResult
     {
@@ -13,8 +7,6 @@ namespace CastorApplication.Models.Auth
         public required string UserCode { get; init; }
 
         public required string VerificationUri { get; init; }
-
-        public string? VerificationUriComplete { get; init; }
 
         public required TimeSpan ExpiresIn { get; init; }
 

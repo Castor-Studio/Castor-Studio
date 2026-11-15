@@ -4,6 +4,8 @@
              x:Class="CastorApplication.Views.Shell.StudioDockView"
              x:DataType="vm:StudioDockViewModel">
 
-	<DockControl Layout="{Binding Layout}" Background="{DynamicResource AppBg}"/>
+	<!-- The dockable space is the only page keeping a margin: it detaches panels from the
+	     edges so they read as floating panels. -->
+	<DockControl Layout="{Binding Layout}" Background="{DynamicResource AppBg}" Margin="12"/>
 
 </UserControl>

@@ -35,4 +35,6 @@ jobs:
         run: dotnet build Castor-Studio.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test Castor-Studio.sln --configuration Release --no-build --no-restore
+        # --blame: a native libobs crash takes the whole test host down; this names the test
+        # that was running instead of only "Test Run Aborted".
+        run: dotnet test Castor-Studio.sln --configuration Release --no-build --no-restore --blame

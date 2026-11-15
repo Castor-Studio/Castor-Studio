@@ -1,10 +1,10 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Settings.Sections"
              x:Class="CastorApplication.Views.Settings.Sections.AudioSettingsView"
              x:DataType="vm:AudioSettingsViewModel">
 
-    <StackPanel Margin="28,20"
+    <StackPanel Margin="33,24"
                 Spacing="28">
 
         <StackPanel Spacing="14">
@@ -12,7 +12,7 @@
             <TextBlock Text="AUDIO"
                        Classes="section-title"/>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Fréquence d'échantillonnage"
@@ -30,7 +30,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Canaux"
@@ -48,7 +48,7 @@
 
             </Grid>
 
-            <Grid ColumnDefinitions="180,*">
+            <Grid ColumnDefinitions="211,*">
 
                 <TextBlock Grid.Column="0"
                            Text="Débit audio (kbps)"

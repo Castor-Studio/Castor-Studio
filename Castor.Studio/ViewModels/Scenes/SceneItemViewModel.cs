@@ -21,6 +21,10 @@ public partial class SceneItemViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLive;
 
+    // Shown in the scene lists, and blocks deletion: a recording is writing this scene.
+    [ObservableProperty]
+    private bool _isBeingRecorded;
+
     [ObservableProperty]
     private string _color;
 
@@ -36,7 +40,11 @@ public partial class SceneItemViewModel : ViewModelBase
         _name = scene.Name;
         _color = scene.Color;
         Sources = new ObservableCollection<SourceItemViewModel>(scene.Sources.Select(source => new SourceItemViewModel(source)));
+        Sources.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasVideoSource));
     }
+
+    // A scene with no image sends black on air: the Studio banner reports it.
+    public bool HasVideoSource => Sources.Any(source => source.Kind is SourceKind.Video or SourceKind.Media);
 
     public SceneDefinition ToDefinition() => new()
     {

@@ -10,6 +10,15 @@ public sealed class SourceDefinition
     public SourceOrigin Origin { get; set; }
     public string OriginLabel { get; set; } = "";
     public string OriginPath { get; set; } = "";
+
+    // What a hardware source captures, for its icon and label. Null for file sources and for
+    // sources saved before these were recorded.
+    public VideoCaptureKind? VideoCaptureKind { get; set; }
+    public AudioCaptureKind? AudioCaptureKind { get; set; }
+
+    // The engine owns the composition: this is only a copy read from it when saving, and given
+    // back to it when loading. Null when nothing was read (older files, engine unavailable).
+    public SourceLayout? Layout { get; set; }
 }
 
 public sealed record CaptureSourceOption(
@@ -26,8 +35,10 @@ public sealed record AudioSourceOption(
     string DeviceId = "",
     int Index = -1);
 
-public sealed record DiscoveredCamera(
-    string Label,
-    string Ip,
-    string SuggestedUrl,
-    string Method);
+// A device of the local network that accepts RTMP connections. RTMP cannot list the streams
+// a device serves, so only its address is known: the stream path is left to the operator.
+public sealed record DiscoveredRtmpServer(string Address, string HostName = "")
+{
+    public string Server => $"rtmp://{Address}:{RtmpStreamUrl.DefaultPort}";
+    public string Title => HostName.Length > 0 ? HostName : Address;
+}

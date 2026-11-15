@@ -1,6 +1,4 @@
 ﻿using CastorApplication.Models.Auth;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace CastorApplication.Services.Auth.Providers
 {

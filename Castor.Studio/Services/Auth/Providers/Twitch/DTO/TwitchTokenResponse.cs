@@ -15,8 +15,5 @@ namespace CastorApplication.Services.Auth.Providers.Twitch.DTO
 
         [JsonPropertyName("scope")]
         public string[] Scope { get; init; } = [];
-
-        [JsonPropertyName("token_type")]
-        public required string TokenType { get; init; }
     }
 }

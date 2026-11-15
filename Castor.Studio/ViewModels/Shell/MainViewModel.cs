@@ -1,9 +1,9 @@
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Media;
+using CastorApplication.Models.Studio;
+using CastorApplication.Services;
+using CastorApplication.Services.Dialogs;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
 using CastorApplication.ViewModels.Settings;
@@ -30,13 +30,28 @@ public partial class MainViewModel : ViewModelBase
     private readonly SettingsViewModel _settingsViewModel;
     private readonly StudioWorkspaceViewModel _workspace;
     private readonly IClassicDesktopStyleApplicationLifetime _desktop;
+    private readonly StatusMessageService _messages;
+    private readonly IUnsavedScenesDialogService _unsavedScenesDialog;
 
     // The menu bar's "Panneaux" entries. Choosing one goes to the Studio page first, since that
     // is where the panel it brings back lives.
     public IReadOnlyList<StudioPanelEntry> PanelMenu { get; }
 
-    public string GlobalStatusText => _workspace.IsStreaming ? "EN DIRECT" : _workspace.IsRecording ? "REC" : "OFFLINE";
-    public IBrush GlobalStatusBrush => SolidColorBrush.Parse(_workspace.IsStreaming || _workspace.IsRecording ? "#f87171" : "#3c3c4e");
+    public string GlobalStatusText => _workspace.IsStreaming
+        ? "EN DIRECT"
+        : IsRecordingPaused ? "PAUSE" : _workspace.IsRecording ? "REC" : "OFFLINE";
+    // Colours come from the "session-state" styles (Controls.axaml), so they follow the theme.
+    public bool IsOnAir => _workspace.IsStreaming || _workspace.IsRecording;
+    public bool IsRecordingPaused => _workspace.RecordingState == RecordingState.Paused;
+    // What the on-air indicators show as paused: a paused recording does not pause a live.
+    public bool IsSessionPaused => IsRecordingPaused && !_workspace.IsStreaming;
+
+    // Window-wide shortcut (MainWindow.axaml): pause / resume works from every workspace.
+    public IRelayCommand TogglePauseRecordingCommand => _studioViewModel.TogglePauseRecordingCommand;
+
+    // The scene going out, next to the status badge so it reads from every workspace. Shown,
+    // not picked: the choice stays with the Studio's "Scène active" selector.
+    public SceneItemViewModel? ActiveScene => _workspace.ActiveScene;
 
     [ObservableProperty] private ViewModelBase? _currentPage;
     [ObservableProperty] private MainPageKind _currentPageKind;
@@ -53,8 +68,12 @@ public partial class MainViewModel : ViewModelBase
         ScenesViewModel scenesViewModel,
         SettingsViewModel settingsViewModel,
         StudioWorkspaceViewModel workspace,
-        IClassicDesktopStyleApplicationLifetime desktop)
+        IClassicDesktopStyleApplicationLifetime desktop,
+        StatusMessageService messages,
+        IUnsavedScenesDialogService unsavedScenesDialog)
     {
+        _messages = messages;
+        _unsavedScenesDialog = unsavedScenesDialog;
         _studioViewModel = studioViewModel;
         _studioDockViewModel = studioDockViewModel;
         _multicamViewModel = multicamViewModel;
@@ -63,6 +82,17 @@ public partial class MainViewModel : ViewModelBase
         _workspace = workspace;
         _desktop = desktop;
         _workspace.PropertyChanged += OnWorkspacePropertyChanged;
+
+        // The go-live panel's "Connecter un compte": straight to the accounts section. Leaving
+        // Settings then returns to the Studio, where the panel shows the connected account.
+        _studioViewModel.AccountSettingsRequested += (_, _) =>
+        {
+            ShowSettings();
+            _settingsViewModel.ShowAccounts();
+        };
+
+        _studioViewModel.ScenesPageRequested += (_, _) => ShowScenes();
+        _multicamViewModel.ScenesPageRequested += (_, _) => ShowScenes();
 
         PanelMenu =
         [
@@ -102,8 +132,72 @@ public partial class MainViewModel : ViewModelBase
         CurrentPageKind = MainPageKind.Settings;
     }
 
+    // Settings is configuration, not a place to work in: leaving it goes back to the workspace
+    // the operator came from, whatever opened it (the gear, the menu bar).
+    private MainPageKind _lastWorkspace = MainPageKind.Studio;
+
+    // The top bar gear: opens Settings, or closes it when it is already open.
     [RelayCommand]
-    private void Quit() => _desktop.Shutdown();
+    private void ToggleSettings()
+    {
+        if (IsSettingsActive) CloseSettings();
+        else ShowSettings();
+    }
+
+    [RelayCommand(CanExecute = nameof(IsSettingsActive))]
+    private void CloseSettings()
+    {
+        if (!IsSettingsActive) return;
+
+        switch (_lastWorkspace)
+        {
+            case MainPageKind.Multicam: ShowMulticam(); break;
+            case MainPageKind.Scenes: ShowScenes(); break;
+            default: ShowStudio(); break;
+        }
+    }
+
+    // Menu bar entries for the Scenes page's import/export: the logic stays in ScenesViewModel.
+    // The Scenes page is shown first so the imported scenes and the result message are visible.
+    [RelayCommand]
+    private Task ImportScenes()
+    {
+        ShowScenes();
+        return _scenesViewModel.ImportScenesCommand.ExecuteAsync(null);
+    }
+
+    [RelayCommand]
+    private Task ExportScenes()
+    {
+        ShowScenes();
+        return _scenesViewModel.ExportScenesCommand.ExecuteAsync(null);
+    }
+
+    // Closing the main window rather than shutting down: every way out goes through
+    // MainWindow.OnClosing, and so through ConfirmCloseAsync.
+    [RelayCommand]
+    private void Quit() => _desktop.MainWindow?.Close();
+
+    public Task LoadSavedScenesAsync() => _scenesViewModel.LoadSavedScenesAsync();
+
+    // True when the app may close. With unsaved scene changes the operator chooses; a failed
+    // save keeps the app open, on the Scenes page where the error is shown.
+    public async Task<bool> ConfirmCloseAsync()
+    {
+        if (!_scenesViewModel.HasUnsavedSceneChanges) return true;
+
+        switch (await _unsavedScenesDialog.AskAsync())
+        {
+            case UnsavedScenesChoice.DontSave:
+                return true;
+            case UnsavedScenesChoice.Save:
+                // The page first: changing page clears its messages, and a failure must stay visible.
+                ShowScenes();
+                return await _scenesViewModel.SaveScenesAsync();
+            default:
+                return false;
+        }
+    }
 
     public void ApplyScreenSize(Size screenSize) => _studioDockViewModel.ApplyScreenSize(screenSize);
 
@@ -127,13 +221,26 @@ public partial class MainViewModel : ViewModelBase
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.IsRecording) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
+        if (e.PropertyName == nameof(StudioWorkspaceViewModel.ActiveScene))
+        {
+            OnPropertyChanged(nameof(ActiveScene));
+            return;
+        }
+
+        if (e.PropertyName is not (nameof(StudioWorkspaceViewModel.RecordingState) or nameof(StudioWorkspaceViewModel.IsStreaming))) return;
         OnPropertyChanged(nameof(GlobalStatusText));
-        OnPropertyChanged(nameof(GlobalStatusBrush));
+        OnPropertyChanged(nameof(IsOnAir));
+        OnPropertyChanged(nameof(IsRecordingPaused));
+        OnPropertyChanged(nameof(IsSessionPaused));
     }
 
     partial void OnCurrentPageKindChanged(MainPageKind value)
     {
+        if (value != MainPageKind.Settings) _lastWorkspace = value;
+        CloseSettingsCommand.NotifyCanExecuteChanged();
+        // A message belongs to the page it was shown on: coming back must not find it there.
+        _messages.ClearAll();
+
         OnPropertyChanged(nameof(IsStudioActive));
         OnPropertyChanged(nameof(IsMulticamActive));
         OnPropertyChanged(nameof(IsScenesActive));

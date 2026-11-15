@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:CastorApplication.Controls"
+             x:Class="CastorApplication.Controls.EmptyState"
+             x:Name="Root"
+             x:DataType="controls:EmptyState">
+    <!-- What an area shows when it has nothing to show yet: the mascot, what is missing,
+         and how to fix it. The image gives way first when the area is small. -->
+    <Grid RowDefinitions="*,Auto" Margin="16"
+          HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Image x:Name="Mascot" Grid.Row="0" Stretch="Uniform" Margin="0,0,0,14"
+               MaxHeight="{Binding #Root.MascotHeight}"/>
+        <StackPanel Grid.Row="1" HorizontalAlignment="Center">
+            <TextBlock Text="{Binding #Root.Title}" HorizontalAlignment="Center" TextAlignment="Center"
+                       FontSize="16" FontWeight="Bold" Foreground="{DynamicResource AppFg1}"/>
+            <TextBlock Text="{Binding #Root.Description}" HorizontalAlignment="Center" TextAlignment="Center"
+                       TextWrapping="Wrap" Margin="0,2,0,0"
+                       FontSize="13.5" Foreground="{DynamicResource AppFg5}"/>
+            <ContentPresenter Content="{Binding #Root.Action}" HorizontalAlignment="Center" Margin="0,18,0,0"
+                              IsVisible="{Binding #Root.Action, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

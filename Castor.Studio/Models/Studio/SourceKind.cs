@@ -32,10 +32,3 @@ public enum AudioCaptureKind
     CameraMic,
     File
 }
-
-public enum StreamingPlatform
-{
-    Custom,
-    Twitch,
-    YouTube
-}

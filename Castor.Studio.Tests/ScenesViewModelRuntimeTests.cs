@@ -1,3 +1,4 @@
+using CastorApplication.Models.Settings;
 using CastorApplication.Models.Studio;
 using CastorApplication.Services;
 using CastorApplication.Services.Dialogs;
@@ -32,7 +33,29 @@ public sealed class ScenesViewModelRuntimeTests
 
         Assert.Single(viewModel.Scenes);
         Assert.Equal("Refusée", viewModel.NewSceneName);
-        Assert.Equal("échec natif", viewModel.SceneIoStatus);
+        Assert.Equal("échec natif", viewModel.CreateSceneError);
+
+        viewModel.NewSceneName = "Refusée bis";
+        Assert.Equal("", viewModel.CreateSceneError);
+
+        viewModel.NewSceneName = "   ";
+        Assert.False(viewModel.CreateSceneCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void Adding_a_source_waits_for_a_scene_and_says_so()
+    {
+        var viewModel = CreateViewModel(new FakeSceneRuntime());
+
+        Assert.False(viewModel.OpenAddSourceCommand.CanExecute(null));
+        Assert.Contains("créez une scène", viewModel.SourceListPlaceholder);
+        Assert.Contains("scène", viewModel.AddSourceToolTip);
+
+        CreateScene(viewModel, "Scène");
+
+        Assert.True(viewModel.OpenAddSourceCommand.CanExecute(null));
+        Assert.Equal("Ajouter une source", viewModel.AddSourceToolTip);
+        Assert.Equal("Aucune source dans cette scène. Utilisez « Ajouter une source » pour commencer.", viewModel.SourceListPlaceholder);
     }
 
     [Fact]
@@ -74,7 +97,7 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.True(second.IsActive);
 
         // Selecting from Scenes updates the same workspace selection used by Studio.
-        workspace.SetRecordingState(true);
+        workspace.TrySetRecordingState(RecordingState.Recording);
         viewModel.SelectSceneCommand.Execute(onAir);
         Assert.Same(onAir, viewModel.SelectedScene);
         Assert.Same(onAir, workspace.ActiveScene);
@@ -134,13 +157,15 @@ public sealed class ScenesViewModelRuntimeTests
 
         Assert.Equal("Originale", scene.Name);
         Assert.Same(scene, viewModel.SceneBeingRenamed);
+        Assert.Equal("nom refusé", viewModel.RenameSceneError);
 
         runtime.Rename = (_, _) => SceneRuntimeResult.Success("Demandée 2");
         viewModel.ConfirmRenameSceneCommand.Execute(null);
 
         Assert.Equal("Demandée 2", scene.Name);
         Assert.Null(viewModel.SceneBeingRenamed);
-        Assert.Equal("", viewModel.SceneIoStatus);
+        Assert.Equal("", viewModel.RenameSceneError);
+        Assert.False(viewModel.ConfirmRenameSceneCommand.CanExecute(null));
     }
 
     [Fact]
@@ -174,6 +199,31 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.True(first.IsSelected);
         Assert.Same(first, workspace.ActiveScene);
         Assert.Equal("", viewModel.DeleteSceneError);
+    }
+
+    [Fact]
+    public void A_scene_being_recorded_cannot_be_deleted()
+    {
+        var runtime = new FakeSceneRuntime();
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(runtime, workspace);
+        var recorded = CreateScene(viewModel, "Enregistrée");
+        var other = CreateScene(viewModel, "Libre");
+        recorded.IsBeingRecorded = true;
+
+        viewModel.DeleteSceneCommand.Execute(recorded);
+
+        Assert.Contains(recorded, viewModel.Scenes);
+        Assert.Equal(0, runtime.RemoveCalls);
+        Assert.Contains("en cours d'enregistrement", viewModel.DeleteSceneError);
+
+        recorded.IsMultiSelected = true;
+        other.IsMultiSelected = true;
+        viewModel.DeleteSelectedScenesCommand.Execute(null);
+
+        Assert.Contains(recorded, viewModel.Scenes);
+        Assert.DoesNotContain(other, viewModel.Scenes);
+        Assert.Contains("Enregistrée", viewModel.DeleteSceneError);
     }
 
     [Fact]
@@ -239,7 +289,20 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Equal("Importée 2", scene.Name);
         Assert.Single(scene.Sources);
         Assert.Equal("Fichier", scene.Sources[0].Name);
-        Assert.Contains("1 scène(s) refusée(s)", viewModel.SceneIoStatus);
+        Assert.Contains("1 scène(s) refusée(s)", viewModel.SceneIoStatus.Text);
+        Assert.True(viewModel.SceneIoStatus.IsError);
+    }
+
+    [Fact]
+    public async Task Import_outcome_is_cleared_when_another_scene_is_selected()
+    {
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [new SceneDefinition { Name = "Importée" }]);
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+        Assert.True(viewModel.SceneIoStatus.HasText);
+
+        CreateScene(viewModel, "Autre");
+
+        Assert.False(viewModel.SceneIoStatus.HasText);
     }
 
     [Fact]
@@ -257,9 +320,130 @@ public sealed class ScenesViewModelRuntimeTests
         await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(option));
 
         Assert.Equal(2, viewModel.SelectedScene!.Sources.Count);
-        Assert.Equal(["Navigateur", "Navigateur 2"], viewModel.SelectedScene.Sources.Select(source => source.Name));
+        // The list follows the engine's stack, foreground first: the most recently added source
+        // goes in front of the previous ones.
+        Assert.Equal(["Navigateur 2", "Navigateur"], viewModel.SelectedScene.Sources.Select(source => source.Name));
         Assert.Equal(2, sourceRuntime.AddedRequests.Count);
     }
+
+    [Fact]
+    public async Task Three_sources_can_be_reordered_entirely_from_the_interface()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Écran", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        Assert.Equal(["Overlay", "Écran", "Caméra"], Names(scene));
+
+        // Drag and drop: dropping a source on another takes its rank.
+        viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
+        Assert.Equal(["Caméra", "Overlay", "Écran"], Names(scene));
+        Assert.Equal(0, sourceRuntime.RequestedLayerIndexes[^1]);
+
+        // Keyboard equivalent: one layer back, then one layer forward.
+        viewModel.LowerSourceCommand.Execute(scene.Sources[0]);
+        Assert.Equal(["Overlay", "Caméra", "Écran"], Names(scene));
+        Assert.Equal(1, sourceRuntime.RequestedLayerIndexes[^1]);
+
+        viewModel.RaiseSourceCommand.Execute(scene.Sources[2]);
+        Assert.Equal(["Overlay", "Écran", "Caméra"], Names(scene));
+        Assert.Equal(1, sourceRuntime.RequestedLayerIndexes[^1]);
+        Assert.Equal("", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public async Task Reloading_a_scene_takes_the_order_back_from_the_engine()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        var scene = CreateScene(viewModel, "Composition");
+        var other = CreateScene(viewModel, "Autre");
+        viewModel.SelectSceneCommand.Execute(scene);
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Écran", "Overlay");
+
+        viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
+        var engineOrder = Names(scene);
+
+        // A local list that drifted is not a source of truth: the reopened scene realigns on what
+        // the engine holds.
+        scene.Sources.Move(0, 2);
+        Assert.NotEqual(engineOrder, Names(scene));
+
+        viewModel.SelectSceneCommand.Execute(other);
+        viewModel.SelectSceneCommand.Execute(scene);
+
+        Assert.Equal(engineOrder, Names(scene));
+    }
+
+    [Fact]
+    public async Task A_refused_reorder_leaves_the_list_on_what_the_engine_holds()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Écran", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        var before = Names(scene);
+        sourceRuntime.Move = (_, _, _) => SourceRuntimeResult.Failure("réordonnancement refusé");
+
+        viewModel.MoveSourceHere(scene.Sources[2], scene.Sources[0]);
+
+        Assert.Equal(before, Names(scene));
+        Assert.Equal("réordonnancement refusé", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public async Task The_two_ends_of_the_stack_cannot_be_pushed_further()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        Assert.False(viewModel.RaiseSourceCommand.CanExecute(scene.Sources[0]));
+        Assert.True(viewModel.LowerSourceCommand.CanExecute(scene.Sources[0]));
+        Assert.True(viewModel.RaiseSourceCommand.CanExecute(scene.Sources[^1]));
+        Assert.False(viewModel.LowerSourceCommand.CanExecute(scene.Sources[^1]));
+
+        viewModel.RaiseSourceCommand.Execute(scene.Sources[0]);
+        Assert.Empty(sourceRuntime.RequestedLayerIndexes);
+    }
+
+    [Fact]
+    public async Task An_order_the_engine_cannot_give_back_is_reported_rather_than_swallowed()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Composition");
+        await AddVideoSourcesAsync(viewModel, "Caméra", "Overlay");
+
+        var scene = viewModel.SelectedScene!;
+        var before = Names(scene);
+        sourceRuntime.OrderIsUnreadable = true;
+
+        // The engine accepts the move but can no longer return the order: the list lags behind,
+        // which must show rather than pass for a gesture with no effect.
+        viewModel.LowerSourceCommand.Execute(scene.Sources[0]);
+
+        Assert.Equal(before, Names(scene));
+        Assert.Equal("ordre illisible", viewModel.SourceOperationStatus);
+    }
+
+    private static async Task AddVideoSourcesAsync(ScenesViewModel viewModel, params string[] labels)
+    {
+        foreach (var label in labels)
+        {
+            await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Video(
+                new CaptureSourceOption(label, label, VideoCaptureKind.Window)));
+        }
+    }
+
+    private static string[] Names(SceneItemViewModel scene) =>
+        scene.Sources.Select(source => source.Name).ToArray();
 
     [Fact]
     public async Task Native_add_failure_does_not_change_local_sources()
@@ -296,6 +480,56 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Equal(SourceKind.Media, source.Kind);
         Assert.Equal(@"C:\media\clip.mp4", source.OriginPath);
         Assert.IsType<SourceAddRequest.Media>(Assert.Single(sourceRuntime.AddedRequests));
+    }
+
+    [Fact]
+    public async Task Rtmp_camera_adds_a_native_network_source_labelled_without_its_key()
+    {
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sourceRuntime: sourceRuntime);
+        CreateScene(viewModel, "Plateau");
+
+        await viewModel.ApplyAddSourceResultAsync(
+            new AddSourceResult.Network("Caméra 1", "rtmp://192.168.1.20:1935/live/secret-key"));
+
+        var source = Assert.Single(viewModel.SelectedScene!.Sources);
+        Assert.Equal("Caméra 1", source.Name);
+        Assert.Equal(SourceKind.Video, source.Kind);
+        Assert.Equal(SourceOrigin.Network, source.Origin);
+        Assert.Equal(VideoCaptureKind.Network, source.VideoCaptureKind);
+        Assert.Equal("Caméra RTMP", source.Type);
+        Assert.Equal("rtmp://192.168.1.20:1935", source.OriginLabel);
+        Assert.Equal("rtmp://192.168.1.20:1935/live/secret-key", source.OriginPath);
+        var request = Assert.IsType<SourceAddRequest.Network>(Assert.Single(sourceRuntime.AddedRequests));
+        Assert.Equal("rtmp://192.168.1.20:1935/live/secret-key", request.Url);
+        Assert.DoesNotContain("secret-key", request.ToString());
+    }
+
+    [Fact]
+    public async Task Import_recreates_rtmp_cameras_and_skips_other_streams()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Importée",
+            Sources =
+            [
+                new SourceDefinition { Name = "RTMP", Kind = SourceKind.Media, Origin = SourceOrigin.Network, OriginPath = "rtmp://cam/live/key" },
+                new SourceDefinition { Name = "RTSP", Kind = SourceKind.Video, Origin = SourceOrigin.Network, OriginPath = "rtsp://cam/stream" }
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var source = Assert.Single(Assert.Single(viewModel.Scenes).Sources);
+        Assert.Equal("RTMP", source.Name);
+        Assert.Equal(SourceKind.Video, source.Kind);
+        Assert.Equal(VideoCaptureKind.Network, source.VideoCaptureKind);
+        var request = Assert.IsType<SourceAddRequest.Network>(Assert.Single(sourceRuntime.AddedRequests));
+        Assert.Equal("rtmp://cam/live/key", request.Url);
+        Assert.Contains("1 source(s) non prise(s) en charge ignorée(s)", viewModel.SceneIoStatus.Text);
     }
 
     [Fact]
@@ -349,6 +583,499 @@ public sealed class ScenesViewModelRuntimeTests
         Assert.Single(sourceRuntime.AddedRequests);
     }
 
+    [Fact]
+    public void Sorting_the_displayed_sources_never_reorders_the_scene()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        workspace.AddSource(scene, new SourceDefinition { Name = "Zoom", Kind = SourceKind.Video });
+        workspace.AddSource(scene, new SourceDefinition { Name = "Audio", Kind = SourceKind.Audio });
+        workspace.AddSource(scene, new SourceDefinition { Name = "Media", Kind = SourceKind.Media });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+
+        Assert.False(viewModel.IsSourceListCustomized);
+        viewModel.SourceSort = SourceListSort.NameAscending;
+
+        Assert.Equal(["Audio", "Media", "Zoom"], viewModel.DisplayedSources.Select(source => source.Name));
+        Assert.Equal(["Zoom", "Audio", "Media"], scene.Sources.Select(source => source.Name));
+        Assert.True(viewModel.IsSourceListCustomized);
+    }
+
+    [Fact]
+    public void Displayed_sources_follow_the_filter_and_scene_changes()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+        Assert.True(viewModel.SourceSortOptions[0].IsSelected);
+
+        var audioOption = viewModel.SourceFilterOptions.Single(option => option.Filter == SourceListFilter.Audio);
+        viewModel.ApplySourceListOptionCommand.Execute(audioOption);
+
+        Assert.Empty(viewModel.DisplayedSources);
+        Assert.Equal("0 sur 1", viewModel.SourceListSummary);
+        Assert.Equal("Aucune source de ce type.", viewModel.SourceListPlaceholder);
+        Assert.True(audioOption.IsSelected);
+        Assert.False(viewModel.SourceFilterOptions[0].IsSelected);
+
+        workspace.AddSource(scene, new SourceDefinition { Name = "Micro", Kind = SourceKind.Audio });
+
+        Assert.Equal(["Micro"], viewModel.DisplayedSources.Select(source => source.Name));
+        Assert.Equal("1 sur 2", viewModel.SourceListSummary);
+        Assert.Equal("", viewModel.SourceListPlaceholder);
+
+        var other = workspace.CreateScene("Autre");
+        workspace.SelectScene(other);
+        workspace.AddSource(scene, new SourceDefinition { Name = "Micro 2", Kind = SourceKind.Audio });
+
+        Assert.Empty(viewModel.DisplayedSources);
+        Assert.Equal("Aucune source dans cette scène. Utilisez « Ajouter une source » pour commencer.", viewModel.SourceListPlaceholder);
+    }
+
+    [Fact]
+    public void Source_rename_applies_the_native_name_and_keeps_editing_on_failure()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var source = workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var sourceRuntime = new FakeSourceRuntime { Rename = (_, _, _) => SourceRuntimeResult.Failure("nom refusé") };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace, sourceRuntime: sourceRuntime);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        Assert.True(source.IsRenaming);
+        Assert.Equal("Caméra", viewModel.RenameSourceName);
+
+        viewModel.RenameSourceName = "Plateau";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+
+        Assert.Equal("Caméra", source.Name);
+        Assert.True(source.IsRenaming);
+        Assert.Equal("nom refusé", viewModel.SourceOperationStatus);
+
+        sourceRuntime.Rename = (_, _, name) => SourceRuntimeResult.Success($"{name} 2");
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+
+        Assert.Equal("Plateau 2", source.Name);
+        Assert.False(source.IsRenaming);
+        Assert.Null(viewModel.SourceBeingRenamed);
+        Assert.Equal("", viewModel.SourceOperationStatus);
+    }
+
+    [Fact]
+    public void Source_rename_with_empty_or_same_name_or_cancel_does_not_reach_the_engine()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var source = workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace, sourceRuntime: sourceRuntime);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        viewModel.RenameSourceName = "   ";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+        Assert.False(source.IsRenaming);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+        Assert.False(source.IsRenaming);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        viewModel.RenameSourceName = "Autre";
+        viewModel.CancelRenameSourceCommand.Execute(null);
+
+        Assert.False(source.IsRenaming);
+        Assert.Equal("Caméra", source.Name);
+        Assert.Equal(0, sourceRuntime.RenameCalls);
+    }
+
+    [Fact]
+    public void Renaming_a_source_resorts_a_name_sorted_list_without_reordering_the_scene()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var first = workspace.AddSource(scene, new SourceDefinition { Name = "Alpha", Kind = SourceKind.Video });
+        workspace.AddSource(scene, new SourceDefinition { Name = "Beta", Kind = SourceKind.Audio });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+        viewModel.SourceSort = SourceListSort.NameAscending;
+
+        viewModel.BeginRenameSourceCommand.Execute(first);
+        viewModel.RenameSourceName = "Zulu";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+
+        Assert.Equal(["Beta", "Zulu"], viewModel.DisplayedSources.Select(source => source.Name));
+        Assert.Equal(["Zulu", "Beta"], scene.Sources.Select(source => source.Name));
+    }
+
+    [Fact]
+    public void Switching_scene_ends_a_source_rename()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var scene = workspace.CreateScene("Scène");
+        var source = workspace.AddSource(scene, new SourceDefinition { Name = "Caméra", Kind = SourceKind.Video });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+
+        viewModel.BeginRenameSourceCommand.Execute(source);
+        workspace.SelectScene(workspace.CreateScene("Autre"));
+
+        Assert.False(source.IsRenaming);
+        Assert.Null(viewModel.SourceBeingRenamed);
+    }
+
+    [Fact]
+    public async Task Import_writes_only_the_scenes_left_checked_from_every_picked_file()
+    {
+        var first = new SceneDefinition { Name = "Plateau" };
+        var second = new SceneDefinition { Name = "Interview" };
+        var third = new SceneDefinition { Name = "Générique" };
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>
+        {
+            [@"C:\a.json"] = [first, second],
+            [@"C:\b.json"] = [third],
+        });
+        var dialog = new FakeTransferDialogService(choose: shown =>
+            shown.Items.Single(item => item.Name == "Interview").IsChecked = false);
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            filePicker: new FakeFilePicker([@"C:\a.json", @"C:\b.json", @"C:\broken.json"], null),
+            sceneCollection: collection,
+            transferDialog: dialog);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        // Everything found was offered, checked, with the file it came from and the unreadable one reported.
+        Assert.Equal(3, dialog.Shown!.Items.Count);
+        Assert.Contains("b.json", dialog.Shown.Items.Single(item => item.Name == "Générique").Detail);
+        Assert.Contains("broken.json", Assert.Single(dialog.Shown.FileErrors));
+        Assert.Equal(["Plateau", "Générique"], viewModel.Scenes.Select(scene => scene.Name));
+    }
+
+    [Fact]
+    public async Task Cancelling_the_import_selection_writes_nothing()
+    {
+        var runtime = new FakeSceneRuntime();
+        var created = 0;
+        runtime.Create = (_, name) => { created++; return SceneRuntimeResult.Success(name); };
+        var viewModel = CreateViewModel(
+            runtime,
+            imported: [new SceneDefinition { Name = "Plateau" }],
+            transferDialog: new FakeTransferDialogService(confirm: false));
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        Assert.Empty(viewModel.Scenes);
+        Assert.Equal(0, created);
+    }
+
+    [Fact]
+    public async Task Importing_a_scene_already_in_the_project_adds_a_copy()
+    {
+        var workspace = new StudioWorkspaceViewModel();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), workspace);
+        var existing = CreateScene(viewModel, "Plateau");
+        var sameScene = new SceneDefinition { Id = existing.Id, Name = "Plateau" };
+        var dialog = new FakeTransferDialogService();
+        viewModel = CreateViewModel(new FakeSceneRuntime(), workspace, imported: [sameScene], transferDialog: dialog);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        Assert.True(dialog.Shown!.Items.Single().HasCollision);
+        Assert.Equal(2, workspace.Scenes.Count);
+        Assert.NotEqual(workspace.Scenes[0].Id, workspace.Scenes[1].Id);
+    }
+
+    [Fact]
+    public async Task Export_pre_checks_the_selection_and_writes_what_is_checked()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var dialog = new FakeTransferDialogService();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            filePicker: new FakeFilePicker([], null, exportPath: @"C:\export.json"),
+            sceneCollection: collection,
+            transferDialog: dialog);
+        CreateScene(viewModel, "Plateau");
+        var interview = CreateScene(viewModel, "Interview");
+        interview.IsMultiSelected = true;
+
+        await viewModel.ExportScenesCommand.ExecuteAsync(null);
+
+        Assert.Equal([false, true], dialog.Shown!.Items.Select(item => item.IsChecked));
+        Assert.Equal(["Interview"], collection.Saved.Select(scene => scene.Name));
+    }
+
+    [Fact]
+    public async Task Cancelling_the_export_selection_writes_nothing()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            filePicker: new FakeFilePicker([], null, exportPath: @"C:\export.json"),
+            sceneCollection: collection,
+            transferDialog: new FakeTransferDialogService(confirm: false));
+        CreateScene(viewModel, "Plateau");
+
+        await viewModel.ExportScenesCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, collection.SaveCalls);
+    }
+
+    [Fact]
+    public async Task Saved_scenes_come_back_at_startup_without_counting_as_changes()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>
+        {
+            [@"C:\saved.json"] = [new SceneDefinition { Name = "Plateau" }, new SceneDefinition { Name = "Interview" }],
+        });
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+
+        await viewModel.LoadSavedScenesAsync();
+
+        Assert.Equal(["Plateau", "Interview"], viewModel.Scenes.Select(scene => scene.Name));
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+        Assert.Equal("", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task Import_keeps_the_saved_stacking_order()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            Sources = [MediaSource("Devant", @"C:\media\front.mp4"), MediaSource("Derrière", @"C:\media\back.mp4")]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var scene = Assert.Single(viewModel.Scenes);
+        Assert.Equal(["Devant", "Derrière"], scene.Sources.Select(source => source.Name));
+        // The engine's own stack, not just the list: rank 0 is the foreground.
+        Assert.Equal(
+            scene.Sources.Select(source => source.Id),
+            sourceRuntime.GetSourceOrder(scene.Id).SourceIds);
+    }
+
+    [Fact]
+    public async Task Import_opens_cameras_screens_and_microphones_again()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            Sources =
+            [
+                new SourceDefinition
+                {
+                    Name = "Caméra plateau", Origin = SourceOrigin.HardwareVideo, OriginLabel = "Logitech C920",
+                    OriginPath = "Logitech C920:\\\\?\\usb#vid_046d", VideoCaptureKind = VideoCaptureKind.Camera
+                },
+                new SourceDefinition
+                {
+                    Name = "Écran", Origin = SourceOrigin.HardwareVideo, OriginLabel = "Écran 1",
+                    OriginPath = "\\\\?\\DISPLAY#1", VideoCaptureKind = VideoCaptureKind.Monitor
+                },
+                new SourceDefinition
+                {
+                    Name = "Micro", Origin = SourceOrigin.HardwareAudio, OriginLabel = "Micro USB",
+                    OriginPath = "{0.0.1.00000000}.{abc}", AudioCaptureKind = AudioCaptureKind.Microphone
+                },
+                // Saved before capture kinds were: nothing says what to open.
+                new SourceDefinition { Name = "Ancienne", Origin = SourceOrigin.HardwareVideo, OriginPath = "device" }
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var scene = Assert.Single(viewModel.Scenes);
+        Assert.Equal(["Caméra plateau", "Écran", "Micro"], scene.Sources.Select(source => source.Name));
+        Assert.Equal(
+            [SourceKind.Video, SourceKind.Video, SourceKind.Audio],
+            scene.Sources.Select(source => source.Kind));
+        var camera = sourceRuntime.AddedRequests.OfType<SourceAddRequest.Video>()
+            .Single(request => request.Option.Type == VideoCaptureKind.Camera);
+        Assert.Equal("Logitech C920:\\\\?\\usb#vid_046d", camera.Option.Id);
+        Assert.Equal("Caméra plateau", camera.RequestedName);
+        var microphone = Assert.Single(sourceRuntime.AddedRequests.OfType<SourceAddRequest.Audio>());
+        Assert.Equal(("{0.0.1.00000000}.{abc}", AudioCaptureKind.Microphone), (microphone.Option.Id, microphone.Option.Type));
+        Assert.Contains("1 source(s) non prise(s) en charge ignorée(s)", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task Import_gives_sources_back_their_layout_on_the_current_canvas()
+    {
+        var zoom = new SourceZoom(2, 0.3, 0.6);
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            CanvasWidth = 1280,
+            CanvasHeight = 720,
+            Sources =
+            [
+                MediaSource("Caméra", @"C:\media\cam.mp4",
+                    new SourceLayout(new SourcePlacement(100, 50, 0.5, 0.5, new SourceCrop(10, 0, 20, 0), 90), zoom)),
+                MediaSource("Fond", @"C:\media\bg.mp4")
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        var camera = Assert.Single(viewModel.Scenes).Sources.Single(source => source.Name == "Caméra");
+        var layout = Assert.Single(sourceRuntime.Layouts).Value;
+        Assert.Equal(camera.Id, sourceRuntime.Layouts.Keys.Single());
+        // 1280×720 → 1920×1080: position and scale follow the canvas, the crop stays in source pixels.
+        Assert.Equal(new SourcePlacement(150, 75, 0.75, 0.75, new SourceCrop(10, 0, 20, 0), 90), layout.Placement);
+        Assert.Equal(zoom, layout.Zoom);
+    }
+
+    [Fact]
+    public async Task A_refused_layout_still_imports_the_source_and_says_so()
+    {
+        var imported = new SceneDefinition
+        {
+            Name = "Plateau",
+            Sources =
+            [
+                MediaSource("Caméra", @"C:\media\cam.mp4",
+                    new SourceLayout(new SourcePlacement(0, 0, 1, 1, SourceCrop.None), SourceZoom.None))
+            ]
+        };
+        var sourceRuntime = new FakeSourceRuntime
+        {
+            Place = (_, _, _) => SourceTransformResult.Failure("rognage impossible")
+        };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), imported: [imported], sourceRuntime: sourceRuntime);
+
+        await viewModel.ImportScenesCommand.ExecuteAsync(null);
+
+        Assert.Single(Assert.Single(viewModel.Scenes).Sources);
+        Assert.Contains("1 source(s) non replacée(s) (rognage impossible)", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task Saving_writes_renamed_sources_with_their_composition_in_engine_order()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            sourceRuntime: sourceRuntime,
+            sceneCollection: collection,
+            savedScenesPath: @"C:\saved.json",
+            mediaPath: @"C:\media\clip.mp4");
+        var scene = CreateScene(viewModel, "Plateau");
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        var back = scene.Sources[1];
+        var layout = new SourceLayout(new SourcePlacement(320, 180, 0.5, 0.5, new SourceCrop(0, 10, 0, 10), 15), new SourceZoom(3));
+        sourceRuntime.SetSourceLayout(scene.Id, scene.Sources[0].Id, layout with { Zoom = SourceZoom.None });
+        sourceRuntime.SetSourceLayout(scene.Id, back.Id, layout);
+
+        viewModel.BeginRenameSourceCommand.Execute(back);
+        viewModel.RenameSourceName = "Plan large";
+        viewModel.ConfirmRenameSourceCommand.Execute(null);
+        viewModel.RaiseSourceCommand.Execute(back);
+
+        Assert.True(await viewModel.SaveScenesAsync());
+
+        var saved = Assert.Single(collection.Saved);
+        Assert.Equal((1920, 1080), (saved.CanvasWidth, saved.CanvasHeight));
+        var first = saved.Sources[0];
+        Assert.Equal("Plan large", first.Name);
+        Assert.Equal(layout, first.Layout);
+        Assert.Equal(layout with { Zoom = SourceZoom.None }, saved.Sources[1].Layout);
+    }
+
+    [Fact]
+    public async Task Moving_a_source_is_an_unsaved_change()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var sourceRuntime = new FakeSourceRuntime();
+        var viewModel = CreateViewModel(
+            new FakeSceneRuntime(),
+            sourceRuntime: sourceRuntime,
+            sceneCollection: collection,
+            savedScenesPath: @"C:\saved.json",
+            mediaPath: @"C:\media\clip.mp4");
+        var scene = CreateScene(viewModel, "Plateau");
+        await viewModel.ApplyAddSourceResultAsync(new AddSourceResult.Media());
+        var placement = new SourcePlacement(0, 0, 1, 1, SourceCrop.None);
+        sourceRuntime.SetSourceLayout(scene.Id, scene.Sources[0].Id, new SourceLayout(placement, SourceZoom.None));
+        Assert.True(await viewModel.SaveScenesAsync());
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+
+        sourceRuntime.SetSourceLayout(scene.Id, scene.Sources[0].Id, new SourceLayout(placement with { X = 200 }, SourceZoom.None));
+
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+    }
+
+    private static SourceDefinition MediaSource(string name, string path, SourceLayout? layout = null) => new()
+    {
+        Name = name,
+        Kind = SourceKind.Media,
+        Origin = SourceOrigin.File,
+        OriginPath = path,
+        Layout = layout
+    };
+
+    [Fact]
+    public async Task A_missing_saved_scenes_file_is_a_first_launch()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>())
+        {
+            LoadError = new FileNotFoundException(),
+        };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+
+        await viewModel.LoadSavedScenesAsync();
+
+        Assert.Empty(viewModel.Scenes);
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+        Assert.Equal("", viewModel.SceneIoStatus.Text);
+    }
+
+    [Fact]
+    public async Task Scene_changes_stay_unsaved_until_saved()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>());
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+
+        var scene = CreateScene(viewModel, "Plateau");
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+
+        Assert.True(await viewModel.SaveScenesAsync());
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+        Assert.Equal(["Plateau"], collection.Saved.Select(saved => saved.Name));
+
+        scene.Color = "#34d399";
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+
+        // Back to what was saved: nothing left to save.
+        scene.Color = collection.Saved.Single().Color;
+        Assert.False(viewModel.HasUnsavedSceneChanges);
+    }
+
+    [Fact]
+    public async Task A_failed_save_reports_the_error_and_keeps_the_changes_unsaved()
+    {
+        var collection = new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>>())
+        {
+            SaveError = new IOException("disque plein"),
+        };
+        var viewModel = CreateViewModel(new FakeSceneRuntime(), sceneCollection: collection, savedScenesPath: @"C:\saved.json");
+        CreateScene(viewModel, "Plateau");
+
+        Assert.False(await viewModel.SaveScenesAsync());
+
+        Assert.True(viewModel.HasUnsavedSceneChanges);
+        Assert.Contains("disque plein", viewModel.SceneIoStatus.Text);
+    }
+
     private static SceneItemViewModel CreateScene(ScenesViewModel viewModel, string name)
     {
         viewModel.NewSceneName = name;
@@ -363,18 +1090,26 @@ public sealed class ScenesViewModelRuntimeTests
         FakeSourceRuntime? sourceRuntime = null,
         string? mediaPath = null,
         IScenePreviewRuntime? previewRuntime = null,
-        SettingsService? settingsService = null) =>
+        SettingsService? settingsService = null,
+        FakeTransferDialogService? transferDialog = null,
+        FakeFilePicker? filePicker = null,
+        FakeSceneCollection? sceneCollection = null,
+        string? savedScenesPath = null) =>
         new(
             workspace ?? new StudioWorkspaceViewModel(),
-            new UnavailableStudioRuntime(),
             previewRuntime ?? new UnavailableScenePreviewRuntime(),
             runtime,
             sourceRuntime ??= new FakeSourceRuntime(),
-            new FakeFilePicker(imported == null ? null : "scenes.json", mediaPath),
-            new FakeSceneCollection(imported ?? []),
+            filePicker ?? new FakeFilePicker(imported == null ? [] : ["scenes.json"], mediaPath),
+            sceneCollection ?? new FakeSceneCollection(new Dictionary<string, IReadOnlyList<SceneDefinition>> { ["scenes.json"] = imported ?? [] }),
             new FakeDialogFactory(sourceRuntime),
             new FakeDialogService(),
-            settingsService);
+            transferDialog ?? new FakeTransferDialogService(),
+            settingsService,
+            new VideoCanvasResolutionResolver(
+                settingsService,
+                new TestResolutionProvider(new VideoCanvasResolution(1920, 1080))),
+            savedScenesPath: savedScenesPath);
 
     private sealed class FakeSceneRuntime : ISceneRuntime
     {
@@ -421,6 +1156,10 @@ public sealed class ScenesViewModelRuntimeTests
         {
         }
 
+        public void SetCompositionOverlay(IntPtr windowHandle, CompositionOverlay overlay)
+        {
+        }
+
         public Task<StudioRuntimeResult> StopPreviewAsync(IntPtr windowHandle, Guid sceneId, CancellationToken cancellationToken) =>
             Task.FromResult(StudioRuntimeResult.Success());
     }
@@ -433,9 +1172,17 @@ public sealed class ScenesViewModelRuntimeTests
             (_, _) => SourceRuntimeResult.Success();
         public Func<Guid, Guid, bool, SourceRuntimeResult> SetLoop { get; set; } =
             (_, _, _) => SourceRuntimeResult.Success();
+        public Func<Guid, Guid, int, SourceRuntimeResult> Move { get; set; } =
+            (_, _, _) => SourceRuntimeResult.Success();
         public List<SourceAddRequest> AddedRequests { get; } = [];
         public int RemoveCalls { get; private set; }
         public List<bool> LoopValues { get; } = [];
+        public List<int> RequestedLayerIndexes { get; } = [];
+        public bool OrderIsUnreadable { get; set; }
+
+        // Stack held by the fake engine, from foreground to background, so tests exercise the read
+        // rather than an order assumed on the ViewModel side.
+        private readonly Dictionary<Guid, List<Guid>> _layers = [];
 
         public bool IsAvailable => true;
         public string UnavailableMessage => "";
@@ -446,13 +1193,18 @@ public sealed class ScenesViewModelRuntimeTests
         public SourceRuntimeResult AddSource(Guid sceneId, SourceAddRequest request)
         {
             AddedRequests.Add(request);
-            return Add(sceneId, request);
+            var result = Add(sceneId, request);
+            // Like libobs, an added source goes to the foreground.
+            if (result.IsSuccess) Layers(sceneId).Insert(0, request.SourceId);
+            return result;
         }
 
         public SourceRuntimeResult RemoveSource(Guid sceneId, Guid sourceId)
         {
             RemoveCalls++;
-            return Remove(sceneId, sourceId);
+            var result = Remove(sceneId, sourceId);
+            if (result.IsSuccess) Layers(sceneId).Remove(sourceId);
+            return result;
         }
 
         public SourceRuntimeResult SetMediaLoop(Guid sceneId, Guid sourceId, bool loop)
@@ -460,22 +1212,132 @@ public sealed class ScenesViewModelRuntimeTests
             LoopValues.Add(loop);
             return SetLoop(sceneId, sourceId, loop);
         }
+
+        public Func<Guid, Guid, string, SourceRuntimeResult> Rename { get; set; } =
+            (_, _, name) => SourceRuntimeResult.Success(name.Trim());
+        public int RenameCalls { get; private set; }
+
+        public SourceRuntimeResult RenameSource(Guid sceneId, Guid sourceId, string requestedName)
+        {
+            RenameCalls++;
+            return Rename(sceneId, sourceId, requestedName);
+        }
+
+        public SourceOrderResult GetSourceOrder(Guid sceneId) =>
+            OrderIsUnreadable
+                ? SourceOrderResult.Failure("ordre illisible")
+                : SourceOrderResult.Success(Layers(sceneId).ToArray());
+
+        // The composition itself is covered by SceneCompositionViewModelTests; here, the scene
+        // returns the layouts it was given, in its stacking order, for saving to read back.
+        public Dictionary<Guid, SourceLayout> Layouts { get; } = [];
+        public Func<Guid, Guid, SourceLayout, SourceTransformResult>? Place { get; set; }
+
+        public SceneCompositionResult GetSceneComposition(Guid sceneId) =>
+            SceneCompositionResult.Success(new SceneComposition(
+                1920,
+                1080,
+                Layers(sceneId)
+                    .Where(Layouts.ContainsKey)
+                    .Select(sourceId => Transform(sourceId, Layouts[sourceId]))
+                    .ToArray()));
+
+        public SourceTransformResult SetSourceLayout(Guid sceneId, Guid sourceId, SourceLayout layout)
+        {
+            var result = Place?.Invoke(sceneId, sourceId, layout);
+            if (result is { IsSuccess: false }) return result;
+
+            Layouts[sourceId] = layout;
+            return SourceTransformResult.Success(Transform(sourceId, layout));
+        }
+
+        private static SourceTransform Transform(Guid sourceId, SourceLayout layout)
+        {
+            var placement = layout.Placement;
+            return new SourceTransform(
+                sourceId, placement.X, placement.Y, 640 * placement.ScaleX, 360 * placement.ScaleY,
+                placement.ScaleX, placement.ScaleY, placement.Crop, 640, 360, true, placement.Rotation)
+            {
+                Zoom = layout.Zoom
+            };
+        }
+
+        public SourceTransformResult SetSourceTransform(Guid sceneId, Guid sourceId, SourcePlacement placement) =>
+            SourceTransformResult.Failure("Aucune source composée.");
+
+        public SourceTransformResult SetSourceZoom(Guid sceneId, Guid sourceId, SourceZoom zoom) =>
+            SourceTransformResult.Failure("Aucune source composée.");
+
+        public SourceRuntimeResult MoveSource(Guid sceneId, Guid sourceId, int layerIndex)
+        {
+            RequestedLayerIndexes.Add(layerIndex);
+            var result = Move(sceneId, sourceId, layerIndex);
+            if (!result.IsSuccess) return result;
+
+            var layers = Layers(sceneId);
+            var current = layers.IndexOf(sourceId);
+            if (current < 0 || layerIndex < 0 || layerIndex >= layers.Count)
+                return SourceRuntimeResult.Failure("rang hors de la pile");
+
+            layers.RemoveAt(current);
+            layers.Insert(layerIndex, sourceId);
+            return result;
+        }
+
+        private List<Guid> Layers(Guid sceneId)
+        {
+            if (_layers.TryGetValue(sceneId, out var layers)) return layers;
+
+            layers = [];
+            _layers[sceneId] = layers;
+            return layers;
+        }
     }
 
-    private sealed class FakeFilePicker(string? importPath, string? mediaPath) : IFilePickerService
+    private sealed class FakeFilePicker(IReadOnlyList<string> importPaths, string? mediaPath, string? exportPath = null) : IFilePickerService
     {
         public Task<string?> PickRecordingOutputFolderAsync(string? initialPath = null) => Task.FromResult<string?>(null);
         public Task<string?> PickVideoFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickAudioFileAsync() => Task.FromResult<string?>(null);
         public Task<string?> PickMediaFileAsync() => Task.FromResult(mediaPath);
-        public Task<string?> PickSceneExportFileAsync() => Task.FromResult<string?>(null);
-        public Task<string?> PickSceneImportFileAsync() => Task.FromResult(importPath);
+        public Task<string?> PickSceneExportFileAsync() => Task.FromResult(exportPath);
+        public Task<IReadOnlyList<string>> PickSceneImportFilesAsync() => Task.FromResult(importPaths);
     }
 
-    private sealed class FakeSceneCollection(IReadOnlyList<SceneDefinition> scenes) : ISceneCollectionService
+    private sealed class FakeSceneCollection(IReadOnlyDictionary<string, IReadOnlyList<SceneDefinition>> files) : ISceneCollectionService
     {
-        public Task SaveAsync(string path, IReadOnlyCollection<SceneDefinition> definitions, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<IReadOnlyList<SceneDefinition>> LoadAsync(string path, CancellationToken cancellationToken) => Task.FromResult(scenes);
+        public List<SceneDefinition> Saved { get; } = [];
+        public int SaveCalls { get; private set; }
+        public Exception? SaveError { get; set; }
+
+        public Task SaveAsync(string path, IReadOnlyCollection<SceneDefinition> definitions, CancellationToken cancellationToken)
+        {
+            SaveCalls++;
+            if (SaveError != null) throw SaveError;
+            Saved.AddRange(definitions);
+            return Task.CompletedTask;
+        }
+
+        public Exception? LoadError { get; set; }
+
+        public Task<IReadOnlyList<SceneDefinition>> LoadAsync(string path, CancellationToken cancellationToken) =>
+            LoadError != null ? throw LoadError
+            : files.TryGetValue(path, out var scenes)
+                ? Task.FromResult(scenes)
+                : throw new InvalidDataException("fichier illisible");
+    }
+
+    // Stands in for the operator: optionally changes what is checked, then confirms or cancels.
+    private sealed class FakeTransferDialogService(bool confirm = true, Action<SceneTransferDialogViewModel>? choose = null) : ISceneTransferDialogService
+    {
+        public SceneTransferDialogViewModel? Shown { get; private set; }
+
+        public Task<bool> ShowAsync(SceneTransferDialogViewModel viewModel)
+        {
+            Shown = viewModel;
+            choose?.Invoke(viewModel);
+            return Task.FromResult(confirm);
+        }
     }
 
     private sealed class FakeDialogFactory(ISourceRuntime runtime) : IAddSourceDialogViewModelFactory

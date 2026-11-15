@@ -1,13 +1,24 @@
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
+using Castor.AI;
+using Castor.AI.Providers;
+using Castor.AI.Providers.Local;
+using CastorApplication.Models.Config;
 using CastorApplication.Services;
 using CastorApplication.Services.Ai;
 using CastorApplication.Services.Auth;
 using CastorApplication.Services.Auth.Providers;
 using CastorApplication.Services.Auth.Providers.Twitch;
+using CastorApplication.Services.Auth.Providers.YouTube;
 using CastorApplication.Services.Auth.Storage;
 using CastorApplication.Services.Config;
+using CastorApplication.Services.Diagnostics;
 using CastorApplication.Services.Dialogs;
+using CastorApplication.Services.Platform;
 using CastorApplication.Services.Settings;
+using CastorApplication.Services.Streaming;
+using CastorApplication.Services.Streaming.Twitch;
+using CastorApplication.Services.Streaming.YouTube;
 using CastorApplication.Services.Studio;
 using CastorApplication.ViewModels.Multicam;
 using CastorApplication.ViewModels.Scenes;
@@ -26,22 +37,34 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(desktop);
 
         services.AddSingleton<HttpClient>();
-        services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+        // DPAPI is Windows-only, like Castor itself; anywhere else sessions last one run.
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<ITokenStore, EncryptedFileTokenStore>();
+        else
+            services.AddSingleton<ITokenStore, InMemoryTokenStore>();
         services.AddSingleton<IProviderStore, ProviderStore>();
         services.AddSingleton<IConfigService, JsonConfigService>();
         services.AddSingleton<IAuthProvider, TwitchAuthProvider>();
+        services.AddSingleton<IAuthProvider, YouTubeAuthProvider>();
         services.AddSingleton<IAuthService, AuthService>();
+        services.AddSingleton<IYouTubeLiveService, YouTubeLiveService>();
+        services.AddSingleton<ITwitchChannelService, TwitchChannelService>();
+        services.AddSingleton<ILiveBroadcastService, LiveBroadcastService>();
         services.AddSingleton<ProviderRegistry>();
         services.AddSingleton<SettingsService>();
+        services.AddSingleton<IPrimaryMonitorResolutionProvider, WindowsPrimaryMonitorResolutionProvider>();
+        services.AddSingleton<VideoCanvasResolutionResolver>();
         services.AddSingleton<IFilePickerService, AvaloniaFilePickerService>();
         services.AddSingleton<IThemeService, AvaloniaThemeService>();
         services.AddSingleton<IDockChromeService, AvaloniaDockChromeService>();
         services.AddSingleton<DockLayoutService>();
+        services.AddSingleton<StatusMessageService>();
 
-        services.AddSingleton<IStudioRuntime, UnavailableStudioRuntime>();
 
         services.AddSingleton(provider =>
-            new LibObsSceneRuntime(provider.GetRequiredService<SettingsService>()
+            new LibObsSceneRuntime(
+                provider.GetRequiredService<SettingsService>(),
+                provider.GetRequiredService<VideoCanvasResolutionResolver>()
         ));
 
         services.AddSingleton<ISceneRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
@@ -51,36 +74,42 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStreamingRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<IScenePreviewRuntime>(provider => provider.GetRequiredService<LibObsSceneRuntime>());
         services.AddSingleton<ISceneCollectionService, SceneCollectionService>();
-        services.AddSingleton<IIndependentSceneOutputRuntime>(provider =>
-            new LibObsIndependentSceneOutputRuntime(
-                provider.GetRequiredService<IAiSceneSourceProvider>()));
-        services.AddSingleton<IAiSceneStreamRuntime, LibObsAiSceneStreamRuntime>();
-        services.AddSingleton<IAiAnalysisClient, GrpcAiAnalysisClient>();
+        AddLocalAi(services);
+        services.AddSingleton<IAiZoomEntryPoint, AiZoomEntryPoint>();
         services.AddSingleton<IAddSourceDialogService, AddSourceDialogService>();
+        services.AddSingleton<ISceneTransferDialogService, SceneTransferDialogService>();
+        services.AddSingleton<ICancelRecordingDialogService, CancelRecordingDialogService>();
+        services.AddSingleton<IUnsavedScenesDialogService, UnsavedScenesDialogService>();
+        services.AddSingleton<ICrashNoticeDialogService, CrashNoticeDialogService>();
+        services.AddSingleton<IRtmpDiscoveryService, RtmpDiscoveryService>();
         services.AddSingleton<IAddSourceDialogViewModelFactory, AddSourceDialogViewModelFactory>();
         services.AddSingleton<StudioWorkspaceViewModel>();
 
         services.AddSingleton<GeneralSettingsViewModel>();
-        services.AddSingleton<VideoSettingsViewModel>();
+        services.AddSingleton<VideoSettingsViewModel>(provider =>
+            new VideoSettingsViewModel(provider.GetRequiredService<VideoCanvasResolutionResolver>()));
         services.AddSingleton<AudioSettingsViewModel>();
         services.AddSingleton<StreamingSettingsViewModel>();
         services.AddSingleton<OutputSettingsViewModel>();
         services.AddSingleton<AccountsSettingsViewModel>();
+        services.AddSingleton<AdvancedSettingsViewModel>();
         services.AddSingleton<SettingsViewModel>();
 
         services.AddSingleton(provider => new StudioViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
-            provider.GetRequiredService<IStudioRuntime>(),
             provider.GetRequiredService<IScenePreviewRuntime>(),
             provider.GetRequiredService<IRecordingRuntime>(),
             provider.GetRequiredService<IStreamingRuntime>(),
             provider.GetRequiredService<IProviderStore>(),
-            provider.GetRequiredService<SettingsService>()
+            provider.GetRequiredService<SettingsService>(),
+            provider.GetRequiredService<VideoCanvasResolutionResolver>(),
+            provider.GetRequiredService<StatusMessageService>(),
+            cancelRecordingDialog: provider.GetRequiredService<ICancelRecordingDialogService>(),
+            broadcasts: provider.GetRequiredService<ILiveBroadcastService>()
         ));
 
         services.AddSingleton(provider => new ScenesViewModel(
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
-            provider.GetRequiredService<IStudioRuntime>(),
             provider.GetRequiredService<IScenePreviewRuntime>(),
             provider.GetRequiredService<ISceneRuntime>(),
             provider.GetRequiredService<ISourceRuntime>(),
@@ -88,7 +117,11 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<ISceneCollectionService>(),
             provider.GetRequiredService<IAddSourceDialogViewModelFactory>(),
             provider.GetRequiredService<IAddSourceDialogService>(),
-            provider.GetRequiredService<SettingsService>()
+            provider.GetRequiredService<ISceneTransferDialogService>(),
+            provider.GetRequiredService<SettingsService>(),
+            provider.GetRequiredService<VideoCanvasResolutionResolver>(),
+            provider.GetRequiredService<StatusMessageService>(),
+            SceneCollectionService.DefaultCollectionPath
         ));
 
         services.AddSingleton(provider => new MulticamViewModel(
@@ -109,7 +142,63 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<ScenesViewModel>(),
             provider.GetRequiredService<SettingsViewModel>(),
             provider.GetRequiredService<StudioWorkspaceViewModel>(),
-            provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>()
+            provider.GetRequiredService<IClassicDesktopStyleApplicationLifetime>(),
+            provider.GetRequiredService<StatusMessageService>(),
+            provider.GetRequiredService<IUnsavedScenesDialogService>()
         ));
+    }
+
+    private static void AddLocalAi(IServiceCollection services)
+    {
+        services.AddSingleton(provider => new AiClient(
+            CreateAiProvider(
+                provider.GetRequiredService<IConfigService>().Config.AiWorker,
+                provider.GetRequiredService<HttpClient>(),
+                provider.GetRequiredService<SettingsService>()),
+            new AiClientOptions { Dispatch = action => Dispatcher.UIThread.Post(action) }));
+
+        services.AddSingleton<IAiSceneFrameRuntime>(provider =>
+            new LibObsAiSceneFrameRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
+        services.AddSingleton<IAiAudioCaptureRuntime>(provider =>
+            new LibObsAiAudioCaptureRuntime(provider.GetRequiredService<IAiSceneSourceProvider>()));
+        services.AddSingleton<IAiAnalysisClient>(provider => new LocalAiAnalysisClient(
+            provider.GetRequiredService<AiClient>(),
+            provider.GetRequiredService<IAiSceneFrameRuntime>(),
+            provider.GetRequiredService<IAiAudioCaptureRuntime>()));
+    }
+
+    private static IAiProvider CreateAiProvider(AiWorkerConfig config, HttpClient http, SettingsService settings)
+    {
+        var gpuAdapter = Math.Max(0, config.GpuAdapter);
+
+        IAiProvider CreateWorker(string? path)
+        {
+            var options = new LocalWorkerOptions { WorkerPath = path, GpuAdapter = gpuAdapter };
+            return new DeviceFallbackWorkerProvider(
+                chosen => new LocalWorkerProvider(options with { Device = chosen }),
+                FindGpuAdapterName(gpuAdapter),
+                new AiDeviceMemory(),
+                () => settings.Load().AiDevice);
+        }
+
+        // Dev override: the SDK reads CASTOR_WORKER_PATH when it gets no path.
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("CASTOR_WORKER_PATH")))
+            return CreateWorker(null);
+
+        return new InstallingWorkerProvider(new AiWorkerInstaller(http), CreateWorker);
+    }
+
+    // Null when the adapter cannot be named: the AI then runs on the CPU.
+    private static string? FindGpuAdapterName(int index)
+    {
+        try
+        {
+            return DxgiAdapterCatalog.Enumerate().FirstOrDefault(adapter => adapter.Index == index)?.Name;
+        }
+        catch (Exception exception)
+        {
+            AppLog.Warning("Could not list the GPU adapters", exception);
+            return null;
+        }
     }
 }

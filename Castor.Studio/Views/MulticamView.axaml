@@ -1,27 +1,16 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:CastorApplication.ViewModels.Multicam"
-             xmlns:controls="using:CastorApplication.Controls"
-             xmlns:mcViews="using:CastorApplication.Views.Multicam"
              x:Class="CastorApplication.Views.MulticamView"
              x:DataType="vm:MulticamViewModel">
 
-	<Grid Background="{DynamicResource AppBg}">
+	<!-- Same inset as the Studio's dockable space: the page carries its own margin, the shell
+	     no longer applies it. AI errors show in its panel, which follows the operator if it is
+	     moved out of the window.
 
-		<Grid RowDefinitions="Auto, *" Margin="16">
-			<Border Grid.Row="0"
-                    IsVisible="{Binding AiError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                    Background="#3b1219" BorderBrush="#7f1d1d" BorderThickness="1"
-                    CornerRadius="6" Padding="10,7" Margin="0,0,0,12">
-				<TextBlock Text="{Binding AiError}" Foreground="{StaticResource StatusErrorBrush}"
-                           FontSize="12" TextWrapping="Wrap"/>
-			</Border>
+	     The page is a dockable space: the display and the AI settings are two panels that can
+	     be moved or taken out. -->
+	<DockControl Layout="{Binding DockLayout}"
+	             Background="{DynamicResource AppBg}" Margin="12"/>
 
-			<!-- La page est un espace ancrable : soit l'affichage entier en un panneau,
-			     soit un panneau par scène. Dans les deux cas on peut le sortir. -->
-			<DockControl Grid.Row="1" Layout="{Binding DockLayout}"
-                         Background="{DynamicResource AppBg}"/>
-		</Grid>
-
-	</Grid>
 </UserControl>
